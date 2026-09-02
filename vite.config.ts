@@ -14,11 +14,11 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
-          name: 'Remix Laba & Rugi Shopee',
-          short_name: 'Laba Rugi',
-          description: 'Aplikasi akuntansi dan manajemen data penjualan Shopee terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.',
-          theme_color: '#0f172a',
-          background_color: '#0f172a',
+          name: 'Seller Profit',
+          short_name: 'Seller Profit',
+          description: 'Aplikasi akuntansi dan manajemen data penjualan Marketplace terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.',
+          theme_color: '#0b0c10',
+          background_color: '#0b0c10',
           display: 'standalone',
           orientation: 'portrait-primary',
           start_url: '/',
@@ -52,6 +52,9 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
         },
         devOptions: {
           enabled: true,

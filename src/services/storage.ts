@@ -1026,29 +1026,54 @@ export class StorageService {
           empTotalPackages += hostPkgs;
           empTotalPcs += hostPcs;
 
-          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && hostPkgs >= config.tierThresholdPackages);
+          const threshold = config.tierThresholdPackages || 0;
+          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
+          const tierMode = config.tierCalculationMode || 'excess_only';
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
           if (config.type === 'per_pcs_sold') {
-            const amount = hostPcs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+              const excessPcs = Math.round(hostPcs * excessRatio);
+              const basePcs = Math.max(0, hostPcs - excessPcs);
+              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPcs} pcs selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = hostPcs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPcs} pcs x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+            } else {
+              amount = hostPcs * (config.rate || 0);
+              desc = `${hostPcs} pcs terjual live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+            }
             totalIncentives += amount;
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved 
-                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${hostPcs} pcs x Rp ${effectiveRate.toLocaleString('id-ID')}`
-                : `${hostPcs} pcs terjual live x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              desc,
               amount,
             });
           } else if (config.type === 'per_package_sold') {
-            const amount = hostPkgs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const basePkgs = Math.min(hostPkgs, threshold);
+              const excessPkgs = Math.max(0, hostPkgs - threshold);
+              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPkgs} paket selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = hostPkgs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPkgs} paket x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+            } else {
+              amount = hostPkgs * (config.rate || 0);
+              desc = `${hostPkgs} paket live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+            }
             totalIncentives += amount;
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved 
-                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${hostPkgs} paket x Rp ${effectiveRate.toLocaleString('id-ID')}`
-                : `${hostPkgs} paket live x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              desc,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
@@ -1057,7 +1082,7 @@ export class StorageService {
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat` : `Insentif Tetap Host`,
+              desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat Rp ${effectiveRate.toLocaleString('id-ID')}` : `Insentif Tetap Host`,
               amount,
             });
           }
@@ -1073,29 +1098,54 @@ export class StorageService {
           empTotalPackages += adminPkgs;
           empTotalPcs += adminPcs;
 
-          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && adminPkgs >= config.tierThresholdPackages);
+          const threshold = config.tierThresholdPackages || 0;
+          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && adminPkgs >= threshold);
+          const tierMode = config.tierCalculationMode || 'excess_only';
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
           if (config.type === 'per_package_sold') {
-            const amount = adminPkgs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const basePkgs = Math.min(adminPkgs, threshold);
+              const excessPkgs = Math.max(0, adminPkgs - threshold);
+              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPkgs} paket selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = adminPkgs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPkgs} paket dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+            } else {
+              amount = adminPkgs * (config.rate || 0);
+              desc = `${adminPkgs} paket dicatat & packing x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+            }
             totalIncentives += amount;
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved
-                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${adminPkgs} paket dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`
-                : `${adminPkgs} paket dicatat & packing x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              desc,
               amount,
             });
           } else if (config.type === 'per_pcs_sold') {
-            const amount = adminPcs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const excessRatio = adminPkgs > 0 ? Math.max(0, adminPkgs - threshold) / adminPkgs : 0;
+              const excessPcs = Math.round(adminPcs * excessRatio);
+              const basePcs = Math.max(0, adminPcs - excessPcs);
+              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPcs} pcs selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = adminPcs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPcs} pcs dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+            } else {
+              amount = adminPcs * (config.rate || 0);
+              desc = `${adminPcs} pcs dicatat x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+            }
             totalIncentives += amount;
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved
-                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${adminPcs} pcs dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`
-                : `${adminPcs} pcs dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              desc,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
@@ -1104,7 +1154,7 @@ export class StorageService {
             operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved ? `✨ Target Tier: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
+              desc: isTierAchieved ? `✨ Target Tier: Insentif Admin Flat Rp ${effectiveRate.toLocaleString('id-ID')}` : `Insentif Tetap Admin Toko`,
               amount,
             });
           }

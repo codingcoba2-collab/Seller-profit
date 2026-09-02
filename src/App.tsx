@@ -111,6 +111,7 @@ export default function App() {
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onOpenInstallGuide={() => setShowInstallGuide(true)}
+          onNotify={handleNotify}
         />
         <InstallGuideModal
           isOpen={showInstallGuide}

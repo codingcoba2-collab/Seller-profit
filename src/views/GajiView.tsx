@@ -165,27 +165,52 @@ export const GajiView: React.FC<GajiViewProps> = ({
           empTotalPackages += hostPkgs;
           empTotalPcs += hostPcs;
 
-          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && hostPkgs >= config.tierThresholdPackages);
+          const threshold = config.tierThresholdPackages || 0;
+          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
+          const tierMode = config.tierCalculationMode || 'excess_only';
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
           if (config.type === 'per_pcs_sold') {
-            const amount = hostPcs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+              const excessPcs = Math.round(hostPcs * excessRatio);
+              const basePcs = Math.max(0, hostPcs - excessPcs);
+              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x ${formatRupiah(config.rate)} + ${excessPcs} pcs selisih x ${formatRupiah(config.tierRate)}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = hostPcs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPcs} pcs x ${formatRupiah(effectiveRate)}`;
+            } else {
+              amount = hostPcs * (config.rate || 0);
+              desc = `${hostPcs} pcs terjual live x ${formatRupiah(config.rate)}`;
+            }
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved 
-                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${hostPcs} pcs x ${formatRupiah(effectiveRate)}`
-                : `${hostPcs} pcs terjual live x ${formatRupiah(effectiveRate)}`,
+              desc,
               amount,
             });
           } else if (config.type === 'per_package_sold') {
-            const amount = hostPkgs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const basePkgs = Math.min(hostPkgs, threshold);
+              const excessPkgs = Math.max(0, hostPkgs - threshold);
+              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x ${formatRupiah(config.rate)} + ${excessPkgs} paket selisih x ${formatRupiah(config.tierRate)}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = hostPkgs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPkgs} paket x ${formatRupiah(effectiveRate)}`;
+            } else {
+              amount = hostPkgs * (config.rate || 0);
+              desc = `${hostPkgs} paket live x ${formatRupiah(config.rate)}`;
+            }
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved 
-                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${hostPkgs} paket x ${formatRupiah(effectiveRate)}`
-                : `${hostPkgs} paket live x ${formatRupiah(effectiveRate)}`,
+              desc,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
@@ -193,7 +218,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat` : `Insentif Tetap Host`,
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat ${formatRupiah(effectiveRate)}` : `Insentif Tetap Host`,
               amount,
             });
           }
@@ -210,27 +235,52 @@ export const GajiView: React.FC<GajiViewProps> = ({
           empTotalPackages += adminPkgs;
           empTotalPcs += adminPcs;
 
-          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && adminPkgs >= config.tierThresholdPackages);
+          const threshold = config.tierThresholdPackages || 0;
+          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && adminPkgs >= threshold);
+          const tierMode = config.tierCalculationMode || 'excess_only';
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
           if (config.type === 'per_package_sold') {
-            const amount = adminPkgs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const basePkgs = Math.min(adminPkgs, threshold);
+              const excessPkgs = Math.max(0, adminPkgs - threshold);
+              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x ${formatRupiah(config.rate)} + ${excessPkgs} paket selisih x ${formatRupiah(config.tierRate)}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = adminPkgs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPkgs} paket dicatat x ${formatRupiah(effectiveRate)}`;
+            } else {
+              amount = adminPkgs * (config.rate || 0);
+              desc = `${adminPkgs} paket dicatat & dipacking saat live x ${formatRupiah(config.rate)}`;
+            }
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved
-                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${adminPkgs} paket dicatat x ${formatRupiah(effectiveRate)}`
-                : `${adminPkgs} paket dicatat & dipacking saat live x ${formatRupiah(effectiveRate)}`,
+              desc,
               amount,
             });
           } else if (config.type === 'per_pcs_sold') {
-            const amount = adminPcs * effectiveRate;
+            let amount = 0;
+            let desc = '';
+            if (isTierAchieved && tierMode === 'excess_only') {
+              const excessRatio = adminPkgs > 0 ? Math.max(0, adminPkgs - threshold) / adminPkgs : 0;
+              const excessPcs = Math.round(adminPcs * excessRatio);
+              const basePcs = Math.max(0, adminPcs - excessPcs);
+              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
+              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x ${formatRupiah(config.rate)} + ${excessPcs} pcs selisih x ${formatRupiah(config.tierRate)}`;
+            } else if (isTierAchieved && tierMode === 'all_units') {
+              amount = adminPcs * effectiveRate;
+              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`;
+            } else {
+              amount = adminPcs * (config.rate || 0);
+              desc = `${adminPcs} pcs dicatat x ${formatRupiah(config.rate)}`;
+            }
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved
-                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`
-                : `${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`,
+              desc,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
@@ -238,7 +288,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat ${formatRupiah(effectiveRate)}` : `Insentif Tetap Admin Toko`,
               amount,
             });
           }

@@ -200,15 +200,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Update App Button (Req: Menu Update Aplikasi tanpa uninstall) */}
+              {/* Update App Button (Req: Tombol bertuliskan Update jelas tanpa uninstall) */}
               <button
                 id="btn-update-app"
                 onClick={() => setShowUpdateModal(true)}
-                className="p-2 rounded-xl text-zinc-300 hover:text-[#25F4EE] bg-white/5 hover:bg-[#25F4EE]/10 border border-white/10 transition cursor-pointer flex items-center gap-1.5"
-                title="Pembaruan Aplikasi (Update)"
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-emerald-500/15 text-[#25F4EE] hover:bg-[#25F4EE]/25 border border-[#25F4EE]/40 transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-xs"
+                title="Pembaruan Aplikasi (Update Instan Tanpa Uninstall)"
               >
-                <DownloadCloud className="w-4 h-4 text-[#25F4EE]" />
-                <span className="hidden md:inline text-[11px] font-bold text-zinc-300">Update</span>
+                <DownloadCloud className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span className="text-xs font-black text-[#25F4EE]">Update</span>
               </button>
 
               {/* Owner Settings / Gear Icon for Password Change */}

@@ -10,14 +10,17 @@ export type IncentiveType =
   | 'fixed_amount'      // ditentukan langsung oleh owner
   | 'profit_percentage';// persentase laba owner
 
+export type TierCalculationMode = 'excess_only' | 'all_units';
+
 export interface IncentiveConfig {
   type: IncentiveType;
   rate: number; // nominal rupiah or percentage (0-100)
   description?: string;
-  // Req 7: Logika tier if penjualan diatas sekian paket insentif berubah
+  // Req: Logika tier if penjualan diatas sekian paket insentif berubah
   hasTierRule?: boolean;
-  tierThresholdPackages?: number; // threshold target paket penjualan
-  tierRate?: number; // tarif insentif baru jika capai target paket
+  tierThresholdPackages?: number; // threshold target paket penjualan (misal 15 paket)
+  tierRate?: number; // tarif insentif baru/tambahan jika capai target paket (misal 3000)
+  tierCalculationMode?: TierCalculationMode; // 'excess_only' (hanya kelebihan selisih paket > target) vs 'all_units' (semua paket jika capai target)
 }
 
 // Req 8: Logika if rangkap role dan penjualan diatas sekian paket gaji per jam/per bulan/bonus per paket/pcs berubah

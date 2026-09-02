@@ -17,14 +17,17 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
+import { UpdateAppModal } from '../components/UpdateAppModal';
 
 interface LoginViewProps {
   onLoginSuccess: (user: CurrentUser) => void;
   onOpenInstallGuide: () => void;
+  onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInstallGuide }) => {
+export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInstallGuide, onNotify }) => {
   const [showDeveloperStoreList, setShowDeveloperStoreList] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
@@ -320,14 +323,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
           </form>
         </div>
 
-        {/* Install app guide footer button */}
-        <div className="mt-5 text-center">
+        {/* Install app guide footer button & Update App button */}
+        <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2.5 text-center">
           <button
             onClick={onOpenInstallGuide}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white bg-[#161823] px-4 py-2 rounded-full border border-white/10 hover:border-white/20 transition cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white bg-[#161823] px-3.5 py-2 rounded-full border border-white/10 hover:border-white/20 transition cursor-pointer"
           >
-            <Smartphone className="w-4 h-4 text-[#25F4EE]" />
-            <span>Cara Install Aplikasi di HP (PWA iOS &amp; Android)</span>
+            <Smartphone className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Install di HP</span>
+          </button>
+
+          <button
+            onClick={() => setShowUpdateModal(true)}
+            className="inline-flex items-center gap-2 text-xs font-bold text-[#25F4EE] bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 px-3.5 py-2 rounded-full border border-[#25F4EE]/30 hover:border-[#25F4EE]/50 transition cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Update Aplikasi</span>
           </button>
         </div>
       </div>
@@ -339,6 +350,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
         onSelectStoreToLogin={(storeName) => {
           setStoreNameOrId(storeName);
         }}
+      />
+
+      {/* Update App Modal */}
+      <UpdateAppModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        onNotify={onNotify}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
-import { Employee, UserRole, SalaryType, IncentiveType, CurrentUser, IncentiveConfig } from '../types';
+import { Employee, UserRole, SalaryType, IncentiveType, CurrentUser, IncentiveConfig, TierCalculationMode } from '../types';
 import { formatRupiah, formatNumber, roleLabels, roleBadgeColors } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
@@ -100,7 +100,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     description?: string,
     hasTierRule?: boolean,
     tierThresholdPackages?: number,
-    tierRate?: number
+    tierRate?: number,
+    tierCalculationMode?: TierCalculationMode
   ) => {
     setIncentiveMap(prev => {
       const cur = prev[role] || { type: 'none', rate: 0, description: '' };
@@ -111,8 +112,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
           rate: rate !== undefined ? rate : cur.rate,
           description: description !== undefined ? description : cur.description,
           hasTierRule: hasTierRule !== undefined ? hasTierRule : cur.hasTierRule,
-          tierThresholdPackages: tierThresholdPackages !== undefined ? tierThresholdPackages : (cur.tierThresholdPackages || 50),
+          tierThresholdPackages: tierThresholdPackages !== undefined ? tierThresholdPackages : (cur.tierThresholdPackages || 15),
           tierRate: tierRate !== undefined ? tierRate : (cur.tierRate || (rate !== undefined ? Math.round(rate * 1.5) : cur.rate)),
+          tierCalculationMode: tierCalculationMode !== undefined ? tierCalculationMode : (cur.tierCalculationMode || 'excess_only'),
         }
       };
     });
@@ -127,8 +129,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setSalaryType('hourly');
     setSalaryRate(30000);
     setIncentiveMap({
-      host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 50, tierRate: 1500 },
-      admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 80, tierRate: 800 },
+      host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 15, tierRate: 3000, tierCalculationMode: 'excess_only' },
+      admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 15, tierRate: 1500, tierCalculationMode: 'excess_only' },
       sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
       steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
       owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
@@ -511,42 +513,142 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, e.target.checked)}
                             className="w-4 h-4 rounded accent-[#25F4EE]"
                           />
-                          <span className="text-xs font-bold text-[#25F4EE]">
+                          <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
                             Aktifkan Skema Insentif Berjenjang (Tier Target Penjualan)
                           </span>
                         </label>
 
                         {config.hasTierRule && (
-                          <div className="p-3.5 rounded-xl bg-[#161823] border border-[#25F4EE]/30 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                                Target Minimal Paket Penjualan (Paket)
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={config.tierThresholdPackages || 50}
-                                onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
-                                placeholder="Contoh: 50"
-                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                              />
-                              <span className="text-[10px] text-zinc-500 mt-1 block">
-                                Jika sesi live tembus $\ge$ target ini, tarif insentif otomatis naik.
-                              </span>
+                          <div className="p-4 rounded-xl bg-[#161823] border border-[#25F4EE]/30 space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                  Target Minimal Penjualan (Paket)
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={config.tierThresholdPackages || 15}
+                                  onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
+                                  placeholder="Contoh: 15"
+                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                                />
+                                <span className="text-[10px] text-zinc-400 mt-1 block">
+                                  Batas ambang minimal tercapainya bonus target penjualan (misal 15 paket).
+                                </span>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                  Tarif Insentif Berjenjang / Naik (Rp)
+                                </label>
+                                <CommaNumberInput
+                                  value={config.tierRate || Math.round((config.rate || 1000) * 2)}
+                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, val)}
+                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
+                                />
+                                <span className="text-[10px] text-zinc-400 mt-1 block">
+                                  Tarif insentif berjenjang (misal Rp 3.000) per unit.
+                                </span>
+                              </div>
                             </div>
 
-                            <div>
-                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                                Tarif Insentif Baru / Naik (Rp)
+                            {/* Opsi Metode Perhitungan Skema Berjenjang */}
+                            <div className="pt-3 border-t border-white/10 space-y-2.5">
+                              <label className="block text-xs font-bold text-white">
+                                Metode Perhitungan Insentif Saat Capai Target:
                               </label>
-                              <CommaNumberInput
-                                value={config.tierRate || Math.round(config.rate * 1.5)}
-                                onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, val)}
-                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
-                              />
-                              <span className="text-[10px] text-zinc-500 mt-1 block">
-                                Nominal baru yang diterima per pcs / paket saat mencapai target.
-                              </span>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                {/* Opsi 1: Excess Only (Progresif / Selisih Saja) */}
+                                <div 
+                                  onClick={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'excess_only')}
+                                  className={`p-3 rounded-xl border cursor-pointer transition select-none flex flex-col justify-between ${
+                                    (config.tierCalculationMode || 'excess_only') === 'excess_only'
+                                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white shadow-sm'
+                                      : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:border-white/20'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <input
+                                      type="radio"
+                                      name={`tier-mode-${role}`}
+                                      checked={(config.tierCalculationMode || 'excess_only') === 'excess_only'}
+                                      onChange={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'excess_only')}
+                                      className="mt-0.5 accent-[#25F4EE]"
+                                    />
+                                    <div>
+                                      <div className="text-xs font-bold text-white flex items-center gap-1">
+                                        <span>Hanya Selisih Paket di Atas Target</span>
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Rekomendasi</span>
+                                      </div>
+                                      <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
+                                        Paket sampai batas target tetap pakai <b className="text-white">tarif dasar</b>, dan hanya paket kelebihannya yang dihitung <b className="text-[#25F4EE]">tarif berjenjang</b>.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Opsi 2: All Units (Flat Tier) */}
+                                <div 
+                                  onClick={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'all_units')}
+                                  className={`p-3 rounded-xl border cursor-pointer transition select-none flex flex-col justify-between ${
+                                    config.tierCalculationMode === 'all_units'
+                                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white shadow-sm'
+                                      : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:border-white/20'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <input
+                                      type="radio"
+                                      name={`tier-mode-${role}`}
+                                      checked={config.tierCalculationMode === 'all_units'}
+                                      onChange={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'all_units')}
+                                      className="mt-0.5 accent-[#25F4EE]"
+                                    />
+                                    <div>
+                                      <div className="text-xs font-bold text-white">
+                                        Seluruh Paket Dihitung Tarif Baru
+                                      </div>
+                                      <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
+                                        Begitu penjualan tembus target, <b className="text-white">seluruh paket</b> otomatis langsung dikalikan dengan tarif berjenjang yang lebih tinggi.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Live Simulation Box */}
+                            <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/10 text-xs space-y-1.5">
+                              <div className="text-[11px] font-bold text-zinc-400 flex items-center justify-between">
+                                <span>💡 Simulasi Perhitungan ({config.tierThresholdPackages || 15} Batas Target vs Penjualan 17 Paket):</span>
+                              </div>
+                              {(config.tierCalculationMode || 'excess_only') === 'excess_only' ? (
+                                <div className="text-zinc-300 text-[11px] space-y-1">
+                                  <p>
+                                    • <b>{config.tierThresholdPackages || 15} paket</b> pertama @ {formatRupiah(config.rate || 0)} = <span className="text-white font-semibold">{formatRupiah((config.tierThresholdPackages || 15) * (config.rate || 0))}</span>
+                                  </p>
+                                  <p>
+                                    • <b>{Math.max(0, 17 - (config.tierThresholdPackages || 15))} paket</b> selisih @ {formatRupiah(config.tierRate || 0)} = <span className="text-[#25F4EE] font-semibold">{formatRupiah(Math.max(0, 17 - (config.tierThresholdPackages || 15)) * (config.tierRate || 0))}</span>
+                                  </p>
+                                  <div className="pt-1 border-t border-white/5 font-bold text-emerald-400 flex justify-between">
+                                    <span>Total Insentif:</span>
+                                    <span>{formatRupiah(((config.tierThresholdPackages || 15) * (config.rate || 0)) + (Math.max(0, 17 - (config.tierThresholdPackages || 15)) * (config.tierRate || 0)))}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-zinc-300 text-[11px] space-y-1">
+                                  <p>
+                                    • <b>17 paket</b> seluruhnya dikalikan {formatRupiah(config.tierRate || 0)}:
+                                  </p>
+                                  <div className="pt-1 border-t border-white/5 font-bold text-emerald-400 flex justify-between">
+                                    <span>Total Insentif:</span>
+                                    <span>{formatRupiah(17 * (config.tierRate || 0))}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
