@@ -160,7 +160,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div 
+      style={{ paddingTop: 'max(env(safe-area-inset-top, 32px), 32px)' }}
+      className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans"
+    >
       {/* TikTok Ambient Neon Background */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-[#25F4EE]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 -right-20 w-80 h-80 bg-[#FE2C55]/15 rounded-full blur-3xl pointer-events-none" />

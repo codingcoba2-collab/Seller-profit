@@ -165,16 +165,33 @@ export class ThemeService {
     root.setAttribute('data-theme-palette', active.palette);
     root.setAttribute('data-theme-mode', active.mode);
 
-    if (active.mode === 'light') {
+    const isLight = active.mode === 'light';
+    const bgMain = isLight ? def.bgLight : def.bgDark;
+    const bgCard = isLight ? def.cardLight : def.cardDark;
+    const textMain = isLight ? '#0f172a' : '#f4f4f6';
+    const textMuted = isLight ? '#475569' : '#9ca3af';
+    const borderColor = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)';
+
+    root.style.setProperty('--primary-color', def.primaryColor);
+    root.style.setProperty('--secondary-color', def.accentColor);
+    root.style.setProperty('--accent-color', def.primaryColor);
+    root.style.setProperty('--bg-main', bgMain);
+    root.style.setProperty('--bg-card', bgCard);
+    root.style.setProperty('--text-main', textMain);
+    root.style.setProperty('--text-muted', textMuted);
+    root.style.setProperty('--border-color', borderColor);
+
+    if (isLight) {
       root.classList.remove('dark');
       root.classList.add('light');
-      document.body.style.backgroundColor = def.bgLight;
-      document.body.style.color = '#0f172a';
     } else {
       root.classList.remove('light');
       root.classList.add('dark');
-      document.body.style.backgroundColor = def.bgDark;
-      document.body.style.color = '#f4f4f6';
+    }
+
+    if (document.body) {
+      document.body.style.backgroundColor = bgMain;
+      document.body.style.color = textMain;
     }
   }
 

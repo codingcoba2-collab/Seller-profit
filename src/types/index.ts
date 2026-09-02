@@ -21,7 +21,9 @@ export interface IncentiveConfig {
   // Req: Logika tier if penjualan diatas sekian paket insentif berubah
   hasTierRule?: boolean;
   tierThresholdPackages?: number; // threshold target paket penjualan (misal 15 paket)
-  tierRate?: number; // tarif insentif baru/tambahan jika capai target paket (misal 3000)
+  tierRate?: number; // tarif insentif berjenjang default / bundling (misal 3000)
+  tierRateBundling?: number; // tarif insentif berjenjang (Bundling) (Rp)
+  tierRateSatuan?: number; // tarif insentif berjenjang (Satuan) (Rp)
   tierCalculationMode?: TierCalculationMode; // 'excess_only' (hanya kelebihan selisih paket > target) vs 'all_units' (semua paket jika capai target)
   // Req 4: Pengaturan Insentif Terpisah Penjualan Satuan & Bundling untuk Host Live
   hasSeparateBundlingSatuan?: boolean;

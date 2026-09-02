@@ -1,104 +1,238 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --primary-color: #25F4EE;
-    --secondary-color: #FE2C55;
-    --accent-color: #00F2FE;
-    --bg-main: #0b0c10;
-    --bg-card: #161823;
-    --text-main: #f4f4f6;
-    --border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  /* Royal Gold & Amber Theme */
-  [data-theme-palette="royal_gold"] {
-    --primary-color: #F59E0B;
-    --secondary-color: #D97706;
-    --accent-color: #FBBF24;
-    --bg-main: #0c0a09;
-    --bg-card: #1c1917;
-  }
-
-  /* Emerald & Jade Luxe Theme */
-  [data-theme-palette="emerald_luxe"] {
-    --primary-color: #10B981;
-    --secondary-color: #059669;
-    --accent-color: #34D399;
-    --bg-main: #061712;
-    --bg-card: #0c261e;
-  }
-
-  /* Midnight Cyber & Purple Theme */
-  [data-theme-palette="midnight_cyber"] {
-    --primary-color: #8B5CF6;
-    --secondary-color: #EC4899;
-    --accent-color: #A78BFA;
-    --bg-main: #090514;
-    --bg-card: #130d24;
-  }
-
-  /* Rose & Ruby Glamour Theme */
-  [data-theme-palette="rose_glamour"] {
-    --primary-color: #F43F5E;
-    --secondary-color: #FB7185;
-    --accent-color: #FDA4AF;
-    --bg-main: #140508;
-    --bg-card: #220b12;
-  }
-
-  /* Ocean & Sapphire Breeze Theme */
-  [data-theme-palette="ocean_breeze"] {
-    --primary-color: #0284C7;
-    --secondary-color: #06B6D4;
-    --accent-color: #38BDF8;
-    --bg-main: #04131d;
-    --bg-card: #082032;
-  }
-
-  /* Minimalist Slate & Silver Theme */
-  [data-theme-palette="minimalist_slate"] {
-    --primary-color: #E2E8F0;
-    --secondary-color: #94A3B8;
-    --accent-color: #F8FAFC;
-    --bg-main: #0f172a;
-    --bg-card: #1e293b;
-  }
-
-  /* Light Mode Support */
-  [data-theme-mode="light"] {
-    --bg-main: #f8fafc;
-    --bg-card: #ffffff;
-    --text-main: #0f172a;
-    --border-color: rgba(0, 0, 0, 0.08);
-  }
-
-  body {
-    background-color: var(--bg-main, #0b0c10);
-    color: var(--text-main, #f4f4f6);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    selection-background-color: #FE2C55;
-    selection-color: #ffffff;
-    min-height: 100vh;
-  }
+:root {
+  --primary-color: #25F4EE;
+  --secondary-color: #FE2C55;
+  --accent-color: #00F2FE;
+  --bg-main: #0b0c10;
+  --bg-card: #161823;
+  --bg-card-secondary: #0e1017;
+  --text-main: #f4f4f6;
+  --text-muted: #9ca3af;
+  --border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Custom Scrollbar for sleek UI */
+/* Neon Cyber Palette (Default) */
+[data-theme-palette="neon"] {
+  --primary-color: #25F4EE;
+  --secondary-color: #FE2C55;
+  --accent-color: #00F2FE;
+  --bg-main: #0b0c10;
+  --bg-card: #161823;
+  --bg-card-secondary: #0e1017;
+}
+
+/* Emerald Mint & Forest */
+[data-theme-palette="emerald"] {
+  --primary-color: #10B981;
+  --secondary-color: #059669;
+  --accent-color: #34D399;
+  --bg-main: #061712;
+  --bg-card: #0c241d;
+  --bg-card-secondary: #071914;
+}
+
+/* Royal Violet & Boutique */
+[data-theme-palette="violet"] {
+  --primary-color: #8B5CF6;
+  --secondary-color: #EC4899;
+  --accent-color: #A78BFA;
+  --bg-main: #0f0c1a;
+  --bg-card: #19152b;
+  --bg-card-secondary: #110d21;
+}
+
+/* Rose Gold & Sunset Coral */
+[data-theme-palette="coral"] {
+  --primary-color: #F43F5E;
+  --secondary-color: #F59E0B;
+  --accent-color: #FB7185;
+  --bg-main: #180c11;
+  --bg-card: #26141c;
+  --bg-card-secondary: #1b0c12;
+}
+
+/* Electric Ocean & Marketplace */
+[data-theme-palette="ocean"] {
+  --primary-color: #0EA5E9;
+  --secondary-color: #3B82F6;
+  --accent-color: #38BDF8;
+  --bg-main: #09131f;
+  --bg-card: #102033;
+  --bg-card-secondary: #0a1624;
+}
+
+/* Obsidian & Platinum Studio */
+[data-theme-palette="minimalist"] {
+  --primary-color: #E2E8F0;
+  --secondary-color: #94A3B8;
+  --accent-color: #F8FAFC;
+  --bg-main: #09090b;
+  --bg-card: #18181b;
+  --bg-card-secondary: #111113;
+}
+
+/* Light Mode Support */
+[data-theme-mode="light"] {
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme-mode="light"][data-theme-palette="neon"] {
+  --bg-main: #f4f6fb;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #eef2f8;
+  --primary-color: #0891b2;
+  --secondary-color: #e11d48;
+}
+
+[data-theme-mode="light"][data-theme-palette="emerald"] {
+  --bg-main: #f0fdf4;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #e6f9ed;
+  --primary-color: #059669;
+  --secondary-color: #047857;
+}
+
+[data-theme-mode="light"][data-theme-palette="violet"] {
+  --bg-main: #faf5ff;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #f3e8ff;
+  --primary-color: #7c3aed;
+  --secondary-color: #db2777;
+}
+
+[data-theme-mode="light"][data-theme-palette="coral"] {
+  --bg-main: #fff1f2;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #ffe4e6;
+  --primary-color: #e11d48;
+  --secondary-color: #d97706;
+}
+
+[data-theme-mode="light"][data-theme-palette="ocean"] {
+  --bg-main: #f0f9ff;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #e0f2fe;
+  --primary-color: #0284c7;
+  --secondary-color: #2563eb;
+}
+
+[data-theme-mode="light"][data-theme-palette="minimalist"] {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-secondary: #f1f5f9;
+  --primary-color: #334155;
+  --secondary-color: #64748b;
+}
+
+/* Global Theme Reactive Overrides */
+body {
+  background-color: var(--bg-main, #0b0c10);
+  color: var(--text-main, #f4f4f6);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Dynamic Tailwind Color Overrides */
+.bg-\[\#0b0c10\] {
+  background-color: var(--bg-main, #0b0c10) !important;
+}
+
+.bg-\[\#161823\] {
+  background-color: var(--bg-card, #161823) !important;
+}
+
+.text-\[\#25F4EE\] {
+  color: var(--primary-color, #25F4EE) !important;
+}
+
+.text-\[\#FE2C55\] {
+  color: var(--secondary-color, #FE2C55) !important;
+}
+
+.border-\[\#25F4EE\] {
+  border-color: var(--primary-color, #25F4EE) !important;
+}
+
+.border-\[\#FE2C55\] {
+  border-color: var(--secondary-color, #FE2C55) !important;
+}
+
+.bg-\[\#25F4EE\] {
+  background-color: var(--primary-color, #25F4EE) !important;
+}
+
+.bg-\[\#FE2C55\] {
+  background-color: var(--secondary-color, #FE2C55) !important;
+}
+
+/* Light Mode Global Elements Adaptations */
+[data-theme-mode="light"] {
+  color-scheme: light;
+}
+
+[data-theme-mode="light"] .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme-mode="light"] .text-zinc-200,
+[data-theme-mode="light"] .text-zinc-300 {
+  color: #334155 !important;
+}
+
+[data-theme-mode="light"] .text-zinc-400 {
+  color: #64748b !important;
+}
+
+[data-theme-mode="light"] .text-zinc-500 {
+  color: #94a3b8 !important;
+}
+
+[data-theme-mode="light"] .border-white\/10,
+[data-theme-mode="light"] .border-white\/15,
+[data-theme-mode="light"] .border-white\/20,
+[data-theme-mode="light"] .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme-mode="light"] .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme-mode="light"] .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme-mode="light"] input,
+[data-theme-mode="light"] select,
+[data-theme-mode="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.15);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme-mode="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 /* Card hover animation */
@@ -106,8 +240,8 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tiktok-card-hover:hover {
-  border-color: rgba(37, 244, 238, 0.35);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px -3px rgba(37, 244, 238, 0.15);
+  border-color: var(--primary-color, rgba(37, 244, 238, 0.35));
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 15px -3px var(--primary-color, rgba(37, 244, 238, 0.15));
   transform: translateY(-2px);
 }
 

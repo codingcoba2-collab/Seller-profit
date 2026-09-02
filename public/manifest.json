@@ -1,14 +1,14 @@
 {
   "id": "/",
-  "name": "Remix Laba & Rugi Shopee",
-  "short_name": "Laba Rugi",
-  "description": "Aplikasi akuntansi dan manajemen data penjualan Shopee terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.",
+  "name": "Seller Profit",
+  "short_name": "Seller Profit",
+  "description": "Aplikasi akuntansi dan manajemen data penjualan Marketplace terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
   "icons": [
     {
       "src": "/pwa-192x192.png",

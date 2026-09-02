@@ -53,6 +53,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       hasTierRule?: boolean;
       tierThresholdPackages?: number;
       tierRate?: number;
+      tierRateBundling?: number;
+      tierRateSatuan?: number;
       tierCalculationMode?: TierCalculationMode;
       hasSeparateBundlingSatuan?: boolean;
       satuanRate?: number;
@@ -67,7 +69,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       description: 'Insentif per pcs terjual', 
       hasTierRule: false, 
       tierThresholdPackages: 15, 
-      tierRate: 3000, 
+      tierRate: 3000,
+      tierRateBundling: 3000,
+      tierRateSatuan: 1500,
       tierCalculationMode: 'excess_only',
       hasSeparateBundlingSatuan: false,
       satuanRate: 1000,
@@ -75,7 +79,17 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       bundlingRate: 2500,
       bundlingIncentiveType: 'per_package_sold',
     },
-    admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 15, tierRate: 1500, tierCalculationMode: 'excess_only' },
+    admin_toko: { 
+      type: 'per_package_sold', 
+      rate: 500, 
+      description: 'Insentif per paket', 
+      hasTierRule: false, 
+      tierThresholdPackages: 15, 
+      tierRate: 1500,
+      tierRateBundling: 1500,
+      tierRateSatuan: 1000,
+      tierCalculationMode: 'excess_only' 
+    },
     sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
     steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
     owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
@@ -121,10 +135,19 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     hasTierRule?: boolean,
     tierThresholdPackages?: number,
     tierRate?: number,
-    tierCalculationMode?: TierCalculationMode
+    tierCalculationMode?: TierCalculationMode,
+    tierRateBundling?: number,
+    tierRateSatuan?: number,
   ) => {
     setIncentiveMap(prev => {
       const cur = prev[role] || { type: 'none', rate: 0, description: '' };
+      const effectiveBundling = tierRateBundling !== undefined 
+        ? tierRateBundling 
+        : (tierRate !== undefined ? tierRate : (cur.tierRateBundling || cur.tierRate || 3000));
+      const effectiveSatuan = tierRateSatuan !== undefined 
+        ? tierRateSatuan 
+        : (cur.tierRateSatuan || (cur.tierRate ? Math.round(cur.tierRate / 2) : 1500));
+
       return {
         ...prev,
         [role]: {
@@ -133,7 +156,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
           description: description !== undefined ? description : cur.description,
           hasTierRule: hasTierRule !== undefined ? hasTierRule : cur.hasTierRule,
           tierThresholdPackages: tierThresholdPackages !== undefined ? tierThresholdPackages : (cur.tierThresholdPackages || 15),
-          tierRate: tierRate !== undefined ? tierRate : (cur.tierRate || (rate !== undefined ? Math.round(rate * 1.5) : cur.rate)),
+          tierRate: effectiveBundling,
+          tierRateBundling: effectiveBundling,
+          tierRateSatuan: effectiveSatuan,
           tierCalculationMode: tierCalculationMode !== undefined ? tierCalculationMode : (cur.tierCalculationMode || 'excess_only'),
         }
       };
@@ -150,8 +175,28 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setSalaryType('hourly');
     setSalaryRate(30000);
     setIncentiveMap({
-      host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 15, tierRate: 3000, tierCalculationMode: 'excess_only' },
-      admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 15, tierRate: 1500, tierCalculationMode: 'excess_only' },
+      host: { 
+        type: 'per_pcs_sold', 
+        rate: 1000, 
+        description: 'Insentif per pcs terjual', 
+        hasTierRule: false, 
+        tierThresholdPackages: 15, 
+        tierRate: 3000, 
+        tierRateBundling: 3000,
+        tierRateSatuan: 1500,
+        tierCalculationMode: 'excess_only' 
+      },
+      admin_toko: { 
+        type: 'per_package_sold', 
+        rate: 500, 
+        description: 'Insentif per paket', 
+        hasTierRule: false, 
+        tierThresholdPackages: 15, 
+        tierRate: 1500, 
+        tierRateBundling: 1500,
+        tierRateSatuan: 1000,
+        tierCalculationMode: 'excess_only' 
+      },
       sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
       steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
       owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
@@ -244,7 +289,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
         description: cfg.description,
         hasTierRule: Boolean(cfg.hasTierRule),
         tierThresholdPackages: cfg.hasTierRule ? (Number(cfg.tierThresholdPackages) || 0) : undefined,
-        tierRate: cfg.hasTierRule ? (Number(cfg.tierRate) || 0) : undefined,
+        tierRate: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate) || 0) : undefined,
+        tierRateBundling: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate) || 0) : undefined,
+        tierRateSatuan: cfg.hasTierRule ? (Number(cfg.tierRateSatuan) || 0) : undefined,
         tierCalculationMode: cfg.tierCalculationMode || 'excess_only',
         hasSeparateBundlingSatuan: r === 'host' ? Boolean(cfg.hasSeparateBundlingSatuan) : undefined,
         satuanRate: r === 'host' && cfg.hasSeparateBundlingSatuan ? (Number(cfg.satuanRate) || 0) : undefined,
@@ -475,7 +522,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                          Tipe Insentif Dasar
+                          Tipe Insentif
                         </label>
                         <select
                           value={config.type}
@@ -502,10 +549,10 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         </select>
                       </div>
 
-                      {config.type !== 'none' && (
+                      {config.type !== 'none' && (role === 'sortir' || role === 'steam' || config.type === 'fixed_amount') && (
                         <div>
                           <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                            Tarif Insentif Dasar (Rp)
+                            Tarif Komisi (Rp)
                           </label>
                           <CommaNumberInput
                             value={config.rate}
@@ -557,57 +604,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* 1. Pengaturan Penjualan Satuan */}
-                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#25F4EE]">
-                                  <span>🏷️ Insentif Penjualan Satuan</span>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    Model Hitungan Satuan
-                                  </label>
-                                  <select
-                                    value={config.satuanIncentiveType || 'per_pcs_sold'}
-                                    onChange={e => {
-                                      const val = e.target.value as any;
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          satuanIncentiveType: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                                  >
-                                    <option value="per_pcs_sold">Per Pcs Satuan Terjual (Rp)</option>
-                                    <option value="per_package_sold">Per Paket / Checkout Satuan (Rp)</option>
-                                    <option value="percentage">% dari Omzet Penjualan Satuan</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    {config.satuanIncentiveType === 'percentage' ? 'Persentase Satuan (%)' : 'Tarif Insentif Satuan (Rp)'}
-                                  </label>
-                                  <CommaNumberInput
-                                    value={config.satuanRate || 1000}
-                                    onChange={val => {
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          satuanRate: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* 2. Pengaturan Penjualan Bundling */}
+                              {/* 1. Pengaturan Penjualan Bundling */}
                               <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
                                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                                   <span>📦 Insentif Penjualan Bundling</span>
@@ -656,6 +653,56 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                                   />
                                 </div>
                               </div>
+
+                              {/* 2. Pengaturan Penjualan Satuan */}
+                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#25F4EE]">
+                                  <span>🏷️ Insentif Penjualan Satuan</span>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    Model Hitungan Satuan
+                                  </label>
+                                  <select
+                                    value={config.satuanIncentiveType || 'per_pcs_sold'}
+                                    onChange={e => {
+                                      const val = e.target.value as any;
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          satuanIncentiveType: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                                  >
+                                    <option value="per_pcs_sold">Per Pcs Satuan Terjual (Rp)</option>
+                                    <option value="per_package_sold">Per Paket / Checkout Satuan (Rp)</option>
+                                    <option value="percentage">% dari Omzet Penjualan Satuan</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    {config.satuanIncentiveType === 'percentage' ? 'Persentase Satuan (%)' : 'Tarif Insentif Satuan (Rp)'}
+                                  </label>
+                                  <CommaNumberInput
+                                    value={config.satuanRate || 1000}
+                                    onChange={val => {
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          satuanRate: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -680,35 +727,50 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
                         {config.hasTierRule && (
                           <div className="p-4 rounded-xl bg-[#161823] border border-[#25F4EE]/30 space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                Target Minimal Penjualan (Paket)
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={config.tierThresholdPackages || 15}
+                                onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
+                                placeholder="Contoh: 15"
+                                className="w-full sm:w-1/2 px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                              />
+                              <span className="text-[10px] text-zinc-400 mt-1 block">
+                                Batas ambang minimal tercapainya bonus target penjualan (misal 15 paket).
+                              </span>
+                            </div>
+
+                            {/* Input Berjenjang/Naik: Bundling & Satuan */}
+                            <div className="space-y-3 pt-2 border-t border-white/5">
                               <div>
-                                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                                  Target Minimal Penjualan (Paket)
+                                <label className="block text-[11px] font-bold text-amber-300 mb-1">
+                                  Tarif Insentif Berjenjang / Naik (Bundling) (Rp)
                                 </label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={config.tierThresholdPackages || 15}
-                                  onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
-                                  placeholder="Contoh: 15"
-                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                                <CommaNumberInput
+                                  value={config.tierRateBundling || config.tierRate || 3000}
+                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, val, undefined)}
+                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-300 font-bold focus:border-[#25F4EE]"
                                 />
                                 <span className="text-[10px] text-zinc-400 mt-1 block">
-                                  Batas ambang minimal tercapainya bonus target penjualan (misal 15 paket).
+                                  Tarif insentif berjenjang untuk penjualan kategori <b>Bundling</b> saat capai target.
                                 </span>
                               </div>
 
                               <div>
-                                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                                  Tarif Insentif Berjenjang / Naik (Rp)
+                                <label className="block text-[11px] font-bold text-[#25F4EE] mb-1">
+                                  Tarif Insentif Berjenjang / Naik (Satuan) (Rp)
                                 </label>
                                 <CommaNumberInput
-                                  value={config.tierRate || Math.round((config.rate || 1000) * 2)}
-                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, val)}
+                                  value={config.tierRateSatuan || (config.tierRate ? Math.round(config.tierRate / 2) : 1500)}
+                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, undefined, val)}
                                   className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
                                 />
                                 <span className="text-[10px] text-zinc-400 mt-1 block">
-                                  Tarif insentif berjenjang (misal Rp 3.000) per unit.
+                                  Tarif insentif berjenjang untuk penjualan kategori <b>Satuan</b> saat capai target.
                                 </span>
                               </div>
                             </div>
@@ -743,7 +805,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                                         <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Rekomendasi</span>
                                       </div>
                                       <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
-                                        Paket sampai batas target tetap pakai <b className="text-white">tarif dasar</b>, dan hanya paket kelebihannya yang dihitung <b className="text-[#25F4EE]">tarif berjenjang</b>.
+                                        Paket sampai batas target tetap pakai <b className="text-white">tarif standar</b>, dan hanya paket kelebihannya yang dihitung <b className="text-[#25F4EE]">tarif berjenjang (Bundling / Satuan)</b>.
                                       </p>
                                     </div>
                                   </div>
@@ -782,32 +844,16 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             {/* Live Simulation Box */}
                             <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/10 text-xs space-y-1.5">
                               <div className="text-[11px] font-bold text-zinc-400 flex items-center justify-between">
-                                <span>💡 Simulasi Perhitungan ({config.tierThresholdPackages || 15} Batas Target vs Penjualan 17 Paket):</span>
+                                <span>💡 Simulasi Perhitungan ({config.tierThresholdPackages || 15} Target vs 17 Paket Terjual):</span>
                               </div>
-                              {(config.tierCalculationMode || 'excess_only') === 'excess_only' ? (
-                                <div className="text-zinc-300 text-[11px] space-y-1">
-                                  <p>
-                                    • <b>{config.tierThresholdPackages || 15} paket</b> pertama @ {formatRupiah(config.rate || 0)} = <span className="text-white font-semibold">{formatRupiah((config.tierThresholdPackages || 15) * (config.rate || 0))}</span>
-                                  </p>
-                                  <p>
-                                    • <b>{Math.max(0, 17 - (config.tierThresholdPackages || 15))} paket</b> selisih @ {formatRupiah(config.tierRate || 0)} = <span className="text-[#25F4EE] font-semibold">{formatRupiah(Math.max(0, 17 - (config.tierThresholdPackages || 15)) * (config.tierRate || 0))}</span>
-                                  </p>
-                                  <div className="pt-1 border-t border-white/5 font-bold text-emerald-400 flex justify-between">
-                                    <span>Total Insentif:</span>
-                                    <span>{formatRupiah(((config.tierThresholdPackages || 15) * (config.rate || 0)) + (Math.max(0, 17 - (config.tierThresholdPackages || 15)) * (config.tierRate || 0)))}</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-zinc-300 text-[11px] space-y-1">
-                                  <p>
-                                    • <b>17 paket</b> seluruhnya dikalikan {formatRupiah(config.tierRate || 0)}:
-                                  </p>
-                                  <div className="pt-1 border-t border-white/5 font-bold text-emerald-400 flex justify-between">
-                                    <span>Total Insentif:</span>
-                                    <span>{formatRupiah(17 * (config.tierRate || 0))}</span>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="text-zinc-300 text-[11px] space-y-1">
+                                <p>
+                                  • <b className="text-amber-300">Bundling:</b> Tarif Berjenjang @ {formatRupiah(config.tierRateBundling || config.tierRate || 3000)}
+                                </p>
+                                <p>
+                                  • <b className="text-[#25F4EE]">Satuan:</b> Tarif Berjenjang @ {formatRupiah(config.tierRateSatuan || 1500)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         )}

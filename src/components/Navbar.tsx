@@ -80,8 +80,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white">
-        {/* Main navigation header (Clean, no cluttered top text) */}
+      <header 
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 24px), 24px)' }}
+        className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white"
+      >
+        {/* Main navigation header (Lowered to clear iPhone notch completely) */}
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {currentView !== 'dashboard' ? (
@@ -124,6 +127,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Theme Selector Button */}
+              <button
+                id="btn-theme-selector"
+                onClick={() => setShowThemeModal(true)}
+                className="p-2 rounded-xl text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer"
+                title="Ganti Tema & Warna Toko"
+              >
+                <Palette className="w-4 h-4 text-[#25F4EE]" />
+              </button>
 
               {/* Update App Button */}
               <button
