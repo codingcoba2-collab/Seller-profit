@@ -29,12 +29,12 @@ export interface MultiRoleSalesRule {
   description?: string;
 }
 
-// Req 9: Logika if omzet mencapai sekian bonus akhir bulan didapat (persentase atau nominal pasti)
+// Req 9: Logika if omzet mencapai sekian bonus akhir bulan didapat (persentase omzet, persentase laba bersih toko, atau nominal pasti)
 export interface MonthlyOmzetBonusRule {
   active: boolean;
   targetOmzet: number; // target minimal omzet
-  bonusType: 'percentage' | 'fixed'; // persentase atau nominal pasti
-  bonusValue: number; // persen (misal: 2%) atau rupiah (misal: 1000000)
+  bonusType: 'percentage' | 'percentage_laba_bersih' | 'fixed'; // persentase omzet kotor, persentase laba bersih toko, atau nominal pasti
+  bonusValue: number; // persen (misal: 2% atau 5%) atau rupiah (misal: 1000000)
   description?: string;
 }
 

@@ -867,8 +867,17 @@ export class StorageService {
         : salaryRate;
 
       const attRoleStr = (att.role || '').toLowerCase();
-      const isSortir = attRoleStr.includes('sortir') || (!att.role && emp.roles.includes('sortir'));
-      const isSteam = attRoleStr.includes('steam') || (!att.role && emp.roles.includes('steam'));
+      const rolesExec = (att.rolesExecuted || []).map(r => r.toLowerCase());
+
+      const isSortir = attRoleStr.includes('sortir') || 
+                       rolesExec.includes('sortir') || 
+                       (emp.roles.length === 1 && emp.roles[0] === 'sortir') ||
+                       (!att.role && emp.roles.includes('sortir'));
+
+      const isSteam = attRoleStr.includes('steam') || 
+                      rolesExec.includes('steam') || 
+                      (emp.roles.length === 1 && emp.roles[0] === 'steam') ||
+                      (!att.role && emp.roles.includes('steam'));
 
       if (isSortir && isSteam) {
         totalBiayaSortirKehadiran += Math.round(shiftCost / 2);
@@ -916,22 +925,37 @@ export class StorageService {
     const totalStorePackages = sales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
     const totalStorePcs = sales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
 
-    const employeeSalaries = employees.map(emp => {
+    // Initial pass for employee base salary, incentives, and multi-role bonus
+    const employeeDrafts = employees.map(emp => {
       const empAttendance = attendance.filter(a => a.employeeId === emp.id || a.employeeName?.toLowerCase() === emp.name.toLowerCase());
       
-      let baseSalary = 0;
+      let operationalBaseSalary = 0;
+      let hppLaborSalary = 0;
       let hoursWorked = 0;
       let daysPresent = 0;
 
       empAttendance.forEach(att => {
         const isHourly = att.salaryType === 'hourly' || emp.salaryType === 'hourly';
+        const shiftCost = isHourly ? (att.hoursWorked || 0) * (emp.salaryRate || 0) : (emp.salaryRate || 0);
+
         if (isHourly) {
-          const hrs = att.hoursWorked || 0;
-          hoursWorked += hrs;
-          baseSalary += hrs * (emp.salaryRate || 0);
+          hoursWorked += (att.hoursWorked || 0);
         } else {
           daysPresent += 1;
-          baseSalary += (emp.salaryRate || 0);
+        }
+
+        const attRoleStr = (att.role || '').toLowerCase();
+        const rolesExec = (att.rolesExecuted || []).map(r => r.toLowerCase());
+        const isSortirOrSteam = attRoleStr.includes('sortir') || 
+                                attRoleStr.includes('steam') || 
+                                rolesExec.includes('sortir') || 
+                                rolesExec.includes('steam') ||
+                                (!att.role && emp.roles.every(r => r === 'sortir' || r === 'steam'));
+
+        if (isSortirOrSteam) {
+          hppLaborSalary += shiftCost;
+        } else {
+          operationalBaseSalary += shiftCost;
         }
       });
 
@@ -982,7 +1006,7 @@ export class StorageService {
             totalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat` : `Insentif Tetap Host`,
+              desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat` : `Insentif Tetap Host`,
               amount,
             });
           }
@@ -1026,7 +1050,7 @@ export class StorageService {
             totalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
+              desc: isTierAchieved ? `✨ Target Tier: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
               amount,
             });
           }
@@ -1075,15 +1099,58 @@ export class StorageService {
         }
       }
 
-      // Bonus Target Omzet Bulanan
+      return {
+        employee: emp,
+        operationalBaseSalary,
+        hppLaborSalary,
+        baseSalary: operationalBaseSalary,
+        hoursWorked,
+        daysPresent,
+        incentiveBreakdowns,
+        totalIncentives,
+        multiRoleBonus,
+        multiRoleBonusDesc,
+      };
+    });
+
+    // Calculate Store Net Profit before monthly bonus for 'percentage_laba_bersih' evaluation
+    const subtotalOperBaseSalary = employeeDrafts.reduce((acc, e) => acc + e.operationalBaseSalary, 0);
+    const subtotalIncentives = employeeDrafts.reduce((acc, e) => acc + e.totalIncentives, 0);
+    const subtotalMultiRoleBonus = employeeDrafts.reduce((acc, e) => acc + e.multiRoleBonus, 0);
+
+    const hppData = this.calculateHPP(storeId, filterDateFn);
+    const avgHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
+    const modalTerjual = totalStorePcs * avgHpp;
+    const store = this.getStoreById(storeId);
+    const adminPct = store?.settings?.adminPromoPercentage ?? 8.5;
+    const totalAdminShopee = Math.round((adminPct / 100) * totalStoreOmzet);
+    const serviceFee = totalStorePackages * (store?.settings?.serviceFeePerOrder ?? 1250);
+    const totalAds = sales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
+    const totalCoin = sales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
+    const allReturns = this.getReturns(storeId).filter(r => !filterDateFn || filterDateFn(r.date));
+    const returnAmount = store?.settings?.returnMechanism === 'estimate' 
+      ? Math.round(((store?.settings?.estimateReturnPercentage ?? 3) / 100) * totalStoreOmzet)
+      : allReturns.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+    const labaKotor = totalStoreOmzet - modalTerjual - totalAdminShopee - serviceFee - totalAds - totalCoin - returnAmount;
+    const allCashflows = this.getCashflow(storeId).filter(c => !filterDateFn || filterDateFn(c.date));
+    const pengeluaranKas = allCashflows.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
+    const estimatedStoreNetProfit = Math.max(0, labaKotor - pengeluaranKas - (subtotalOperBaseSalary + subtotalIncentives + subtotalMultiRoleBonus));
+
+    // Calculate Monthly Omzet Bonus for each employee
+    const employeeSalaries = employeeDrafts.map(draft => {
+      const emp = draft.employee;
       let monthlyOmzetBonus = 0;
       let monthlyOmzetBonusDesc = '';
+
       if (emp.monthlyOmzetBonusRule?.active) {
         const rule = emp.monthlyOmzetBonusRule;
         if (totalStoreOmzet >= (rule.targetOmzet || 0)) {
           if (rule.bonusType === 'percentage') {
             monthlyOmzetBonus = Math.round(((rule.bonusValue || 0) / 100) * totalStoreOmzet);
-            monthlyOmzetBonusDesc = `Bonus Omzet Toko (${rule.bonusValue}% dari Rp ${totalStoreOmzet.toLocaleString('id-ID')})`;
+            monthlyOmzetBonusDesc = `Bonus Target Omzet Toko (${rule.bonusValue}% dari Omzet Rp ${totalStoreOmzet.toLocaleString('id-ID')})`;
+          } else if (rule.bonusType === 'percentage_laba_bersih') {
+            monthlyOmzetBonus = Math.round(((rule.bonusValue || 0) / 100) * estimatedStoreNetProfit);
+            monthlyOmzetBonusDesc = `Bonus Target Omzet (${rule.bonusValue}% dari Laba Bersih Toko Rp ${estimatedStoreNetProfit.toLocaleString('id-ID')})`;
           } else {
             monthlyOmzetBonus = rule.bonusValue || 0;
             monthlyOmzetBonusDesc = `Bonus Target Omzet Bulanan (Tembus Target)`;
@@ -1091,36 +1158,46 @@ export class StorageService {
         }
       }
 
-      const totalTakeHomePay = baseSalary + totalIncentives + multiRoleBonus + monthlyOmzetBonus;
+      const totalTakeHomePay = draft.operationalBaseSalary + draft.hppLaborSalary + draft.totalIncentives + draft.multiRoleBonus + monthlyOmzetBonus;
 
       return {
         employee: emp,
-        baseSalary,
-        hoursWorked,
-        daysPresent,
-        incentiveBreakdowns,
-        totalIncentives,
-        multiRoleBonus,
-        multiRoleBonusDesc,
+        operationalBaseSalary: draft.operationalBaseSalary,
+        hppLaborSalary: draft.hppLaborSalary,
+        baseSalary: draft.operationalBaseSalary, // Beban gaji operasional (Sortir/Steam masuk HPP Final)
+        hoursWorked: draft.hoursWorked,
+        daysPresent: draft.daysPresent,
+        incentiveBreakdowns: draft.incentiveBreakdowns,
+        totalIncentives: draft.totalIncentives,
+        multiRoleBonus: draft.multiRoleBonus,
+        multiRoleBonusDesc: draft.multiRoleBonusDesc,
         monthlyOmzetBonus,
         monthlyOmzetBonusDesc,
         totalTakeHomePay,
       };
     });
 
-    const totalBaseSalary = employeeSalaries.reduce((acc, e) => acc + e.baseSalary, 0);
+    const totalBaseSalary = employeeSalaries.reduce((acc, e) => acc + e.operationalBaseSalary, 0);
+    const totalHppLaborSalary = employeeSalaries.reduce((acc, e) => acc + e.hppLaborSalary, 0);
     const totalIncentives = employeeSalaries.reduce((acc, e) => acc + e.totalIncentives, 0);
     const totalMultiRoleBonus = employeeSalaries.reduce((acc, e) => acc + e.multiRoleBonus, 0);
     const totalMonthlyBonus = employeeSalaries.reduce((acc, e) => acc + e.monthlyOmzetBonus, 0);
-    const totalPayroll = employeeSalaries.reduce((acc, e) => acc + e.totalTakeHomePay, 0);
+    
+    // Total Beban Gaji Operasional Toko (tanpa HPP presensi sortir/steam karena sudah masuk modal HPP)
+    const totalOperationalSalary = totalBaseSalary + totalIncentives + totalMultiRoleBonus + totalMonthlyBonus;
+    const totalPayroll = totalOperationalSalary;
+    const totalAllEmployeePayout = totalOperationalSalary + totalHppLaborSalary;
 
     return {
       employeeSalaries,
       totalBaseSalary,
+      totalHppLaborSalary,
       totalIncentives,
       totalMultiRoleBonus,
       totalMonthlyBonus,
+      totalOperationalSalary,
       totalPayroll,
+      totalAllEmployeePayout,
     };
   }
 

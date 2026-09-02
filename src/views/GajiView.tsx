@@ -264,17 +264,25 @@ export const GajiView: React.FC<GajiViewProps> = ({
         const omzetRule = emp.monthlyOmzetBonusRule;
         if (totalStoreOmzet >= (omzetRule.targetOmzet || 0)) {
           let omzetBonusAmount = 0;
+          let bonusDescText = '';
           if (omzetRule.bonusType === 'percentage') {
             omzetBonusAmount = Math.round(((omzetRule.bonusValue || 0) / 100) * totalStoreOmzet);
+            bonusDescText = `🏆 Bonus Capai Target Omzet Toko (${omzetRule.bonusValue}% dari Omzet ${formatRupiah(totalStoreOmzet)})`;
+          } else if (omzetRule.bonusType === 'percentage_laba_bersih') {
+            const payrollSummary = StorageService.calculateStorePayroll(currentUser.storeId, filterByPeriod);
+            const employeePayroll = payrollSummary.employeeSalaries.find(e => e.employee.id === emp.id);
+            omzetBonusAmount = employeePayroll?.monthlyOmzetBonus || 0;
+            bonusDescText = employeePayroll?.monthlyOmzetBonusDesc || `🏆 Bonus Capai Target Omzet Toko (${omzetRule.bonusValue}% dari Laba Bersih Toko)`;
           } else {
             omzetBonusAmount = omzetRule.bonusValue || 0;
+            bonusDescText = `🏆 Bonus Capai Target Omzet Toko (Flat ${formatRupiah(omzetBonusAmount)})`;
           }
 
           if (omzetBonusAmount > 0) {
             totalIncentive += omzetBonusAmount;
             incentiveBreakdowns.push({
               role: 'monthly_bonus',
-              desc: `🏆 Bonus Capai Target Omzet Toko (Omzet ${formatRupiah(totalStoreOmzet)} ≥ Target ${formatRupiah(omzetRule.targetOmzet)}) - ${omzetRule.bonusType === 'percentage' ? `${omzetRule.bonusValue}%` : 'Flat'}`,
+              desc: bonusDescText,
               amount: omzetBonusAmount,
             });
           }

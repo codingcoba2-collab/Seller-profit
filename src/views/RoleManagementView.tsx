@@ -71,7 +71,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   // Monthly Omzet Bonus Rule State (Requirement 4 & 9)
   const [monthlyBonusActive, setMonthlyBonusActive] = useState(false);
   const [monthlyTargetOmzet, setMonthlyTargetOmzet] = useState<number>(100000000);
-  const [monthlyBonusType, setMonthlyBonusType] = useState<'percentage' | 'fixed'>('percentage');
+  const [monthlyBonusType, setMonthlyBonusType] = useState<'percentage' | 'percentage_laba_bersih' | 'fixed'>('percentage');
   const [monthlyBonusValue, setMonthlyBonusValue] = useState<number>(1.0);
   const [monthlyBonusDesc, setMonthlyBonusDesc] = useState('Bonus pencapaian omzet bulanan toko');
 
@@ -684,16 +684,21 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         onChange={e => setMonthlyBonusType(e.target.value as any)}
                         className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-amber-400"
                       >
-                        <option value="percentage">Persentase Omzet Kotor (%)</option>
+                        <option value="percentage">Persentase Omzet Kotor Toko (%)</option>
+                        <option value="percentage_laba_bersih">Persentase Laba Bersih Toko (%)</option>
                         <option value="fixed">Nominal Pasti Tetap (Rp)</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                        {monthlyBonusType === 'percentage' ? 'Besar Bonus (%)' : 'Besar Bonus (Rp)'}
+                        {monthlyBonusType === 'percentage' 
+                          ? 'Besar Bonus Omzet (%)' 
+                          : monthlyBonusType === 'percentage_laba_bersih'
+                          ? 'Besar Bonus Laba Bersih (%)'
+                          : 'Besar Bonus Flat (Rp)'}
                       </label>
-                      {monthlyBonusType === 'percentage' ? (
+                      {monthlyBonusType === 'percentage' || monthlyBonusType === 'percentage_laba_bersih' ? (
                         <input
                           type="number"
                           step="0.1"
@@ -701,6 +706,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                           max="100"
                           value={monthlyBonusValue}
                           onChange={e => setMonthlyBonusValue(parseFloat(e.target.value) || 0)}
+                          placeholder="Contoh: 5"
                           className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
                         />
                       ) : (
@@ -712,6 +718,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {monthlyBonusType === 'percentage_laba_bersih' && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+                      💡 <strong>Skema Laba Bersih:</strong> Jika omzet kotor bulan ini tembus target (≥ Rp {monthlyTargetOmzet.toLocaleString('id-ID')}), pegawai akan menerima bonus sebesar <strong>{monthlyBonusValue}% dari total Laba Bersih Akhir toko</strong> (setelah dikurangi HPP final, biaya admin/iklan/koin, dan biaya operasional).
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-[11px] font-bold text-zinc-400 mb-1">
