@@ -472,16 +472,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
           {menuItems.map(item => {
             const accessible = canAccess(item);
-            const isReturnDisabled = item.tab === 'return' && store?.settings?.returnMechanism === 'estimate';
 
             return (
               <button
                 key={item.tab}
                 id={`btn-menu-${item.tab}`}
-                disabled={!accessible || isReturnDisabled}
+                disabled={!accessible}
                 onClick={() => onNavigate(item.tab)}
                 className={`group text-left p-4 rounded-2xl border transition-all duration-200 relative flex flex-col justify-between tiktok-card-hover ${
-                  accessible && !isReturnDisabled
+                  accessible
                     ? 'bg-[#161823] border-white/10 hover:border-[#25F4EE]/40 shadow-lg cursor-pointer'
                     : 'bg-[#161823]/40 border-white/5 opacity-40 cursor-not-allowed'
                 }`}

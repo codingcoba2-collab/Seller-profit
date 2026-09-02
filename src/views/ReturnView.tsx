@@ -333,101 +333,136 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Retur' : 'Input Data Retur'}
+        inputTitle={isEstimateMode ? '🔒 Input Retur (Terkunci)' : (editingId ? '✏️ Sedang Mengedit Retur' : 'Input Data Retur')}
         outputTitle="Riwayat Paket Retur"
       />
 
       {/* TAB 1: FORM INPUT / EDIT */}
       {subTab === 'input' && (
         <div className="max-w-3xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-black text-white text-base flex items-center gap-2">
-              {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <PackageX className="w-5 h-5 text-[#FE2C55]" />}
-              <span>{editingId ? 'Edit Data Retur Paket' : 'Input Data Retur Marketplace'}</span>
-            </h3>
-            {editingId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
-              >
-                Batal Edit
-              </button>
-            )}
-          </div>
+          {isEstimateMode ? (
+            /* Locked State When in Estimate Mode (Requirement 5) */
+            <div className="text-center py-10 px-4 space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
+                <Shield className="w-8 h-8" />
+              </div>
+              
+              <div className="max-w-md mx-auto space-y-2">
+                <h3 className="font-black text-white text-lg">
+                  Form Input Retur Manual Terkunci &amp; Dimatikan
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Toko Anda saat ini menggunakan <strong className="text-amber-400">Skema Estimasi Return ({estimatePercentage}% dari Omzet)</strong>. Seluruh nilai return langsung dikalkulasikan secara otomatis dan proporsional pada Laporan Laba Rugi tanpa perlu input manual per paket.
+                </p>
+              </div>
 
-          {isEstimateMode && (
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-              ⚠️ Toko sedang menggunakan <strong>Mode Estimasi Return ({estimatePercentage}%)</strong>. Laporan Laba Rugi menghitung return otomatis secara persentase omzet.
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSubTab('output')}
+                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+                >
+                  Lihat Riwayat &amp; Monitoring Retur
+                </button>
+                {currentUser.isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-extrabold text-xs shadow-md cursor-pointer transition"
+                  >
+                    Ubah Skema Return di Panel Atas
+                  </button>
+                )}
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="font-black text-white text-base flex items-center gap-2">
+                  {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <PackageX className="w-5 h-5 text-[#FE2C55]" />}
+                  <span>{editingId ? 'Edit Data Retur Paket' : 'Input Data Retur Marketplace'}</span>
+                </h3>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
+                  >
+                    Batal Edit
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Tanggal Retur <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <input
+                    id="input-return-date"
+                    type="date"
+                    required
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Jumlah Paket Return <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      id="input-return-count"
+                      type="number"
+                      required
+                      min="1"
+                      value={packageCount}
+                      onChange={e => setPackageCount(Number(e.target.value))}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Total Nilai Barang Retur (Rp) <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <CommaNumberInput
+                      id="input-return-amount"
+                      value={totalAmount}
+                      onChange={setTotalAmount}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#FE2C55] font-bold focus:border-[#25F4EE]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Alasan / Catatan Retur
+                  </label>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    placeholder="Contoh: Paket rusak / gagal COD / pembeli tolak"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                  />
+                </div>
+
+                <button
+                  id="btn-submit-return"
+                  type="submit"
+                  className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>{editingId ? 'Simpan Perubahan Retur' : 'Simpan Data Retur Paket'}</span>
+                </button>
+              </form>
+            </>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Tanggal Retur <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                id="input-return-date"
-                type="date"
-                required
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Jumlah Paket Return <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  id="input-return-count"
-                  type="number"
-                  required
-                  min="1"
-                  value={packageCount}
-                  onChange={e => setPackageCount(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Total Nilai Barang Retur (Rp) <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  id="input-return-amount"
-                  value={totalAmount}
-                  onChange={setTotalAmount}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#FE2C55] font-bold focus:border-[#25F4EE]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Alasan / Catatan Retur
-              </label>
-              <input
-                type="text"
-                value={reason}
-                onChange={e => setReason(e.target.value)}
-                placeholder="Contoh: Paket rusak / gagal COD / pembeli tolak"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-              />
-            </div>
-
-            <button
-              id="btn-submit-return"
-              type="submit"
-              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{editingId ? 'Simpan Perubahan Retur' : 'Simpan Data Retur Paket'}</span>
-            </button>
-          </form>
         </div>
       )}
 

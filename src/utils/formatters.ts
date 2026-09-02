@@ -63,6 +63,8 @@ export const roleLabels: Record<string, string> = {
   admin_toko: 'Admin Toko',
   sortir: 'Sortir',
   steam: 'Steam',
+  multi_role: 'Bonus Rangkap Role',
+  monthly_bonus: 'Bonus Target Omzet Bulanan',
 };
 
 export const roleBadgeColors: Record<string, string> = {

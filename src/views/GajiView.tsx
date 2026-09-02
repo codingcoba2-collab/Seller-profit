@@ -98,9 +98,16 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
       // 2. Insentif Per Role (Host, Admin Toko, Sortir, Steam)
       let totalIncentive = 0;
-      const incentiveBreakdowns: { role: UserRole; desc: string; amount: number }[] = [];
+      const incentiveBreakdowns: { role: UserRole | 'multi_role' | 'monthly_bonus'; desc: string; amount: number }[] = [];
 
       const filteredSales = allSales.filter(s => filterByPeriod(s.date));
+      const totalStoreOmzet = filteredSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+      const totalStorePackages = filteredSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+      const totalStorePcs = filteredSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+
+      // Track total packages & pcs for this employee
+      let empTotalPackages = 0;
+      let empTotalPcs = 0;
 
       emp.roles.forEach(role => {
         const config = emp.incentiveConfigs?.[role];
@@ -112,30 +119,41 @@ export const GajiView: React.FC<GajiViewProps> = ({
             s.hostNames?.some(hn => hn.toLowerCase().includes(emp.name.toLowerCase()))
           );
 
+          const hostPkgs = mySales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const hostPcs = mySales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          empTotalPackages += hostPkgs;
+          empTotalPcs += hostPcs;
+
+          // Check Tier Rule (Requirement 1 & 7)
+          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && hostPkgs >= config.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+
           if (config.type === 'per_pcs_sold') {
-            const pcs = mySales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-            const amount = pcs * (config.rate || 0);
+            const amount = hostPcs * effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: `${pcs} pcs terjual live x ${formatRupiah(config.rate)}`,
+              desc: isTierAchieved 
+                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${hostPcs} pcs x ${formatRupiah(effectiveRate)}`
+                : `${hostPcs} pcs terjual live x ${formatRupiah(effectiveRate)}`,
               amount,
             });
           } else if (config.type === 'per_package_sold') {
-            const pkgs = mySales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-            const amount = pkgs * (config.rate || 0);
+            const amount = hostPkgs * effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: `${pkgs} paket live x ${formatRupiah(config.rate)}`,
+              desc: isTierAchieved 
+                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${hostPkgs} paket x ${formatRupiah(effectiveRate)}`
+                : `${hostPkgs} paket live x ${formatRupiah(effectiveRate)}`,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
-            const amount = config.rate || 0;
+            const amount = effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'host',
-              desc: `Insentif Tetap Host`,
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat` : `Insentif Tetap Host`,
               amount,
             });
           }
@@ -147,30 +165,41 @@ export const GajiView: React.FC<GajiViewProps> = ({
             (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
           );
 
+          const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const adminPcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          empTotalPackages += adminPkgs;
+          empTotalPcs += adminPcs;
+
+          // Check Tier Rule for Admin Toko
+          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && adminPkgs >= config.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+
           if (config.type === 'per_package_sold') {
-            const pkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-            const amount = pkgs * (config.rate || 0);
+            const amount = adminPkgs * effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: `${pkgs} paket dicatat & dipacking saat live x ${formatRupiah(config.rate)}`,
+              desc: isTierAchieved
+                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${adminPkgs} paket dicatat x ${formatRupiah(effectiveRate)}`
+                : `${adminPkgs} paket dicatat & dipacking saat live x ${formatRupiah(effectiveRate)}`,
               amount,
             });
           } else if (config.type === 'per_pcs_sold') {
-            const pcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-            const amount = pcs * (config.rate || 0);
+            const amount = adminPcs * effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: `${pcs} pcs dicatat x ${formatRupiah(config.rate)}`,
+              desc: isTierAchieved
+                ? `✨ Target Tier Tercapai (≥ ${config.tierThresholdPackages} paket): ${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`
+                : `${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`,
               amount,
             });
           } else if (config.type === 'fixed_amount') {
-            const amount = config.rate || 0;
+            const amount = effectiveRate;
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
-              desc: `Insentif Tetap Admin Toko`,
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
               amount,
             });
           }
@@ -194,6 +223,63 @@ export const GajiView: React.FC<GajiViewProps> = ({
           }
         }
       });
+
+      // 3. Req 2 & 8: Bonus Rangkap Role Penjualan Paket
+      if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
+        const rule = emp.multiRoleSalesRule;
+        const evaluatedPackages = empTotalPackages > 0 ? empTotalPackages : totalStorePackages;
+        const evaluatedPcs = empTotalPcs > 0 ? empTotalPcs : totalStorePcs;
+
+        if (evaluatedPackages >= (rule.thresholdPackages || 0)) {
+          let bonusAmount = 0;
+          let bonusLabel = '';
+
+          if (rule.benefitType === 'bonus_per_package') {
+            bonusAmount = evaluatedPackages * (rule.benefitValue || 0);
+            bonusLabel = `Bonus Rangkap Role (${evaluatedPackages} paket x ${formatRupiah(rule.benefitValue)})`;
+          } else if (rule.benefitType === 'bonus_per_pcs') {
+            bonusAmount = evaluatedPcs * (rule.benefitValue || 0);
+            bonusLabel = `Bonus Rangkap Role (${evaluatedPcs} pcs x ${formatRupiah(rule.benefitValue)})`;
+          } else if (rule.benefitType === 'hourly_rate_override') {
+            bonusAmount = totalHours * (rule.benefitValue || 0);
+            bonusLabel = `Kenaikan Gaji Pokok Rangkap Role (${totalHours} jam x ${formatRupiah(rule.benefitValue)})`;
+          } else {
+            bonusAmount = rule.benefitValue || 0;
+            bonusLabel = `Bonus Tetap Rangkap Role (Tembus ${rule.thresholdPackages} paket)`;
+          }
+
+          if (bonusAmount > 0) {
+            totalIncentive += bonusAmount;
+            incentiveBreakdowns.push({
+              role: 'multi_role',
+              desc: `🎁 ${bonusLabel} (Target: $\ge$ ${rule.thresholdPackages} paket)`,
+              amount: bonusAmount,
+            });
+          }
+        }
+      }
+
+      // 4. Req 4 & 9: Bonus Bulanan Pencapaian Target Omzet Toko
+      if (emp.monthlyOmzetBonusRule?.active) {
+        const omzetRule = emp.monthlyOmzetBonusRule;
+        if (totalStoreOmzet >= (omzetRule.targetOmzet || 0)) {
+          let omzetBonusAmount = 0;
+          if (omzetRule.bonusType === 'percentage') {
+            omzetBonusAmount = Math.round(((omzetRule.bonusValue || 0) / 100) * totalStoreOmzet);
+          } else {
+            omzetBonusAmount = omzetRule.bonusValue || 0;
+          }
+
+          if (omzetBonusAmount > 0) {
+            totalIncentive += omzetBonusAmount;
+            incentiveBreakdowns.push({
+              role: 'monthly_bonus',
+              desc: `🏆 Bonus Capai Target Omzet Toko (Omzet ${formatRupiah(totalStoreOmzet)} ≥ Target ${formatRupiah(omzetRule.targetOmzet)}) - ${omzetRule.bonusType === 'percentage' ? `${omzetRule.bonusValue}%` : 'Flat'}`,
+              amount: omzetBonusAmount,
+            });
+          }
+        }
+      }
 
       return {
         emp,

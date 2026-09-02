@@ -12,9 +12,11 @@ import {
   Smartphone,
   Settings,
   RefreshCw,
-  Cloud
+  Cloud,
+  DownloadCloud
 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { UpdateAppModal } from './UpdateAppModal';
 
 interface NavbarProps {
   currentUser: CurrentUser;
@@ -34,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNotify,
 }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const stockInfo = StorageService.calculateStock(currentUser.storeId);
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
@@ -197,6 +200,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
+              {/* Update App Button (Req: Menu Update Aplikasi tanpa uninstall) */}
+              <button
+                id="btn-update-app"
+                onClick={() => setShowUpdateModal(true)}
+                className="p-2 rounded-xl text-zinc-300 hover:text-[#25F4EE] bg-white/5 hover:bg-[#25F4EE]/10 border border-white/10 transition cursor-pointer flex items-center gap-1.5"
+                title="Pembaruan Aplikasi (Update)"
+              >
+                <DownloadCloud className="w-4 h-4 text-[#25F4EE]" />
+                <span className="hidden md:inline text-[11px] font-bold text-zinc-300">Update</span>
+              </button>
+
               {/* Owner Settings / Gear Icon for Password Change */}
               {currentUser.isOwner && (
                 <button
@@ -228,6 +242,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
         currentUser={currentUser}
+        onNotify={onNotify}
+      />
+
+      {/* Update App Modal */}
+      <UpdateAppModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
         onNotify={onNotify}
       />
     </>

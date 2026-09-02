@@ -95,33 +95,40 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       .filter(c => c.type === 'outflow')
       .reduce((acc, c) => acc + c.amount, 0);
 
-    // 3. Total Beban Gaji & Insentif Pegawai di periode ini
+    // 3. Total Beban Gaji & Insentif Pegawai Operasional di periode ini (Sortir & Steam tidak masuk pengeluaran operasional karena sudah masuk HPP Final)
     let totalBebanGaji = 0;
     employees.forEach(emp => {
       const empAtt = filteredAttendance.filter(a => a.employeeId === emp.id || a.employeeName === emp.name);
       empAtt.forEach(att => {
-        if (emp.salaryType === 'hourly') {
-          totalBebanGaji += (att.hoursWorked || 0) * emp.salaryRate;
-        } else {
-          totalBebanGaji += emp.salaryRate;
+        // Biaya shift sortir dan steam dialokasikan ke HPP Final barang, bukan beban gaji operasional
+        const isSortirOrSteamAttendance = att.role === 'sortir' || att.role === 'steam' || (!att.role && emp.roles.length === 1 && (emp.roles[0] === 'sortir' || emp.roles[0] === 'steam'));
+        if (!isSortirOrSteamAttendance) {
+          if (emp.salaryType === 'hourly') {
+            totalBebanGaji += (att.hoursWorked || 0) * emp.salaryRate;
+          } else {
+            totalBebanGaji += emp.salaryRate;
+          }
         }
       });
 
-      // Role-specific incentives
+      // Role-specific incentives (Host, Admin Toko)
       emp.roles.forEach(r => {
         const cfg = emp.incentiveConfigs?.[r];
         if (!cfg || cfg.type === 'none') return;
 
         if (r === 'host') {
           const hostSales = filteredSales.filter(s => s.hostIds?.includes(emp.id) || s.hostNames?.some(hn => hn.toLowerCase().includes(emp.name.toLowerCase())));
+          const hostPkgs = hostSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const hostPcs = hostSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          const isTierAchieved = Boolean(cfg.hasTierRule && cfg.tierThresholdPackages && hostPkgs >= cfg.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && cfg.tierRate ? cfg.tierRate : (cfg.rate || 0);
+
           if (cfg.type === 'per_pcs_sold') {
-            const pcs = hostSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-            totalBebanGaji += pcs * (cfg.rate || 0);
+            totalBebanGaji += hostPcs * effectiveRate;
           } else if (cfg.type === 'per_package_sold') {
-            const pkgs = hostSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-            totalBebanGaji += pkgs * (cfg.rate || 0);
+            totalBebanGaji += hostPkgs * effectiveRate;
           } else if (cfg.type === 'fixed_amount') {
-            totalBebanGaji += cfg.rate || 0;
+            totalBebanGaji += effectiveRate;
           }
         } else if (r === 'admin_toko') {
           const adminSales = filteredSales.filter(s => 
@@ -130,17 +137,43 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             s.adminNames?.some(an => an.toLowerCase().includes(emp.name.toLowerCase())) ||
             (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
           );
+          const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const adminPcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          const isTierAchieved = Boolean(cfg.hasTierRule && cfg.tierThresholdPackages && adminPkgs >= cfg.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && cfg.tierRate ? cfg.tierRate : (cfg.rate || 0);
+
           if (cfg.type === 'per_package_sold') {
-            const pkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-            totalBebanGaji += pkgs * (cfg.rate || 0);
+            totalBebanGaji += adminPkgs * effectiveRate;
           } else if (cfg.type === 'per_pcs_sold') {
-            const pcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-            totalBebanGaji += pcs * (cfg.rate || 0);
+            totalBebanGaji += adminPcs * effectiveRate;
           } else if (cfg.type === 'fixed_amount') {
-            totalBebanGaji += cfg.rate || 0;
+            totalBebanGaji += effectiveRate;
           }
         }
       });
+
+      // Bonus Rangkap Role
+      if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
+        const rule = emp.multiRoleSalesRule;
+        if (totalPaketTerjual >= rule.thresholdPackages) {
+          if (rule.benefitType === 'bonus_per_package') {
+            totalBebanGaji += totalPaketTerjual * (rule.benefitValue || 0);
+          } else if (rule.benefitType === 'bonus_per_pcs') {
+            totalBebanGaji += totalIsiTerjual * (rule.benefitValue || 0);
+          } else {
+            totalBebanGaji += (rule.benefitValue || 0);
+          }
+        }
+      }
+
+      // Bonus Target Omzet Bulanan
+      if (emp.monthlyOmzetBonusRule?.active && totalOmzetKotor >= emp.monthlyOmzetBonusRule.targetOmzet) {
+        if (emp.monthlyOmzetBonusRule.bonusType === 'percentage') {
+          totalBebanGaji += Math.round(((emp.monthlyOmzetBonusRule.bonusValue || 0) / 100) * totalOmzetKotor);
+        } else {
+          totalBebanGaji += emp.monthlyOmzetBonusRule.bonusValue || 0;
+        }
+      }
     });
 
     // 4. Laba Bersih Akhir = Laba Kotor - Pengeluaran Operasional - Beban Gaji & Insentif

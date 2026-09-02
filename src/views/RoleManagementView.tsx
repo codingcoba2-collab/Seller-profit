@@ -43,20 +43,37 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [salaryType, setSalaryType] = useState<SalaryType>('hourly');
   const [salaryRate, setSalaryRate] = useState<number>(30000);
 
-  // Incentive configs mapped per role
+  // Incentive configs mapped per role with Tier support
   const [incentiveMap, setIncentiveMap] = useState<{
     [key in UserRole]?: {
       type: IncentiveType;
       rate: number;
       description: string;
+      hasTierRule?: boolean;
+      tierThresholdPackages?: number;
+      tierRate?: number;
     }
   }>({
-    host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual' },
-    admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket' },
+    host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 50, tierRate: 1500 },
+    admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 80, tierRate: 800 },
     sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
     steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
     owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
   });
+
+  // Multi-Role Sales Bonus Rule State (Requirement 2 & 8)
+  const [multiRoleActive, setMultiRoleActive] = useState(false);
+  const [multiRoleThreshold, setMultiRoleThreshold] = useState<number>(100);
+  const [multiRoleBenefitType, setMultiRoleBenefitType] = useState<'bonus_per_package' | 'bonus_per_pcs' | 'hourly_rate_override' | 'fixed_amount'>('bonus_per_package');
+  const [multiRoleBenefitValue, setMultiRoleBenefitValue] = useState<number>(500);
+  const [multiRoleDesc, setMultiRoleDesc] = useState('Bonus tambahan rangkap role saat capai target penjualan');
+
+  // Monthly Omzet Bonus Rule State (Requirement 4 & 9)
+  const [monthlyBonusActive, setMonthlyBonusActive] = useState(false);
+  const [monthlyTargetOmzet, setMonthlyTargetOmzet] = useState<number>(100000000);
+  const [monthlyBonusType, setMonthlyBonusType] = useState<'percentage' | 'fixed'>('percentage');
+  const [monthlyBonusValue, setMonthlyBonusValue] = useState<number>(1.0);
+  const [monthlyBonusDesc, setMonthlyBonusDesc] = useState('Bonus pencapaian omzet bulanan toko');
 
   const loadData = () => {
     const list = StorageService.getEmployees(currentUser.storeId);
@@ -80,16 +97,25 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     role: UserRole,
     type: IncentiveType,
     rate?: number,
-    description?: string
+    description?: string,
+    hasTierRule?: boolean,
+    tierThresholdPackages?: number,
+    tierRate?: number
   ) => {
-    setIncentiveMap(prev => ({
-      ...prev,
-      [role]: {
-        type,
-        rate: rate !== undefined ? rate : (prev[role]?.rate || 0),
-        description: description !== undefined ? description : (prev[role]?.description || ''),
-      }
-    }));
+    setIncentiveMap(prev => {
+      const cur = prev[role] || { type: 'none', rate: 0, description: '' };
+      return {
+        ...prev,
+        [role]: {
+          type,
+          rate: rate !== undefined ? rate : cur.rate,
+          description: description !== undefined ? description : cur.description,
+          hasTierRule: hasTierRule !== undefined ? hasTierRule : cur.hasTierRule,
+          tierThresholdPackages: tierThresholdPackages !== undefined ? tierThresholdPackages : (cur.tierThresholdPackages || 50),
+          tierRate: tierRate !== undefined ? tierRate : (cur.tierRate || (rate !== undefined ? Math.round(rate * 1.5) : cur.rate)),
+        }
+      };
+    });
   };
 
   const resetForm = () => {
@@ -100,6 +126,23 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setSelectedRoles(['host']);
     setSalaryType('hourly');
     setSalaryRate(30000);
+    setIncentiveMap({
+      host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 50, tierRate: 1500 },
+      admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 80, tierRate: 800 },
+      sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
+      steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
+      owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
+    });
+    setMultiRoleActive(false);
+    setMultiRoleThreshold(100);
+    setMultiRoleBenefitType('bonus_per_package');
+    setMultiRoleBenefitValue(500);
+    setMultiRoleDesc('Bonus tambahan rangkap role saat capai target penjualan');
+    setMonthlyBonusActive(false);
+    setMonthlyTargetOmzet(100000000);
+    setMonthlyBonusType('percentage');
+    setMonthlyBonusValue(1.0);
+    setMonthlyBonusDesc('Bonus pencapaian omzet bulanan toko');
   };
 
   const handleEdit = (emp: Employee) => {
@@ -116,6 +159,27 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
         ...emp.incentiveConfigs,
       }));
     }
+
+    if (emp.multiRoleSalesRule) {
+      setMultiRoleActive(emp.multiRoleSalesRule.active);
+      setMultiRoleThreshold(emp.multiRoleSalesRule.thresholdPackages || 100);
+      setMultiRoleBenefitType((emp.multiRoleSalesRule.benefitType as any) || 'bonus_per_package');
+      setMultiRoleBenefitValue(emp.multiRoleSalesRule.benefitValue || 500);
+      setMultiRoleDesc(emp.multiRoleSalesRule.description || 'Bonus rangkap role penjualan paket');
+    } else {
+      setMultiRoleActive(false);
+    }
+
+    if (emp.monthlyOmzetBonusRule) {
+      setMonthlyBonusActive(emp.monthlyOmzetBonusRule.active);
+      setMonthlyTargetOmzet(emp.monthlyOmzetBonusRule.targetOmzet || 100000000);
+      setMonthlyBonusType(emp.monthlyOmzetBonusRule.bonusType || 'percentage');
+      setMonthlyBonusValue(emp.monthlyOmzetBonusRule.bonusValue || 1.0);
+      setMonthlyBonusDesc(emp.monthlyOmzetBonusRule.description || 'Bonus pencapaian omzet bulanan');
+    } else {
+      setMonthlyBonusActive(false);
+    }
+
     setSubTab('input'); // Switch to input form smoothly (Requirement 7)
   };
 
@@ -148,6 +212,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
         type: cfg.type,
         rate: cfg.type === 'none' ? 0 : cfg.rate,
         description: cfg.description,
+        hasTierRule: Boolean(cfg.hasTierRule),
+        tierThresholdPackages: cfg.hasTierRule ? (Number(cfg.tierThresholdPackages) || 0) : undefined,
+        tierRate: cfg.hasTierRule ? (Number(cfg.tierRate) || 0) : undefined,
       };
     });
 
@@ -162,6 +229,20 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       salaryRate,
       isActive: true,
       incentiveConfigs: formattedIncentiveConfigs,
+      multiRoleSalesRule: {
+        active: multiRoleActive,
+        thresholdPackages: multiRoleThreshold,
+        benefitType: multiRoleBenefitType,
+        benefitValue: multiRoleBenefitValue,
+        description: multiRoleDesc,
+      },
+      monthlyOmzetBonusRule: {
+        active: monthlyBonusActive,
+        targetOmzet: monthlyTargetOmzet,
+        bonusType: monthlyBonusType,
+        bonusValue: monthlyBonusValue,
+        description: monthlyBonusDesc,
+      },
       createdAt: new Date().toISOString(),
     };
 
@@ -338,25 +419,33 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             </div>
 
             {/* Pengaturan Insentif Per Role */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-zinc-300">
-                Pengaturan Insentif Per Role Terpilih
-              </h4>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Pengaturan Insentif Per Role Terpilih</span>
+                </h4>
+              </div>
 
               {selectedRoles.map(role => {
                 const config = incentiveMap[role] || { type: 'none', rate: 0, description: '' };
+                const isHostOrAdmin = role === 'host' || role === 'admin_toko';
+
                 return (
-                  <div key={role} className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white">
-                        Insentif Role: <span className="text-[#25F4EE]">{roleLabels[role]}</span>
+                  <div key={role} className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                      <span className="text-xs font-black text-white flex items-center gap-2">
+                        <span>Insentif Role:</span>
+                        <span className="text-[#25F4EE] bg-[#25F4EE]/10 px-2 py-0.5 rounded-lg border border-[#25F4EE]/30">
+                          {roleLabels[role]}
+                        </span>
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                          Tipe Insentif
+                          Tipe Insentif Dasar
                         </label>
                         <select
                           value={config.type}
@@ -386,7 +475,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       {config.type !== 'none' && (
                         <div>
                           <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                            Nominal Insentif (Rp)
+                            Tarif Insentif Dasar (Rp)
                           </label>
                           <CommaNumberInput
                             value={config.rate}
@@ -396,9 +485,248 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Req 1: Skema Insentif Berjenjang / Tier Rule */}
+                    {config.type !== 'none' && isHostOrAdmin && (
+                      <div className="pt-3 border-t border-white/5 space-y-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(config.hasTierRule)}
+                            onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, e.target.checked)}
+                            className="w-4 h-4 rounded accent-[#25F4EE]"
+                          />
+                          <span className="text-xs font-bold text-[#25F4EE]">
+                            Aktifkan Skema Insentif Berjenjang (Tier Target Penjualan)
+                          </span>
+                        </label>
+
+                        {config.hasTierRule && (
+                          <div className="p-3.5 rounded-xl bg-[#161823] border border-[#25F4EE]/30 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                Target Minimal Paket Penjualan (Paket)
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={config.tierThresholdPackages || 50}
+                                onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
+                                placeholder="Contoh: 50"
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                              />
+                              <span className="text-[10px] text-zinc-500 mt-1 block">
+                                Jika sesi live tembus $\ge$ target ini, tarif insentif otomatis naik.
+                              </span>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                Tarif Insentif Baru / Naik (Rp)
+                              </label>
+                              <CommaNumberInput
+                                value={config.tierRate || Math.round(config.rate * 1.5)}
+                                onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, val)}
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
+                              />
+                              <span className="text-[10px] text-zinc-500 mt-1 block">
+                                Nominal baru yang diterima per pcs / paket saat mencapai target.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+
+            {/* Req 2: Pengaturan Bonus Rangkap Role Penjualan Paket */}
+            {selectedRoles.length > 1 && (
+              <div className="p-5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/40">
+                      Multi-Role Rule
+                    </span>
+                    <h4 className="text-xs font-black text-white">
+                      Bonus Rangkap Role Penjualan Paket
+                    </h4>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={multiRoleActive}
+                      onChange={e => setMultiRoleActive(e.target.checked)}
+                      className="w-4 h-4 rounded accent-purple-400"
+                    />
+                    <span className="text-xs font-bold text-purple-300">
+                      {multiRoleActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-zinc-400">
+                  Pegawai ini merangkap {selectedRoles.length} role ({selectedRoles.map(r => roleLabels[r]).join(', ')}). Atur kompensasi tambahan jika total paket penjualan toko/sesi menembus target.
+                </p>
+
+                {multiRoleActive && (
+                  <div className="space-y-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                          Target Penjualan Paket
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={multiRoleThreshold}
+                          onChange={e => setMultiRoleThreshold(Number(e.target.value))}
+                          placeholder="Contoh: 100"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-purple-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                          Bentuk Tambahan Benefit
+                        </label>
+                        <select
+                          value={multiRoleBenefitType}
+                          onChange={e => setMultiRoleBenefitType(e.target.value as any)}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-purple-400"
+                        >
+                          <option value="bonus_per_package">Tambahan Bonus Per Paket</option>
+                          <option value="bonus_per_pcs">Tambahan Bonus Per Pcs</option>
+                          <option value="hourly_rate_override">Kenaikan Gaji Pokok (Per Jam/Shift)</option>
+                          <option value="fixed_amount">Bonus Pasti Nominal Tetap (Flat)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                          Nominal Benefit (Rp)
+                        </label>
+                        <CommaNumberInput
+                          value={multiRoleBenefitValue}
+                          onChange={setMultiRoleBenefitValue}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-purple-300 font-bold focus:border-purple-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                        Keterangan Aturan Rangkap Role
+                      </label>
+                      <input
+                        type="text"
+                        value={multiRoleDesc}
+                        onChange={e => setMultiRoleDesc(e.target.value)}
+                        placeholder="Contoh: Bonus rangkap host & admin toko saat tembus 100 paket"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white focus:border-purple-400"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Req 4: Pengaturan Target Omzet & Bonus Bulanan Toko */}
+            <div className="p-5 rounded-2xl bg-[#0b0c10] border border-amber-500/30 space-y-4">
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40">
+                    Monthly Target
+                  </span>
+                  <h4 className="text-xs font-black text-white">
+                    Bonus Bulanan Pencapaian Target Omzet Toko
+                  </h4>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={monthlyBonusActive}
+                    onChange={e => setMonthlyBonusActive(e.target.checked)}
+                    className="w-4 h-4 rounded accent-amber-400"
+                  />
+                  <span className="text-xs font-bold text-amber-300">
+                    {monthlyBonusActive ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </label>
+              </div>
+
+              <p className="text-[11px] text-zinc-400">
+                Berikan apresiasi bonus akhir bulan kepada pegawai jika omzet kotor toko dalam bulan berjalan mencapai atau melampaui target tertentu.
+              </p>
+
+              {monthlyBonusActive && (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                        Target Omzet Toko (Rp)
+                      </label>
+                      <CommaNumberInput
+                        value={monthlyTargetOmzet}
+                        onChange={setMonthlyTargetOmzet}
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                        Tipe Perhitungan Bonus
+                      </label>
+                      <select
+                        value={monthlyBonusType}
+                        onChange={e => setMonthlyBonusType(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-amber-400"
+                      >
+                        <option value="percentage">Persentase Omzet Kotor (%)</option>
+                        <option value="fixed">Nominal Pasti Tetap (Rp)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                        {monthlyBonusType === 'percentage' ? 'Besar Bonus (%)' : 'Besar Bonus (Rp)'}
+                      </label>
+                      {monthlyBonusType === 'percentage' ? (
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="100"
+                          value={monthlyBonusValue}
+                          onChange={e => setMonthlyBonusValue(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
+                        />
+                      ) : (
+                        <CommaNumberInput
+                          value={monthlyBonusValue}
+                          onChange={setMonthlyBonusValue}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                      Keterangan Bonus Bulanan
+                    </label>
+                    <input
+                      type="text"
+                      value={monthlyBonusDesc}
+                      onChange={e => setMonthlyBonusDesc(e.target.value)}
+                      placeholder="Contoh: Bonus target omzet bulanan toko tembus 100jt"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -461,10 +789,37 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                           {roleLabels[r]}
                         </span>
                       ))}
+
+                      {/* Tier badge if exists */}
+                      {Object.values(emp.incentiveConfigs || {}).some(c => Boolean((c as IncentiveConfig)?.hasTierRule)) && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/40">
+                          ✨ Tier Insentif Aktif
+                        </span>
+                      )}
+
+                      {/* Multi-role badge */}
+                      {emp.multiRoleSalesRule?.active && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                          🎁 Bonus Rangkap Role
+                        </span>
+                      )}
+
+                      {/* Monthly target badge */}
+                      {emp.monthlyOmzetBonusRule?.active && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          🏆 Bonus Target Omzet
+                        </span>
+                      )}
                     </div>
 
-                    <div className="text-xs text-zinc-400">
-                      Gaji Pokok: <strong className="text-zinc-200">{formatRupiah(emp.salaryRate)}</strong> / {emp.salaryType === 'hourly' ? 'Jam' : 'Hari'}
+                    <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>Gaji Pokok: <strong className="text-zinc-200">{formatRupiah(emp.salaryRate)}</strong> / {emp.salaryType === 'hourly' ? 'Jam' : 'Hari'}</span>
+                      {emp.multiRoleSalesRule?.active && (
+                        <span>• Target Rangkap: $\ge$ {emp.multiRoleSalesRule.thresholdPackages} paket</span>
+                      )}
+                      {emp.monthlyOmzetBonusRule?.active && (
+                        <span>• Target Omzet: {formatRupiah(emp.monthlyOmzetBonusRule.targetOmzet)}</span>
+                      )}
                     </div>
                   </div>
 
