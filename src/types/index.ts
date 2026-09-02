@@ -96,7 +96,8 @@ export interface AttendanceRecord {
   date: string;
   employeeId: string;
   employeeName: string;
-  role: UserRole;
+  role: UserRole | string; // Can be single role or combined roles like 'host,admin_toko' or 'steam,sortir'
+  rolesExecuted?: UserRole[];
   salaryType: SalaryType;
   hoursWorked: number; // if hourly, e.g. 4.5 hours; if daily: 1 shift
   notes?: string;

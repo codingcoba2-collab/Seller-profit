@@ -34,7 +34,7 @@ export const CommaNumberInput: React.FC<CommaNumberInputProps> = ({
     if (value === 0 && displayValue === '') return;
     const currentParsed = parseInputComma(displayValue);
     if (currentParsed !== value) {
-      setDisplayValue(value ? formatInputComma(value) : '');
+      setDisplayValue(value && value !== 0 ? formatInputComma(value) : '');
     }
   }, [value]);
 
@@ -44,6 +44,10 @@ export const CommaNumberInput: React.FC<CommaNumberInputProps> = ({
     setDisplayValue(formatted);
     const parsed = parseInputComma(formatted);
     onChange(parsed);
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
   };
 
   return (
@@ -59,6 +63,7 @@ export const CommaNumberInput: React.FC<CommaNumberInputProps> = ({
         inputMode="numeric"
         value={displayValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         placeholder={placeholder}
         disabled={disabled}
         required={required}

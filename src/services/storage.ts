@@ -817,7 +817,7 @@ export class StorageService {
     };
   }
 
-  static calculateHPP(storeId: string): {
+  static calculateHPP(storeId: string, filterDateFn?: (date: string) => boolean): {
     totalModalBeli: number;
     totalOngkir: number;
     totalBiayaSteam: number;
@@ -828,10 +828,16 @@ export class StorageService {
     totalPcs: number;
     weightedAverageHpp: number;
   } {
-    const inventory = this.getInventory(storeId);
-    const steamSortirLogs = this.getSteamSortir(storeId);
-    const attendance = this.getAttendance(storeId);
+    let inventory = this.getInventory(storeId);
+    let steamSortirLogs = this.getSteamSortir(storeId);
+    let attendance = this.getAttendance(storeId);
     const employees = this.getEmployees(storeId);
+
+    if (filterDateFn) {
+      inventory = inventory.filter(i => filterDateFn(i.date));
+      steamSortirLogs = steamSortirLogs.filter(s => filterDateFn(s.date));
+      attendance = attendance.filter(a => filterDateFn(a.date));
+    }
 
     const totalModalBeli = inventory.reduce((acc, i) => acc + (i.modalPrice || 0), 0);
     const totalOngkir = inventory.reduce((acc, i) => acc + (i.shippingCost || 0), 0);
@@ -846,27 +852,31 @@ export class StorageService {
       .filter(l => l.processType === 'sortir' || l.processType === 'sortir_dan_steam')
       .reduce((acc, l) => acc + (l.totalCost || 0), 0);
 
-    // Req 3: Hitung biaya kehadiran pekerja role sortir & steam sebagai penambah HPP Final
+    // Hitung biaya kehadiran pekerja role sortir & steam sebagai penambah HPP Final
     let totalBiayaSortirKehadiran = 0;
     let totalBiayaSteamKehadiran = 0;
 
     attendance.forEach(att => {
-      const emp = employees.find(e => e.id === att.employeeId || e.name === att.employeeName);
+      const emp = employees.find(e => e.id === att.employeeId || e.name?.toLowerCase() === att.employeeName?.toLowerCase());
       if (!emp) return;
 
       const salaryRate = emp.salaryRate || 0;
       const hoursWorked = att.hoursWorked || 0;
-      const shiftCost = emp.salaryType === 'hourly' ? hoursWorked * salaryRate : salaryRate;
+      const shiftCost = att.salaryType === 'hourly' || emp.salaryType === 'hourly'
+        ? hoursWorked * salaryRate
+        : salaryRate;
 
-      if (att.role === 'sortir' || emp.roles.includes('sortir')) {
-        if (att.role === 'sortir') {
-          totalBiayaSortirKehadiran += shiftCost;
-        }
-      }
-      if (att.role === 'steam' || emp.roles.includes('steam')) {
-        if (att.role === 'steam') {
-          totalBiayaSteamKehadiran += shiftCost;
-        }
+      const attRoleStr = (att.role || '').toLowerCase();
+      const isSortir = attRoleStr.includes('sortir') || (!att.role && emp.roles.includes('sortir'));
+      const isSteam = attRoleStr.includes('steam') || (!att.role && emp.roles.includes('steam'));
+
+      if (isSortir && isSteam) {
+        totalBiayaSortirKehadiran += Math.round(shiftCost / 2);
+        totalBiayaSteamKehadiran += Math.round(shiftCost / 2);
+      } else if (isSortir) {
+        totalBiayaSortirKehadiran += shiftCost;
+      } else if (isSteam) {
+        totalBiayaSteamKehadiran += shiftCost;
       }
     });
 
@@ -887,6 +897,230 @@ export class StorageService {
       totalBiayaModalDanJasa,
       totalPcs,
       weightedAverageHpp,
+    };
+  }
+
+  static calculateStorePayroll(storeId: string, filterDateFn?: (date: string) => boolean) {
+    const employees = this.getEmployees(storeId);
+    let attendance = this.getAttendance(storeId);
+    let sales = this.getSales(storeId);
+    let steamSortirLogs = this.getSteamSortir(storeId);
+
+    if (filterDateFn) {
+      attendance = attendance.filter(a => filterDateFn(a.date));
+      sales = sales.filter(s => filterDateFn(s.date));
+      steamSortirLogs = steamSortirLogs.filter(s => filterDateFn(s.date));
+    }
+
+    const totalStoreOmzet = sales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+    const totalStorePackages = sales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+    const totalStorePcs = sales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+
+    const employeeSalaries = employees.map(emp => {
+      const empAttendance = attendance.filter(a => a.employeeId === emp.id || a.employeeName?.toLowerCase() === emp.name.toLowerCase());
+      
+      let baseSalary = 0;
+      let hoursWorked = 0;
+      let daysPresent = 0;
+
+      empAttendance.forEach(att => {
+        const isHourly = att.salaryType === 'hourly' || emp.salaryType === 'hourly';
+        if (isHourly) {
+          const hrs = att.hoursWorked || 0;
+          hoursWorked += hrs;
+          baseSalary += hrs * (emp.salaryRate || 0);
+        } else {
+          daysPresent += 1;
+          baseSalary += (emp.salaryRate || 0);
+        }
+      });
+
+      let totalIncentives = 0;
+      const incentiveBreakdowns: { role: string; desc: string; amount: number }[] = [];
+      let empTotalPackages = 0;
+      let empTotalPcs = 0;
+
+      emp.roles.forEach(role => {
+        const config = emp.incentiveConfigs?.[role];
+        if (!config || config.type === 'none') return;
+
+        if (role === 'host') {
+          const mySales = sales.filter(s => 
+            s.hostIds?.includes(emp.id) || 
+            s.hostNames?.some(hn => hn.toLowerCase().includes(emp.name.toLowerCase()))
+          );
+          const hostPkgs = mySales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const hostPcs = mySales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          empTotalPackages += hostPkgs;
+          empTotalPcs += hostPcs;
+
+          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && hostPkgs >= config.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+
+          if (config.type === 'per_pcs_sold') {
+            const amount = hostPcs * effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'host',
+              desc: isTierAchieved 
+                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${hostPcs} pcs x Rp ${effectiveRate.toLocaleString('id-ID')}`
+                : `${hostPcs} pcs terjual live x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              amount,
+            });
+          } else if (config.type === 'per_package_sold') {
+            const amount = hostPkgs * effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'host',
+              desc: isTierAchieved 
+                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${hostPkgs} paket x Rp ${effectiveRate.toLocaleString('id-ID')}`
+                : `${hostPkgs} paket live x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              amount,
+            });
+          } else if (config.type === 'fixed_amount') {
+            const amount = effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'host',
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat` : `Insentif Tetap Host`,
+              amount,
+            });
+          }
+        } else if (role === 'admin_toko') {
+          const adminSales = sales.filter(s => 
+            s.adminIds?.includes(emp.id) || 
+            s.adminId === emp.id || 
+            s.adminNames?.some(an => an.toLowerCase().includes(emp.name.toLowerCase())) ||
+            (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
+          );
+          const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+          const adminPcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+          empTotalPackages += adminPkgs;
+          empTotalPcs += adminPcs;
+
+          const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && adminPkgs >= config.tierThresholdPackages);
+          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+
+          if (config.type === 'per_package_sold') {
+            const amount = adminPkgs * effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'admin_toko',
+              desc: isTierAchieved
+                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${adminPkgs} paket dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`
+                : `${adminPkgs} paket dicatat & packing x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              amount,
+            });
+          } else if (config.type === 'per_pcs_sold') {
+            const amount = adminPcs * effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'admin_toko',
+              desc: isTierAchieved
+                ? `✨ Target Tier (≥ ${config.tierThresholdPackages} paket): ${adminPcs} pcs dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`
+                : `${adminPcs} pcs dicatat x Rp ${effectiveRate.toLocaleString('id-ID')}`,
+              amount,
+            });
+          } else if (config.type === 'fixed_amount') {
+            const amount = effectiveRate;
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role: 'admin_toko',
+              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
+              amount,
+            });
+          }
+        } else if (role === 'sortir' || role === 'steam') {
+          const workerLogs = steamSortirLogs.filter(log => {
+            const isMatchRole = log.processType === role || log.processType === 'sortir_dan_steam';
+            const isMatchEmp = log.employeeIds?.includes(emp.id) || 
+              log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
+            return isMatchRole && isMatchEmp;
+          });
+          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          if (config.type === 'per_ball_pcs') {
+            const amount = totalPcsWorked * (config.rate || 0);
+            totalIncentives += amount;
+            incentiveBreakdowns.push({
+              role,
+              desc: `${totalPcsWorked} pcs ${role} ball x Rp ${(config.rate || 0).toLocaleString('id-ID')}`,
+              amount,
+            });
+          }
+        }
+      });
+
+      // Bonus Rangkap Role Penjualan Paket
+      let multiRoleBonus = 0;
+      let multiRoleBonusDesc = '';
+      if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
+        const rule = emp.multiRoleSalesRule;
+        const evaluatedPackages = empTotalPackages > 0 ? empTotalPackages : totalStorePackages;
+        const evaluatedPcs = empTotalPcs > 0 ? empTotalPcs : totalStorePcs;
+
+        if (evaluatedPackages >= (rule.thresholdPackages || 0)) {
+          if (rule.benefitType === 'bonus_per_package') {
+            multiRoleBonus = evaluatedPackages * (rule.benefitValue || 0);
+            multiRoleBonusDesc = `Bonus Rangkap Role (${evaluatedPackages} paket x Rp ${(rule.benefitValue || 0).toLocaleString('id-ID')})`;
+          } else if (rule.benefitType === 'bonus_per_pcs') {
+            multiRoleBonus = evaluatedPcs * (rule.benefitValue || 0);
+            multiRoleBonusDesc = `Bonus Rangkap Role (${evaluatedPcs} pcs x Rp ${(rule.benefitValue || 0).toLocaleString('id-ID')})`;
+          } else if (rule.benefitType === 'hourly_rate_override') {
+            multiRoleBonus = hoursWorked * (rule.benefitValue || 0);
+            multiRoleBonusDesc = `Kenaikan Gaji Pokok Rangkap Role (${hoursWorked} jam x Rp ${(rule.benefitValue || 0).toLocaleString('id-ID')})`;
+          } else {
+            multiRoleBonus = rule.benefitValue || 0;
+            multiRoleBonusDesc = `Bonus Tetap Rangkap Role (Tembus ${rule.thresholdPackages} paket)`;
+          }
+        }
+      }
+
+      // Bonus Target Omzet Bulanan
+      let monthlyOmzetBonus = 0;
+      let monthlyOmzetBonusDesc = '';
+      if (emp.monthlyOmzetBonusRule?.active) {
+        const rule = emp.monthlyOmzetBonusRule;
+        if (totalStoreOmzet >= (rule.targetOmzet || 0)) {
+          if (rule.bonusType === 'percentage') {
+            monthlyOmzetBonus = Math.round(((rule.bonusValue || 0) / 100) * totalStoreOmzet);
+            monthlyOmzetBonusDesc = `Bonus Omzet Toko (${rule.bonusValue}% dari Rp ${totalStoreOmzet.toLocaleString('id-ID')})`;
+          } else {
+            monthlyOmzetBonus = rule.bonusValue || 0;
+            monthlyOmzetBonusDesc = `Bonus Target Omzet Bulanan (Tembus Target)`;
+          }
+        }
+      }
+
+      const totalTakeHomePay = baseSalary + totalIncentives + multiRoleBonus + monthlyOmzetBonus;
+
+      return {
+        employee: emp,
+        baseSalary,
+        hoursWorked,
+        daysPresent,
+        incentiveBreakdowns,
+        totalIncentives,
+        multiRoleBonus,
+        multiRoleBonusDesc,
+        monthlyOmzetBonus,
+        monthlyOmzetBonusDesc,
+        totalTakeHomePay,
+      };
+    });
+
+    const totalBaseSalary = employeeSalaries.reduce((acc, e) => acc + e.baseSalary, 0);
+    const totalIncentives = employeeSalaries.reduce((acc, e) => acc + e.totalIncentives, 0);
+    const totalMultiRoleBonus = employeeSalaries.reduce((acc, e) => acc + e.multiRoleBonus, 0);
+    const totalMonthlyBonus = employeeSalaries.reduce((acc, e) => acc + e.monthlyOmzetBonus, 0);
+    const totalPayroll = employeeSalaries.reduce((acc, e) => acc + e.totalTakeHomePay, 0);
+
+    return {
+      employeeSalaries,
+      totalBaseSalary,
+      totalIncentives,
+      totalMultiRoleBonus,
+      totalMonthlyBonus,
+      totalPayroll,
     };
   }
 

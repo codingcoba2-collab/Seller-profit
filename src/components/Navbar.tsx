@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'kehadiran': return 'Presensi & Kehadiran Shift';
       case 'penjualan': return 'Data Penjualan Host Live';
       case 'return': return 'Data Retur / Paket Return';
-      case 'iklan_koin': return 'Saldo Biaya Iklan & Koin';
+      case 'iklan_koin': return 'Saldo Biaya Iklan & Koin Live';
       case 'gaji': return 'Slip Gaji & Insentif';
       case 'laba_rugi': return 'Laporan Laba & Rugi Live';
       case 'cashflow': return 'Cashflow & Arus Kas';
@@ -122,9 +122,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </strong>
               </div>
 
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Koin Marketplace">
+              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Koin Live Marketplace">
                 <Coins className="w-3 h-3 text-amber-400" />
-                <span className="hidden xs:inline text-zinc-400">Koin:</span>
+                <span className="hidden xs:inline text-zinc-400">Koin Live:</span>
                 <strong className={`font-bold ${adsCoinInfo.remainingCoin <= 0 ? 'text-[#FE2C55]' : 'text-white'}`}>
                   Rp {formatNumber(adsCoinInfo.remainingCoin)}
                 </strong>

@@ -179,7 +179,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </button>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-white">
-              Saldo Iklan &amp; Koin Cashback Marketplace
+              Saldo Iklan &amp; Koin Live Marketplace
             </h2>
           </div>
         </div>
@@ -259,7 +259,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                 <Coins className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-sm text-white">Saldo Koin Cashback</h3>
+                <h3 className="font-black text-sm text-white">Saldo Koin Live</h3>
                 <span className="text-[11px] text-zinc-400">Koin Live Reward</span>
               </div>
             </div>
@@ -269,7 +269,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </div>
 
           <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-zinc-400">Sisa Saldo Koin:</div>
+            <div className="text-xs text-zinc-400">Sisa Saldo Koin Live:</div>
             <div className="text-2xl sm:text-3xl font-black mt-1 text-amber-400">
               {formatRupiah(adsCoinInfo.remainingCoin)}
             </div>
@@ -338,7 +338,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nominal Topup Koin Cashback (Rp)
+                  Nominal Topup Koin Live (Rp)
                 </label>
                 <CommaNumberInput
                   id="input-topup-coin"

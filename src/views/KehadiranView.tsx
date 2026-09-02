@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { AttendanceRecord, CurrentUser, Employee, UserRole, SalaryType } from '../types';
-import { formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors } from '../utils/formatters';
+import { formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors, formatAttendanceRole } from '../utils/formatters';
 import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
   CalendarCheck, 
@@ -13,7 +13,9 @@ import {
   Edit3, 
   ArrowLeft, 
   Filter, 
-  Search 
+  Search,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 interface KehadiranViewProps {
@@ -41,7 +43,8 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   // Form states
   const [date, setDate] = useState(getTodayString());
   const [selectedEmpId, setSelectedEmpId] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('host');
+  const [selectedRole, setSelectedRole] = useState<string>('host');
+  const [selectedRolesList, setSelectedRolesList] = useState<UserRole[]>([]);
   const [hoursWorked, setHoursWorked] = useState<number>(4);
   const [notes, setNotes] = useState('');
 
@@ -55,7 +58,8 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     if (empList.length > 0 && !selectedEmpId) {
       const matched = empList.find(e => e.id === currentUser.id) || empList[0];
       setSelectedEmpId(matched.id);
-      setSelectedRole(matched.roles[0] || 'host');
+      setSelectedRole(matched.roles.join(','));
+      setSelectedRolesList(matched.roles);
       setHoursWorked(matched.salaryType === 'hourly' ? 4 : 1);
     }
   };
@@ -70,9 +74,25 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     setSelectedEmpId(empId);
     const emp = employees.find(e => e.id === empId);
     if (emp) {
-      setSelectedRole(emp.roles[0] || 'host');
+      setSelectedRole(emp.roles.join(','));
+      setSelectedRolesList(emp.roles);
       setHoursWorked(emp.salaryType === 'hourly' ? 4 : 1);
     }
+  };
+
+  const handleToggleRoleCheckbox = (role: UserRole) => {
+    let nextRoles: UserRole[];
+    if (selectedRolesList.includes(role)) {
+      if (selectedRolesList.length === 1) {
+        onNotify('Minimal satu role harus dipilih!', 'info');
+        return;
+      }
+      nextRoles = selectedRolesList.filter(r => r !== role);
+    } else {
+      nextRoles = [...selectedRolesList, role];
+    }
+    setSelectedRolesList(nextRoles);
+    setSelectedRole(nextRoles.join(','));
   };
 
   const handleStartEdit = (att: AttendanceRecord) => {
@@ -80,9 +100,11 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     setDate(att.date);
     setSelectedEmpId(att.employeeId);
     setSelectedRole(att.role);
-    setHoursWorked(att.hoursWorked);
+    const splitRoles = (att.role || '').split(',').map(r => r.trim()).filter(Boolean) as UserRole[];
+    setSelectedRolesList(splitRoles.length > 0 ? splitRoles : ['host']);
+    setHoursWorked(att.hoursWorked || (att.salaryType === 'hourly' ? 4 : 1));
     setNotes(att.notes || '');
-    setSubTab('input'); // Switch to input form smoothly (Requirement 7)
+    setSubTab('input');
   };
 
   const handleCancelEdit = () => {
@@ -98,15 +120,18 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       return;
     }
 
+    const finalRoleStr = selectedRolesList.length > 0 ? selectedRolesList.join(',') : selectedRole;
+
     const record: AttendanceRecord = {
       id: editingId || 'att-' + Date.now(),
       storeId: currentUser.storeId,
       date,
       employeeId: currentEmp.id,
       employeeName: currentEmp.name,
-      role: selectedRole,
+      role: finalRoleStr,
+      rolesExecuted: selectedRolesList,
       salaryType: currentEmp.salaryType,
-      hoursWorked: currentEmp.salaryType === 'hourly' ? hoursWorked : 1,
+      hoursWorked: currentEmp.salaryType === 'hourly' ? (hoursWorked || 0) : 1,
       notes,
       createdAt: new Date().toISOString(),
     };
@@ -138,7 +163,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     }
   };
 
-  // Filter & sort list by date desc (Requirement 9)
+  // Filter & sort list by date desc
   const filteredList = attendanceList
     .filter(a => {
       if (searchQuery.trim()) {
@@ -161,7 +186,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without stage labels (Requirement 5 & 6) */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <button
@@ -173,33 +198,28 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                Presensi Kehadiran &amp; Jam Kerja
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Catatan kehadiran shift atau jam kerja per pegawai sebagai dasar perhitungan slip gaji
-            </p>
+            <h2 className="text-xl sm:text-2xl font-black text-white">
+              Presensi &amp; Kehadiran Shift Tim
+            </h2>
           </div>
         </div>
       </div>
 
-      {/* Sub Navigation (Requirement 7) */}
+      {/* Sub Navigation */}
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Presensi' : 'Input Absensi'}
-        outputTitle="Riwayat Presensi &amp; Jam Kerja"
+        inputTitle={editingId ? '✏️ Sedang Mengedit Presensi' : 'Form Presensi Kehadiran'}
+        outputTitle="Riwayat Presensi Tim"
       />
 
       {/* TAB 1: FORM INPUT / EDIT */}
       {subTab === 'input' && (
-        <div className="max-w-3xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+        <div className="max-w-2xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <h3 className="font-black text-white text-base flex items-center gap-2">
               {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <CalendarCheck className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Presensi Kehadiran' : 'Input Presensi Kehadiran Pegawai'}</span>
+              <span>{editingId ? 'Edit Presensi Kehadiran' : 'Catat Presensi Shift Tim'}</span>
             </h3>
             {editingId && (
               <button
@@ -212,7 +232,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
@@ -232,14 +252,13 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                   Pilih Pegawai <span className="text-[#FE2C55]">*</span>
                 </label>
                 <select
-                  required
                   value={selectedEmpId}
                   onChange={e => handleEmpChange(e.target.value)}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                 >
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.roles.join(', ')})
+                      {emp.name} ({emp.roles.map(r => roleLabels[r] || r).join(', ')})
                     </option>
                   ))}
                 </select>
@@ -247,44 +266,125 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             </div>
 
             {currentEmp && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Role yang Dijalankan
-                  </label>
-                  <select
-                    value={selectedRole}
-                    onChange={e => setSelectedRole(e.target.value as UserRole)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    {currentEmp.roles.map(r => (
-                      <option key={r} value={r}>
-                        {roleLabels[r]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-4">
+                {/* Role Execution Selector with Multi-Role support */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-[#25F4EE]" />
+                      <span>Role yang Dijalankan Hari Ini:</span>
+                    </label>
+                    {currentEmp.roles.length > 1 && (
+                      <span className="text-[10px] font-bold text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-md border border-purple-500/30">
+                        ✨ Pegawai Rangkap Role ({currentEmp.roles.length} Role)
+                      </span>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    {currentEmp.salaryType === 'hourly' ? 'Lama Kerja (Jam)' : 'Status Kehadiran'}
-                  </label>
-                  {currentEmp.salaryType === 'hourly' ? (
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0.5"
-                      max="24"
-                      required
-                      value={hoursWorked}
-                      onChange={e => setHoursWorked(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                    />
+                  {/* Multi-role interactive checkboxes if employee has multiple roles */}
+                  {currentEmp.roles.length > 1 ? (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-zinc-400">
+                        Centang satu atau beberapa role yang dikerjakan pegawai ini dalam shift / hari ini:
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {currentEmp.roles.map(r => {
+                          const isChecked = selectedRolesList.includes(r);
+                          return (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => handleToggleRoleCheckbox(r)}
+                              className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                                isChecked 
+                                  ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-sm' 
+                                  : 'bg-[#161823] border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] ${
+                                  isChecked ? 'bg-[#25F4EE] border-[#25F4EE] text-black font-black' : 'border-white/30'
+                                }`}>
+                                  {isChecked ? '✓' : ''}
+                                </span>
+                                <span>{roleLabels[r] || r}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Quick combo buttons */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                        <span className="text-zinc-500 text-[10px]">Pilihan Cepat:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRolesList(currentEmp.roles);
+                            setSelectedRole(currentEmp.roles.join(','));
+                          }}
+                          className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 font-bold text-[10px] transition cursor-pointer"
+                        >
+                          Semua Role ({currentEmp.roles.map(r => roleLabels[r] || r).join(' & ')})
+                        </button>
+                        {currentEmp.roles.map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRolesList([r]);
+                              setSelectedRole(r);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-white/5 text-zinc-300 hover:bg-white/10 border border-white/10 font-medium text-[10px] transition cursor-pointer"
+                          >
+                            Hanya {roleLabels[r]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <div className="px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold">
-                      1 Shift Harian Masuk
+                    <div className="px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#25F4EE]"></span>
+                      <span>{roleLabels[currentEmp.roles[0]] || currentEmp.roles[0]}</span>
                     </div>
                   )}
+                </div>
+
+                {/* Working Duration & Salary Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      {currentEmp.salaryType === 'hourly' ? 'Lama Kerja (Jam)' : 'Status Kehadiran'}
+                    </label>
+                    {currentEmp.salaryType === 'hourly' ? (
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        max="24"
+                        required
+                        value={hoursWorked === 0 ? '' : hoursWorked}
+                        onFocus={(e) => e.target.select()}
+                        onChange={e => setHoursWorked(e.target.value === '' ? 0 : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                      />
+                    ) : (
+                      <div className="px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold">
+                        1 Shift Harian Masuk
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Tipe &amp; Tarif Gaji Pokok
+                    </label>
+                    <div className="px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-zinc-300 font-medium">
+                      {currentEmp.salaryType === 'hourly' ? 'Per Jam: ' : 'Per Shift/Hari: '} 
+                      <strong className="text-white">Rp {(currentEmp.salaryRate || 0).toLocaleString('id-ID')}</strong>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -297,7 +397,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                 type="text"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Contoh: Sesi live siang 13:00 - 17:00"
+                placeholder="Contoh: Sesi live siang 13:00 - 17:00 & bantu sortir ball"
                 className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
               />
             </div>
@@ -354,7 +454,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             </button>
           </div>
 
-          {/* List of Attendance (Sorted by date desc) */}
+          {/* List of Attendance */}
           <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
             <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
               <h3 className="text-xs font-black text-white uppercase tracking-wider">
@@ -376,33 +476,42 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                           {item.employeeName}
                         </span>
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30">
-                          {roleLabels[item.role]}
+                          {formatAttendanceRole(item.role)}
                         </span>
-                        <span className="text-[11px] text-zinc-400 font-medium">
+                        <span className="text-[10px] text-zinc-400">
                           {formatDateIndo(item.date)}
                         </span>
                       </div>
 
-                      <div className="text-xs text-zinc-400">
-                        {item.salaryType === 'hourly' ? `${item.hoursWorked} Jam Kerja` : '1 Shift Harian'}
-                        {item.notes && <span className="text-zinc-500 italic ml-2">"{item.notes}"</span>}
+                      <div className="text-[11px] text-zinc-400 flex flex-wrap items-center gap-3">
+                        <span className="flex items-center gap-1 text-zinc-300">
+                          <Clock className="w-3 h-3 text-[#25F4EE]" />
+                          {item.salaryType === 'hourly' 
+                            ? `${formatNumber(item.hoursWorked)} Jam Kerja` 
+                            : '1 Shift Harian'}
+                        </span>
+                        {item.notes && (
+                          <span className="text-zinc-500">
+                            • Catatan: {item.notes}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 self-end sm:self-center">
+                    <div className="flex items-center gap-2 self-end sm:self-center">
                       <button
                         onClick={() => handleStartEdit(item)}
-                        className="p-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition cursor-pointer"
-                        title="Edit Presensi"
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
+                        title="Edit Data Presensi"
                       >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                        className="p-2 rounded-xl bg-[#FE2C55]/10 hover:bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/20 transition cursor-pointer"
                         title="Hapus Presensi"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

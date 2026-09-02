@@ -173,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'iklan_koin',
-      title: 'Saldo Iklan & Koin Marketplace',
+      title: 'Saldo Iklan & Koin Live',
       subtitle: 'Topup, Pemakaian & Sisa Saldo Ads',
       icon: Coins,
       iconColor: 'text-amber-400',
@@ -298,7 +298,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
-              <span>Sisa Saldo Koin</span>
+              <span>Sisa Saldo Koin Live</span>
               <Coins className="w-3.5 h-3.5 text-amber-400" />
             </div>
             <div className="text-base sm:text-lg font-black text-white mt-1">

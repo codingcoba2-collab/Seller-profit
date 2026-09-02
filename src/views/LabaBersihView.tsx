@@ -66,10 +66,11 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     const totalIklanTerpakai = filteredSales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
     const totalKoinTerpakai = filteredSales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
 
-    // HPP
-    const totalIsiBall = filteredInventory.reduce((acc, curr) => acc + (curr.pcsCount || 0), 0);
-    const totalHppPool = filteredInventory.reduce((acc, curr) => acc + (curr.hppPerPcs * curr.pcsCount), 0);
-    const averageHpp = totalIsiBall > 0 ? Math.round(totalHppPool / totalIsiBall) : 20000;
+    // HPP Final calculation using StorageService.calculateHPP
+    const hppData = StorageService.calculateHPP(currentUser.storeId, filterByPeriod);
+    const averageHpp = hppData.weightedAverageHpp > 0 
+      ? hppData.weightedAverageHpp 
+      : 20000;
     const modalBarangTerjual = totalIsiTerjual * averageHpp;
 
     // Shopee Deductions
@@ -95,86 +96,12 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       .filter(c => c.type === 'outflow')
       .reduce((acc, c) => acc + c.amount, 0);
 
-    // 3. Total Beban Gaji & Insentif Pegawai Operasional di periode ini (Sortir & Steam tidak masuk pengeluaran operasional karena sudah masuk HPP Final)
-    let totalBebanGaji = 0;
-    employees.forEach(emp => {
-      const empAtt = filteredAttendance.filter(a => a.employeeId === emp.id || a.employeeName === emp.name);
-      empAtt.forEach(att => {
-        // Biaya shift sortir dan steam dialokasikan ke HPP Final barang, bukan beban gaji operasional
-        const isSortirOrSteamAttendance = att.role === 'sortir' || att.role === 'steam' || (!att.role && emp.roles.length === 1 && (emp.roles[0] === 'sortir' || emp.roles[0] === 'steam'));
-        if (!isSortirOrSteamAttendance) {
-          if (emp.salaryType === 'hourly') {
-            totalBebanGaji += (att.hoursWorked || 0) * emp.salaryRate;
-          } else {
-            totalBebanGaji += emp.salaryRate;
-          }
-        }
-      });
-
-      // Role-specific incentives (Host, Admin Toko)
-      emp.roles.forEach(r => {
-        const cfg = emp.incentiveConfigs?.[r];
-        if (!cfg || cfg.type === 'none') return;
-
-        if (r === 'host') {
-          const hostSales = filteredSales.filter(s => s.hostIds?.includes(emp.id) || s.hostNames?.some(hn => hn.toLowerCase().includes(emp.name.toLowerCase())));
-          const hostPkgs = hostSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-          const hostPcs = hostSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-          const isTierAchieved = Boolean(cfg.hasTierRule && cfg.tierThresholdPackages && hostPkgs >= cfg.tierThresholdPackages);
-          const effectiveRate = isTierAchieved && cfg.tierRate ? cfg.tierRate : (cfg.rate || 0);
-
-          if (cfg.type === 'per_pcs_sold') {
-            totalBebanGaji += hostPcs * effectiveRate;
-          } else if (cfg.type === 'per_package_sold') {
-            totalBebanGaji += hostPkgs * effectiveRate;
-          } else if (cfg.type === 'fixed_amount') {
-            totalBebanGaji += effectiveRate;
-          }
-        } else if (r === 'admin_toko') {
-          const adminSales = filteredSales.filter(s => 
-            s.adminIds?.includes(emp.id) || 
-            s.adminId === emp.id || 
-            s.adminNames?.some(an => an.toLowerCase().includes(emp.name.toLowerCase())) ||
-            (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
-          );
-          const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-          const adminPcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-          const isTierAchieved = Boolean(cfg.hasTierRule && cfg.tierThresholdPackages && adminPkgs >= cfg.tierThresholdPackages);
-          const effectiveRate = isTierAchieved && cfg.tierRate ? cfg.tierRate : (cfg.rate || 0);
-
-          if (cfg.type === 'per_package_sold') {
-            totalBebanGaji += adminPkgs * effectiveRate;
-          } else if (cfg.type === 'per_pcs_sold') {
-            totalBebanGaji += adminPcs * effectiveRate;
-          } else if (cfg.type === 'fixed_amount') {
-            totalBebanGaji += effectiveRate;
-          }
-        }
-      });
-
-      // Bonus Rangkap Role
-      if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
-        const rule = emp.multiRoleSalesRule;
-        if (totalPaketTerjual >= rule.thresholdPackages) {
-          if (rule.benefitType === 'bonus_per_package') {
-            totalBebanGaji += totalPaketTerjual * (rule.benefitValue || 0);
-          } else if (rule.benefitType === 'bonus_per_pcs') {
-            totalBebanGaji += totalIsiTerjual * (rule.benefitValue || 0);
-          } else {
-            totalBebanGaji += (rule.benefitValue || 0);
-          }
-        }
-      }
-
-      // Bonus Target Omzet Bulanan
-      if (emp.monthlyOmzetBonusRule?.active && totalOmzetKotor >= emp.monthlyOmzetBonusRule.targetOmzet) {
-        if (emp.monthlyOmzetBonusRule.bonusType === 'percentage') {
-          totalBebanGaji += Math.round(((emp.monthlyOmzetBonusRule.bonusValue || 0) / 100) * totalOmzetKotor);
-        } else {
-          totalBebanGaji += emp.monthlyOmzetBonusRule.bonusValue || 0;
-        }
-      }
-    });
+    // 3. Total Beban Gaji & Insentif Tim using unified payroll calculation
+    const payrollData = StorageService.calculateStorePayroll(currentUser.storeId, filterByPeriod);
+    const totalBebanGaji = payrollData.totalPayroll;
+    const totalGajiPokok = payrollData.totalBaseSalary;
+    const totalInsentifLive = payrollData.totalIncentives;
+    const totalBonusTambahan = payrollData.totalMultiRoleBonus + payrollData.totalMonthlyBonus;
 
     // 4. Laba Bersih Akhir = Laba Kotor - Pengeluaran Operasional - Beban Gaji & Insentif
     const labaBersihAkhir = labaKotor - pengeluaranOperasional - totalBebanGaji;
@@ -185,10 +112,15 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       labaKotor,
       pengeluaranOperasional,
       totalBebanGaji,
+      totalGajiPokok,
+      totalInsentifLive,
+      totalBonusTambahan,
+      averageHpp,
+      modalBarangTerjual,
       labaBersihAkhir,
       profitMargin,
     };
-  }, [inventory, sales, returns, cashflows, attendance, employees, store, period, selectedDate]);
+  }, [inventory, sales, returns, cashflows, attendance, employees, store, period, selectedDate, currentUser.storeId]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
@@ -313,8 +245,65 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             {formatRupiah(report.totalBebanGaji)}
           </div>
           <p className="text-[11px] text-zinc-500">
-            Akumulasi gaji pokok jam/shift dan komisi host &amp; admin
+            Gaji pokok, insentif live host &amp; admin, bonus rangkap, &amp; bonus omzet
           </p>
+        </div>
+      </div>
+
+      {/* Rincian Komponen Beban Gaji & HPP Final */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Rincian Payroll */}
+        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">
+              Rincian Beban Gaji &amp; Insentif Tim
+            </h4>
+            <span className="text-xs font-bold text-amber-400">
+              Total: {formatRupiah(report.totalBebanGaji)}
+            </span>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">Gaji Pokok Jam / Shift (Semua Tim)</span>
+              <span className="font-bold text-white">{formatRupiah(report.totalGajiPokok)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">Total Insentif Penjualan Live (Host &amp; Admin)</span>
+              <span className="font-bold text-[#25F4EE]">{formatRupiah(report.totalInsentifLive)}</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">Bonus Rangkap Role &amp; Target Omzet</span>
+              <span className="font-bold text-purple-400">{formatRupiah(report.totalBonusTambahan)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Rincian Modal HPP */}
+        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">
+              Rincian Modal HPP Barang Terjual
+            </h4>
+            <span className="text-xs font-bold text-[#25F4EE]">
+              {formatRupiah(report.modalBarangTerjual)}
+            </span>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">HPP Final Rata-Rata per Pcs</span>
+              <span className="font-bold text-white">{formatRupiah(report.averageHpp)} / pcs</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">Komponen Termasuk dalam HPP</span>
+              <span className="font-semibold text-emerald-400">Modal + Ongkir + Steam + Sortir + Presensi Sortir/Steam</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400">Formula Laba Bersih</span>
+              <span className="text-[11px] text-zinc-300">Laba Kotor - Biaya Kas - Beban Gaji</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
