@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { CurrentUser, StoreAccount, UserRole } from '../types';
 import { 
@@ -11,7 +11,10 @@ import {
   MessageCircle,
   List,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw,
+  CloudCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
 
@@ -20,12 +23,12 @@ interface LoginViewProps {
   onOpenInstallGuide: () => void;
 }
 
-const DEVELOPER_WA_NUMBER = '0895621670403';
-
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInstallGuide }) => {
   const [showDeveloperStoreList, setShowDeveloperStoreList] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudSynced, setCloudSynced] = useState(false);
 
   // Login form state
   const [storeNameOrId, setStoreNameOrId] = useState('');
@@ -37,34 +40,84 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     'Halo Developer, saya lupa password akun toko saya di aplikasi Seller Profit. Mohon bantuan informasi password akun saya.'
   )}`;
 
+  // Auto sync cloud data on load
+  const doCloudSync = async () => {
+    setIsCloudSyncing(true);
+    try {
+      await StorageService.syncStoresAndEmployeesFromCloud();
+      setCloudSynced(true);
+    } catch (err) {
+      console.warn('Sync notice:', err);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    doCloudSync();
+    const unsub = StorageService.startRealtimeSync();
+    return () => {
+      unsub();
+    };
+  }, []);
+
   // Handle standard login
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    const stores = StorageService.getStores();
-    if (stores.length === 0) {
-      setErrorMsg('Belum ada toko terdaftar. Silakan hubungi Developer.');
-      return;
-    }
-
-    // Match store
+    // Attempt 1: Check with local cache
+    let stores = StorageService.getStores();
+    
+    // If stores empty or username not found, trigger online refresh
     let targetStore: StoreAccount | undefined;
     if (storeNameOrId.trim()) {
       targetStore = stores.find(
         s => s.storeName.toLowerCase().includes(storeNameOrId.toLowerCase()) || s.id === storeNameOrId
       );
     } else {
-      targetStore = stores[0]; // default to first store if left blank
+      targetStore = stores[0];
+    }
+
+    let employees = targetStore ? StorageService.getEmployees(targetStore.id) : [];
+    let emp = employees.find(e => e.username.toLowerCase() === username.toLowerCase());
+    let isOwnerMatch = targetStore && (
+      username.toLowerCase() === targetStore.ownerUsername.toLowerCase() && 
+      password === (targetStore.ownerPassword || '123')
+    );
+
+    // If not found, try sync from cloud immediately
+    if (!targetStore || (!emp && !isOwnerMatch)) {
+      setIsCloudSyncing(true);
+      await StorageService.syncStoresAndEmployeesFromCloud();
+      setIsCloudSyncing(false);
+
+      stores = StorageService.getStores();
+      if (storeNameOrId.trim()) {
+        targetStore = stores.find(
+          s => s.storeName.toLowerCase().includes(storeNameOrId.toLowerCase()) || s.id === storeNameOrId
+        );
+      } else {
+        targetStore = stores[0];
+      }
+
+      if (targetStore) {
+        employees = StorageService.getEmployees(targetStore.id);
+        emp = employees.find(e => e.username.toLowerCase() === username.toLowerCase());
+        isOwnerMatch = (
+          username.toLowerCase() === targetStore.ownerUsername.toLowerCase() && 
+          password === (targetStore.ownerPassword || '123')
+        );
+      }
     }
 
     if (!targetStore) {
-      setErrorMsg(`Toko "${storeNameOrId}" tidak ditemukan.`);
+      setErrorMsg(storeNameOrId ? `Toko "${storeNameOrId}" tidak ditemukan.` : 'Belum ada data toko terdaftar di Cloud.');
       return;
     }
 
     // Check if logging in as Owner
-    if (username.toLowerCase() === targetStore.ownerUsername.toLowerCase() && password === (targetStore.ownerPassword || '123')) {
+    if (isOwnerMatch || (username.toLowerCase() === targetStore.ownerUsername.toLowerCase() && password === (targetStore.ownerPassword || '123'))) {
       const user: CurrentUser = {
         id: 'owner-' + targetStore.id,
         storeId: targetStore.id,
@@ -80,9 +133,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     }
 
     // Check if logging in as Employee
-    const employees = StorageService.getEmployees(targetStore.id);
-    const emp = employees.find(e => e.username.toLowerCase() === username.toLowerCase());
-
     if (emp) {
       if (emp.password && emp.password !== password) {
         setErrorMsg('Password akun pegawai salah.');
@@ -103,7 +153,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
       return;
     }
 
-    setErrorMsg('Username atau Password tidak cocok untuk toko tersebut.');
+    setErrorMsg('Username atau Password tidak cocok untuk toko tersebut. Pastikan username sudah benar.');
   };
 
   return (
@@ -126,6 +176,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
         <p className="mt-1 text-xs font-medium text-zinc-400">
           Sistem Akuntansi Penjualan Live Shopee &amp; Laba Bersih
         </p>
+
+        {/* Cloud Sync Status Indicator */}
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#161823] border border-white/10 text-zinc-300">
+            <span className={`w-2 h-2 rounded-full ${isCloudSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+            <span>{isCloudSyncing ? 'Menyinkronkan Cloud...' : 'Cloud Online Realtime Terhubung'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={doCloudSync}
+            disabled={isCloudSyncing}
+            className="p-1 text-zinc-400 hover:text-[#25F4EE] transition"
+            title="Refresh data dari Cloud Firestore"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-md">
@@ -139,7 +206,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="border-b border-white/10 pb-3 mb-2">
+            <div className="border-b border-white/10 pb-3 mb-2 flex items-center justify-between">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <User className="w-4 h-4 text-[#25F4EE]" />
                 <span>Masuk Akun Toko / Pegawai</span>
@@ -179,7 +246,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                   required
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Username Akun Anda"
+                  placeholder="Username Akun Anda (Contoh: siti_host / owner)"
                   className="block w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
                 />
               </div>
@@ -190,7 +257,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                 <label className="block text-xs font-semibold text-zinc-300">
                   Password <span className="text-[#FE2C55]">*</span>
                 </label>
-                {/* Lupa Password WhatsApp Link (Requirement 2) */}
+                {/* Lupa Password WhatsApp Link */}
                 <a
                   href={waHelpUrl}
                   target="_blank"
@@ -219,7 +286,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-200"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-200 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -230,14 +297,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
               <button
                 id="btn-submit-login"
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-black bg-[#25F4EE] hover:bg-[#25F4EE]/90 border border-[#25F4EE]/50 shadow-lg shadow-[#25F4EE]/20 active:scale-[0.98] transition cursor-pointer"
+                disabled={isCloudSyncing}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-black bg-[#25F4EE] hover:bg-[#25F4EE]/90 border border-[#25F4EE]/50 shadow-lg shadow-[#25F4EE]/20 active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
               >
-                <span>Masuk ke Aplikasi</span>
+                <span>{isCloudSyncing ? 'Memeriksa Cloud...' : 'Masuk ke Aplikasi'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="pt-1">
-                {/* List Toko Terdaftar untuk Developer (Requirement 3) */}
+                {/* List Toko Terdaftar untuk Developer */}
                 <button
                   id="btn-developer-store-list"
                   type="button"

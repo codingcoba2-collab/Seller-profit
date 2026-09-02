@@ -10,7 +10,19 @@ import {
   CurrentUser,
   SteamSortirRecord
 } from '../types';
-import { db, doc, setDoc, getDoc } from './firebase';
+import { 
+  db, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  where,
+  type Unsubscribe 
+} from './firebase';
 
 const STORAGE_KEYS = {
   STORES: 'shopee_lr_stores',
@@ -48,9 +60,9 @@ const DEFAULT_EMPLOYEES: Employee[] = [
     name: 'Siti Rahma',
     username: 'siti_host',
     password: '123',
-    roles: ['host', 'admin_toko'], // Rangkap role contoh
+    roles: ['host', 'admin_toko'],
     salaryType: 'hourly',
-    salaryRate: 35000, // Rp 35.000 / jam
+    salaryRate: 35000,
     incentiveConfigs: {
       host: { type: 'per_pcs_sold', rate: 1000, description: 'Rp 1.000 per pcs terjual saat live' },
       admin_toko: { type: 'per_package_sold', rate: 500, description: 'Rp 500 per paket diproses' },
@@ -66,7 +78,7 @@ const DEFAULT_EMPLOYEES: Employee[] = [
     password: '123',
     roles: ['sortir'],
     salaryType: 'daily',
-    salaryRate: 120000, // Rp 120.000 / hari
+    salaryRate: 120000,
     incentiveConfigs: {
       sortir: { type: 'per_ball_pcs', rate: 150, description: 'Rp 150 per pcs sortir' },
     },
@@ -116,7 +128,7 @@ const DEFAULT_INVENTORY: BallInventory[] = [
     shippingCost: 250000,
     steamCost: 150000,
     sortirCost: 100000,
-    hppPerPcs: Math.round((6500000 + 250000 + 150000 + 100000) / 350), // Rp 20.000 / pcs
+    hppPerPcs: Math.round((6500000 + 250000 + 150000 + 100000) / 350),
     returnMechanism: 'detail',
     estimateReturnPercentage: 3.0,
     createdAt: new Date().toISOString(),
@@ -131,7 +143,7 @@ const DEFAULT_INVENTORY: BallInventory[] = [
     shippingCost: 200000,
     steamCost: 150000,
     sortirCost: 100000,
-    hppPerPcs: Math.round((5500000 + 200000 + 150000 + 100000) / 300), // Rp 19.833 / pcs
+    hppPerPcs: Math.round((5500000 + 200000 + 150000 + 100000) / 300),
     returnMechanism: 'detail',
     estimateReturnPercentage: 3.0,
     createdAt: new Date().toISOString(),
@@ -150,15 +162,314 @@ const DEFAULT_ADS_COIN: AdsCoinDeposit[] = [
   }
 ];
 
+type SyncListener = (collectionName: string) => void;
+
 export class StorageService {
-  // Sync state with cloud firestore where possible
+  private static listeners: Set<SyncListener> = new Set();
+  private static activeUnsubscribes: Unsubscribe[] = [];
+  private static isSyncing = false;
+  private static lastSyncTime = 0;
+
+  public static subscribe(listener: SyncListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private static notifyListeners(collectionName: string) {
+    this.listeners.forEach(fn => {
+      try {
+        fn(collectionName);
+      } catch (err) {
+        console.error('Error in sync listener:', err);
+      }
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('seller_profit_data_updated', {
+        detail: { collectionName, timestamp: Date.now() }
+      }));
+    }
+  }
+
+  // Sync a single record to cloud firestore
   private static async syncToCloud(collectionName: string, docId: string, data: any) {
     if (!db) return;
     try {
       await setDoc(doc(db, collectionName, docId), data, { merge: true });
     } catch (e) {
-      console.warn(`Cloud sync notice for ${collectionName}: resilient local store active.`);
+      console.warn(`Cloud sync write notice for ${collectionName}:`, e);
     }
+  }
+
+  // Delete a record from cloud firestore
+  private static async deleteFromCloud(collectionName: string, docId: string) {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, collectionName, docId));
+    } catch (e) {
+      console.warn(`Cloud sync delete notice for ${collectionName}:`, e);
+    }
+  }
+
+  /**
+   * Fetch all stores and employees from Firestore so that newly registered
+   * usernames/stores from any other phone are instantly available on this phone.
+   */
+  public static async syncStoresAndEmployeesFromCloud(): Promise<boolean> {
+    if (!db) return false;
+    try {
+      // 1. Sync Stores
+      const storesSnap = await getDocs(collection(db, 'stores'));
+      if (!storesSnap.empty) {
+        const cloudStores: StoreAccount[] = [];
+        storesSnap.forEach(d => {
+          cloudStores.push(d.data() as StoreAccount);
+        });
+        if (cloudStores.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(cloudStores));
+        }
+      } else {
+        // Seed default store to Firestore if empty
+        const localStores = this.getStores();
+        for (const st of localStores) {
+          await this.syncToCloud('stores', st.id, st);
+        }
+      }
+
+      // 2. Sync Employees
+      const empSnap = await getDocs(collection(db, 'employees'));
+      if (!empSnap.empty) {
+        const cloudEmployees: Employee[] = [];
+        empSnap.forEach(d => {
+          cloudEmployees.push(d.data() as Employee);
+        });
+        if (cloudEmployees.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cloudEmployees));
+        }
+      } else {
+        // Seed default employees to Firestore if empty
+        const localEmps = this.getAllEmployeesRaw();
+        for (const emp of localEmps) {
+          await this.syncToCloud('employees', emp.id, emp);
+        }
+      }
+
+      this.notifyListeners('stores_and_employees');
+      return true;
+    } catch (err) {
+      console.warn('Sync stores & employees failed, using local cache:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Comprehensive fetch for all store collections
+   */
+  public static async syncAllFromCloud(storeId?: string): Promise<boolean> {
+    if (!db) return false;
+    this.isSyncing = true;
+    try {
+      await this.syncStoresAndEmployeesFromCloud();
+
+      const currentStoreId = storeId || this.getCurrentUser()?.storeId;
+      if (currentStoreId) {
+        // Sync inventory
+        const invSnap = await getDocs(collection(db, 'inventory_balls'));
+        if (!invSnap.empty) {
+          const invList: BallInventory[] = [];
+          invSnap.forEach(d => invList.push(d.data() as BallInventory));
+          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(invList));
+        }
+
+        // Sync attendance
+        const attSnap = await getDocs(collection(db, 'attendance'));
+        if (!attSnap.empty) {
+          const attList: AttendanceRecord[] = [];
+          attSnap.forEach(d => attList.push(d.data() as AttendanceRecord));
+          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attList));
+        }
+
+        // Sync sales
+        const salesSnap = await getDocs(collection(db, 'sales'));
+        if (!salesSnap.empty) {
+          const salesList: SalesRecord[] = [];
+          salesSnap.forEach(d => salesList.push(d.data() as SalesRecord));
+          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(salesList));
+        }
+
+        // Sync returns
+        const returnsSnap = await getDocs(collection(db, 'returns'));
+        if (!returnsSnap.empty) {
+          const returnsList: ReturnRecord[] = [];
+          returnsSnap.forEach(d => returnsList.push(d.data() as ReturnRecord));
+          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returnsList));
+        }
+
+        // Sync ads & coins
+        const adsSnap = await getDocs(collection(db, 'ads_coins'));
+        if (!adsSnap.empty) {
+          const adsList: AdsCoinDeposit[] = [];
+          adsSnap.forEach(d => adsList.push(d.data() as AdsCoinDeposit));
+          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(adsList));
+        }
+
+        // Sync cashflow
+        const cashflowSnap = await getDocs(collection(db, 'cashflow'));
+        if (!cashflowSnap.empty) {
+          const cashList: CashflowRecord[] = [];
+          cashflowSnap.forEach(d => cashList.push(d.data() as CashflowRecord));
+          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(cashList));
+        }
+
+        // Sync steam sortir
+        const steamSnap = await getDocs(collection(db, 'steam_sortir'));
+        if (!steamSnap.empty) {
+          const steamList: SteamSortirRecord[] = [];
+          steamSnap.forEach(d => steamList.push(d.data() as SteamSortirRecord));
+          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(steamList));
+        }
+
+        this.notifyListeners('all');
+      }
+
+      this.lastSyncTime = Date.now();
+      return true;
+    } catch (err) {
+      console.warn('Comprehensive cloud sync notice:', err);
+      return false;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * Set up real-time Firebase Firestore listeners (onSnapshot)
+   * This automatically receives real-time updates when any phone creates or changes data.
+   */
+  public static startRealtimeSync(storeId?: string): () => void {
+    if (!db) return () => {};
+
+    // Clear existing listeners
+    this.stopRealtimeSync();
+
+    try {
+      // 1. Realtime listener for Stores
+      const unsubStores = onSnapshot(collection(db, 'stores'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list: StoreAccount[] = [];
+          snapshot.forEach(docSnap => list.push(docSnap.data() as StoreAccount));
+          localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(list));
+          this.notifyListeners('stores');
+        }
+      }, (err) => console.warn('Realtime stores listener notice:', err));
+      this.activeUnsubscribes.push(unsubStores);
+
+      // 2. Realtime listener for Employees
+      const unsubEmployees = onSnapshot(collection(db, 'employees'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list: Employee[] = [];
+          snapshot.forEach(docSnap => list.push(docSnap.data() as Employee));
+          localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(list));
+          this.notifyListeners('employees');
+        }
+      }, (err) => console.warn('Realtime employees listener notice:', err));
+      this.activeUnsubscribes.push(unsubEmployees);
+
+      // 3. Realtime listener for Sales
+      const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
+        const list: SalesRecord[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as SalesRecord));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(list));
+          this.notifyListeners('sales');
+        }
+      }, (err) => console.warn('Realtime sales listener notice:', err));
+      this.activeUnsubscribes.push(unsubSales);
+
+      // 4. Realtime listener for Inventory
+      const unsubInventory = onSnapshot(collection(db, 'inventory_balls'), (snapshot) => {
+        const list: BallInventory[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as BallInventory));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
+          this.notifyListeners('inventory');
+        }
+      }, (err) => console.warn('Realtime inventory listener notice:', err));
+      this.activeUnsubscribes.push(unsubInventory);
+
+      // 5. Realtime listener for Attendance
+      const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {
+        const list: AttendanceRecord[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as AttendanceRecord));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(list));
+          this.notifyListeners('attendance');
+        }
+      }, (err) => console.warn('Realtime attendance listener notice:', err));
+      this.activeUnsubscribes.push(unsubAttendance);
+
+      // 6. Realtime listener for Returns
+      const unsubReturns = onSnapshot(collection(db, 'returns'), (snapshot) => {
+        const list: ReturnRecord[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as ReturnRecord));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(list));
+          this.notifyListeners('returns');
+        }
+      }, (err) => console.warn('Realtime returns listener notice:', err));
+      this.activeUnsubscribes.push(unsubReturns);
+
+      // 7. Realtime listener for Ads & Coins
+      const unsubAds = onSnapshot(collection(db, 'ads_coins'), (snapshot) => {
+        const list: AdsCoinDeposit[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as AdsCoinDeposit));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
+          this.notifyListeners('ads_coins');
+        }
+      }, (err) => console.warn('Realtime ads_coins listener notice:', err));
+      this.activeUnsubscribes.push(unsubAds);
+
+      // 8. Realtime listener for Cashflow
+      const unsubCashflow = onSnapshot(collection(db, 'cashflow'), (snapshot) => {
+        const list: CashflowRecord[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as CashflowRecord));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(list));
+          this.notifyListeners('cashflow');
+        }
+      }, (err) => console.warn('Realtime cashflow listener notice:', err));
+      this.activeUnsubscribes.push(unsubCashflow);
+
+      // 9. Realtime listener for Steam & Sortir
+      const unsubSteam = onSnapshot(collection(db, 'steam_sortir'), (snapshot) => {
+        const list: SteamSortirRecord[] = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data() as SteamSortirRecord));
+        if (list.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(list));
+          this.notifyListeners('steam_sortir');
+        }
+      }, (err) => console.warn('Realtime steam_sortir listener notice:', err));
+      this.activeUnsubscribes.push(unsubSteam);
+
+    } catch (err) {
+      console.warn('Setup realtime sync listeners notice:', err);
+    }
+
+    return () => this.stopRealtimeSync();
+  }
+
+  public static stopRealtimeSync() {
+    this.activeUnsubscribes.forEach(unsub => {
+      try {
+        unsub();
+      } catch (e) {
+        // ignore
+      }
+    });
+    this.activeUnsubscribes = [];
   }
 
   // STORES
@@ -168,12 +479,18 @@ export class StorageService {
       this.saveStores([DEFAULT_STORE]);
       return [DEFAULT_STORE];
     }
-    return JSON.parse(raw);
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : [DEFAULT_STORE];
+    } catch {
+      return [DEFAULT_STORE];
+    }
   }
 
   static saveStores(stores: StoreAccount[]) {
     localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(stores));
     stores.forEach(st => this.syncToCloud('stores', st.id, st));
+    this.notifyListeners('stores');
   }
 
   static updateStore(updatedStore: StoreAccount) {
@@ -181,25 +498,28 @@ export class StorageService {
     const idx = stores.findIndex(s => s.id === updatedStore.id);
     if (idx !== -1) {
       stores[idx] = updatedStore;
-      this.saveStores(stores);
-      
-      // Also update owner employee password if username matches
-      const employees = this.getEmployees(updatedStore.id);
-      const ownerEmp = employees.find(e => e.roles.includes('owner') || e.username === updatedStore.ownerUsername);
-      if (ownerEmp) {
-        ownerEmp.password = updatedStore.ownerPassword;
-        ownerEmp.username = updatedStore.ownerUsername;
-        if (updatedStore.storeName) {
-          ownerEmp.name = 'Owner ' + updatedStore.storeName;
-        }
-        this.addOrUpdateEmployee(ownerEmp);
+    } else {
+      stores.push(updatedStore);
+    }
+    this.saveStores(stores);
+    
+    // Also update owner employee password if username matches
+    const employees = this.getEmployees(updatedStore.id);
+    const ownerEmp = employees.find(e => e.roles.includes('owner') || e.username === updatedStore.ownerUsername);
+    if (ownerEmp) {
+      ownerEmp.password = updatedStore.ownerPassword;
+      ownerEmp.username = updatedStore.ownerUsername;
+      if (updatedStore.storeName) {
+        ownerEmp.name = 'Owner ' + updatedStore.storeName;
       }
+      this.addOrUpdateEmployee(ownerEmp);
     }
   }
 
   static deleteStore(storeId: string) {
     const stores = this.getStores().filter(s => s.id !== storeId);
     this.saveStores(stores);
+    this.deleteFromCloud('stores', storeId);
   }
 
   static getStoreById(storeId: string): StoreAccount | null {
@@ -231,18 +551,24 @@ export class StorageService {
   }
 
   // EMPLOYEES
-  static getEmployees(storeId: string): Employee[] {
+  private static getAllEmployeesRaw(): Employee[] {
     const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
     if (!raw) {
       this.saveEmployees(all);
     }
+    return all;
+  }
+
+  static getEmployees(storeId: string): Employee[] {
+    const all = this.getAllEmployeesRaw();
     return all.filter(e => e.storeId === storeId);
   }
 
   static saveEmployees(employees: Employee[]) {
     localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
     employees.forEach(emp => this.syncToCloud('employees', emp.id, emp));
+    this.notifyListeners('employees');
   }
 
   static addOrUpdateEmployee(emp: Employee) {
@@ -255,6 +581,7 @@ export class StorageService {
       all.push(emp);
     }
     this.saveEmployees(all);
+    this.syncToCloud('employees', emp.id, emp);
   }
 
   static deleteEmployee(id: string) {
@@ -262,6 +589,7 @@ export class StorageService {
     let all: Employee[] = raw ? JSON.parse(raw) : [];
     all = all.filter(e => e.id !== id);
     this.saveEmployees(all);
+    this.deleteFromCloud('employees', id);
   }
 
   // INVENTORY (BALL MODAL & STOK)
@@ -277,6 +605,7 @@ export class StorageService {
   static saveInventory(list: BallInventory[]) {
     localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
     list.forEach(inv => this.syncToCloud('inventory_balls', inv.id, inv));
+    this.notifyListeners('inventory');
   }
 
   static addInventory(inv: BallInventory) {
@@ -291,6 +620,7 @@ export class StorageService {
     let all: BallInventory[] = raw ? JSON.parse(raw) : [];
     all = all.filter(i => i.id !== id);
     this.saveInventory(all);
+    this.deleteFromCloud('inventory_balls', id);
   }
 
   // ATTENDANCE
@@ -306,6 +636,7 @@ export class StorageService {
     all.unshift(att);
     localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
     this.syncToCloud('attendance', att.id, att);
+    this.notifyListeners('attendance');
   }
 
   static deleteAttendance(id: string) {
@@ -313,6 +644,8 @@ export class StorageService {
     let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(a => a.id !== id);
     localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
+    this.deleteFromCloud('attendance', id);
+    this.notifyListeners('attendance');
   }
 
   // SALES
@@ -328,6 +661,7 @@ export class StorageService {
     all.unshift(sale);
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
     this.syncToCloud('sales', sale.id, sale);
+    this.notifyListeners('sales');
   }
 
   static updateSale(sale: SalesRecord) {
@@ -338,6 +672,7 @@ export class StorageService {
       all[idx] = sale;
       localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
       this.syncToCloud('sales', sale.id, sale);
+      this.notifyListeners('sales');
     }
   }
 
@@ -346,6 +681,8 @@ export class StorageService {
     let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(s => s.id !== id);
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+    this.deleteFromCloud('sales', id);
+    this.notifyListeners('sales');
   }
 
   // RETURNS
@@ -361,6 +698,7 @@ export class StorageService {
     all.unshift(ret);
     localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
     this.syncToCloud('returns', ret.id, ret);
+    this.notifyListeners('returns');
   }
 
   static deleteReturn(id: string) {
@@ -368,6 +706,8 @@ export class StorageService {
     let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(r => r.id !== id);
     localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
+    this.deleteFromCloud('returns', id);
+    this.notifyListeners('returns');
   }
 
   // ADS & COINS
@@ -383,6 +723,7 @@ export class StorageService {
   static saveAdsCoins(list: AdsCoinDeposit[]) {
     localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
     list.forEach(item => this.syncToCloud('ads_coins', item.id, item));
+    this.notifyListeners('ads_coins');
   }
 
   static addAdsCoin(item: AdsCoinDeposit) {
@@ -397,6 +738,7 @@ export class StorageService {
     let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : [];
     all = all.filter(a => a.id !== id);
     this.saveAdsCoins(all);
+    this.deleteFromCloud('ads_coins', id);
   }
 
   // CASHFLOW
@@ -412,6 +754,7 @@ export class StorageService {
     all.unshift(c);
     localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
     this.syncToCloud('cashflow', c.id, c);
+    this.notifyListeners('cashflow');
   }
 
   static deleteCashflow(id: string) {
@@ -419,6 +762,8 @@ export class StorageService {
     let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+    this.deleteFromCloud('cashflow', id);
+    this.notifyListeners('cashflow');
   }
 
   // STEAM & SORTIR RECORDS
@@ -431,6 +776,7 @@ export class StorageService {
   static saveSteamSortir(list: SteamSortirRecord[]) {
     localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(list));
     list.forEach(item => this.syncToCloud('steam_sortir', item.id, item));
+    this.notifyListeners('steam_sortir');
   }
 
   static addSteamSortir(item: SteamSortirRecord) {
@@ -455,6 +801,7 @@ export class StorageService {
     let all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(s => s.id !== id);
     this.saveSteamSortir(all);
+    this.deleteFromCloud('steam_sortir', id);
   }
 
   // CALCULATIONS & BALANCES
@@ -470,7 +817,6 @@ export class StorageService {
     };
   }
 
-  // HPP calculation factoring in modal ball + shipping + steam + sortir costs
   static calculateHPP(storeId: string): {
     totalModalBeli: number;
     totalOngkir: number;
@@ -486,11 +832,9 @@ export class StorageService {
     const totalModalBeli = inventory.reduce((acc, i) => acc + (i.modalPrice || 0), 0);
     const totalOngkir = inventory.reduce((acc, i) => acc + (i.shippingCost || 0), 0);
     
-    // Total steam & sortir cost from inventory + logs
     const inventorySteamCost = inventory.reduce((acc, i) => acc + (i.steamCost || 0), 0);
     const inventorySortirCost = inventory.reduce((acc, i) => acc + (i.sortirCost || 0), 0);
     
-    // Additional steam / sortir logs costs if any
     const logsSteamCost = steamSortirLogs
       .filter(l => l.processType === 'steam' || l.processType === 'sortir_dan_steam')
       .reduce((acc, l) => acc + (l.totalCost || 0), 0);

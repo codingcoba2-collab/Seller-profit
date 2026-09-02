@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CurrentUser, ViewState } from '../types';
 import { StorageService } from '../services/storage';
-import { formatNumber, roleLabels, roleBadgeColors } from '../utils/formatters';
+import { formatNumber, roleLabels } from '../utils/formatters';
 import { 
   ArrowLeft, 
   ShoppingBag, 
@@ -11,7 +11,8 @@ import {
   Megaphone,
   Smartphone,
   Settings,
-  ShieldCheck
+  RefreshCw,
+  Cloud
 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
@@ -33,10 +34,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNotify,
 }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const stockInfo = StorageService.calculateStock(currentUser.storeId);
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
 
-  // Clean module page titles without stage numbers (Requirement 5 & 6)
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const ok = await StorageService.syncAllFromCloud(currentUser.storeId);
+      if (ok) {
+        onNotify('Data berhasil disinkronkan dari Cloud Firestore.', 'success');
+      } else {
+        onNotify('Koneksi sinkronisasi lokal aktif.', 'info');
+      }
+    } catch {
+      onNotify('Gagal menyinkronkan data cloud.', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Clean module page titles without stage numbers
   const getPageTitle = (view: ViewState): string => {
     switch (view) {
       case 'dashboard': return 'Beranda Utama';
@@ -68,6 +86,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <ShoppingBag className="w-3 h-3 text-[#25F4EE]" />
                 <span>{currentUser.storeName}</span>
               </span>
+
+              {/* Realtime Cloud Online status badge */}
+              <button
+                type="button"
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition cursor-pointer"
+                title="Status database online Firestore terhubung di semua HP. Klik untuk paksa refresh."
+              >
+                <Cloud className={`w-3 h-3 text-emerald-400 ${isSyncing ? 'animate-bounce' : ''}`} />
+                <span className="hidden sm:inline">Online Sync</span>
+                <RefreshCw className={`w-2.5 h-2.5 ml-0.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
             {/* Quick Metrics */}
@@ -166,7 +197,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Owner Settings / Gear Icon for Password Change (Requirement 4) */}
+              {/* Owner Settings / Gear Icon for Password Change */}
               {currentUser.isOwner && (
                 <button
                   id="btn-owner-settings"

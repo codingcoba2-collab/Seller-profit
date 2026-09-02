@@ -1,5 +1,19 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  Firestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc,
+  onSnapshot,
+  query,
+  where,
+  Unsubscribe
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 let app: FirebaseApp | null = null;
@@ -17,5 +31,19 @@ try {
   console.warn("Firebase initialization warning (will use resilient local persistence mode):", err);
 }
 
-export { app, db, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc };
+export { 
+  app, 
+  db, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc,
+  onSnapshot,
+  query,
+  where,
+  type Unsubscribe 
+};
 
