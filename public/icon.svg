@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#0f172a"/>
+  <rect x="96" y="96" width="320" height="320" rx="64" fill="#10b981"/>
+  <!-- Bar chart -->
+  <rect x="144" y="272" width="48" height="96" rx="12" fill="#ffffff"/>
+  <rect x="224" y="208" width="48" height="160" rx="12" fill="#ffffff"/>
+  <rect x="304" y="144" width="48" height="224" rx="12" fill="#ffffff"/>
+  <!-- Sparkle / Arrow -->
+  <circle cx="328" cy="112" r="16" fill="#f59e0b"/>
+</svg>

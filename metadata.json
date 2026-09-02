@@ -1,0 +1,8 @@
+{
+  "name": "Seller Profit",
+  "description": "Aplikasi akuntansi dan manajemen data penjualan Shopee terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
