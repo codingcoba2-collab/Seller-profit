@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StorageService } from '../services/storage';
-import { CashflowRecord, CurrentUser } from '../types';
-import { formatRupiah, formatDateIndo, getTodayString } from '../utils/formatters';
+import { CashflowRecord, CurrentUser, Employee } from '../types';
+import { formatRupiah, formatDateIndo, getTodayString, roleLabels } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
@@ -14,7 +14,13 @@ import {
   ArrowLeft,
   Filter,
   Search,
-  Calendar
+  Calendar,
+  Image as ImageIcon,
+  Upload,
+  X,
+  Eye,
+  UserCheck,
+  Receipt
 } from 'lucide-react';
 
 interface CashflowViewProps {
@@ -23,6 +29,16 @@ interface CashflowViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
+  makan_minum: 'Konsumsi / Makan & Minum Tim',
+  listrik_wifi: 'Listrik, Air & Internet WiFi',
+  sewa_tempat: 'Sewa Tempat / Ruko Live',
+  gaji_pegawai: 'Gaji Pegawai / Karyawan',
+  lainnya: 'Operasional Lainnya',
+  penarikan_shopee: 'Penarikan Saldo Marketplace',
+};
+
 export const CashflowView: React.FC<CashflowViewProps> = ({
   currentUser,
   onBackToDashboard,
@@ -30,7 +46,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<SubTabType>('output');
   const [cashflowList, setCashflowList] = useState<CashflowRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingItem, setEditingItem] = useState<CashflowRecord | null>(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   // Filter states
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -44,10 +62,26 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [amount, setAmount] = useState<number>(150000);
   const [category, setCategory] = useState<CashflowRecord['category']>('packing');
   const [description, setDescription] = useState('Beli lakban, plastik packing polymailer & bubble wrap');
+  
+  // Gaji Pegawai specific states
+  const [employeeId, setEmployeeId] = useState<string>('');
+  const [employeeName, setEmployeeName] = useState<string>('');
+  const [periodMonth, setPeriodMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [proofImageUrl, setProofImageUrl] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = () => {
     const list = StorageService.getCashflow(currentUser.storeId);
     setCashflowList(list);
+    const emps = StorageService.getEmployees(currentUser.storeId);
+    setEmployees(emps);
+    if (emps.length > 0 && !employeeId) {
+      setEmployeeId(emps[0].id);
+      setEmployeeName(emps[0].name);
+    }
   };
 
   useEffect(() => {
@@ -61,6 +95,16 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setAmount(150000);
     setCategory('packing');
     setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
+    if (employees.length > 0) {
+      setEmployeeId(employees[0].id);
+      setEmployeeName(employees[0].name);
+    } else {
+      setEmployeeId('');
+      setEmployeeName('');
+    }
+    const now = new Date();
+    setPeriodMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    setProofImageUrl('');
   };
 
   const handleStartEdit = (item: CashflowRecord) => {
@@ -70,11 +114,58 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setAmount(item.amount);
     setCategory(item.category);
     setDescription(item.description || '');
-    setSubTab('input'); // Switch smoothly to input tab without needing 3rd tab
+    setEmployeeId(item.employeeId || (employees[0]?.id || ''));
+    setEmployeeName(item.employeeName || (employees[0]?.name || ''));
+    setPeriodMonth(item.periodMonth || getTodayString().slice(0, 7));
+    setProofImageUrl(item.proofImageUrl || '');
+    setSubTab('input');
   };
 
   const handleCancelEdit = () => {
     resetForm();
+  };
+
+  const handleCategoryChange = (newCat: CashflowRecord['category']) => {
+    setCategory(newCat);
+    if (newCat === 'gaji_pegawai') {
+      const selectedEmp = employees.find(e => e.id === employeeId) || employees[0];
+      if (selectedEmp) {
+        setEmployeeId(selectedEmp.id);
+        setEmployeeName(selectedEmp.name);
+        setDescription(`Pembayaran Gaji & Insentif - ${selectedEmp.name} (Periode ${periodMonth})`);
+      }
+    } else if (newCat === 'packing' && description.includes('Gaji')) {
+      setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
+    }
+  };
+
+  const handleEmployeeChange = (empId: string) => {
+    setEmployeeId(empId);
+    const emp = employees.find(e => e.id === empId);
+    if (emp) {
+      setEmployeeName(emp.name);
+      setDescription(`Pembayaran Gaji & Insentif - ${emp.name} (Periode ${periodMonth})`);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check size limit (< 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      onNotify('Ukuran file foto maksimal 5MB!', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProofImageUrl(reader.result);
+        onNotify('Foto bukti berhasil diunggah!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -92,6 +183,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       amount,
       category: type === 'inflow' ? 'penarikan_shopee' : category,
       description,
+      employeeId: (type === 'outflow' && category === 'gaji_pegawai') ? employeeId : undefined,
+      employeeName: (type === 'outflow' && category === 'gaji_pegawai') ? employeeName : undefined,
+      periodMonth: (type === 'outflow' && category === 'gaji_pegawai') ? periodMonth : undefined,
+      proofImageUrl: (type === 'outflow' && proofImageUrl) ? proofImageUrl : undefined,
       createdAt: editingItem ? editingItem.createdAt : new Date().toISOString(),
     };
 
@@ -122,11 +217,15 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     }
   };
 
-  // Filter & Sort list by date descending (Requirement 9)
+  // Filter & Sort list by date descending
   const filteredList = cashflowList
     .filter(c => {
       if (searchQuery.trim()) {
-        if (!c.description?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        const q = searchQuery.toLowerCase();
+        const descMatch = c.description?.toLowerCase().includes(q);
+        const empMatch = c.employeeName?.toLowerCase().includes(q);
+        const catMatch = (CATEGORY_LABELS[c.category] || c.category).toLowerCase().includes(q);
+        if (!descMatch && !empMatch && !catMatch) return false;
       }
       if (periodFilter === 'today') return c.date === getTodayString();
       if (periodFilter === 'range') return c.date >= startDate && c.date <= endDate;
@@ -146,7 +245,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without stage labels (Requirement 5 & 6) */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <button
@@ -164,13 +263,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Catat saldo ditarik dari Marketplace / Rekening dan pengeluaran operasional toko (packing, lakban, makan, sewa)
+              Catat saldo ditarik dari Marketplace / Rekening dan pengeluaran operasional toko (gaji pegawai, packing, lakban, makan, sewa)
             </p>
           </div>
         </div>
       </div>
 
-      {/* Sub Navigation (2 Clean Tabs) (Requirement 7) */}
+      {/* Sub Navigation (2 Clean Tabs) */}
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
@@ -244,7 +343,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     }`}
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    <span>Penarikan Saldo Marketplace</span>
+                    <span>Penarikan Marketplace</span>
                   </button>
                 </div>
               </div>
@@ -270,18 +369,185 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   </label>
                   <select
                     value={category}
-                    onChange={e => setCategory(e.target.value as CashflowRecord['category'])}
+                    onChange={e => handleCategoryChange(e.target.value as CashflowRecord['category'])}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   >
-                    <option value="packing">Bahan Packing (Lakban, Plastik, Bubble Wrap)</option>
-                    <option value="makan_minum">Konsumsi / Makan &amp; Minum Tim</option>
-                    <option value="listrik_wifi">Listrik, Air &amp; Internet WiFi</option>
-                    <option value="sewa_tempat">Sewa Tempat / Ruko Live</option>
-                    <option value="lainnya">Operasional Lainnya</option>
+                    <option value="gaji_pegawai">💼 Gaji Pegawai / Karyawan</option>
+                    <option value="packing">📦 Bahan Packing (Lakban, Plastik, Bubble Wrap)</option>
+                    <option value="makan_minum">🍱 Konsumsi / Makan &amp; Minum Tim</option>
+                    <option value="listrik_wifi">⚡ Listrik, Air &amp; Internet WiFi</option>
+                    <option value="sewa_tempat">🏢 Sewa Tempat / Ruko Live</option>
+                    <option value="lainnya">⚙️ Operasional Lainnya</option>
                   </select>
                 </div>
               )}
             </div>
+
+            {/* OPSI KHUSUS GAJI PEGAWAI */}
+            {type === 'outflow' && category === 'gaji_pegawai' && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-4">
+                <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
+                  <Receipt className="w-4 h-4 text-[#25F4EE]" />
+                  <span className="text-xs font-black text-[#25F4EE] uppercase tracking-wider">
+                    Detail Pembayaran Gaji Pegawai &amp; Bukti Foto
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Pilih Pegawai / Penerima Gaji <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <select
+                      value={employeeId}
+                      onChange={e => handleEmployeeChange(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                    >
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.roles.map(r => roleLabels[r] || r).join(', ')})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Periode Gaji (Bulan)
+                    </label>
+                    <input
+                      type="month"
+                      value={periodMonth}
+                      onChange={e => {
+                        setPeriodMonth(e.target.value);
+                        if (employeeName) {
+                          setDescription(`Pembayaran Gaji & Insentif - ${employeeName} (Periode ${e.target.value})`);
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-medium focus:border-[#25F4EE]"
+                    />
+                  </div>
+                </div>
+
+                {/* Upload Foto Bukti Pembayaran */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
+                      <span>Upload Foto Bukti Transfer / Struk Gaji</span>
+                    </span>
+                    {proofImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setProofImageUrl('')}
+                        className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                      >
+                        Hapus Foto
+                      </button>
+                    )}
+                  </label>
+
+                  {proofImageUrl ? (
+                    <div className="relative group rounded-2xl overflow-hidden border border-emerald-500/30 bg-[#161823] p-3 flex items-center gap-3">
+                      <img
+                        src={proofImageUrl}
+                        alt="Bukti Transfer"
+                        className="w-16 h-16 object-cover rounded-xl border border-white/10"
+                      />
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-emerald-400">✓ Bukti Foto Terlampir</p>
+                        <p className="text-[11px] text-zinc-400">Akan ditampilkan pada slip gaji pegawai</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPhotoUrl(proofImageUrl)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
+                        title="Lihat Foto Penuh"
+                      >
+                        <Eye className="w-4 h-4 text-[#25F4EE]" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-white/15 hover:border-[#25F4EE]/50 bg-[#161823] p-4 rounded-2xl text-center cursor-pointer transition group"
+                    >
+                      <Upload className="w-6 h-6 text-zinc-400 group-hover:text-[#25F4EE] mx-auto mb-1 transition" />
+                      <p className="text-xs font-bold text-zinc-300 group-hover:text-white">
+                        Klik untuk upload foto bukti transfer / struk kas
+                      </p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">
+                        Format PNG, JPG, JPEG (Maks. 5MB)
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Optional proof photo for other outflow categories too */}
+            {type === 'outflow' && category !== 'gaji_pegawai' && (
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Upload Foto Nota / Bukti Pengeluaran (Opsional)</span>
+                  </span>
+                  {proofImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setProofImageUrl('')}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                    >
+                      Hapus Foto
+                    </button>
+                  )}
+                </label>
+
+                {proofImageUrl ? (
+                  <div className="relative group rounded-2xl overflow-hidden border border-white/15 bg-[#0b0c10] p-2.5 flex items-center gap-3">
+                    <img
+                      src={proofImageUrl}
+                      alt="Bukti Nota"
+                      className="w-12 h-12 object-cover rounded-xl border border-white/10"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-zinc-200">Foto Nota Terlampir</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPhotoUrl(proofImageUrl)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
+                      title="Lihat Foto"
+                    >
+                      <Eye className="w-4 h-4 text-[#25F4EE]" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border border-dashed border-white/15 hover:border-white/30 bg-[#0b0c10] py-2.5 px-3 rounded-xl text-center cursor-pointer transition flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4 text-zinc-400" />
+                    <span className="text-xs font-medium text-zinc-400">Lampirkan foto struk/nota</span>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">
@@ -391,7 +657,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari rincian kas..."
+                  placeholder="Cari rincian / pegawai..."
                   className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
                 />
               </div>
@@ -433,21 +699,44 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               <div className="divide-y divide-white/5">
                 {filteredList.map(item => (
                   <div key={item.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/5 transition">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-black text-white">
                           {formatDateIndo(item.date)}
                         </span>
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                          item.type === 'inflow' ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
+                          item.type === 'inflow' 
+                            ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' 
+                            : item.category === 'gaji_pegawai'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
                         }`}>
-                          {item.type === 'inflow' ? 'Penarikan Marketplace' : item.category}
+                          {item.type === 'inflow' ? 'Penarikan Marketplace' : CATEGORY_LABELS[item.category] || item.category}
                         </span>
+
+                        {item.employeeName && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-white/10 flex items-center gap-1">
+                            <UserCheck className="w-3 h-3" />
+                            <span>{item.employeeName}</span>
+                          </span>
+                        )}
                       </div>
 
-                      <div className="text-xs text-zinc-400">
+                      <div className="text-xs text-zinc-300">
                         {item.description}
                       </div>
+
+                      {/* Photo Thumbnail Button if exists */}
+                      {item.proofImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/30 cursor-pointer transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>Lihat Bukti Foto / Struk</span>
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
@@ -481,6 +770,44 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Preview Bukti Foto Penuh */}
+      {previewPhotoUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="relative max-w-2xl w-full bg-[#161823] rounded-3xl border border-white/20 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
+                <span>Foto Bukti Transaksi / Pembayaran</span>
+              </h4>
+              <button
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto flex items-center justify-center rounded-2xl bg-[#0b0c10] p-2 border border-white/10">
+              <img
+                src={previewPhotoUrl}
+                alt="Foto Bukti"
+                className="max-h-[65vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

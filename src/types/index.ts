@@ -152,7 +152,21 @@ export interface CashflowRecord {
   type: 'inflow' | 'outflow'; // saldo ditarik (inflow) / pengeluaran (outflow)
   amount: number;
   description: string;
-  category: 'penarikan_marketplace' | 'penarikan_shopee' | 'gaji' | 'operasional' | 'packing' | 'lainnya';
+  category: 
+    | 'penarikan_marketplace' 
+    | 'penarikan_shopee' 
+    | 'gaji' 
+    | 'gaji_pegawai' 
+    | 'operasional' 
+    | 'packing' 
+    | 'makan_minum' 
+    | 'listrik_wifi' 
+    | 'sewa_tempat' 
+    | 'lainnya';
+  employeeId?: string; // ID pegawai jika kategori gaji_pegawai
+  employeeName?: string; // Nama pegawai jika kategori gaji_pegawai
+  periodMonth?: string; // Periode bulan gaji (misal: "2026-09" atau "September 2026")
+  proofImageUrl?: string; // Foto bukti transfer / struk pembayaran gaji (base64)
   createdAt: string;
 }
 

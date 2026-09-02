@@ -824,6 +824,8 @@ export class StorageService {
     totalBiayaSortir: number;
     totalBiayaSortirKehadiran: number;
     totalBiayaSteamKehadiran: number;
+    totalInsentifSortir: number;
+    totalInsentifSteam: number;
     totalBiayaModalDanJasa: number;
     totalPcs: number;
     weightedAverageHpp: number;
@@ -889,8 +891,50 @@ export class StorageService {
       }
     });
 
-    const totalBiayaSteam = inventorySteamCost + logsSteamCost + totalBiayaSteamKehadiran;
-    const totalBiayaSortir = inventorySortirCost + logsSortirCost + totalBiayaSortirKehadiran;
+    // Hitung biaya Insentif tim sortir & steam sebagai komponen penambah HPP Final
+    let totalInsentifSortir = 0;
+    let totalInsentifSteam = 0;
+
+    employees.forEach(emp => {
+      if (emp.roles.includes('sortir')) {
+        const config = emp.incentiveConfigs?.sortir;
+        if (config && config.type !== 'none') {
+          const workerLogs = steamSortirLogs.filter(log => {
+            const isMatchRole = log.processType === 'sortir' || log.processType === 'sortir_dan_steam';
+            const isMatchEmp = log.employeeIds?.includes(emp.id) || 
+              log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
+            return isMatchRole && isMatchEmp;
+          });
+          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          if (config.type === 'per_ball_pcs') {
+            totalInsentifSortir += totalPcsWorked * (config.rate || 0);
+          } else if (config.type === 'fixed_amount') {
+            totalInsentifSortir += (config.rate || 0);
+          }
+        }
+      }
+
+      if (emp.roles.includes('steam')) {
+        const config = emp.incentiveConfigs?.steam;
+        if (config && config.type !== 'none') {
+          const workerLogs = steamSortirLogs.filter(log => {
+            const isMatchRole = log.processType === 'steam' || log.processType === 'sortir_dan_steam';
+            const isMatchEmp = log.employeeIds?.includes(emp.id) || 
+              log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
+            return isMatchRole && isMatchEmp;
+          });
+          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          if (config.type === 'per_ball_pcs') {
+            totalInsentifSteam += totalPcsWorked * (config.rate || 0);
+          } else if (config.type === 'fixed_amount') {
+            totalInsentifSteam += (config.rate || 0);
+          }
+        }
+      }
+    });
+
+    const totalBiayaSteam = inventorySteamCost + logsSteamCost + totalBiayaSteamKehadiran + totalInsentifSteam;
+    const totalBiayaSortir = inventorySortirCost + logsSortirCost + totalBiayaSortirKehadiran + totalInsentifSortir;
 
     const totalBiayaModalDanJasa = totalModalBeli + totalOngkir + totalBiayaSteam + totalBiayaSortir;
     const totalPcs = inventory.reduce((acc, i) => acc + (i.pcsCount || 0), 0);
@@ -903,6 +947,8 @@ export class StorageService {
       totalBiayaSortir,
       totalBiayaSortirKehadiran,
       totalBiayaSteamKehadiran,
+      totalInsentifSortir,
+      totalInsentifSteam,
       totalBiayaModalDanJasa,
       totalPcs,
       weightedAverageHpp,
@@ -960,7 +1006,9 @@ export class StorageService {
       });
 
       let totalIncentives = 0;
-      const incentiveBreakdowns: { role: string; desc: string; amount: number }[] = [];
+      let operationalIncentives = 0; // Host & Admin
+      let hppSortirSteamIncentives = 0; // Sortir & Steam (allocated to HPP)
+      const incentiveBreakdowns: { role: string; desc: string; amount: number; isHppIncentive?: boolean }[] = [];
       let empTotalPackages = 0;
       let empTotalPcs = 0;
 
@@ -984,6 +1032,7 @@ export class StorageService {
           if (config.type === 'per_pcs_sold') {
             const amount = hostPcs * effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
               desc: isTierAchieved 
@@ -994,6 +1043,7 @@ export class StorageService {
           } else if (config.type === 'per_package_sold') {
             const amount = hostPkgs * effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
               desc: isTierAchieved 
@@ -1004,6 +1054,7 @@ export class StorageService {
           } else if (config.type === 'fixed_amount') {
             const amount = effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'host',
               desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat` : `Insentif Tetap Host`,
@@ -1028,6 +1079,7 @@ export class StorageService {
           if (config.type === 'per_package_sold') {
             const amount = adminPkgs * effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
               desc: isTierAchieved
@@ -1038,6 +1090,7 @@ export class StorageService {
           } else if (config.type === 'per_pcs_sold') {
             const amount = adminPcs * effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
               desc: isTierAchieved
@@ -1048,6 +1101,7 @@ export class StorageService {
           } else if (config.type === 'fixed_amount') {
             const amount = effectiveRate;
             totalIncentives += amount;
+            operationalIncentives += amount;
             incentiveBreakdowns.push({
               role: 'admin_toko',
               desc: isTierAchieved ? `✨ Target Tier: Insentif Admin Flat` : `Insentif Tetap Admin Toko`,
@@ -1065,10 +1119,22 @@ export class StorageService {
           if (config.type === 'per_ball_pcs') {
             const amount = totalPcsWorked * (config.rate || 0);
             totalIncentives += amount;
+            hppSortirSteamIncentives += amount;
             incentiveBreakdowns.push({
               role,
-              desc: `${totalPcsWorked} pcs ${role} ball x Rp ${(config.rate || 0).toLocaleString('id-ID')}`,
+              desc: `${totalPcsWorked} pcs ${role} ball x Rp ${(config.rate || 0).toLocaleString('id-ID')} (Masuk HPP)`,
               amount,
+              isHppIncentive: true,
+            });
+          } else if (config.type === 'fixed_amount') {
+            const amount = config.rate || 0;
+            totalIncentives += amount;
+            hppSortirSteamIncentives += amount;
+            incentiveBreakdowns.push({
+              role,
+              desc: `Insentif Tetap ${role} (Masuk HPP)`,
+              amount,
+              isHppIncentive: true,
             });
           }
         }
@@ -1108,6 +1174,8 @@ export class StorageService {
         daysPresent,
         incentiveBreakdowns,
         totalIncentives,
+        operationalIncentives,
+        hppSortirSteamIncentives,
         multiRoleBonus,
         multiRoleBonusDesc,
       };
@@ -1115,7 +1183,7 @@ export class StorageService {
 
     // Calculate Store Net Profit before monthly bonus for 'percentage_laba_bersih' evaluation
     const subtotalOperBaseSalary = employeeDrafts.reduce((acc, e) => acc + e.operationalBaseSalary, 0);
-    const subtotalIncentives = employeeDrafts.reduce((acc, e) => acc + e.totalIncentives, 0);
+    const subtotalOperIncentives = employeeDrafts.reduce((acc, e) => acc + e.operationalIncentives, 0);
     const subtotalMultiRoleBonus = employeeDrafts.reduce((acc, e) => acc + e.multiRoleBonus, 0);
 
     const hppData = this.calculateHPP(storeId, filterDateFn);
@@ -1134,7 +1202,7 @@ export class StorageService {
     const labaKotor = totalStoreOmzet - modalTerjual - totalAdminShopee - serviceFee - totalAds - totalCoin - returnAmount;
     const allCashflows = this.getCashflow(storeId).filter(c => !filterDateFn || filterDateFn(c.date));
     const pengeluaranKas = allCashflows.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
-    const estimatedStoreNetProfit = Math.max(0, labaKotor - pengeluaranKas - (subtotalOperBaseSalary + subtotalIncentives + subtotalMultiRoleBonus));
+    const estimatedStoreNetProfit = Math.max(0, labaKotor - pengeluaranKas - (subtotalOperBaseSalary + subtotalOperIncentives + subtotalMultiRoleBonus));
 
     // Calculate Monthly Omzet Bonus for each employee
     const employeeSalaries = employeeDrafts.map(draft => {
@@ -1158,17 +1226,20 @@ export class StorageService {
         }
       }
 
+      // Total take home pay includes full earnings: base + hpp labor + all incentives + bonuses
       const totalTakeHomePay = draft.operationalBaseSalary + draft.hppLaborSalary + draft.totalIncentives + draft.multiRoleBonus + monthlyOmzetBonus;
 
       return {
         employee: emp,
         operationalBaseSalary: draft.operationalBaseSalary,
         hppLaborSalary: draft.hppLaborSalary,
-        baseSalary: draft.operationalBaseSalary, // Beban gaji operasional (Sortir/Steam masuk HPP Final)
+        baseSalary: draft.operationalBaseSalary, // Beban gaji operasional toko (Sortir/Steam masuk HPP Final)
         hoursWorked: draft.hoursWorked,
         daysPresent: draft.daysPresent,
         incentiveBreakdowns: draft.incentiveBreakdowns,
         totalIncentives: draft.totalIncentives,
+        operationalIncentives: draft.operationalIncentives,
+        hppSortirSteamIncentives: draft.hppSortirSteamIncentives,
         multiRoleBonus: draft.multiRoleBonus,
         multiRoleBonusDesc: draft.multiRoleBonusDesc,
         monthlyOmzetBonus,
@@ -1179,19 +1250,23 @@ export class StorageService {
 
     const totalBaseSalary = employeeSalaries.reduce((acc, e) => acc + e.operationalBaseSalary, 0);
     const totalHppLaborSalary = employeeSalaries.reduce((acc, e) => acc + e.hppLaborSalary, 0);
+    const totalOperationalIncentives = employeeSalaries.reduce((acc, e) => acc + e.operationalIncentives, 0);
+    const totalSortirSteamIncentives = employeeSalaries.reduce((acc, e) => acc + e.hppSortirSteamIncentives, 0);
     const totalIncentives = employeeSalaries.reduce((acc, e) => acc + e.totalIncentives, 0);
     const totalMultiRoleBonus = employeeSalaries.reduce((acc, e) => acc + e.multiRoleBonus, 0);
     const totalMonthlyBonus = employeeSalaries.reduce((acc, e) => acc + e.monthlyOmzetBonus, 0);
     
-    // Total Beban Gaji Operasional Toko (tanpa HPP presensi sortir/steam karena sudah masuk modal HPP)
-    const totalOperationalSalary = totalBaseSalary + totalIncentives + totalMultiRoleBonus + totalMonthlyBonus;
-    const totalPayroll = totalOperationalSalary;
-    const totalAllEmployeePayout = totalOperationalSalary + totalHppLaborSalary;
+    // Total Beban Gaji Operasional Toko (tanpa upah & insentif sortir/steam karena sudah masuk modal HPP barang)
+    const totalOperationalSalary = totalBaseSalary + totalOperationalIncentives + totalMultiRoleBonus + totalMonthlyBonus;
+    const totalPayroll = totalOperationalSalary; // Digunakan di Laba Bersih
+    const totalAllEmployeePayout = totalOperationalSalary + totalHppLaborSalary + totalSortirSteamIncentives; // Total dana keluar untuk gaji
 
     return {
       employeeSalaries,
       totalBaseSalary,
       totalHppLaborSalary,
+      totalOperationalIncentives,
+      totalSortirSteamIncentives,
       totalIncentives,
       totalMultiRoleBonus,
       totalMonthlyBonus,
@@ -1199,6 +1274,95 @@ export class StorageService {
       totalPayroll,
       totalAllEmployeePayout,
     };
+  }
+
+  /**
+   * Helper to retrieve salary payment records and remaining unpaid balance for an employee
+   */
+  static getEmployeeSalaryPaymentSummary(
+    storeId: string, 
+    employeeId: string, 
+    totalGrandSalary: number,
+    filterDateFn?: (date: string) => boolean
+  ): {
+    totalPaid: number;
+    remainingUnpaid: number;
+    status: 'paid' | 'partial' | 'unpaid';
+    payments: CashflowRecord[];
+    paymentRecords: CashflowRecord[];
+  } {
+    let cashflows = this.getCashflow(storeId);
+    if (filterDateFn) {
+      cashflows = cashflows.filter(c => filterDateFn(c.date));
+    }
+
+    const paymentRecords = cashflows.filter(c => 
+      c.type === 'outflow' && 
+      (c.category === 'gaji' || c.category === 'gaji_pegawai') &&
+      (c.employeeId === employeeId || (!c.employeeId && c.description?.toLowerCase().includes(employeeId.toLowerCase())))
+    );
+
+    const totalPaid = paymentRecords.reduce((acc, c) => acc + (c.amount || 0), 0);
+    const remainingUnpaid = Math.max(0, totalGrandSalary - totalPaid);
+    const status: 'paid' | 'partial' | 'unpaid' = 
+      totalPaid >= totalGrandSalary && totalGrandSalary > 0 
+        ? 'paid' 
+        : totalPaid > 0 
+          ? 'partial' 
+          : 'unpaid';
+
+    return {
+      totalPaid,
+      remainingUnpaid,
+      status,
+      payments: paymentRecords,
+      paymentRecords,
+    };
+  }
+
+  /**
+   * Validation helpers for duplicate usernames and store names
+   */
+  static isUsernameTaken(username: string, excludeEmployeeId?: string, excludeStoreId?: string): boolean {
+    const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
+    if (!cleanUsername) return false;
+
+    // Check across all stores' owner usernames
+    const stores = this.getStores();
+    const isOwnerTaken = stores.some(s => 
+      s.id !== excludeStoreId && 
+      s.ownerUsername.trim().toLowerCase().replace(/\s+/g, '') === cleanUsername
+    );
+    if (isOwnerTaken) return true;
+
+    // Check across all employees in all stores
+    let allEmployees: Employee[] = [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+      if (stored) {
+        allEmployees = JSON.parse(stored);
+      }
+    } catch {
+      allEmployees = [];
+    }
+
+    const isEmpTaken = allEmployees.some(e => 
+      e.id !== excludeEmployeeId && 
+      e.username.trim().toLowerCase().replace(/\s+/g, '') === cleanUsername
+    );
+
+    return isEmpTaken;
+  }
+
+  static isStoreNameTaken(storeName: string, excludeStoreId?: string): boolean {
+    const cleanName = storeName.trim().toLowerCase();
+    if (!cleanName) return false;
+
+    const stores = this.getStores();
+    return stores.some(s => 
+      s.id !== excludeStoreId && 
+      s.storeName.trim().toLowerCase() === cleanName
+    );
   }
 
   static calculateAdsAndCoins(storeId: string): {

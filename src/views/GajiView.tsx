@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService } from '../services/storage';
-import { Employee, AttendanceRecord, SalesRecord, BallInventory, CurrentUser, PeriodFilter, UserRole } from '../types';
+import { Employee, AttendanceRecord, SalesRecord, BallInventory, CurrentUser, PeriodFilter, UserRole, CashflowRecord } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors } from '../utils/formatters';
+import { CommaNumberInput } from '../components/CommaNumberInput';
 import { 
   Receipt, 
   Calendar, 
@@ -13,7 +14,14 @@ import {
   Sparkles,
   ArrowLeft,
   X,
-  Printer
+  Printer,
+  CheckCircle2,
+  AlertCircle,
+  Clock3,
+  Image as ImageIcon,
+  Upload,
+  ShieldAlert,
+  Plus
 } from 'lucide-react';
 
 interface GajiViewProps {
@@ -31,13 +39,39 @@ export const GajiView: React.FC<GajiViewProps> = ({
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
   const [allSales, setAllSales] = useState<SalesRecord[]>([]);
   const [allInventory, setAllInventory] = useState<BallInventory[]>([]);
+  const [cashflows, setCashflows] = useState<CashflowRecord[]>([]);
   const [period, setPeriod] = useState<PeriodFilter>('monthly');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [selectedEmpForDetail, setSelectedEmpForDetail] = useState<Employee | null>(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Quick Pay Modal State (for Owner)
+  const [quickPayEmp, setQuickPayEmp] = useState<{ emp: Employee; unpaidAmount: number } | null>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payDate, setPayDate] = useState(getTodayString());
+  const [payDescription, setPayDescription] = useState('');
+  const [payProofImage, setPayProofImage] = useState('');
+  const quickPayFileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadData = () => {
     const empList = StorageService.getEmployees(currentUser.storeId);
-    setEmployees(empList);
+    
+    // Non-owner role restriction: Only allow viewing personal employee data
+    if (!currentUser.isOwner) {
+      const myEmp = empList.filter(e => 
+        e.id === currentUser.id || 
+        e.username.toLowerCase() === currentUser.username.toLowerCase()
+      );
+      if (myEmp.length > 0) {
+        setEmployees(myEmp);
+      } else if (currentUser.employeeProfile) {
+        setEmployees([currentUser.employeeProfile]);
+      } else {
+        setEmployees([]);
+      }
+    } else {
+      setEmployees(empList);
+    }
 
     const attList = StorageService.getAttendance(currentUser.storeId);
     setAllAttendance(attList);
@@ -47,7 +81,14 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
     const invList = StorageService.getInventory(currentUser.storeId);
     setAllInventory(invList);
-  }, [currentUser.storeId]);
+
+    const cfList = StorageService.getCashflow(currentUser.storeId);
+    setCashflows(cfList);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [currentUser.storeId, currentUser.id, currentUser.isOwner, currentUser.username]);
 
   // Filter helper based on date
   const filterByPeriod = (recordDate: string): boolean => {
@@ -71,7 +112,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
     return true;
   };
 
-  // Calculate salary for each employee
+  // Calculate salary for each employee + Cashflow Payment status
   const calculatedSalaryData = useMemo(() => {
     const steamSortirLogs = StorageService.getSteamSortir(currentUser.storeId);
 
@@ -124,7 +165,6 @@ export const GajiView: React.FC<GajiViewProps> = ({
           empTotalPackages += hostPkgs;
           empTotalPcs += hostPcs;
 
-          // Check Tier Rule (Requirement 1 & 7)
           const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && hostPkgs >= config.tierThresholdPackages);
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
@@ -170,7 +210,6 @@ export const GajiView: React.FC<GajiViewProps> = ({
           empTotalPackages += adminPkgs;
           empTotalPcs += adminPcs;
 
-          // Check Tier Rule for Admin Toko
           const isTierAchieved = Boolean(config.hasTierRule && config.tierThresholdPackages && adminPkgs >= config.tierThresholdPackages);
           const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
 
@@ -224,7 +263,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
         }
       });
 
-      // 3. Req 2 & 8: Bonus Rangkap Role Penjualan Paket
+      // 3. Bonus Rangkap Role Penjualan Paket
       if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
         const rule = emp.multiRoleSalesRule;
         const evaluatedPackages = empTotalPackages > 0 ? empTotalPackages : totalStorePackages;
@@ -252,14 +291,14 @@ export const GajiView: React.FC<GajiViewProps> = ({
             totalIncentive += bonusAmount;
             incentiveBreakdowns.push({
               role: 'multi_role',
-              desc: `🎁 ${bonusLabel} (Target: $\ge$ ${rule.thresholdPackages} paket)`,
+              desc: `🎁 ${bonusLabel} (Target: ≥ ${rule.thresholdPackages} paket)`,
               amount: bonusAmount,
             });
           }
         }
       }
 
-      // 4. Req 4 & 9: Bonus Bulanan Pencapaian Target Omzet Toko
+      // 4. Bonus Bulanan Pencapaian Target Omzet Toko
       if (emp.monthlyOmzetBonusRule?.active) {
         const omzetRule = emp.monthlyOmzetBonusRule;
         if (totalStoreOmzet >= (omzetRule.targetOmzet || 0)) {
@@ -289,23 +328,92 @@ export const GajiView: React.FC<GajiViewProps> = ({
         }
       }
 
+      const totalGrandSalary = totalBaseSalary + totalIncentive;
+
+      // 5. Payment Summary from Cashflow Records (Paid vs Unpaid + Proof Images)
+      const paymentSummary = StorageService.getEmployeeSalaryPaymentSummary(
+        currentUser.storeId,
+        emp.id,
+        totalGrandSalary,
+        filterByPeriod
+      );
+
       return {
         emp,
         totalBaseSalary,
         totalHours,
         totalDays,
         totalIncentive,
-        totalGrandSalary: totalBaseSalary + totalIncentive,
+        totalGrandSalary,
         attendanceCount: empAttendance.length,
         attendanceRecords: empAttendance,
         incentiveBreakdowns,
+        totalPaid: paymentSummary.totalPaid,
+        remainingUnpaid: paymentSummary.remainingUnpaid,
+        paymentStatus: paymentSummary.status,
+        payments: paymentSummary.payments,
       };
     });
-  }, [employees, allAttendance, allSales, allInventory, period, selectedDate, currentUser.storeId]);
+  }, [employees, allAttendance, allSales, allInventory, cashflows, period, selectedDate, currentUser.storeId]);
+
+  // Handle Quick Pay for Owner
+  const handleOpenQuickPay = (emp: Employee, unpaid: number) => {
+    setQuickPayEmp({ emp, unpaidAmount: unpaid });
+    setPayAmount(unpaid > 0 ? unpaid : 0);
+    setPayDate(getTodayString());
+    setPayDescription(`Pembayaran Gaji & Insentif - ${emp.name}`);
+    setPayProofImage('');
+  };
+
+  const handleQuickPayImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      onNotify?.('Ukuran file foto maksimal 5MB!', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPayProofImage(reader.result);
+        onNotify?.('Foto bukti transfer berhasil diunggah!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitQuickPay = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickPayEmp) return;
+    if (payAmount <= 0) {
+      onNotify?.('Nominal pembayaran gaji harus lebih dari 0!', 'error');
+      return;
+    }
+
+    const newCashflow: CashflowRecord = {
+      id: 'cf-' + Date.now(),
+      storeId: currentUser.storeId,
+      date: payDate,
+      type: 'outflow',
+      amount: payAmount,
+      category: 'gaji_pegawai',
+      description: payDescription || `Pembayaran Gaji & Insentif - ${quickPayEmp.emp.name}`,
+      employeeId: quickPayEmp.emp.id,
+      employeeName: quickPayEmp.emp.name,
+      periodMonth: payDate.slice(0, 7),
+      proofImageUrl: payProofImage || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    StorageService.addCashflow(newCashflow);
+    onNotify?.(`Pembayaran gaji untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`, 'success');
+    setQuickPayEmp(null);
+    loadData();
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header & Period Filters without stage labels (Requirement 5 & 6) */}
+      {/* Header & Period Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <button
@@ -319,13 +427,20 @@ export const GajiView: React.FC<GajiViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-black text-white">
-                Rekap Gaji &amp; Insentif Pegawai / Host
+                {currentUser.isOwner ? 'Rekap Gaji &amp; Insentif Seluruh Tim' : 'Slip Gaji &amp; Insentif Personal'}
               </h2>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                currentUser.isOwner 
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
+                  : 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30'
+              }`}>
+                {currentUser.isOwner ? '👑 Mode Owner (Akses Penuh)' : '🔒 Data Personal Privat'}
+              </span>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
               {!currentUser.isOwner
-                ? 'Slip gaji dan komisi insentif pribadi Anda sesuai kehadiran dan performa live'
-                : 'Rekapitulasi seluruh gaji pokok shift/jam dan insentif pegawai toko'}
+                ? 'Slip gaji, komisi insentif, status pembayaran transfer kas, dan bukti struk pribadi Anda'
+                : 'Rekapitulasi seluruh gaji pokok shift/jam, insentif live, status pembayaran kas & bukti foto'}
             </p>
           </div>
         </div>
@@ -359,79 +474,156 @@ export const GajiView: React.FC<GajiViewProps> = ({
         </div>
       </div>
 
+      {/* Non-Owner Privacy Notice */}
+      {!currentUser.isOwner && (
+        <div className="p-4 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE]">
+            <ShieldAlert className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">Privasi Gaji Karyawan</h4>
+            <p className="text-[11px] text-zinc-400">
+              Sesuai kebijakan keamanan, hanya Owner yang dapat melihat seluruh rekap gaji toko. Anda hanya dapat melihat rincian slip dan bukti transfer gaji personal milik Anda.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Salary Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {calculatedSalaryData.map(item => (
-          <div
-            key={item.emp.id}
-            className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-black text-white text-base">
-                    {item.emp.name}
-                  </h3>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {item.emp.roles.map(r => (
-                      <span
-                        key={r}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
-                      >
-                        {roleLabels[r]}
+      {calculatedSalaryData.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-[#161823] border border-white/10 text-zinc-400 text-xs">
+          Tidak ada data gaji pada filter periode ini.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {calculatedSalaryData.map(item => (
+            <div
+              key={item.emp.id}
+              className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-black text-white text-base">
+                      {item.emp.name}
+                    </h3>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.emp.roles.map(r => (
+                        <span
+                          key={r}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
+                        >
+                          {roleLabels[r]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Status Pembayaran Badge */}
+                  <div className="text-right">
+                    {item.paymentStatus === 'paid' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Lunas</span>
                       </span>
-                    ))}
+                    ) : item.paymentStatus === 'partial' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <Clock3 className="w-3 h-3" />
+                        <span>Sebagian</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Belum Dibayar</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-                  <Receipt className="w-5 h-5" />
+                {/* Gaji Breakdown Cards */}
+                <div className="mt-4 space-y-2 text-xs">
+                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
+                    <span className="text-zinc-400">
+                      Gaji Pokok ({item.emp.salaryType === 'hourly' ? `${item.totalHours} jam` : `${item.totalDays} hari`}):
+                    </span>
+                    <strong className="text-white font-bold">
+                      {formatRupiah(item.totalBaseSalary)}
+                    </strong>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-emerald-500/20 flex items-center justify-between">
+                    <span className="text-emerald-400 font-medium">
+                      Total Insentif:
+                    </span>
+                    <strong className="text-emerald-400 font-bold">
+                      {formatRupiah(item.totalIncentive)}
+                    </strong>
+                  </div>
+
+                  {/* Status Pembayaran Kas & Sisa Gaji */}
+                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400">Total Hak Gaji:</span>
+                      <strong className="text-white">{formatRupiah(item.totalGrandSalary)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-emerald-400 font-medium">Sudah Terbayar (Kas):</span>
+                      <strong className="text-emerald-400 font-bold">{formatRupiah(item.totalPaid)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+                      <span className={item.remainingUnpaid > 0 ? 'text-[#FE2C55] font-bold' : 'text-zinc-400'}>
+                        Sisa Belum Terbayar:
+                      </span>
+                      <strong className={item.remainingUnpaid > 0 ? 'text-[#FE2C55] font-black' : 'text-emerald-400 font-bold'}>
+                        {formatRupiah(item.remainingUnpaid)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Proof photo count if any */}
+                  {item.payments.some(p => p.proofImageUrl) && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#25F4EE] font-bold">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>{item.payments.filter(p => p.proofImageUrl).length} Bukti Foto Transfer Terlampir</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Gaji Breakdown Cards */}
-              <div className="mt-4 space-y-2 text-xs">
-                <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
-                  <span className="text-zinc-400">
-                    Gaji Pokok ({item.emp.salaryType === 'hourly' ? `${item.totalHours} jam` : `${item.totalDays} hari`}):
+              {/* Total Gaji & Action Buttons */}
+              <div className="pt-3 border-t border-white/10 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-semibold text-zinc-400">Gaji Bersih:</span>
+                  <span className="text-xl font-black text-[#25F4EE]">
+                    {formatRupiah(item.totalGrandSalary)}
                   </span>
-                  <strong className="text-white font-bold">
-                    {formatRupiah(item.totalBaseSalary)}
-                  </strong>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-[#0b0c10] border border-emerald-500/20 flex items-center justify-between">
-                  <span className="text-emerald-400 font-medium">
-                    Total Insentif:
-                  </span>
-                  <strong className="text-emerald-400 font-bold">
-                    {formatRupiah(item.totalIncentive)}
-                  </strong>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    id={`btn-detail-gaji-${item.emp.id}`}
+                    onClick={() => setSelectedEmpForDetail(item.emp)}
+                    className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold text-xs border border-white/10 transition cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-[#25F4EE]" />
+                    <span>Slip Gaji &amp; Bukti</span>
+                  </button>
+
+                  {currentUser.isOwner && (
+                    <button
+                      onClick={() => handleOpenQuickPay(item.emp, item.remainingUnpaid)}
+                      className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white font-bold text-xs border border-[#FE2C55]/30 transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Bayar / Upload</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
-
-            {/* Total Gaji & Detail Button */}
-            <div className="pt-3 border-t border-white/10 space-y-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-zinc-400">Total Diterima:</span>
-                <span className="text-xl font-black text-[#25F4EE]">
-                  {formatRupiah(item.totalGrandSalary)}
-                </span>
-              </div>
-
-              <button
-                id={`btn-detail-gaji-${item.emp.id}`}
-                onClick={() => setSelectedEmpForDetail(item.emp)}
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold text-xs border border-white/10 transition cursor-pointer"
-              >
-                <Eye className="w-4 h-4 text-[#25F4EE]" />
-                <span>Rincian Slip Gaji</span>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Slip Gaji Modal Detail */}
       {selectedEmpForDetail && (() => {
@@ -439,15 +631,16 @@ export const GajiView: React.FC<GajiViewProps> = ({
         if (!detailData) return null;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-3xl bg-[#161823] p-6 sm:p-7 shadow-2xl border border-white/10 space-y-5 max-h-[90vh] overflow-y-auto text-white">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <div className="w-full max-w-xl rounded-3xl bg-[#161823] p-6 sm:p-7 shadow-2xl border border-white/15 space-y-5 max-h-[92vh] overflow-y-auto text-white">
+              {/* Modal Header */}
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-black text-white text-base">Slip Gaji &amp; Insentif</h3>
+                    <h3 className="font-black text-white text-base">Slip Gaji &amp; Rincian Pembayaran</h3>
                     <p className="text-xs text-zinc-400">{selectedEmpForDetail.name}</p>
                   </div>
                 </div>
@@ -460,7 +653,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
               </div>
 
               {/* Rincian Slip */}
-              <div className="space-y-3 text-xs">
+              <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
                   <div>
                     <span className="text-[10px] text-zinc-400 block">Nama Pegawai:</span>
@@ -488,10 +681,13 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
                 {/* Rincian Tanggal Masuk */}
                 <div>
-                  <h4 className="font-bold text-white mb-2">Riwayat Presensi &amp; Jam Kerja:</h4>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  <h4 className="font-bold text-white mb-2 flex items-center justify-between">
+                    <span>Riwayat Presensi &amp; Jam Kerja:</span>
+                    <span className="text-zinc-400 text-[10px]">{detailData.attendanceRecords.length} catatan</span>
+                  </h4>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
                     {detailData.attendanceRecords.length === 0 ? (
-                      <p className="text-zinc-500 text-[11px]">Tidak ada catatan presensi di periode ini.</p>
+                      <p className="text-zinc-500 text-[11px] p-2 bg-[#0b0c10] rounded-xl">Tidak ada catatan presensi di periode ini.</p>
                     ) : (
                       detailData.attendanceRecords.map(att => (
                         <div key={att.id} className="p-2 rounded-xl bg-[#0b0c10] border border-white/5 flex items-center justify-between text-[11px]">
@@ -507,7 +703,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
                 {/* Rincian Insentif */}
                 {detailData.incentiveBreakdowns.length > 0 && (
-                  <div className="pt-2">
+                  <div>
                     <h4 className="font-bold text-white mb-2">Rincian Komisi Insentif:</h4>
                     <div className="space-y-1.5">
                       {detailData.incentiveBreakdowns.map((inc, i) => (
@@ -524,6 +720,105 @@ export const GajiView: React.FC<GajiViewProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* STATUS PEMBAYARAN & SISA GAJI */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-[#25F4EE]" />
+                      <span>Status Pembayaran Gaji (Catatan Kas)</span>
+                    </h4>
+                    {detailData.paymentStatus === 'paid' ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        ✓ Lunas Terbayar
+                      </span>
+                    ) : detailData.paymentStatus === 'partial' ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        ⏳ Terbayar Sebagian
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        ⚠️ Belum Dibayar
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                    <div className="p-2 rounded-xl bg-[#161823] border border-white/5">
+                      <span className="text-[10px] text-zinc-400 block">Total Hak Gaji</span>
+                      <strong className="text-xs text-white block mt-0.5">{formatRupiah(detailData.totalGrandSalary)}</strong>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-[#161823] border border-emerald-500/20">
+                      <span className="text-[10px] text-emerald-400 block">Sudah Terbayar</span>
+                      <strong className="text-xs text-emerald-400 block mt-0.5">{formatRupiah(detailData.totalPaid)}</strong>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-[#161823] border border-rose-500/20">
+                      <span className="text-[10px] text-rose-400 block">Sisa Belum Dibayar</span>
+                      <strong className="text-xs text-rose-400 block mt-0.5">{formatRupiah(detailData.remainingUnpaid)}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BUKTI FOTO TRANSFER & RIWAYAT PEMBAYARAN */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-emerald-400" />
+                      <span>Bukti Foto Transfer &amp; Riwayat Kas ({detailData.payments.length})</span>
+                    </h4>
+                    {currentUser.isOwner && (
+                      <button
+                        onClick={() => {
+                          setSelectedEmpForDetail(null);
+                          handleOpenQuickPay(selectedEmpForDetail, detailData.remainingUnpaid);
+                        }}
+                        className="text-[11px] font-bold text-[#25F4EE] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Catat Pembayaran Baru</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {detailData.payments.length === 0 ? (
+                    <div className="p-3 bg-[#0b0c10] rounded-xl border border-white/5 text-center text-zinc-500 text-[11px]">
+                      Belum ada mutasi kas pengeluaran gaji untuk pegawai ini di periode tersebut.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {detailData.payments.map((p, idx) => (
+                        <div key={p.id || idx} className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white text-xs">{formatDateIndo(p.date)}</span>
+                              <span className="text-xs font-black text-emerald-400">{formatRupiah(p.amount)}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400">{p.description}</p>
+                          </div>
+
+                          {p.proofImageUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewPhotoUrl(p.proofImageUrl!)}
+                              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold cursor-pointer transition"
+                            >
+                              <img
+                                src={p.proofImageUrl}
+                                alt="Bukti"
+                                className="w-5 h-5 rounded-md object-cover border border-emerald-500/30"
+                              />
+                              <span>Lihat Bukti Foto</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-zinc-500 italic shrink-0">Tanpa Foto</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Total Summary */}
                 <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1">
@@ -542,16 +837,208 @@ export const GajiView: React.FC<GajiViewProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedEmpForDetail(null)}
-                className="w-full py-2.5 rounded-xl bg-[#FE2C55] hover:bg-[#FE2C55]/90 text-white font-bold text-xs transition cursor-pointer"
-              >
-                Tutup Slip Gaji
-              </button>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => window.print()}
+                  className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Cetak Slip</span>
+                </button>
+                <button
+                  onClick={() => setSelectedEmpForDetail(null)}
+                  className="py-2.5 rounded-xl bg-[#FE2C55] hover:bg-[#FE2C55]/90 text-white font-bold text-xs transition cursor-pointer"
+                >
+                  Tutup Slip Gaji
+                </button>
+              </div>
             </div>
           </div>
         );
       })()}
+
+      {/* Quick Pay Modal for Owner */}
+      {quickPayEmp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl bg-[#161823] p-6 sm:p-7 shadow-2xl border border-white/20 space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#0b0c10] text-[#FE2C55]">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base">Catat Pembayaran Gaji Kas</h3>
+                  <p className="text-xs text-zinc-400">{quickPayEmp.emp.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickPayEmp(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitQuickPay} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Tanggal Pembayaran <span className="text-[#FE2C55]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={payDate}
+                  onChange={e => setPayDate(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-zinc-300">
+                    Nominal Pembayaran (Rp) <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  {quickPayEmp.unpaidAmount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPayAmount(quickPayEmp.unpaidAmount)}
+                      className="text-[11px] text-[#25F4EE] hover:underline font-bold cursor-pointer"
+                    >
+                      Isi Sisa: {formatRupiah(quickPayEmp.unpaidAmount)}
+                    </button>
+                  )}
+                </div>
+                <CommaNumberInput
+                  value={payAmount}
+                  onChange={setPayAmount}
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Keterangan / Catatan
+                </label>
+                <input
+                  type="text"
+                  value={payDescription}
+                  onChange={e => setPayDescription(e.target.value)}
+                  placeholder="Contoh: Transfer Gaji via BCA"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                />
+              </div>
+
+              {/* Upload Foto Bukti Transfer */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
+                    <span>Upload Foto Bukti Transfer / Struk Gaji</span>
+                  </span>
+                  {payProofImage && (
+                    <button
+                      type="button"
+                      onClick={() => setPayProofImage('')}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                    >
+                      Hapus Foto
+                    </button>
+                  )}
+                </label>
+
+                {payProofImage ? (
+                  <div className="relative group rounded-2xl overflow-hidden border border-emerald-500/30 bg-[#0b0c10] p-3 flex items-center gap-3">
+                    <img
+                      src={payProofImage}
+                      alt="Bukti Transfer"
+                      className="w-16 h-16 object-cover rounded-xl border border-white/10"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-emerald-400">✓ Bukti Foto Terlampir</p>
+                      <p className="text-[10px] text-zinc-400">Akan tersimpan ke slip gaji pegawai</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => quickPayFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-white/15 hover:border-[#25F4EE]/50 bg-[#0b0c10] p-4 rounded-2xl text-center cursor-pointer transition group"
+                  >
+                    <Upload className="w-6 h-6 text-zinc-400 group-hover:text-[#25F4EE] mx-auto mb-1 transition" />
+                    <p className="text-xs font-bold text-zinc-300 group-hover:text-white">
+                      Klik untuk upload foto struk / screenshot transfer
+                    </p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Format PNG, JPG, JPEG (Maks. 5MB)
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={quickPayFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQuickPayImageUpload}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickPayEmp(null)}
+                  className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-[#FE2C55] hover:bg-[#FE2C55]/90 text-white font-bold transition cursor-pointer shadow-lg shadow-[#FE2C55]/20 flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan Pembayaran</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview Bukti Foto Penuh */}
+      {previewPhotoUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="relative max-w-2xl w-full bg-[#161823] rounded-3xl border border-white/20 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
+                <span>Foto Bukti Transfer &amp; Struk Pembayaran Gaji</span>
+              </h4>
+              <button
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto flex items-center justify-center rounded-2xl bg-[#0b0c10] p-2 border border-white/10">
+              <img
+                src={previewPhotoUrl}
+                alt="Foto Bukti"
+                className="max-h-[65vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

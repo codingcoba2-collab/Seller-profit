@@ -205,6 +205,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       return;
     }
 
+    const cleanUsername = username.toLowerCase().replace(/\s+/g, '');
+    if (StorageService.isUsernameTaken(cleanUsername, editingId || undefined, currentUser.storeId)) {
+      onNotify(`Username "${cleanUsername}" already exist please use another name`, 'error');
+      return;
+    }
+
     const formattedIncentiveConfigs: { [key in UserRole]?: IncentiveConfig } = {};
     selectedRoles.forEach(r => {
       const cfg = incentiveMap[r] || { type: 'none', rate: 0, description: '' };
@@ -222,7 +228,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       id: editingId || 'emp-' + Date.now(),
       storeId: currentUser.storeId,
       name,
-      username: username.toLowerCase().replace(/\s+/g, ''),
+      username: cleanUsername,
       password: password || '123',
       roles: selectedRoles,
       salaryType,
@@ -338,8 +344,17 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="siti_host"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                  className={`w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border text-white focus:border-[#25F4EE] ${
+                    username.trim() && StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
+                      ? 'border-[#FE2C55]'
+                      : 'border-white/10'
+                  }`}
                 />
+                {username.trim() && StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
+                  <p className="text-[#FE2C55] text-[10px] font-bold mt-1">
+                    already exist please use another name
+                  </p>
+                )}
               </div>
 
               <div>

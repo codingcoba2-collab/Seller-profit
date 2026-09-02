@@ -78,6 +78,16 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
     const existing = stores.find(s => s.id === storeId);
     if (!existing) return;
 
+    if (editStoreName.trim() && StorageService.isStoreNameTaken(editStoreName.trim(), storeId)) {
+      alert(`Nama toko "${editStoreName.trim()}" already exist please use another name`);
+      return;
+    }
+
+    if (editOwnerUsername.trim() && StorageService.isUsernameTaken(editOwnerUsername.trim(), undefined, storeId)) {
+      alert(`Username "${editOwnerUsername.trim()}" already exist please use another name`);
+      return;
+    }
+
     const updated: StoreAccount = {
       ...existing,
       storeName: editStoreName.trim() || existing.storeName,
@@ -102,6 +112,16 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
       return;
     }
 
+    if (StorageService.isStoreNameTaken(newStoreName)) {
+      setErrorMsg(`Nama toko "${newStoreName}" already exist please use another name`);
+      return;
+    }
+
+    if (StorageService.isUsernameTaken(newOwnerUsername)) {
+      setErrorMsg(`Username "${newOwnerUsername}" already exist please use another name`);
+      return;
+    }
+
     const newId = 'store-' + Date.now();
     const newStore: StoreAccount = {
       id: newId,
@@ -123,6 +143,7 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
     setNewStoreName('');
     setNewOwnerUsername('');
     setNewOwnerPassword('');
+    setErrorMsg('');
   };
 
   const filteredStores = stores.filter(s => 
