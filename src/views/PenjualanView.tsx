@@ -11,6 +11,7 @@ import {
   paymentMethodLabels 
 } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
+import { calculateHostIncentiveForSale } from '../utils/incentiveCalculator';
 import { 
   TrendingUp, 
   Trash2, 
@@ -222,6 +223,44 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     resetForm();
     setSubTab('rekap');
   };
+
+  const liveIncentivePreview = useMemo(() => {
+    if (subTab !== 'input_live' || selectedHostIds.length === 0) return [];
+    const finalSatuanPcs = saleFormat === 'satuan' ? pcsSold : (saleFormat === 'bundling' ? 0 : satuanPcs);
+    const finalSatuanPkgs = saleFormat === 'satuan' ? packagesSold : (saleFormat === 'bundling' ? 0 : satuanPackages);
+    const finalSatuanOmzet = saleFormat === 'satuan' ? omzet : (saleFormat === 'bundling' ? 0 : Math.round((satuanPackages / Math.max(1, packagesSold || 1)) * omzet));
+
+    const finalBundlingPcs = saleFormat === 'bundling' ? pcsSold : (saleFormat === 'satuan' ? 0 : bundlingPcs);
+    const finalBundlingPkgs = saleFormat === 'bundling' ? packagesSold : (saleFormat === 'satuan' ? 0 : bundlingPackages);
+    const finalBundlingOmzet = saleFormat === 'bundling' ? omzet : (saleFormat === 'satuan' ? 0 : Math.max(0, omzet - finalSatuanOmzet));
+
+    const tempSale: Partial<SalesRecord> = {
+      saleFormat,
+      pcsSold,
+      packagesSold,
+      omzet,
+      satuanPcs: finalSatuanPcs,
+      satuanPackages: finalSatuanPkgs,
+      satuanOmzet: finalSatuanOmzet,
+      bundlingPcs: finalBundlingPcs,
+      bundlingPackages: finalBundlingPkgs,
+      bundlingOmzet: finalBundlingOmzet,
+      hostIds: selectedHostIds,
+      hostNames: selectedHostIds.map(id => employees.find(e => e.id === id)?.name || id),
+    };
+
+    return selectedHostIds.map(id => {
+      const emp = employees.find(e => e.id === id);
+      if (!emp) return null;
+      const res = calculateHostIncentiveForSale(tempSale, emp);
+      const hostCfg = emp.incentiveConfigs?.host;
+      return {
+        emp,
+        res,
+        hostCfg,
+      };
+    }).filter(Boolean) as { emp: Employee; res: ReturnType<typeof calculateHostIncentiveForSale>; hostCfg: any }[];
+  }, [subTab, selectedHostIds, saleFormat, pcsSold, packagesSold, omzet, satuanPcs, satuanPackages, bundlingPcs, bundlingPackages, employees]);
 
   const handleSubmitLive = (e: React.FormEvent) => {
     e.preventDefault();
@@ -848,12 +887,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                           <td className="px-4 py-3.5">
                             {isLive ? (
                               <div>
-                                <div className="font-semibold text-zinc-200">
-                                  🎤 {(sale.hostNames || []).join(', ') || 'Host Live'}
+                                <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                                  <span>🎤 {(sale.hostNames || []).join(', ') || 'Host Live'}</span>
                                 </div>
-                                <div className="text-[10px] text-zinc-400 mt-0.5">
-                                  📦 Admin: {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || '-'}
-                                  {sale.hoursWorked ? ` (${sale.hoursWorked} jam)` : ''}
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                    sale.saleFormat === 'satuan'
+                                      ? 'bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30'
+                                      : sale.saleFormat === 'campuran'
+                                      ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                  }`}>
+                                    {sale.saleFormat === 'satuan' ? '🏷️ Satuan' : sale.saleFormat === 'campuran' ? '🔀 Campuran' : '📦 Bundling'}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-400">
+                                    Admin: {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || '-'}
+                                    {sale.hoursWorked ? ` (${sale.hoursWorked} jam)` : ''}
+                                  </span>
                                 </div>
                               </div>
                             ) : (
@@ -1322,6 +1372,66 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               />
             </div>
 
+            {/* Live Preview Estimasi Insentif Host Sinkron dengan Setting Pegawai */}
+            {liveIncentivePreview.length > 0 && (
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#25F4EE]" />
+                    <span className="text-xs font-black text-white">
+                      Sinkronisasi Insentif Host Live
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                    {saleFormat === 'satuan' ? '🏷️ Format Satuan' : saleFormat === 'bundling' ? '📦 Format Bundling' : '🔀 Format Campuran'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {liveIncentivePreview.map(({ emp, res, hostCfg }) => {
+                    const hasSeparate = Boolean(hostCfg?.hasSeparateBundlingSatuan);
+                    const activeRate = saleFormat === 'satuan' 
+                      ? (hasSeparate ? (hostCfg?.satuanRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0))
+                      : (hasSeparate ? (hostCfg?.bundlingRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0));
+
+                    return (
+                      <div key={emp.id} className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-[#25F4EE]">{emp.name}</span>
+                          <span className="text-xs font-black text-emerald-400">
+                            + {formatRupiah(res.totalIncentive)}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-zinc-300 space-y-1">
+                          <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                            <span>Tarif Profil Pegawai:</span>
+                            <span className="text-white font-bold">
+                              {saleFormat === 'satuan'
+                                ? `Satuan: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.satuanIncentiveType === 'per_package_sold' ? 'paket' : 'pcs'}`
+                                : saleFormat === 'bundling'
+                                ? `Bundling: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.bundlingIncentiveType === 'per_pcs_sold' ? 'pcs' : 'paket'}`
+                                : `Satuan @ Rp ${(hostCfg?.satuanRate || 0).toLocaleString('id-ID')} • Bundling @ Rp ${(hostCfg?.bundlingRate || 0).toLocaleString('id-ID')}`}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-400">
+                            {res.desc}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="text-[10px] text-zinc-400 flex items-center gap-1.5 pt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#25F4EE] shrink-0" />
+                  <span>
+                    Tarif di atas disinkronkan secara otomatis dari <b>Menu Pendaftaran Pegawai &amp; Akses</b>. Gaji dan rekap laporan akan menghitung nilai yang sama persis.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Submit Button */}
             <div className="pt-4 flex items-center justify-end gap-3">
               <button
@@ -1624,10 +1734,49 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <span className="text-zinc-400">Jumlah Paket / Order:</span>
                   <span className="font-bold text-white">{formatNumber(viewingDetailSale.packagesSold)} paket</span>
                 </div>
-                {viewingDetailSale.hostNames && viewingDetailSale.hostNames.length > 0 && (
+                {viewingDetailSale.salesType === 'live' && (
                   <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-zinc-400">Host Live Bertugas:</span>
-                    <span className="font-bold text-pink-400">{viewingDetailSale.hostNames.join(', ')}</span>
+                    <span className="text-zinc-400">Format Penjualan:</span>
+                    <span className="font-bold text-[#25F4EE]">
+                      {viewingDetailSale.saleFormat === 'satuan'
+                        ? '🏷️ Jual Satuan (Pcs)'
+                        : viewingDetailSale.saleFormat === 'campuran'
+                        ? '🔀 Campuran Satuan & Bundling'
+                        : '📦 Jual Bundling (Paket)'}
+                    </span>
+                  </div>
+                )}
+                {viewingDetailSale.hostNames && viewingDetailSale.hostNames.length > 0 && (
+                  <div className="py-2 border-b border-white/5 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">Host Live Bertugas:</span>
+                      <span className="font-bold text-pink-400">{viewingDetailSale.hostNames.join(', ')}</span>
+                    </div>
+
+                    {/* Rincian Komisi Host per Transaksi ini */}
+                    <div className="p-3 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/20 space-y-1.5">
+                      <div className="text-[11px] font-bold text-[#25F4EE] flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Kalkulasi Insentif Host (Sinkronisasi Profil Pegawai):</span>
+                      </div>
+                      {viewingDetailSale.hostIds && viewingDetailSale.hostIds.length > 0 ? (
+                        viewingDetailSale.hostIds.map(hId => {
+                          const hostEmp = employees.find(e => e.id === hId);
+                          if (!hostEmp) return null;
+                          const calc = calculateHostIncentiveForSale(viewingDetailSale, hostEmp);
+                          return (
+                            <div key={hId} className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+                              <span className="text-zinc-300 font-semibold">{hostEmp.name}:</span>
+                              <span className="text-emerald-400 font-bold">{formatRupiah(calc.totalIncentive)} <span className="text-[10px] text-zinc-500 font-normal">({calc.desc})</span></span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-[10px] text-zinc-400">
+                          Format: {viewingDetailSale.saleFormat || 'satuan'}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="flex justify-between py-2 border-b border-white/5">

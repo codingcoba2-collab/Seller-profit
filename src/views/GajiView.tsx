@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService } from '../services/storage';
 import { Employee, AttendanceRecord, SalesRecord, BallInventory, CurrentUser, PeriodFilter, UserRole, CashflowRecord } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors } from '../utils/formatters';
+import { calculateHostPeriodIncentives } from '../utils/incentiveCalculator';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { 
   Receipt, 
@@ -156,73 +157,17 @@ export const GajiView: React.FC<GajiViewProps> = ({
         if (!config || config.type === 'none') return;
 
         if (role === 'host') {
-          const mySales = filteredSales.filter(s => 
-            s.hostIds?.includes(emp.id) || 
-            s.hostNames?.some(hn => hn.toLowerCase().includes(emp.name.toLowerCase()))
-          );
-
-          const hostPkgs = mySales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-          const hostPcs = mySales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-          empTotalPackages += hostPkgs;
-          empTotalPcs += hostPcs;
-
-          const threshold = config.tierThresholdPackages || 0;
-          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
-          const tierMode = config.tierCalculationMode || 'excess_only';
-          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
-
-          if (config.type === 'per_pcs_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
-              const excessPcs = Math.round(hostPcs * excessRatio);
-              const basePcs = Math.max(0, hostPcs - excessPcs);
-              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x ${formatRupiah(config.rate)} + ${excessPcs} pcs selisih x ${formatRupiah(config.tierRate)}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = hostPcs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPcs} pcs x ${formatRupiah(effectiveRate)}`;
-            } else {
-              amount = hostPcs * (config.rate || 0);
-              desc = `${hostPcs} pcs terjual live x ${formatRupiah(config.rate)}`;
-            }
-            totalIncentive += amount;
+          const hostResult = calculateHostPeriodIncentives(filteredSales, emp);
+          empTotalPackages += hostResult.totalPackages;
+          empTotalPcs += hostResult.totalPcs;
+          totalIncentive += hostResult.totalIncentive;
+          hostResult.breakdown.forEach(b => {
             incentiveBreakdowns.push({
               role: 'host',
-              desc,
-              amount,
+              desc: b.desc,
+              amount: b.amount,
             });
-          } else if (config.type === 'per_package_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const basePkgs = Math.min(hostPkgs, threshold);
-              const excessPkgs = Math.max(0, hostPkgs - threshold);
-              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x ${formatRupiah(config.rate)} + ${excessPkgs} paket selisih x ${formatRupiah(config.tierRate)}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = hostPkgs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPkgs} paket x ${formatRupiah(effectiveRate)}`;
-            } else {
-              amount = hostPkgs * (config.rate || 0);
-              desc = `${hostPkgs} paket live x ${formatRupiah(config.rate)}`;
-            }
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc,
-              amount,
-            });
-          } else if (config.type === 'fixed_amount') {
-            const amount = effectiveRate;
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Host Flat ${formatRupiah(effectiveRate)}` : `Insentif Tetap Host`,
-              amount,
-            });
-          }
+          });
         } else if (role === 'admin_toko') {
           const adminSales = filteredSales.filter(s => 
             s.adminIds?.includes(emp.id) || 

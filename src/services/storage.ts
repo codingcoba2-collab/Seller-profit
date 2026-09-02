@@ -64,8 +64,33 @@ const DEFAULT_EMPLOYEES: Employee[] = [
     salaryType: 'hourly',
     salaryRate: 35000,
     incentiveConfigs: {
-      host: { type: 'per_pcs_sold', rate: 1000, description: 'Rp 1.000 per pcs terjual saat live' },
-      admin_toko: { type: 'per_package_sold', rate: 500, description: 'Rp 500 per paket diproses' },
+      host: { 
+        type: 'per_pcs_sold', 
+        rate: 1000, 
+        description: 'Rp 1.000 per pcs terjual saat live',
+        hasSeparateBundlingSatuan: true,
+        satuanRate: 1000,
+        satuanIncentiveType: 'per_pcs_sold',
+        bundlingRate: 2500,
+        bundlingIncentiveType: 'per_package_sold',
+        hasTierRule: true,
+        tierThresholdPackages: 15,
+        tierRate: 3000,
+        tierRateBundling: 3000,
+        tierRateSatuan: 1500,
+        tierCalculationMode: 'excess_only',
+      },
+      admin_toko: { 
+        type: 'per_package_sold', 
+        rate: 500, 
+        description: 'Rp 500 per paket diproses',
+        hasTierRule: true,
+        tierThresholdPackages: 15,
+        tierRate: 1500,
+        tierRateBundling: 1500,
+        tierRateSatuan: 1000,
+        tierCalculationMode: 'excess_only',
+      },
     },
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -686,7 +711,35 @@ export class StorageService {
   private static getAllEmployeesRaw(): Employee[] {
     const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
-    if (!raw) {
+    let hasMigration = false;
+
+    all = all.map(emp => {
+      if (emp.roles?.includes('host') && emp.incentiveConfigs?.host) {
+        const hostCfg = emp.incentiveConfigs.host;
+        if (hostCfg.satuanRate === undefined || hostCfg.bundlingRate === undefined) {
+          hasMigration = true;
+          return {
+            ...emp,
+            incentiveConfigs: {
+              ...emp.incentiveConfigs,
+              host: {
+                ...hostCfg,
+                hasSeparateBundlingSatuan: hostCfg.hasSeparateBundlingSatuan ?? true,
+                satuanRate: hostCfg.satuanRate ?? hostCfg.rate ?? 1000,
+                satuanIncentiveType: hostCfg.satuanIncentiveType ?? (hostCfg.type === 'per_package_sold' ? 'per_package_sold' : 'per_pcs_sold'),
+                bundlingRate: hostCfg.bundlingRate ?? hostCfg.rate ?? 2500,
+                bundlingIncentiveType: hostCfg.bundlingIncentiveType ?? 'per_package_sold',
+                tierRateSatuan: hostCfg.tierRateSatuan ?? hostCfg.tierRate ?? 1500,
+                tierRateBundling: hostCfg.tierRateBundling ?? hostCfg.tierRate ?? 3000,
+              }
+            }
+          };
+        }
+      }
+      return emp;
+    });
+
+    if (!raw || hasMigration) {
       this.saveEmployees(all);
     }
     return all;

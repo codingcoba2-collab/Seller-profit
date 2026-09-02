@@ -283,21 +283,28 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     const formattedIncentiveConfigs: { [key in UserRole]?: IncentiveConfig } = {};
     selectedRoles.forEach(r => {
       const cfg = incentiveMap[r] || { type: 'none', rate: 0, description: '' };
+      const hasSeparate = Boolean(cfg.hasSeparateBundlingSatuan);
+      const fallbackRate = Number(cfg.rate) || 0;
+      const sRate = hasSeparate ? (Number(cfg.satuanRate) || fallbackRate) : fallbackRate;
+      const bRate = hasSeparate ? (Number(cfg.bundlingRate) || fallbackRate) : fallbackRate;
+      const sType = hasSeparate ? (cfg.satuanIncentiveType || 'per_pcs_sold') : (cfg.type === 'per_package_sold' ? 'per_package_sold' : 'per_pcs_sold');
+      const bType = hasSeparate ? (cfg.bundlingIncentiveType || 'per_package_sold') : (cfg.type === 'per_pcs_sold' ? 'per_pcs_sold' : 'per_package_sold');
+
       formattedIncentiveConfigs[r] = {
         type: cfg.type,
-        rate: cfg.type === 'none' ? 0 : cfg.rate,
+        rate: cfg.type === 'none' ? 0 : (hasSeparate ? sRate : fallbackRate),
         description: cfg.description,
         hasTierRule: Boolean(cfg.hasTierRule),
         tierThresholdPackages: cfg.hasTierRule ? (Number(cfg.tierThresholdPackages) || 0) : undefined,
-        tierRate: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate) || 0) : undefined,
-        tierRateBundling: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate) || 0) : undefined,
-        tierRateSatuan: cfg.hasTierRule ? (Number(cfg.tierRateSatuan) || 0) : undefined,
+        tierRate: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0) : undefined,
+        tierRateBundling: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0) : undefined,
+        tierRateSatuan: cfg.hasTierRule ? (Number(cfg.tierRateSatuan || sRate) || 0) : undefined,
         tierCalculationMode: cfg.tierCalculationMode || 'excess_only',
-        hasSeparateBundlingSatuan: r === 'host' ? Boolean(cfg.hasSeparateBundlingSatuan) : undefined,
-        satuanRate: r === 'host' && cfg.hasSeparateBundlingSatuan ? (Number(cfg.satuanRate) || 0) : undefined,
-        satuanIncentiveType: r === 'host' && cfg.hasSeparateBundlingSatuan ? (cfg.satuanIncentiveType || 'per_pcs_sold') : undefined,
-        bundlingRate: r === 'host' && cfg.hasSeparateBundlingSatuan ? (Number(cfg.bundlingRate) || 0) : undefined,
-        bundlingIncentiveType: r === 'host' && cfg.hasSeparateBundlingSatuan ? (cfg.bundlingIncentiveType || 'per_package_sold') : undefined,
+        hasSeparateBundlingSatuan: r === 'host' ? hasSeparate : undefined,
+        satuanRate: r === 'host' ? sRate : undefined,
+        satuanIncentiveType: r === 'host' ? sType : undefined,
+        bundlingRate: r === 'host' ? bRate : undefined,
+        bundlingIncentiveType: r === 'host' ? bType : undefined,
       };
     });
 
@@ -549,16 +556,27 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         </select>
                       </div>
 
-                      {config.type !== 'none' && (role === 'sortir' || role === 'steam' || config.type === 'fixed_amount') && (
+                      {config.type !== 'none' && !(role === 'host' && config.hasSeparateBundlingSatuan) && (
                         <div>
                           <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                            Tarif Komisi (Rp)
+                            {config.type === 'fixed_amount' 
+                              ? 'Nominal Komisi Flat (Rp)' 
+                              : role === 'host'
+                                ? (config.type === 'per_pcs_sold' ? 'Tarif Komisi Dasar per Pcs Live (Rp)' : 'Tarif Komisi Dasar per Paket Live (Rp)')
+                                : role === 'admin_toko'
+                                  ? (config.type === 'per_package_sold' ? 'Tarif per Paket Packing (Rp)' : 'Tarif per Pcs Dicatat (Rp)')
+                                  : 'Tarif Komisi (Rp)'}
                           </label>
                           <CommaNumberInput
                             value={config.rate}
                             onChange={val => handleIncentiveChange(role, config.type, val)}
                             className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                           />
+                          {role === 'host' && (
+                            <span className="text-[10px] text-[#25F4EE] mt-1 block">
+                              💡 Tarif ini otomatis digunakan saat sesi Live di Data Penjualan diset <b>Satuan</b> maupun <b>Bundling</b>.
+                            </span>
+                          )}
                           {(role === 'sortir' || role === 'steam') && config.type === 'per_ball_pcs' && (
                             <span className="text-[10px] text-[#25F4EE] mt-1 block">
                               ✨ Insentif hanya dihitung dari jumlah <b>Pcs Layak Jual</b> (barang reject otomatis diabaikan).
@@ -1123,6 +1141,17 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                           {roleLabels[r]}
                         </span>
                       ))}
+
+                      {/* Info Tarif Satuan & Bundling jika Host */}
+                      {emp.roles.includes('host') && emp.incentiveConfigs?.host && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30">
+                          {emp.incentiveConfigs.host.hasSeparateBundlingSatuan ? (
+                            <>🏷️ Satuan: {formatRupiah(emp.incentiveConfigs.host.satuanRate || emp.incentiveConfigs.host.rate)} • 📦 Bundling: {formatRupiah(emp.incentiveConfigs.host.bundlingRate || emp.incentiveConfigs.host.rate)}</>
+                          ) : (
+                            <>Tarif Live: {formatRupiah(emp.incentiveConfigs.host.rate)} / {emp.incentiveConfigs.host.type === 'per_package_sold' ? 'Paket' : 'Pcs'}</>
+                          )}
+                        </span>
+                      )}
 
                       {/* Tier badge if exists */}
                       {Object.values(emp.incentiveConfigs || {}).some(c => Boolean((c as IncentiveConfig)?.hasTierRule)) && (
