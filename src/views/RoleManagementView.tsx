@@ -33,6 +33,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [subTab, setSubTab] = useState<SubTabType>('output');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialUsername, setInitialUsername] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State
@@ -122,6 +123,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
   const resetForm = () => {
     setEditingId(null);
+    setInitialUsername('');
     setName('');
     setUsername('');
     setPassword('');
@@ -149,6 +151,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
   const handleEdit = (emp: Employee) => {
     setEditingId(emp.id);
+    setInitialUsername(emp.username || '');
     setName(emp.name);
     setUsername(emp.username);
     setPassword(emp.password || '');
@@ -347,12 +350,16 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   onChange={e => setUsername(e.target.value)}
                   placeholder="siti_host"
                   className={`w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border text-white focus:border-[#25F4EE] ${
-                    username.trim() && StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
+                    username.trim() &&
+                    (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
+                    StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
                       ? 'border-[#FE2C55]'
                       : 'border-white/10'
                   }`}
                 />
-                {username.trim() && StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
+                {username.trim() &&
+                  (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
+                  StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
                   <p className="text-[#FE2C55] text-[10px] font-bold mt-1">
                     already exist please use another name
                   </p>

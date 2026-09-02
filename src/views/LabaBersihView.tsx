@@ -91,26 +91,32 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminShopee - totalBiayaLayanan - totalIklanTerpakai - totalKoinTerpakai;
     const labaKotor = omzetBersih - totalReturn;
 
-    // 2. Total Pengeluaran Operasional (Cashflow Outflow)
+    // 2. Total Pengeluaran Operasional (Cashflow Outflow murni - tidak termasuk pengeluaran gaji karena gaji dipisahkan / dihitung mandiri di kas gaji)
     const pengeluaranOperasional = filteredCashflows
-      .filter(c => c.type === 'outflow')
+      .filter(c => c.type === 'outflow' && c.category !== 'gaji_pegawai')
       .reduce((acc, c) => acc + c.amount, 0);
 
-    // 3. Total Beban Gaji & Insentif Tim using unified payroll calculation
+    // Pengeluaran gaji tercatat di kas (hanya untuk info/tracking)
+    const pengeluaranGajiDiKas = filteredCashflows
+      .filter(c => c.type === 'outflow' && c.category === 'gaji_pegawai')
+      .reduce((acc, c) => acc + c.amount, 0);
+
+    // 3. Total Beban Gaji & Insentif Tim (Tidak dimasukkan ke potongan laba bersih toko sesuai instruksi)
     const payrollData = StorageService.calculateStorePayroll(currentUser.storeId, filterByPeriod);
     const totalBebanGaji = payrollData.totalPayroll;
     const totalGajiPokok = payrollData.totalBaseSalary;
     const totalInsentifLive = payrollData.totalIncentives;
     const totalBonusTambahan = payrollData.totalMultiRoleBonus + payrollData.totalMonthlyBonus;
 
-    // 4. Laba Bersih Akhir = Laba Kotor - Pengeluaran Operasional - Beban Gaji & Insentif
-    const labaBersihAkhir = labaKotor - pengeluaranOperasional - totalBebanGaji;
+    // 4. Laba Bersih Akhir = Laba Kotor - Pengeluaran Operasional Kas (Tanpa memotong beban gaji di slip maupun kas)
+    const labaBersihAkhir = labaKotor - pengeluaranOperasional;
     const profitMargin = totalOmzetKotor > 0 ? ((labaBersihAkhir / totalOmzetKotor) * 100).toFixed(1) : '0.0';
 
     return {
       totalOmzetKotor,
       labaKotor,
       pengeluaranOperasional,
+      pengeluaranGajiDiKas,
       totalBebanGaji,
       totalGajiPokok,
       totalInsentifLive,
@@ -186,7 +192,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
               {formatRupiah(report.labaBersihAkhir)}
             </div>
             <p className="text-xs text-zinc-400 max-w-xl">
-              Laba Bersih Akhir = Laba Kotor ({formatRupiah(report.labaKotor)}) dikurangi Pengeluaran Operasional Kas ({formatRupiah(report.pengeluaranOperasional)}) dan Total Gaji/Insentif ({formatRupiah(report.totalBebanGaji)}).
+              Laba Bersih Akhir = Laba Kotor ({formatRupiah(report.labaKotor)}) dikurangi Pengeluaran Operasional Kas ({formatRupiah(report.pengeluaranOperasional)}). Pembayaran gaji dikelola terpisah di laporan slip gaji & kas dan tidak memotong beban operasional kas laba bersih.
             </p>
           </div>
 
@@ -301,7 +307,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             </div>
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
               <span className="text-zinc-400">Formula Laba Bersih</span>
-              <span className="text-[11px] text-zinc-300">Laba Kotor - Biaya Kas - Beban Gaji</span>
+              <span className="text-[11px] text-zinc-300">Laba Kotor - Beban Operasional Kas</span>
             </div>
           </div>
         </div>
