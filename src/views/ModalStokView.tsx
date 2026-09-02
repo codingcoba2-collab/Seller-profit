@@ -376,10 +376,15 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
           {/* Summary metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Pcs Masuk</div>
+              <div className="text-[11px] font-semibold text-zinc-400">Total Pcs Layak Jual</div>
               <div className="text-xl font-black text-white mt-1">
-                {formatNumber(hppInfo.totalPcs)} <span className="text-xs font-medium text-zinc-400">pcs</span>
+                {formatNumber(stockInfo.totalPcsLayakJual ?? hppInfo.totalPcs)} <span className="text-xs font-medium text-zinc-400">pcs</span>
               </div>
+              {(stockInfo.totalPcsReject || 0) > 0 && (
+                <div className="text-[10px] text-[#FE2C55] mt-0.5">
+                  -{formatNumber(stockInfo.totalPcsReject)} pcs reject diabaikan
+                </div>
+              )}
             </div>
 
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
@@ -397,7 +402,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             </div>
 
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Sisa Stok Gudang</div>
+              <div className="text-[11px] font-semibold text-zinc-400">Sisa Stok Layak Jual</div>
               <div className="text-xl font-black text-white mt-1">
                 {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-medium text-zinc-400">pcs</span>
               </div>

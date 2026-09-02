@@ -272,14 +272,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="mt-5 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
-              <span>Sisa Stok Barang</span>
+              <span>Sisa Stok Layak Jual</span>
               <Package className="w-3.5 h-3.5 text-[#25F4EE]" />
             </div>
             <div className="text-base sm:text-lg font-black text-white mt-1">
               {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
             </div>
             <div className="text-[10px] text-zinc-500 mt-0.5">
-              Terjual: {formatNumber(stockInfo.totalPcsSold)} pcs
+              Terjual: {formatNumber(stockInfo.totalPcsSold)} pcs {stockInfo.totalPcsReject > 0 && `• Reject: ${formatNumber(stockInfo.totalPcsReject)} pcs`}
             </div>
           </div>
 

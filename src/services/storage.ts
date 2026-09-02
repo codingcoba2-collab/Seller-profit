@@ -805,15 +805,35 @@ export class StorageService {
   }
 
   // CALCULATIONS & BALANCES
-  static calculateStock(storeId: string): { totalPcsIn: number; totalPcsSold: number; remainingStock: number } {
+  static calculateStock(storeId: string): { 
+    totalPcsIn: number; 
+    totalPcsReject: number;
+    totalPcsLayakJual: number;
+    totalPcsSold: number; 
+    remainingStock: number;
+  } {
     const inventory = this.getInventory(storeId);
+    const steamSortir = this.getSteamSortir(storeId);
     const sales = this.getSales(storeId);
-    const totalPcsIn = inventory.reduce((acc, curr) => acc + (curr.pcsCount || 0), 0);
+
+    // Total pcs awal yang dibeli / masuk dari ball inventory
+    const totalPcsAwal = inventory.reduce((acc, curr) => acc + (curr.pcsCount || 0), 0);
+    
+    // Total pcs reject dari seluruh riwayat pengerjaan sortir & steam
+    const totalPcsReject = steamSortir.reduce((acc, curr) => acc + (curr.pcsReject || 0), 0);
+    
+    // Stok masuk tersedia murni dari barang yang LAYAK JUAL (reject tidak dianggap/diabaikan)
+    const totalPcsLayakJual = Math.max(0, totalPcsAwal - totalPcsReject);
+    
+    // Total pcs yang telah terjual
     const totalPcsSold = sales.reduce((acc, curr) => acc + (curr.pcsSold || 0), 0);
+
     return {
-      totalPcsIn,
+      totalPcsIn: totalPcsLayakJual, // Stok masuk efektif layak jual
+      totalPcsReject,
+      totalPcsLayakJual,
       totalPcsSold,
-      remainingStock: totalPcsIn - totalPcsSold,
+      remainingStock: totalPcsLayakJual - totalPcsSold,
     };
   }
 
@@ -891,7 +911,7 @@ export class StorageService {
       }
     });
 
-    // Hitung biaya Insentif tim sortir & steam sebagai komponen penambah HPP Final
+    // Hitung biaya Insentif tim sortir & steam sebagai komponen penambah HPP Final (HANYA DARI BARANG LAYAK JUAL)
     let totalInsentifSortir = 0;
     let totalInsentifSteam = 0;
 
@@ -905,7 +925,12 @@ export class StorageService {
               log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
             return isMatchRole && isMatchEmp;
           });
-          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          // Hanya hitung pcs yang layak jual (reject tidak dihitung)
+          const totalPcsWorked = workerLogs.reduce((acc, l) => {
+            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
+            return acc + pcsLayak;
+          }, 0);
+
           if (config.type === 'per_ball_pcs') {
             totalInsentifSortir += totalPcsWorked * (config.rate || 0);
           } else if (config.type === 'fixed_amount') {
@@ -923,7 +948,12 @@ export class StorageService {
               log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
             return isMatchRole && isMatchEmp;
           });
-          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          // Hanya hitung pcs yang layak jual (reject tidak dihitung)
+          const totalPcsWorked = workerLogs.reduce((acc, l) => {
+            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
+            return acc + pcsLayak;
+          }, 0);
+
           if (config.type === 'per_ball_pcs') {
             totalInsentifSteam += totalPcsWorked * (config.rate || 0);
           } else if (config.type === 'fixed_amount') {
@@ -937,8 +967,14 @@ export class StorageService {
     const totalBiayaSortir = inventorySortirCost + logsSortirCost + totalBiayaSortirKehadiran + totalInsentifSortir;
 
     const totalBiayaModalDanJasa = totalModalBeli + totalOngkir + totalBiayaSteam + totalBiayaSortir;
-    const totalPcs = inventory.reduce((acc, i) => acc + (i.pcsCount || 0), 0);
-    const weightedAverageHpp = totalPcs > 0 ? Math.round(totalBiayaModalDanJasa / totalPcs) : 0;
+    
+    // Total pcs efektif yang layak jual (jika ada reject, dibagi atas barang layak jual yang bisa menghasilkan omzet)
+    const totalPcsAwal = inventory.reduce((acc, i) => acc + (i.pcsCount || 0), 0);
+    const totalReject = steamSortirLogs.reduce((acc, s) => acc + (s.pcsReject || 0), 0);
+    const totalPcsLayak = Math.max(0, totalPcsAwal - totalReject);
+    const effectivePcs = totalPcsLayak > 0 ? totalPcsLayak : totalPcsAwal;
+
+    const weightedAverageHpp = effectivePcs > 0 ? Math.round(totalBiayaModalDanJasa / effectivePcs) : 0;
 
     return {
       totalModalBeli,
@@ -950,7 +986,7 @@ export class StorageService {
       totalInsentifSortir,
       totalInsentifSteam,
       totalBiayaModalDanJasa,
-      totalPcs,
+      totalPcs: effectivePcs,
       weightedAverageHpp,
     };
   }
@@ -1165,14 +1201,19 @@ export class StorageService {
               log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
             return isMatchRole && isMatchEmp;
           });
-          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          // Hanya hitung pcs yang layak jual (reject tidak dihitung)
+          const totalPcsWorked = workerLogs.reduce((acc, l) => {
+            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
+            return acc + pcsLayak;
+          }, 0);
+
           if (config.type === 'per_ball_pcs') {
             const amount = totalPcsWorked * (config.rate || 0);
             totalIncentives += amount;
             hppSortirSteamIncentives += amount;
             incentiveBreakdowns.push({
               role,
-              desc: `${totalPcsWorked} pcs ${role} ball x Rp ${(config.rate || 0).toLocaleString('id-ID')} (Masuk HPP)`,
+              desc: `${totalPcsWorked} pcs layak jual (${role}) x Rp ${(config.rate || 0).toLocaleString('id-ID')} (Masuk HPP)`,
               amount,
               isHppIncentive: true,
             });

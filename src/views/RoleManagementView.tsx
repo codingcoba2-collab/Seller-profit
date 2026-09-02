@@ -490,7 +490,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             </>
                           )}
                           {(role === 'sortir' || role === 'steam') && (
-                            <option value="per_ball_pcs">Per Pcs Ball Dikerjakan</option>
+                            <option value="per_ball_pcs">Per Pcs Layak Jual (Reject Tidak Dihitung)</option>
                           )}
                           <option value="fixed_amount">Nominal Tetap (Flat)</option>
                         </select>
@@ -506,6 +506,11 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             onChange={val => handleIncentiveChange(role, config.type, val)}
                             className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                           />
+                          {(role === 'sortir' || role === 'steam') && config.type === 'per_ball_pcs' && (
+                            <span className="text-[10px] text-[#25F4EE] mt-1 block">
+                              ✨ Insentif hanya dihitung dari jumlah <b>Pcs Layak Jual</b> (barang reject otomatis diabaikan).
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>

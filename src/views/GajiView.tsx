@@ -301,13 +301,18 @@ export const GajiView: React.FC<GajiViewProps> = ({
             return isMatchRole && isMatchEmp && filterByPeriod(log.date);
           });
 
-          const totalPcsWorked = workerLogs.reduce((acc, l) => acc + (l.pcsTotal || 0), 0);
+          // Hanya hitung pcs yang layak jual (reject tidak dihitung)
+          const totalPcsWorked = workerLogs.reduce((acc, l) => {
+            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
+            return acc + pcsLayak;
+          }, 0);
+
           if (config.type === 'per_ball_pcs') {
             const amount = totalPcsWorked * (config.rate || 0);
             totalIncentive += amount;
             incentiveBreakdowns.push({
               role,
-              desc: `${totalPcsWorked} pcs ${role} ball x ${formatRupiah(config.rate)}`,
+              desc: `${totalPcsWorked} pcs layak jual (${role}) x ${formatRupiah(config.rate)}`,
               amount,
             });
           }

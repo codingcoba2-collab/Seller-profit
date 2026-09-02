@@ -409,46 +409,55 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             </div>
 
             {/* Perhitungan Pcs & Reject */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Total Pcs Dibongkar <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={pcsTotal}
-                  onChange={e => handlePcsTotalChange(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="350"
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                />
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Total Pcs Dibongkar <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={pcsTotal}
+                    onChange={e => handlePcsTotalChange(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="350"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#FE2C55] mb-1">
+                    Pcs Reject (Rusak/Noda)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pcsReject}
+                    onChange={e => handlePcsRejectChange(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-[#FE2C55] font-bold focus:border-[#FE2C55]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#25F4EE] mb-1">
+                    Pcs Layak Jual (Otomatis)
+                  </label>
+                  <input
+                    type="number"
+                    readOnly
+                    value={pcsLayakJual}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823]/80 border border-[#25F4EE]/30 text-[#25F4EE] font-extrabold cursor-not-allowed"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#FE2C55] mb-1">
-                  Pcs Reject (Rusak/Noda)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={pcsReject}
-                  onChange={e => handlePcsRejectChange(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="0"
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-[#FE2C55] font-bold focus:border-[#FE2C55]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#25F4EE] mb-1">
-                  Pcs Layak Jual (Otomatis)
-                </label>
-                <input
-                  type="number"
-                  readOnly
-                  value={pcsLayakJual}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823]/80 border border-white/10 text-[#25F4EE] font-extrabold cursor-not-allowed"
-                />
+              <div className="p-2.5 rounded-xl bg-[#25F4EE]/5 border border-[#25F4EE]/20 flex items-start gap-2">
+                <span className="text-xs">💡</span>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  <strong className="text-[#25F4EE]">Aturan Sistem:</strong> Insentif pekerja sortir &amp; steam serta sisa stok tersedia toko dihitung <b>murni dari Pcs Layak Jual</b>. Barang reject otomatis tidak dianggap masuk stok maupun insentif.
+                </p>
               </div>
             </div>
 
