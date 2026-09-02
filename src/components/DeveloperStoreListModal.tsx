@@ -110,7 +110,7 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
       ownerPassword: newOwnerPassword,
       createdAt: new Date().toISOString(),
       settings: {
-        adminPromoName: 'Shopee Live Cashback 8.5%',
+        adminPromoName: 'Marketplace Live Cashback 8.5%',
         adminPromoPercentage: 8.5,
         serviceFeePerOrder: 1250,
         returnMechanism: 'detail',

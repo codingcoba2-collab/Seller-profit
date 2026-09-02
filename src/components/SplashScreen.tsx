@@ -9,7 +9,7 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ 
   onComplete,
-  appName = 'Laba & Rugi Shopee'
+  appName = 'Laba & Rugi Marketplace'
 }) => {
   const [visible, setVisible] = useState(true);
 

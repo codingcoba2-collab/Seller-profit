@@ -7,7 +7,7 @@ interface LoadingScreenProps {
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
-  message = 'Memuat Sistem Akuntansi Shopee...',
+  message = 'Memuat Sistem Akuntansi Marketplace...',
   storeName,
 }) => {
   return (
@@ -35,7 +35,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <div className="flex items-center justify-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-pulse" />
             <h2 className="text-lg font-black tracking-tight text-white">
-              Remix Laba &amp; Rugi Shopee
+              Remix Laba &amp; Rugi Marketplace
             </h2>
             <span className="w-2 h-2 rounded-full bg-[#25F4EE] animate-pulse" />
           </div>

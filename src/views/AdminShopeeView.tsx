@@ -33,7 +33,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
       adminPromoPercentage,
       serviceFeePerOrder,
     });
-    onNotify('Pengaturan biaya admin & layanan Shopee berhasil disimpan!', 'success');
+    onNotify('Pengaturan biaya admin & layanan Marketplace berhasil disimpan!', 'success');
   };
 
   return (
@@ -51,7 +51,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
           </button>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-white">
-              Pengaturan Biaya Admin &amp; Layanan Shopee
+              Pengaturan Biaya Admin &amp; Layanan Marketplace
             </h2>
           </div>
         </div>
@@ -59,12 +59,12 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
 
       <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Persentase Admin Shopee */}
+          {/* Persentase Admin Marketplace */}
           <div className="p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-white flex items-center gap-1.5">
                 <Percent className="w-4 h-4 text-[#FE2C55]" />
-                <span>Jumlah Biaya Admin / Komisi Shopee (%)</span>
+                <span>Jumlah Biaya Admin / Komisi Marketplace (%)</span>
               </label>
               <span className="text-xs font-black text-[#25F4EE] bg-[#25F4EE]/10 border border-[#25F4EE]/30 px-2.5 py-0.5 rounded-lg">
                 {adminPromoPercentage}%
@@ -118,7 +118,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
               </label>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Biaya tetap yang dikenakan Shopee untuk setiap nomor resi/paket terkirim.
+              Biaya tetap yang dikenakan Marketplace untuk setiap nomor resi/paket terkirim.
             </p>
 
             <CommaNumberInput
@@ -135,7 +135,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
             className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4 text-white" />
-            <span>Simpan Pengaturan Biaya Shopee</span>
+            <span>Simpan Pengaturan Biaya Marketplace</span>
           </button>
         </form>
       </div>

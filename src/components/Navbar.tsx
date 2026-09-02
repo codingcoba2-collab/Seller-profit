@@ -61,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'role_management': return 'Manajemen Pegawai & Role';
       case 'steam_sortir': return 'Sortir & Steam Ball';
       case 'modal_stok': return 'Modal & Stok Ball (HPP)';
-      case 'admin_shopee': return 'Biaya Admin Shopee & Layanan';
+      case 'admin_shopee': return 'Biaya Admin Marketplace & Layanan';
       case 'kehadiran': return 'Presensi & Kehadiran Shift';
       case 'penjualan': return 'Data Penjualan Host Live';
       case 'return': return 'Data Retur / Paket Return';
@@ -111,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </strong>
               </div>
 
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Iklan Shopee">
+              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Iklan Marketplace">
                 <Megaphone className="w-3 h-3 text-[#25F4EE]" />
                 <span className="hidden xs:inline text-zinc-400">Iklan:</span>
                 <strong className={`font-bold ${adsCoinInfo.remainingAds <= 0 ? 'text-[#FE2C55]' : 'text-white'}`}>
@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </strong>
               </div>
 
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Koin Shopee">
+              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Koin Marketplace">
                 <Coins className="w-3 h-3 text-amber-400" />
                 <span className="hidden xs:inline text-zinc-400">Koin:</span>
                 <strong className={`font-bold ${adsCoinInfo.remainingCoin <= 0 ? 'text-[#FE2C55]' : 'text-white'}`}>

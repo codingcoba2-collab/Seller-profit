@@ -45,7 +45,7 @@ const DEFAULT_STORE: StoreAccount = {
   ownerPassword: '123',
   createdAt: new Date().toISOString(),
   settings: {
-    adminPromoName: 'Shopee Live Cashback Ekstra 8.5%',
+    adminPromoName: 'Marketplace Live Cashback Ekstra 8.5%',
     adminPromoPercentage: 8.5,
     serviceFeePerOrder: 1250,
     returnMechanism: 'detail',
@@ -157,7 +157,7 @@ const DEFAULT_ADS_COIN: AdsCoinDeposit[] = [
     date: new Date(Date.now() - 86400000 * 3).toISOString().slice(0, 10),
     adsAmount: 1500000,
     coinAmount: 500000,
-    notes: 'Topup awal Shopee Ads & Koin Cashback Live',
+    notes: 'Topup awal Marketplace Ads & Koin Cashback Live',
     createdAt: new Date().toISOString(),
   }
 ];
@@ -822,12 +822,16 @@ export class StorageService {
     totalOngkir: number;
     totalBiayaSteam: number;
     totalBiayaSortir: number;
+    totalBiayaSortirKehadiran: number;
+    totalBiayaSteamKehadiran: number;
     totalBiayaModalDanJasa: number;
     totalPcs: number;
     weightedAverageHpp: number;
   } {
     const inventory = this.getInventory(storeId);
     const steamSortirLogs = this.getSteamSortir(storeId);
+    const attendance = this.getAttendance(storeId);
+    const employees = this.getEmployees(storeId);
 
     const totalModalBeli = inventory.reduce((acc, i) => acc + (i.modalPrice || 0), 0);
     const totalOngkir = inventory.reduce((acc, i) => acc + (i.shippingCost || 0), 0);
@@ -842,8 +846,32 @@ export class StorageService {
       .filter(l => l.processType === 'sortir' || l.processType === 'sortir_dan_steam')
       .reduce((acc, l) => acc + (l.totalCost || 0), 0);
 
-    const totalBiayaSteam = Math.max(inventorySteamCost, logsSteamCost);
-    const totalBiayaSortir = Math.max(inventorySortirCost, logsSortirCost);
+    // Req 3: Hitung biaya kehadiran pekerja role sortir & steam sebagai penambah HPP Final
+    let totalBiayaSortirKehadiran = 0;
+    let totalBiayaSteamKehadiran = 0;
+
+    attendance.forEach(att => {
+      const emp = employees.find(e => e.id === att.employeeId || e.name === att.employeeName);
+      if (!emp) return;
+
+      const salaryRate = emp.salaryRate || 0;
+      const hoursWorked = att.hoursWorked || 0;
+      const shiftCost = emp.salaryType === 'hourly' ? hoursWorked * salaryRate : salaryRate;
+
+      if (att.role === 'sortir' || emp.roles.includes('sortir')) {
+        if (att.role === 'sortir') {
+          totalBiayaSortirKehadiran += shiftCost;
+        }
+      }
+      if (att.role === 'steam' || emp.roles.includes('steam')) {
+        if (att.role === 'steam') {
+          totalBiayaSteamKehadiran += shiftCost;
+        }
+      }
+    });
+
+    const totalBiayaSteam = inventorySteamCost + logsSteamCost + totalBiayaSteamKehadiran;
+    const totalBiayaSortir = inventorySortirCost + logsSortirCost + totalBiayaSortirKehadiran;
 
     const totalBiayaModalDanJasa = totalModalBeli + totalOngkir + totalBiayaSteam + totalBiayaSortir;
     const totalPcs = inventory.reduce((acc, i) => acc + (i.pcsCount || 0), 0);
@@ -854,6 +882,8 @@ export class StorageService {
       totalOngkir,
       totalBiayaSteam,
       totalBiayaSortir,
+      totalBiayaSortirKehadiran,
+      totalBiayaSteamKehadiran,
       totalBiayaModalDanJasa,
       totalPcs,
       weightedAverageHpp,

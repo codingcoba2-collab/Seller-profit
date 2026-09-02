@@ -13,7 +13,12 @@ import {
   Edit3, 
   ArrowLeft, 
   Filter, 
-  Search 
+  Search,
+  Settings,
+  Percent,
+  Shield,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 interface ReturnViewProps {
@@ -45,6 +50,9 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   const [totalAmount, setTotalAmount] = useState<number>(120000);
   const [reason, setReason] = useState('Paket retur gagal COD / reject pembeli');
 
+  const sales = StorageService.getSales(currentUser.storeId);
+  const totalOmzetStore = sales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+
   const loadData = () => {
     const list = StorageService.getReturns(currentUser.storeId);
     setReturnList(list);
@@ -55,6 +63,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
       setEstimatePercentage(store.settings.estimateReturnPercentage || 3);
     } else {
       setIsEstimateMode(false);
+      setEstimatePercentage(store?.settings?.estimateReturnPercentage || 3);
     }
   };
 
@@ -76,17 +85,34 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
     setPackageCount(item.packageCount);
     setTotalAmount(item.totalAmount);
     setReason(item.reason || '');
-    setSubTab('input'); // Switch to input form smoothly (Requirement 7)
+    setSubTab('input');
   };
 
   const handleCancelEdit = () => {
     resetForm();
   };
 
+  // Req 1: Owner-only Save Return Estimation Settings
+  const handleSaveOwnerSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser.isOwner) {
+      onNotify('Hanya Owner yang memiliki akses mengubah estimasi return!', 'error');
+      return;
+    }
+
+    StorageService.updateStoreSettings(currentUser.storeId, {
+      returnMechanism: isEstimateMode ? 'estimate' : 'detail',
+      estimateReturnPercentage: Number(estimatePercentage) || 0,
+    });
+
+    onNotify(`Pengaturan return berhasil diperbarui ke mode ${isEstimateMode ? `Estimasi (${estimatePercentage}%)` : 'Detail Pencatatan Manual'}!`, 'success');
+    loadData();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isEstimateMode) {
-      onNotify('Mode return estimasi aktif di pengaturan Ball. Return dihitung otomatis!', 'info');
+      onNotify('Mode return estimasi (%) sedang aktif. Nilai return dihitung otomatis pada laporan laba rugi.', 'info');
       return;
     }
 
@@ -104,7 +130,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
     if (editingId) {
       const all = StorageService.getReturns(currentUser.storeId);
       const updated = all.map(r => r.id === editingId ? record : r);
-      localStorage.setItem('shopee_lr_returns', JSON.stringify(updated));
+      StorageService.addReturn(record);
       onNotify('Perubahan data retur berhasil disimpan!', 'success');
     } else {
       StorageService.addReturn(record);
@@ -127,7 +153,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
     }
   };
 
-  // Filter & sort list by date desc (Requirement 9)
+  // Filter & sort list by date desc
   const filteredList = returnList
     .filter(r => {
       if (searchQuery.trim()) {
@@ -148,10 +174,11 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
 
   const totalRetPkgs = filteredList.reduce((acc, r) => acc + (r.packageCount || 0), 0);
   const totalRetNominal = filteredList.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+  const estimatedTotalNominal = Math.round((estimatePercentage / 100) * totalOmzetStore);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without stage labels (Requirement 5 & 6) */}
+      {/* Header without stage labels */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <button
@@ -165,29 +192,144 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-black text-white">
-                Pencatatan Retur / Paket Return Shopee
+                Pencatatan Retur / Paket Return Marketplace
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Pencatatan paket retur gagal kirim / COD untuk mengurangi omzet pada laporan laba rugi
+              Pencatatan paket retur gagal kirim / COD atau estimasi persentase untuk mengurangi omzet pada laporan laba rugi
             </p>
           </div>
         </div>
       </div>
 
-      {isEstimateMode && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1">
-          <div className="flex items-center gap-2 font-bold text-xs">
-            <AlertCircle className="w-4 h-4 text-amber-400" />
-            <span>Mekanisme Return Diatur ke Mode Estimasi ({estimatePercentage}%)</span>
+      {/* Req 1: PENGATURAN ESTIMASI RETURN (AKSES HANYA OWNER) */}
+      {currentUser.isOwner ? (
+        <div className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-[#FE2C55]/20 text-[#FE2C55]">
+                <Percent className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>Pengaturan Mekanisme Return</span>
+                  <span className="px-2 py-0.5 rounded-md bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] font-bold border border-[#25F4EE]/30">
+                    Akses Khusus Owner
+                  </span>
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Pilih apakah toko menggunakan estimasi persentase otomatis atau pencatatan detail tiap paket retur
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-[11px] text-amber-200/80">
-            Perhitungan return toko dihitung otomatis sebesar {estimatePercentage}% dari omzet kotor.
-          </p>
+
+          <form onSubmit={handleSaveOwnerSettings} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEstimateMode(false)}
+                className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
+                  !isEstimateMode
+                    ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-md'
+                    : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black">Mode 1: Pencatatan Detail Manual</span>
+                  {!isEstimateMode && <CheckCircle2 className="w-4 h-4 text-[#25F4EE]" />}
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Tim/admin menginput data paket retur satu per satu saat paket fisik tiba di toko.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsEstimateMode(true)}
+                className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
+                  isEstimateMode
+                    ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-white shadow-md'
+                    : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black">Mode 2: Estimasi Persentase (%) Otomatis</span>
+                  {isEstimateMode && <CheckCircle2 className="w-4 h-4 text-[#FE2C55]" />}
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Return otomatis dipotong sekian % dari total omzet kotor penjualan di Laba Rugi.
+                </p>
+              </button>
+            </div>
+
+            {isEstimateMode && (
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-zinc-200">
+                    Persentase Estimasi Return (% dari Omzet Kotor Marketplace)
+                  </label>
+                  <span className="text-xs font-black text-[#25F4EE]">
+                    Simulasi: {formatRupiah(estimatedTotalNominal)} (dari omzet {formatRupiah(totalOmzetStore)})
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    required
+                    value={estimatePercentage}
+                    onChange={e => setEstimatePercentage(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2 text-sm font-black rounded-xl bg-[#161823] border border-white/10 text-white focus:border-[#25F4EE]"
+                  />
+
+                  {/* Quick Select Buttons */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[2.0, 3.0, 4.0, 5.0, 8.0, 10.0].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setEstimatePercentage(pct)}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                          estimatePercentage === pct
+                            ? 'bg-[#FE2C55] text-white border-[#FE2C55]'
+                            : 'bg-[#161823] text-zinc-300 border-white/10 hover:border-white/30'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-extrabold text-xs shadow-lg cursor-pointer transition flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Simpan Pengaturan Return (Owner)</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-zinc-300">
+            <Shield className="w-4 h-4 text-[#25F4EE]" />
+            <span>
+              Mekanisme Return Aktif: <strong className="text-white">{isEstimateMode ? `Estimasi (${estimatePercentage}%)` : 'Pencatatan Detail Manual'}</strong> (Dikelola oleh Owner)
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Sub Navigation (Requirement 7) */}
+      {/* Sub Navigation */}
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
@@ -201,7 +343,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <h3 className="font-black text-white text-base flex items-center gap-2">
               {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <PackageX className="w-5 h-5 text-[#FE2C55]" />}
-              <span>{editingId ? 'Edit Data Retur Paket' : 'Input Data Retur Shopee'}</span>
+              <span>{editingId ? 'Edit Data Retur Paket' : 'Input Data Retur Marketplace'}</span>
             </h3>
             {editingId && (
               <button
@@ -214,6 +356,12 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
             )}
           </div>
 
+          {isEstimateMode && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+              ⚠️ Toko sedang menggunakan <strong>Mode Estimasi Return ({estimatePercentage}%)</strong>. Laporan Laba Rugi menghitung return otomatis secara persentase omzet.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">
@@ -223,10 +371,9 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                 id="input-return-date"
                 type="date"
                 required
-                disabled={isEstimateMode}
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE] disabled:opacity-50"
+                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
               />
             </div>
 
@@ -240,10 +387,9 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                   type="number"
                   required
                   min="1"
-                  disabled={isEstimateMode}
                   value={packageCount}
                   onChange={e => setPackageCount(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE] disabled:opacity-50"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                 />
               </div>
 
@@ -253,10 +399,9 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                 </label>
                 <CommaNumberInput
                   id="input-return-amount"
-                  disabled={isEstimateMode}
                   value={totalAmount}
                   onChange={setTotalAmount}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#FE2C55] font-bold focus:border-[#25F4EE] disabled:opacity-50"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#FE2C55] font-bold focus:border-[#25F4EE]"
                 />
               </div>
             </div>
@@ -267,19 +412,17 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               </label>
               <input
                 type="text"
-                disabled={isEstimateMode}
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                placeholder="Contoh: Paket hilang / gagal COD / pembeli tolak"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE] disabled:opacity-50"
+                placeholder="Contoh: Paket rusak / gagal COD / pembeli tolak"
+                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
               />
             </div>
 
             <button
               id="btn-submit-return"
               type="submit"
-              disabled={isEstimateMode}
-              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4 text-white" />
               <span>{editingId ? 'Simpan Perubahan Retur' : 'Simpan Data Retur Paket'}</span>
@@ -294,16 +437,18 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           {/* Summary metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Paket Retur</div>
+              <div className="text-[11px] font-semibold text-zinc-400">Total Paket Retur Manual</div>
               <div className="text-xl font-black text-white mt-1">
                 {formatNumber(totalRetPkgs)} <span className="text-xs font-normal text-zinc-400">paket</span>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Nilai Retur</div>
+              <div className="text-[11px] font-semibold text-zinc-400">
+                {isEstimateMode ? `Total Retur (Estimasi ${estimatePercentage}%)` : 'Total Nilai Retur Manual'}
+              </div>
               <div className="text-xl font-black text-[#FE2C55] mt-1">
-                {formatRupiah(totalRetNominal)}
+                {formatRupiah(isEstimateMode ? estimatedTotalNominal : totalRetNominal)}
               </div>
             </div>
           </div>
@@ -334,20 +479,18 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               </select>
             </div>
 
-            {!isEstimateMode && (
-              <button
-                onClick={() => {
-                  resetForm();
-                  setSubTab('input');
-                }}
-                className="px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md cursor-pointer"
-              >
-                + Input Retur
-              </button>
-            )}
+            <button
+              onClick={() => {
+                resetForm();
+                setSubTab('input');
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md cursor-pointer"
+            >
+              + Input Retur
+            </button>
           </div>
 
-          {/* List of Returns (Sorted by date desc) */}
+          {/* List of Returns */}
           <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
             <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
               <h3 className="text-xs font-black text-white uppercase tracking-wider">

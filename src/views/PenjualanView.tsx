@@ -273,7 +273,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-black text-white">
-                Data Penjualan Live Shopee
+                Data Penjualan Live Marketplace
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
@@ -297,7 +297,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
               {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <TrendingUp className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Data Penjualan Sesi Live' : 'Form Input Penjualan Live Shopee'}</span>
+              <span>{editingId ? 'Edit Data Penjualan Sesi Live' : 'Form Input Penjualan Live Marketplace'}</span>
             </h3>
             {editingId && (
               <button

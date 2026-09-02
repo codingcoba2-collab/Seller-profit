@@ -44,7 +44,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   const [date, setDate] = useState(getTodayString());
   const [adsAmount, setAdsAmount] = useState<number>(1000000);
   const [coinAmount, setCoinAmount] = useState<number>(500000);
-  const [notes, setNotes] = useState('Topup Shopee Ads & Koin Live');
+  const [notes, setNotes] = useState('Topup Marketplace Ads & Koin Live');
 
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const salesList = StorageService.getSales(currentUser.storeId);
@@ -87,7 +87,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
     setDate(getTodayString());
     setAdsAmount(1000000);
     setCoinAmount(500000);
-    setNotes('Topup Shopee Ads & Koin Live');
+    setNotes('Topup Marketplace Ads & Koin Live');
   };
 
   const handleStartEdit = (item: AdsCoinDeposit) => {
@@ -179,7 +179,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </button>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-white">
-              Saldo Iklan &amp; Koin Cashback Shopee
+              Saldo Iklan &amp; Koin Cashback Marketplace
             </h2>
           </div>
         </div>
@@ -222,7 +222,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </div>
         </div>
 
-        {/* Iklan Shopee */}
+        {/* Iklan Marketplace */}
         <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -230,7 +230,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                 <Megaphone className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-sm text-white">Saldo Shopee Ads</h3>
+                <h3 className="font-black text-sm text-white">Saldo Marketplace Ads</h3>
                 <span className="text-[11px] text-zinc-400">Kredit Iklan Aktif</span>
               </div>
             </div>
@@ -251,7 +251,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </div>
         </div>
 
-        {/* Koin Shopee */}
+        {/* Koin Marketplace */}
         <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -326,7 +326,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nominal Topup Shopee Ads / Iklan (Rp)
+                  Nominal Topup Marketplace Ads / Iklan (Rp)
                 </label>
                 <CommaNumberInput
                   id="input-topup-ads"

@@ -164,7 +164,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Catat saldo ditarik dari Shopee Pay / Rekening dan pengeluaran operasional toko (packing, lakban, makan, sewa)
+              Catat saldo ditarik dari Marketplace / Rekening dan pengeluaran operasional toko (packing, lakban, makan, sewa)
             </p>
           </div>
         </div>
@@ -244,7 +244,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     }`}
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    <span>Penarikan Saldo Shopee</span>
+                    <span>Penarikan Saldo Marketplace</span>
                   </button>
                 </div>
               </div>
@@ -441,7 +441,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
                           item.type === 'inflow' ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
                         }`}>
-                          {item.type === 'inflow' ? 'Penarikan Shopee' : item.category}
+                          {item.type === 'inflow' ? 'Penarikan Marketplace' : item.category}
                         </span>
                       </div>
 

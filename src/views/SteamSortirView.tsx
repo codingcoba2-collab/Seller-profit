@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { CurrentUser, SteamSortirRecord, BallInventory, Employee } from '../types';
 import { StorageService } from '../services/storage';
 import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
-import { formatRupiah, formatNumber } from '../utils/formatters';
-import { CommaNumberInput } from '../components/CommaNumberInput';
+import { formatNumber } from '../utils/formatters';
 import { 
   Scissors, 
   Flame, 
@@ -52,7 +51,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [pcsTotal, setPcsTotal] = useState<number | ''>('');
   const [pcsLayakJual, setPcsLayakJual] = useState<number | ''>('');
   const [pcsReject, setPcsReject] = useState<number | ''>(0);
-  const [costPerPcs, setCostPerPcs] = useState<number | ''>('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'proses' | 'selesai'>('selesai');
 
@@ -67,11 +65,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     e => e.roles.includes('sortir') || e.roles.includes('steam') || e.roles.includes('owner')
   );
 
-  // Calculate total cost automatically
-  const calculatedTotalCost = (typeof pcsTotal === 'number' && typeof costPerPcs === 'number')
-    ? pcsTotal * costPerPcs
-    : 0;
-
   // Handle Ball Selection to auto-fill pcs & name
   const handleSelectBall = (ballId: string) => {
     setBallInventoryId(ballId);
@@ -81,19 +74,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       setPcsLayakJual(found.pcsCount);
       setPcsReject(0);
       setCustomBallName(found.ballType);
-      
-      // Auto suggest default cost based on employee rate if available
-      if (processType === 'sortir') {
-        const empSortir = employeeList.find(e => e.roles.includes('sortir'));
-        if (empSortir?.incentiveConfigs?.sortir?.rate) {
-          setCostPerPcs(empSortir.incentiveConfigs.sortir.rate);
-        }
-      } else if (processType === 'steam') {
-        const empSteam = employeeList.find(e => e.roles.includes('steam'));
-        if (empSteam?.incentiveConfigs?.steam?.rate) {
-          setCostPerPcs(empSteam.incentiveConfigs.steam.rate);
-        }
-      }
     }
   };
 
@@ -119,7 +99,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     setPcsLayakJual(Math.max(0, total - numVal));
   };
 
-  // Start editing a record (Requirement 7)
+  // Start editing a record
   const handleStartEdit = (record: SteamSortirRecord) => {
     setEditingRecord(record);
     setDate(record.date);
@@ -130,10 +110,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     setPcsTotal(record.pcsTotal);
     setPcsLayakJual(record.pcsLayakJual);
     setPcsReject(record.pcsReject);
-    setCostPerPcs(record.costPerPcs);
     setNotes(record.notes || '');
     setStatus(record.status);
-    setSubTab('input'); // Switch smoothly to input tab
+    setSubTab('input');
   };
 
   // Cancel edit
@@ -150,7 +129,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     setPcsTotal('');
     setPcsLayakJual('');
     setPcsReject(0);
-    setCostPerPcs('');
     setNotes('');
     setStatus('selesai');
     setEditingRecord(null);
@@ -184,8 +162,8 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       pcsTotal: typeof pcsTotal === 'number' ? pcsTotal : 0,
       pcsLayakJual: typeof pcsLayakJual === 'number' ? pcsLayakJual : 0,
       pcsReject: typeof pcsReject === 'number' ? pcsReject : 0,
-      costPerPcs: typeof costPerPcs === 'number' ? costPerPcs : 0,
-      totalCost: calculatedTotalCost,
+      costPerPcs: 0,
+      totalCost: 0,
       status,
       notes,
       createdAt: editingRecord ? editingRecord.createdAt : new Date().toISOString(),
@@ -214,7 +192,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     }
   };
 
-  // Filter & Sort output records by date descending (Requirement 9)
+  // Filter & Sort output records by date descending
   const filteredRecords = steamSortirRecords
     .filter(r => {
       // Process type filter
@@ -250,17 +228,16 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
 
       return true;
     })
-    .sort((a, b) => b.date.localeCompare(a.date)); // Sort by date desc (Requirement 9)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   // Calculate totals
   const totalPcsProcessed = filteredRecords.reduce((acc, r) => acc + (r.pcsTotal || 0), 0);
   const totalPcsLayak = filteredRecords.reduce((acc, r) => acc + (r.pcsLayakJual || 0), 0);
   const totalPcsReject = filteredRecords.reduce((acc, r) => acc + (r.pcsReject || 0), 0);
-  const totalBiayaJasa = filteredRecords.reduce((acc, r) => acc + (r.totalCost || 0), 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without subtitle */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           <button
@@ -275,11 +252,14 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-black text-white">
               Pengerjaan Tim Sortir &amp; Steam
             </h2>
+            <p className="text-xs text-zinc-400 mt-1">
+              Catatan pembongkaran ball, sortir kualitas layak jual, dan proses steam/setrika
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Sub Navigation (2 Clean Tabs) (Requirement 7) */}
+      {/* Sub Navigation */}
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
@@ -472,36 +452,18 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               </div>
             </div>
 
-            {/* Biaya Jasa & Upah */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Biaya Jasa per Pcs (Rp)
-                </label>
-                <CommaNumberInput
-                  id="input-steam-sortir-cost"
-                  value={typeof costPerPcs === 'number' ? costPerPcs : 0}
-                  onChange={val => setCostPerPcs(val)}
-                  placeholder="Contoh: 150"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                />
-                <span className="text-[10px] text-zinc-500 mt-1 block">
-                  Total Biaya Jasa: <strong>{formatRupiah(calculatedTotalCost)}</strong>
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Catatan / Keterangan Pengerjaan
-                </label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Contoh: Kondisi knit bersih, reject minim kancing lepas"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                />
-              </div>
+            {/* Catatan / Keterangan Pengerjaan */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">
+                Catatan / Keterangan Pengerjaan
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Contoh: Kondisi knit bersih, reject minim kancing lepas"
+                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+              />
             </div>
 
             <div className="pt-3 flex items-center justify-end gap-2 border-t border-white/10">
@@ -523,11 +485,11 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: OUTPUT & RIWAYAT (Sorted by date desc) */}
+      {/* TAB 2: OUTPUT & RIWAYAT */}
       {subTab === 'output' && (
         <div className="space-y-4">
           {/* Summary KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-4 rounded-2xl bg-[#161823] border border-white/10">
               <span className="text-[11px] text-zinc-400 font-semibold block">Total Pcs Diproses</span>
               <span className="text-lg font-black text-white mt-1 block">
@@ -544,12 +506,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               <span className="text-[11px] text-zinc-400 font-semibold block">Total Pcs Reject</span>
               <span className="text-lg font-black text-[#FE2C55] mt-1 block">
                 {formatNumber(totalPcsReject)} pcs
-              </span>
-            </div>
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10">
-              <span className="text-[11px] text-zinc-400 font-semibold block">Total Biaya Jasa</span>
-              <span className="text-lg font-black text-white mt-1 block">
-                {formatRupiah(totalBiayaJasa)}
               </span>
             </div>
           </div>
@@ -603,7 +559,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             </button>
           </div>
 
-          {/* Records Table (Sorted by date desc) */}
+          {/* Records Table */}
           <div className="rounded-2xl bg-[#161823] border border-white/10 overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-white">
@@ -616,7 +572,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                     <th className="py-3 px-4 text-center">Pcs Total</th>
                     <th className="py-3 px-4 text-center">Layak Jual</th>
                     <th className="py-3 px-4 text-center">Reject</th>
-                    <th className="py-3 px-4 text-right">Biaya Jasa</th>
                     <th className="py-3 px-4 text-center">Aksi</th>
                   </tr>
                 </thead>
@@ -646,9 +601,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                         <td className="py-3 px-4 text-center font-bold">{item.pcsTotal}</td>
                         <td className="py-3 px-4 text-center font-bold text-[#25F4EE]">{item.pcsLayakJual}</td>
                         <td className="py-3 px-4 text-center font-bold text-[#FE2C55]">{item.pcsReject}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                          {formatRupiah(item.totalCost)}
-                        </td>
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
@@ -673,7 +625,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={9} className="text-center py-8 text-zinc-500">
+                      <td colSpan={8} className="text-center py-8 text-zinc-500">
                         Belum ada riwayat pengerjaan sortir &amp; steam yang sesuai.
                       </td>
                     </tr>

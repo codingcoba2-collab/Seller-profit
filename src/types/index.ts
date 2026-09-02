@@ -14,6 +14,28 @@ export interface IncentiveConfig {
   type: IncentiveType;
   rate: number; // nominal rupiah or percentage (0-100)
   description?: string;
+  // Req 7: Logika tier if penjualan diatas sekian paket insentif berubah
+  hasTierRule?: boolean;
+  tierThresholdPackages?: number; // threshold target paket penjualan
+  tierRate?: number; // tarif insentif baru jika capai target paket
+}
+
+// Req 8: Logika if rangkap role dan penjualan diatas sekian paket gaji per jam/per bulan/bonus per paket/pcs berubah
+export interface MultiRoleSalesRule {
+  active: boolean;
+  thresholdPackages: number; // target paket penjualan
+  benefitType: 'hourly_rate_override' | 'fixed_monthly_override' | 'bonus_per_package' | 'bonus_per_pcs' | 'fixed_amount';
+  benefitValue: number; // nominal pasti rupiah
+  description?: string;
+}
+
+// Req 9: Logika if omzet mencapai sekian bonus akhir bulan didapat (persentase atau nominal pasti)
+export interface MonthlyOmzetBonusRule {
+  active: boolean;
+  targetOmzet: number; // target minimal omzet
+  bonusType: 'percentage' | 'fixed'; // persentase atau nominal pasti
+  bonusValue: number; // persen (misal: 2%) atau rupiah (misal: 1000000)
+  description?: string;
 }
 
 export interface Employee {
@@ -29,6 +51,9 @@ export interface Employee {
   incentiveConfigs: {
     [key in UserRole]?: IncentiveConfig;
   };
+  // Req 8 & Req 9 rules
+  multiRoleSalesRule?: MultiRoleSalesRule;
+  monthlyOmzetBonusRule?: MonthlyOmzetBonusRule;
   isActive: boolean;
   createdAt: string;
 }
@@ -126,7 +151,7 @@ export interface CashflowRecord {
   type: 'inflow' | 'outflow'; // saldo ditarik (inflow) / pengeluaran (outflow)
   amount: number;
   description: string;
-  category: 'penarikan_shopee' | 'gaji' | 'operasional' | 'packing' | 'lainnya';
+  category: 'penarikan_marketplace' | 'penarikan_shopee' | 'gaji' | 'operasional' | 'packing' | 'lainnya';
   createdAt: string;
 }
 
@@ -148,7 +173,7 @@ export type ViewState =
   | 'role_management'   // Tahap 2
   | 'modal_stok'        // Tahap 3
   | 'steam_sortir'      // Menu Khusus Role Steam & Sortir
-  | 'admin_shopee'      // Tahap 4
+  | 'admin_shopee'      // Tahap 4: Admin Marketplace & Layanan
   | 'kehadiran'         // Tahap 5
   | 'penjualan'         // Tahap 6
   | 'return'            // Tahap 7
@@ -171,8 +196,8 @@ export interface SteamSortirRecord {
   pcsTotal: number;
   pcsLayakJual: number;
   pcsReject: number;
-  costPerPcs: number;
-  totalCost: number;
+  costPerPcs?: number; // Optional: jasa per pcs dihapus dari form, upah melalui absensi
+  totalCost?: number;
   status: 'proses' | 'selesai';
   notes?: string;
   createdAt: string;

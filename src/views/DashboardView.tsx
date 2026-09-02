@@ -136,7 +136,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'admin_shopee',
-      title: 'Biaya Admin Shopee & Layanan',
+      title: 'Biaya Admin Marketplace & Layanan',
       subtitle: 'Persentase Admin & Biaya per Order',
       icon: Settings,
       iconColor: 'text-sky-400',
@@ -159,7 +159,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       subtitle: 'Input Omzet, Pcs, Paket & Admin Live',
       icon: TrendingUp,
       iconColor: 'text-[#FE2C55]',
-      badgeText: 'Shopee Live',
+      badgeText: 'Marketplace Live',
       allowedRoles: ['owner', 'admin_toko'],
     },
     {
@@ -173,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'iklan_koin',
-      title: 'Saldo Iklan & Koin Shopee',
+      title: 'Saldo Iklan & Koin Marketplace',
       subtitle: 'Topup, Pemakaian & Sisa Saldo Ads',
       icon: Coins,
       iconColor: 'text-amber-400',
@@ -254,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>Halo, {currentUser.name}</span>
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 max-w-xl leading-relaxed">
-              Dashboard sistem akuntansi Shopee Live, HPP modal ball, gaji shift host, komisi admin, dan laba rugi real-time.
+              Dashboard sistem akuntansi Marketplace Live, HPP modal ball, gaji shift host, komisi admin, dan laba rugi real-time.
             </p>
           </div>
 

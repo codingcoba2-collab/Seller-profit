@@ -174,7 +174,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
           Seller Profit
         </h2>
         <p className="mt-1 text-xs font-medium text-zinc-400">
-          Sistem Akuntansi Penjualan Live Shopee &amp; Laba Bersih
+          Sistem Akuntansi Penjualan Live Marketplace &amp; Laba Bersih
         </p>
 
         {/* Cloud Sync Status Indicator */}
