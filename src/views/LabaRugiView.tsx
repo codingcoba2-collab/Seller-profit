@@ -131,54 +131,35 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header & Period Filters without stage labels (Requirement 5 & 6) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-labarugi"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                Laporan Laba Rugi Toko &amp; Sesi Live
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Rekapitulasi otomatis omzet kotor, modal barang (HPP + sortir + steam), potongan Shopee, iklan &amp; return
-            </p>
+      {/* Filter Periode */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-zinc-300">Periode:</span>
+          <div className="flex items-center gap-1">
+            {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  period === p
+                    ? 'bg-[#25F4EE] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {p === 'daily' ? 'Per Hari' : p === 'weekly' ? '7 Hari' : p === 'monthly' ? 'Bulan Ini' : 'Semua'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Filter Periode */}
-        <div className="flex flex-wrap items-center gap-2 bg-[#161823] p-1.5 rounded-2xl border border-white/10 shadow-lg">
-          {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                period === p
-                  ? 'bg-[#25F4EE] text-black shadow-md'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {p === 'daily' ? 'Per Hari' : p === 'weekly' ? '7 Hari' : p === 'monthly' ? 'Bulan Ini' : 'Semua'}
-            </button>
-          ))}
-
-          {period !== 'all' && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="px-2.5 py-1 text-xs rounded-xl border border-white/10 bg-[#0b0c10] text-white font-medium focus:border-[#25F4EE]"
-            />
-          )}
-        </div>
+        {period !== 'all' && (
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-3 py-1.5 text-xs rounded-xl border border-white/10 bg-[#0b0c10] text-white font-medium focus:border-[#25F4EE]"
+          />
+        )}
       </div>
 
       {/* Laba Kotor Hero Card */}

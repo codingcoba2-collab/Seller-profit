@@ -1062,65 +1062,150 @@ export class StorageService {
           empTotalPackages += hostPkgs;
           empTotalPcs += hostPcs;
 
-          const threshold = config.tierThresholdPackages || 0;
-          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
-          const tierMode = config.tierCalculationMode || 'excess_only';
-          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+          // Req 4: Perhitungan Terpisah Penjualan Satuan & Bundling
+          if (config.hasSeparateBundlingSatuan) {
+            let hostSatuanPcs = 0;
+            let hostSatuanPkgs = 0;
+            let hostSatuanOmzet = 0;
+            let hostBundlingPcs = 0;
+            let hostBundlingPkgs = 0;
+            let hostBundlingOmzet = 0;
 
-          if (config.type === 'per_pcs_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
-              const excessPcs = Math.round(hostPcs * excessRatio);
-              const basePcs = Math.max(0, hostPcs - excessPcs);
-              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPcs} pcs selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = hostPcs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPcs} pcs x Rp ${effectiveRate.toLocaleString('id-ID')}`;
-            } else {
-              amount = hostPcs * (config.rate || 0);
-              desc = `${hostPcs} pcs terjual live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+            mySales.forEach(s => {
+              const hostCount = s.hostIds && s.hostIds.length > 0 ? s.hostIds.length : (s.hostNames && s.hostNames.length > 0 ? s.hostNames.length : 1);
+              if (s.saleFormat === 'bundling') {
+                hostBundlingPcs += (s.pcsSold || 0) / hostCount;
+                hostBundlingPkgs += (s.packagesSold || 0) / hostCount;
+                hostBundlingOmzet += (s.omzet || 0) / hostCount;
+              } else if (s.saleFormat === 'campuran') {
+                hostSatuanPcs += (s.satuanPcs || 0) / hostCount;
+                hostSatuanPkgs += (s.satuanPackages || 0) / hostCount;
+                hostSatuanOmzet += (s.satuanOmzet || 0) / hostCount;
+                hostBundlingPcs += (s.bundlingPcs || 0) / hostCount;
+                hostBundlingPkgs += (s.bundlingPackages || 0) / hostCount;
+                hostBundlingOmzet += (s.bundlingOmzet || 0) / hostCount;
+              } else {
+                // Default 'satuan'
+                hostSatuanPcs += (s.pcsSold || 0) / hostCount;
+                hostSatuanPkgs += (s.packagesSold || 0) / hostCount;
+                hostSatuanOmzet += (s.omzet || 0) / hostCount;
+              }
+            });
+
+            // 1. Hitung Insentif Satuan
+            const satuanRate = config.satuanRate || 0;
+            const satuanType = config.satuanIncentiveType || 'per_pcs_sold';
+            let satuanAmount = 0;
+            let satuanDesc = '';
+
+            if (satuanType === 'per_pcs_sold') {
+              satuanAmount = Math.round(hostSatuanPcs * satuanRate);
+              satuanDesc = `📦 Insentif Satuan (${hostSatuanPcs.toFixed(0)} pcs x Rp ${satuanRate.toLocaleString('id-ID')})`;
+            } else if (satuanType === 'per_package_sold') {
+              satuanAmount = Math.round(hostSatuanPkgs * satuanRate);
+              satuanDesc = `📦 Insentif Satuan (${hostSatuanPkgs.toFixed(0)} paket x Rp ${satuanRate.toLocaleString('id-ID')})`;
+            } else if (satuanType === 'percentage') {
+              satuanAmount = Math.round((satuanRate / 100) * hostSatuanOmzet);
+              satuanDesc = `📦 Insentif Satuan (${satuanRate}% dari Omzet Rp ${Math.round(hostSatuanOmzet).toLocaleString('id-ID')})`;
             }
-            totalIncentives += amount;
-            operationalIncentives += amount;
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc,
-              amount,
-            });
-          } else if (config.type === 'per_package_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const basePkgs = Math.min(hostPkgs, threshold);
-              const excessPkgs = Math.max(0, hostPkgs - threshold);
-              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPkgs} paket selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = hostPkgs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPkgs} paket x Rp ${effectiveRate.toLocaleString('id-ID')}`;
-            } else {
-              amount = hostPkgs * (config.rate || 0);
-              desc = `${hostPkgs} paket live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+
+            // 2. Hitung Insentif Bundling
+            const bundlingRate = config.bundlingRate || 0;
+            const bundlingType = config.bundlingIncentiveType || 'per_package_sold';
+            let bundlingAmount = 0;
+            let bundlingDesc = '';
+
+            if (bundlingType === 'per_package_sold') {
+              bundlingAmount = Math.round(hostBundlingPkgs * bundlingRate);
+              bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPkgs.toFixed(0)} paket x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+            } else if (bundlingType === 'per_pcs_sold') {
+              bundlingAmount = Math.round(hostBundlingPcs * bundlingRate);
+              bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPcs.toFixed(0)} pcs x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+            } else if (bundlingType === 'percentage') {
+              bundlingAmount = Math.round((bundlingRate / 100) * hostBundlingOmzet);
+              bundlingDesc = `🎁 Insentif Bundling (${bundlingRate}% dari Omzet Rp ${Math.round(hostBundlingOmzet).toLocaleString('id-ID')})`;
             }
-            totalIncentives += amount;
-            operationalIncentives += amount;
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc,
-              amount,
-            });
-          } else if (config.type === 'fixed_amount') {
-            const amount = effectiveRate;
-            totalIncentives += amount;
-            operationalIncentives += amount;
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat Rp ${effectiveRate.toLocaleString('id-ID')}` : `Insentif Tetap Host`,
-              amount,
-            });
+
+            const totalHostInc = satuanAmount + bundlingAmount;
+            totalIncentives += totalHostInc;
+            operationalIncentives += totalHostInc;
+
+            if (satuanAmount > 0 || bundlingAmount === 0) {
+              incentiveBreakdowns.push({
+                role: 'host',
+                desc: satuanDesc,
+                amount: satuanAmount,
+              });
+            }
+            if (bundlingAmount > 0) {
+              incentiveBreakdowns.push({
+                role: 'host',
+                desc: bundlingDesc,
+                amount: bundlingAmount,
+              });
+            }
+          } else {
+            // Standard / Tier Calculation
+            const threshold = config.tierThresholdPackages || 0;
+            const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
+            const tierMode = config.tierCalculationMode || 'excess_only';
+            const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
+
+            if (config.type === 'per_pcs_sold') {
+              let amount = 0;
+              let desc = '';
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+                const excessPcs = Math.round(hostPcs * excessRatio);
+                const basePcs = Math.max(0, hostPcs - excessPcs);
+                amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
+                desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPcs} pcs selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                amount = hostPcs * effectiveRate;
+                desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPcs} pcs x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+              } else {
+                amount = hostPcs * (config.rate || 0);
+                desc = `${hostPcs} pcs terjual live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+              }
+              totalIncentives += amount;
+              operationalIncentives += amount;
+              incentiveBreakdowns.push({
+                role: 'host',
+                desc,
+                amount,
+              });
+            } else if (config.type === 'per_package_sold') {
+              let amount = 0;
+              let desc = '';
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const basePkgs = Math.min(hostPkgs, threshold);
+                const excessPkgs = Math.max(0, hostPkgs - threshold);
+                amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
+                desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x Rp ${(config.rate || 0).toLocaleString('id-ID')} + ${excessPkgs} paket selisih x Rp ${(config.tierRate || 0).toLocaleString('id-ID')}`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                amount = hostPkgs * effectiveRate;
+                desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${hostPkgs} paket x Rp ${effectiveRate.toLocaleString('id-ID')}`;
+              } else {
+                amount = hostPkgs * (config.rate || 0);
+                desc = `${hostPkgs} paket live x Rp ${(config.rate || 0).toLocaleString('id-ID')}`;
+              }
+              totalIncentives += amount;
+              operationalIncentives += amount;
+              incentiveBreakdowns.push({
+                role: 'host',
+                desc,
+                amount,
+              });
+            } else if (config.type === 'fixed_amount') {
+              const amount = effectiveRate;
+              totalIncentives += amount;
+              operationalIncentives += amount;
+              incentiveBreakdowns.push({
+                role: 'host',
+                desc: isTierAchieved ? `✨ Target Tier: Insentif Host Flat Rp ${effectiveRate.toLocaleString('id-ID')}` : `Insentif Tetap Host`,
+                amount,
+              });
+            }
           }
         } else if (role === 'admin_toko') {
           const adminSales = sales.filter(s => 

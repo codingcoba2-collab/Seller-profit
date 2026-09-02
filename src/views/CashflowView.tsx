@@ -259,30 +259,6 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-cashflow"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                Cashflow &amp; Arus Kas Keluar/Masuk
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Catat saldo ditarik dari Marketplace / Rekening dan pengeluaran operasional toko (gaji pegawai, packing, lakban, makan, sewa)
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Sub Navigation (2 Clean Tabs) */}
       <ViewSubNav
         currentSubTab={subTab}

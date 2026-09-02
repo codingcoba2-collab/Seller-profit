@@ -235,46 +235,27 @@ export const IndexPerformaView: React.FC<IndexPerformaViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-performa"
-            onClick={onBackToDashboard}
-            className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                <Brain className="w-6 h-6 text-[#25F4EE]" />
-                <span>Indeks &amp; Evaluasi Efektivitas Pegawai AI</span>
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Analisis cerdas kinerja Host Live, Admin Toko, Staff Sortir/Finishing menggunakan kecerdasan buatan Gemini AI
-            </p>
-          </div>
-        </div>
-
-        {/* Quick AI Action Banner */}
+      {/* Quick AI Action Banner */}
+      <div className="flex items-center justify-between bg-[#161823] p-4 rounded-3xl border border-[#25F4EE]/30 shadow-xl">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (performanceData.length > 0) {
-                handleEvaluateEmployeeAI(performanceData[0]);
-              }
-            }}
-            disabled={isEvaluating || performanceData.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#25F4EE] via-teal-400 to-[#FE2C55] text-[#0b0c10] font-black text-xs transition cursor-pointer shadow-lg shadow-[#25F4EE]/20 hover:opacity-95 active:scale-95 disabled:opacity-50"
-          >
-            <Sparkles className="w-4 h-4 text-[#0b0c10]" />
-            <span>{isEvaluating ? `Menganalisis ${evaluatingEmployeeName}...` : '⚡ Analisis AI Pegawai Terbaik'}</span>
-          </button>
+          <Brain className="w-5 h-5 text-[#25F4EE]" />
+          <span className="text-xs font-bold text-zinc-300">
+            Kecerdasan Buatan (Gemini AI) untuk evaluasi performa &amp; efektivitas kerja pegawai
+          </span>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (performanceData.length > 0) {
+              handleEvaluateEmployeeAI(performanceData[0]);
+            }
+          }}
+          disabled={isEvaluating || performanceData.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-[#25F4EE] via-teal-400 to-[#FE2C55] text-[#0b0c10] font-black text-xs transition cursor-pointer shadow-lg shadow-[#25F4EE]/20 hover:opacity-95 active:scale-95 disabled:opacity-50"
+        >
+          <Sparkles className="w-4 h-4 text-[#0b0c10]" />
+          <span>{isEvaluating ? `Menganalisis ${evaluatingEmployeeName}...` : '⚡ Analisis AI Pegawai Terbaik'}</span>
+        </button>
       </div>
 
       {/* STATISTIK KPI DASHBOARD */}

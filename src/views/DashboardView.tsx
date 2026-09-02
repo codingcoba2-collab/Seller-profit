@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { CurrentUser, ViewState, UserRole } from '../types';
 import { StorageService } from '../services/storage';
 import { formatRupiah, formatNumber } from '../utils/formatters';
@@ -20,19 +20,21 @@ import {
   ChevronRight,
   Lock,
   Scissors,
-  Flame,
-  ArrowUpRight,
-  TrendingDown,
   BarChart3,
-  Calendar,
-  Layers,
-  Activity
+  Activity,
+  Cloud,
+  RefreshCw,
+  Palette,
+  ShoppingBag,
+  Tag
 } from 'lucide-react';
+import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
   onNavigate: (tab: ViewState) => void;
   onOpenInstallGuide: () => void;
+  onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 interface MenuItem {
@@ -51,14 +53,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   currentUser,
   onNavigate,
   onOpenInstallGuide,
+  onNotify,
 }) => {
   const store = StorageService.getStoreById(currentUser.storeId);
   const stockInfo = StorageService.calculateStock(currentUser.storeId);
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const hppInfo = StorageService.calculateHPP(currentUser.storeId);
   const salesList = StorageService.getSales(currentUser.storeId);
-  const employees = StorageService.getEmployees(currentUser.storeId);
-  const cashflowList = StorageService.getCashflow(currentUser.storeId);
+
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Today stats
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -67,50 +71,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayPcs = todaySales.reduce((acc, curr) => acc + (curr.pcsSold || 0), 0);
   const todayPackages = todaySales.reduce((acc, curr) => acc + (curr.packagesSold || 0), 0);
 
-  // 7-day revenue trend data for Visual Statistics (Requirement 11)
-  const last7DaysData = useMemo(() => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
-      const daySales = salesList.filter(s => s.date === dateStr);
-      const omzet = daySales.reduce((acc, s) => acc + (s.omzet || 0), 0);
-      const pcs = daySales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-      days.push({ dateStr, dayName, omzet, pcs });
-    }
-    return days;
-  }, [salesList]);
-
-  const maxOmzet = Math.max(...last7DaysData.map(d => d.omzet), 1000000);
-
-  // Top Host Leaderboard for Visual Statistics (Requirement 11)
-  const topHosts = useMemo(() => {
-    const hostMap: Record<string, { name: string; omzet: number; pcs: number; sessions: number }> = {};
-    
-    salesList.forEach(s => {
-      if (s.hostNames && s.hostNames.length > 0) {
-        s.hostNames.forEach(name => {
-          if (!hostMap[name]) hostMap[name] = { name, omzet: 0, pcs: 0, sessions: 0 };
-          hostMap[name].omzet += (s.omzet || 0) / s.hostNames.length;
-          hostMap[name].pcs += (s.pcsSold || 0) / s.hostNames.length;
-          hostMap[name].sessions += 1;
-        });
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const ok = await StorageService.syncAllFromCloud(currentUser.storeId);
+      if (ok) {
+        onNotify?.('Data berhasil disinkronkan dengan Cloud Firestore.', 'success');
+      } else {
+        onNotify?.('Koneksi sinkronisasi lokal aktif.', 'info');
       }
-    });
+    } catch {
+      onNotify?.('Gagal menyinkronkan data cloud.', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
-    return Object.values(hostMap)
-      .sort((a, b) => b.omzet - a.omzet)
-      .slice(0, 3);
-  }, [salesList]);
-
-  // Clean Menu Modules without stage numbers (Requirement 5)
+  // Clean Menu Modules without stage numbers
   const menuItems: MenuItem[] = [
     {
       tab: 'role_management',
       title: 'Manajemen Pegawai & Role',
-      subtitle: 'Akun Tim, Gaji & Skema Insentif',
+      subtitle: 'Akun Tim, Gaji & Skema Insentif Bundling/Satuan',
       icon: Users,
       iconColor: 'text-[#25F4EE]',
       badgeText: 'Tim & Akses',
@@ -118,8 +100,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'modal_stok',
-      title: 'Modal & Stok Ball (HPP)',
-      subtitle: 'Input Ball, Ongkir & HPP Otomatis',
+      title: 'Modal & Stok Fashion (HPP)',
+      subtitle: 'Input Ball/Grosir, Ongkir & HPP Otomatis',
       icon: Package,
       iconColor: 'text-emerald-400',
       badgeText: 'Modal Stok',
@@ -127,7 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'steam_sortir',
-      title: 'Sortir & Steam Ball',
+      title: 'Sortir, QC & Finishing',
       subtitle: 'Pencatatan Pcs, Reject & Jasa Sortir',
       icon: Scissors,
       iconColor: 'text-teal-400',
@@ -137,7 +119,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     {
       tab: 'admin_shopee',
       title: 'Biaya Admin Marketplace & Layanan',
-      subtitle: 'Persentase Admin & Biaya per Order',
+      subtitle: 'Persentase Admin Platform & Biaya per Order',
       icon: Settings,
       iconColor: 'text-sky-400',
       badgeText: 'Biaya Platform',
@@ -155,17 +137,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'penjualan',
-      title: 'Penjualan Host Live',
-      subtitle: 'Input Omzet, Pcs, Paket & Admin Live',
+      title: 'Data Penjualan (Live & Non-Live)',
+      subtitle: 'Input Satuan/Bundling, Marketplace & Toko',
       icon: TrendingUp,
       iconColor: 'text-[#FE2C55]',
-      badgeText: 'Marketplace Live',
+      badgeText: 'Penjualan',
       allowedRoles: ['owner', 'admin_toko'],
+    },
+    {
+      tab: 'statistik',
+      title: 'Statistik & Analisis Penjualan',
+      subtitle: 'Tren 7-30 Hari, Peringkat Top Host & Analisis',
+      icon: BarChart3,
+      iconColor: 'text-[#25F4EE]',
+      badgeText: 'Visual Analytics',
+      allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+      allEmployeesCanView: true,
     },
     {
       tab: 'return',
       title: 'Data Retur / Paket Return',
-      subtitle: 'Catatan & Estimasi Paket Retur',
+      subtitle: 'Catatan & Estimasi Pengurangan Paket Retur',
       icon: RotateCcw,
       iconColor: 'text-rose-400',
       badgeText: 'Retur',
@@ -173,8 +165,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'iklan_koin',
-      title: 'Saldo Iklan & Koin Live',
-      subtitle: 'Topup, Pemakaian & Sisa Saldo Ads',
+      title: 'Saldo Biaya Iklan & Koin Live',
+      subtitle: 'Topup, Pemakaian & Sisa Saldo Marketing',
       icon: Coins,
       iconColor: 'text-amber-400',
       badgeText: 'Marketing',
@@ -183,7 +175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     {
       tab: 'gaji',
       title: 'Slip Gaji & Insentif Tim',
-      subtitle: 'Rekap Gaji Pokok, Shift & Komisi Live',
+      subtitle: 'Rekap Gaji Pokok, Shift, Satuan & Bundling',
       icon: Receipt,
       iconColor: 'text-cyan-400',
       badgeText: 'Payroll',
@@ -192,8 +184,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'laba_rugi',
-      title: 'Laporan Laba & Rugi Live',
-      subtitle: 'Evaluasi Profit Bersih Tiap Sesi',
+      title: 'Laporan Laba & Rugi Sesi',
+      subtitle: 'Evaluasi Margin & Profit Bersih Tiap Sesi',
       icon: PieChart,
       iconColor: 'text-violet-400',
       badgeText: 'Analisis Sesi',
@@ -202,7 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     {
       tab: 'cashflow',
       title: 'Cashflow & Arus Kas',
-      subtitle: 'Pencatatan Penarikan Saldo & Beban Kas',
+      subtitle: 'Pencatatan Penarikan Saldo & Pengeluaran Kas',
       icon: Wallet,
       iconColor: 'text-emerald-400',
       badgeText: 'Arus Kas',
@@ -219,11 +211,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       tab: 'index_performa',
-      title: 'Indeks Performa Tim',
-      subtitle: 'Peringkat KPI & Evaluasi Kinerja',
+      title: 'Indeks Performa & Efektivitas AI',
+      subtitle: 'Penilaian Kinerja Pegawai dengan Kecerdasan AI',
       icon: Award,
       iconColor: 'text-amber-400',
-      badgeText: 'Leaderboard',
+      badgeText: 'AI Insights',
       allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
       allEmployeesCanView: true,
     },
@@ -238,23 +230,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Top Banner / Store Overview (TikTok Dark Style) */}
+      {/* Top Banner / Store Overview */}
       <div className="rounded-3xl bg-[#161823] p-6 sm:p-7 shadow-2xl border border-white/10 relative overflow-hidden">
-        {/* TikTok Ambient Glow */}
+        {/* Ambient Glow */}
         <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-[#FE2C55]/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-0 right-1/3 w-60 h-60 bg-[#25F4EE]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-xs font-semibold backdrop-blur-xs text-zinc-300 border border-white/10">
-              <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>{store?.storeName || 'Fashion Thrift Official'}</span>
+              <ShoppingBag className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>{store?.storeName || 'Fashion Store Official'}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              <span>Halo, {currentUser.name}</span>
-            </h2>
+
+            {/* Requirement 1: Greeting + Theme and Cloud icons adjacent to Halo Owner */}
+            <div className="flex flex-wrap items-center gap-3 pt-0.5">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>Halo, {currentUser.name}</span>
+              </h2>
+
+              {/* Theme & Cloud Quick Action Pills */}
+              <div className="flex items-center gap-2">
+                {/* Cloud Sync Button */}
+                <button
+                  id="btn-halo-cloud-sync"
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition cursor-pointer shadow-xs active:scale-95"
+                  title="Sinkronisasi Cloud Firestore"
+                >
+                  <Cloud className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-bounce' : ''}`} />
+                  <span className="text-[11px]">Cloud</span>
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
+                </button>
+
+                {/* Theme Palette Switcher */}
+                <button
+                  id="btn-halo-theme-switcher"
+                  type="button"
+                  onClick={() => setShowThemeModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 transition cursor-pointer active:scale-95 shadow-xs"
+                  title="Pilih Tema Warna Aplikasi"
+                >
+                  <Palette className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span className="text-[11px]">Tema Warna</span>
+                </button>
+              </div>
+            </div>
+
             <p className="text-xs sm:text-sm text-zinc-400 max-w-xl leading-relaxed">
-              Dashboard sistem akuntansi Marketplace Live, HPP modal ball, gaji shift host, komisi admin, dan laba rugi real-time.
+              Sistem manajemen toko fashion, live streaming, multi-channel marketplace &amp; offline, HPP otomatis, serta penggajian host &amp; staf terintegrasi.
             </p>
           </div>
 
@@ -268,8 +294,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
 
-        {/* Live Key Metrics Grid */}
-        <div className="mt-5 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Live Key Metrics Grid (Requirement 2: Rata-rata HPP is placed right next to Omzet Hari Ini) */}
+        <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* 1. Sisa Stok Layak Jual */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
               <span>Sisa Stok Layak Jual</span>
@@ -278,246 +305,149 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="text-base sm:text-lg font-black text-white mt-1">
               {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
-              Terjual: {formatNumber(stockInfo.totalPcsSold)} pcs {stockInfo.totalPcsReject > 0 && `• Reject: ${formatNumber(stockInfo.totalPcsReject)} pcs`}
+            <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
+              Terjual: {formatNumber(stockInfo.totalPcsSold)} pcs {stockInfo.totalPcsReject > 0 && `• Reject: ${formatNumber(stockInfo.totalPcsReject)}`}
             </div>
           </div>
 
+          {/* 2. Sisa Saldo Iklan */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
               <span>Sisa Saldo Iklan</span>
               <Coins className="w-3.5 h-3.5 text-[#25F4EE]" />
             </div>
-            <div className="text-base sm:text-lg font-black text-white mt-1">
+            <div className="text-base sm:text-lg font-black text-white mt-1 truncate">
               Rp {formatNumber(adsCoinInfo.remainingAds)}
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
+            <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
               Terpakai: Rp {formatNumber(adsCoinInfo.totalAdsUsed)}
             </div>
           </div>
 
+          {/* 3. Sisa Saldo Koin Live */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
               <span>Sisa Saldo Koin Live</span>
               <Coins className="w-3.5 h-3.5 text-amber-400" />
             </div>
-            <div className="text-base sm:text-lg font-black text-white mt-1">
+            <div className="text-base sm:text-lg font-black text-white mt-1 truncate">
               Rp {formatNumber(adsCoinInfo.remainingCoin)}
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
+            <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
               Terpakai: Rp {formatNumber(adsCoinInfo.totalCoinUsed)}
             </div>
           </div>
 
+          {/* 4. Omzet Hari Ini */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
               <span>Omzet Hari Ini</span>
               <TrendingUp className="w-3.5 h-3.5 text-[#FE2C55]" />
             </div>
-            <div className="text-base sm:text-lg font-black text-[#FE2C55] mt-1">
+            <div className="text-base sm:text-lg font-black text-[#FE2C55] mt-1 truncate">
               {formatRupiah(todayOmzet)}
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
+            <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
               {formatNumber(todayPcs)} pcs ({formatNumber(todayPackages)} paket)
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Visual Statistics Dashboard Section (Requirement 11) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* 7-Days Revenue & Sales Bar Chart */}
-        <div className="lg:col-span-2 p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-                <BarChart3 className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-black text-white">Statistik Tren Penjualan 7 Hari Terakhir</h3>
-                <p className="text-[10px] text-zinc-400">Omzet live & volume pcs barang terjual</p>
-              </div>
+          {/* 5. Rata-rata HPP Toko (Req 2: right next to Omzet Hari Ini) */}
+          <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
+            <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
+              <span>Rata-rata HPP</span>
+              <Tag className="w-3.5 h-3.5 text-teal-400" />
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 border border-white/10">
-              Live Tracker
-            </span>
-          </div>
-
-          {/* Interactive Visual Bar Chart */}
-          <div className="h-44 flex items-end justify-between gap-2 pt-4 px-2 bg-[#0b0c10] rounded-2xl border border-white/5">
-            {last7DaysData.map((day, idx) => {
-              const heightPct = Math.max(12, Math.round((day.omzet / maxOmzet) * 100));
-              const isToday = idx === 6;
-
-              return (
-                <div key={day.dateStr} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative">
-                  {/* Tooltip on Hover */}
-                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 text-white text-[10px] px-2 py-1 rounded-lg border border-white/20 pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                    <div className="font-bold text-[#25F4EE]">{formatRupiah(day.omzet)}</div>
-                    <div className="text-zinc-400">{day.pcs} pcs terjual</div>
-                  </div>
-
-                  {/* Bar */}
-                  <div className="w-full max-w-[32px] rounded-t-lg bg-zinc-800 relative flex items-end overflow-hidden" style={{ height: `${heightPct}%` }}>
-                    <div 
-                      className={`w-full h-full rounded-t-lg transition-all duration-300 ${
-                        isToday 
-                          ? 'bg-gradient-to-t from-[#FE2C55] to-[#25F4EE] opacity-100 shadow-[0_0_12px_rgba(37,244,238,0.5)]' 
-                          : day.omzet > 0 
-                            ? 'bg-[#25F4EE] opacity-80 group-hover:opacity-100' 
-                            : 'bg-zinc-800'
-                      }`}
-                    />
-                  </div>
-
-                  {/* Label */}
-                  <span className={`text-[10px] font-bold ${isToday ? 'text-[#25F4EE]' : 'text-zinc-500'}`}>
-                    {isToday ? 'Hari ini' : day.dayName}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#25F4EE]" />
-              <span>Omzet Terverifikasi</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#FE2C55]" />
-              <span>Puncak Live</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Host Leaderboard Widget */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 flex items-center justify-center text-[#FE2C55]">
-                  <Flame className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black text-white">Top Host Live</h3>
-                  <p className="text-[10px] text-zinc-400">Peringkat penjualan tertinggi</p>
-                </div>
-              </div>
-              <button
-                onClick={() => onNavigate('index_performa')}
-                className="text-[10px] font-bold text-[#25F4EE] hover:underline cursor-pointer"
-              >
-                Lihat Semua
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {topHosts.length > 0 ? (
-                topHosts.map((host, idx) => {
-                  const medals = ['🥇', '🥈', '🥉'];
-                  return (
-                    <div
-                      key={host.name}
-                      className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between gap-3 hover:border-[#25F4EE]/30 transition"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">{medals[idx]}</span>
-                        <div>
-                          <h4 className="text-xs font-bold text-white">{host.name}</h4>
-                          <p className="text-[10px] text-zinc-400">
-                            {formatNumber(host.pcs)} pcs • {host.sessions} sesi
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs font-extrabold text-[#25F4EE]">
-                          {formatRupiah(host.omzet)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-6 text-xs text-zinc-500 bg-[#0b0c10] rounded-2xl border border-white/5">
-                  Belum ada data penjualan host.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick HPP Summary */}
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between text-xs mt-2">
-            <span className="text-zinc-400">Rata-rata HPP per Pcs:</span>
-            <strong className="text-white font-black text-sm text-[#25F4EE]">
+            <div className="text-base sm:text-lg font-black text-[#25F4EE] mt-1 truncate">
               {formatRupiah(hppInfo.weightedAverageHpp)}
-            </strong>
+            </div>
+            <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
+              Modal / pcs fashion
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Integrated Modules Grid (Requirement 5 & 10) */}
-      <div className="space-y-3 pt-2">
+      {/* Main Integrated Modules Grid - Kotak-kotak kecil (Compact Square Grid) */}
+      <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
             <Activity className="w-4 h-4 text-[#25F4EE]" />
-            <span>Modul Akuntansi &amp; Toko</span>
+            <span>Pusat Modul &amp; Menu Toko</span>
           </h3>
           <span className="text-[11px] font-bold text-zinc-300 bg-[#161823] px-3 py-1 rounded-full border border-white/10">
-            {menuItems.length} Modul Terintegrasi
+            {menuItems.length} Modul
           </span>
         </div>
 
-        {/* 4 columns on lg, 3 on md, 2 on mobile */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-          {menuItems.map(item => {
+        {/* Kotak-kotak kecil grid: 2 cols on mobile, 3 on tablet, 4 on md, 6 on lg/xl */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
+          {menuItems.map((item) => {
             const accessible = canAccess(item);
+            const Icon = item.icon;
 
             return (
               <button
                 key={item.tab}
-                id={`btn-menu-${item.tab}`}
-                disabled={!accessible}
-                onClick={() => onNavigate(item.tab)}
-                className={`group text-left p-4 rounded-2xl border transition-all duration-200 relative flex flex-col justify-between tiktok-card-hover ${
+                id={`menu-card-${item.tab}`}
+                type="button"
+                onClick={() => {
+                  if (accessible) {
+                    onNavigate(item.tab);
+                  } else {
+                    onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
+                  }
+                }}
+                className={`text-center p-3.5 sm:p-4 rounded-2xl transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-between gap-2.5 group border cursor-pointer min-h-[135px] sm:min-h-[145px] ${
                   accessible
-                    ? 'bg-[#161823] border-white/10 hover:border-[#25F4EE]/40 shadow-lg cursor-pointer'
-                    : 'bg-[#161823]/40 border-white/5 opacity-40 cursor-not-allowed'
+                    ? 'bg-[#161823] hover:bg-[#1f2232] border-white/10 hover:border-[#25F4EE]/50 shadow-md hover:shadow-lg hover:shadow-[#25F4EE]/10 active:scale-95'
+                    : 'bg-[#12141c]/60 border-white/5 opacity-50 cursor-not-allowed'
                 }`}
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/10 shrink-0 group-hover:border-[#25F4EE]/50 transition">
-                      <item.icon className={`w-5 h-5 ${item.iconColor}`} />
-                    </div>
-                    {item.badgeText && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 group-hover:text-[#25F4EE] group-hover:border-[#25F4EE]/30 transition">
-                        {item.badgeText}
-                      </span>
-                    )}
-                  </div>
+                {/* Top Badge or Lock */}
+                <div className="w-full flex items-center justify-between">
+                  {item.badgeText ? (
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border truncate max-w-[85%] ${
+                        accessible
+                          ? 'bg-white/5 text-zinc-300 border-white/10'
+                          : 'bg-zinc-800 text-zinc-500 border-zinc-700'
+                      }`}
+                    >
+                      {item.badgeText}
+                    </span>
+                  ) : <span />}
 
-                  <h4 className="font-black text-xs sm:text-sm text-white leading-tight">
-                    {item.title}
-                  </h4>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 font-medium mt-1 line-clamp-1">
-                    {item.subtitle}
-                  </p>
+                  {!accessible && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[10px] text-zinc-400">
-                  <span>{accessible ? 'Buka Modul' : 'Terkunci'}</span>
-                  {accessible ? (
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition" />
-                  ) : (
-                    <Lock className="w-3 h-3 text-zinc-500" />
-                  )}
+                {/* Centered Icon */}
+                <div
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 group-hover:scale-110 group-hover:border-[#25F4EE]/40 transition-transform shadow-inner ${
+                    accessible ? item.iconColor : 'text-zinc-500'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+
+                {/* Title */}
+                <div className="w-full">
+                  <h4 className="text-xs sm:text-xs font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-snug line-clamp-2">
+                    {item.title}
+                  </h4>
                 </div>
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Theme Selector Modal */}
+      <ThemeSelectorModal
+        isOpen={showThemeModal}
+        onClose={() => setShowThemeModal(false)}
+        onNotify={onNotify || (() => {})}
+      />
     </div>
   );
 };

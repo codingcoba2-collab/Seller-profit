@@ -209,39 +209,21 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-modal"
-            onClick={onBackToDashboard}
-            className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <Package className="w-6 h-6 text-[#25F4EE]" />
-              <span>Modal &amp; Stok Fashion (HPP Real)</span>
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Kelola modal kulakan pakaian baru, distro, hijab, thrift vintage, ongkir &amp; HPP per pcs otomatis
-            </p>
-          </div>
-        </div>
-
-        {/* Stock summary pill */}
-        <div className="flex items-center gap-3 bg-[#161823] text-white p-3.5 rounded-3xl border border-white/10 shadow-lg">
+      {/* Sisa Stok Bar */}
+      <div className="flex items-center justify-between bg-[#161823] p-3.5 rounded-3xl border border-white/10 shadow-lg">
+        <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
             <Package className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-zinc-400">Sisa Stok Fisik Gudang</div>
-            <div className="text-lg font-black text-white">
-              {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs</span>
+            <div className="text-[11px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
+            <div className="text-base font-black text-white">
+              {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs pakaian</span>
             </div>
           </div>
+        </div>
+        <div className="text-right text-xs text-zinc-400">
+          Total Terjual: <b className="text-[#25F4EE]">{formatNumber(stockInfo.totalPcsSold)} pcs</b>
         </div>
       </div>
 

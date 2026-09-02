@@ -499,40 +499,10 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header & Period Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-gaji"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                {currentUser.isOwner ? 'Rekap Gaji &amp; Insentif Seluruh Tim' : 'Slip Gaji &amp; Insentif Personal'}
-              </h2>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                currentUser.isOwner 
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
-                  : 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30'
-              }`}>
-                {currentUser.isOwner ? '👑 Mode Owner (Akses Penuh)' : '🔒 Data Personal Privat'}
-              </span>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              {!currentUser.isOwner
-                ? 'Slip gaji, komisi insentif, status pembayaran transfer kas, dan bukti struk pribadi Anda'
-                : 'Rekapitulasi seluruh gaji pokok shift/jam, insentif live, status pembayaran kas & bukti foto'}
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Periode */}
-        <div className="flex flex-wrap items-center gap-2 bg-[#161823] p-1.5 rounded-2xl border border-white/10 shadow-lg">
+      {/* Filter Periode */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-zinc-300">Periode:</span>
           <div className="flex items-center gap-1">
             {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
               <button
@@ -548,16 +518,16 @@ export const GajiView: React.FC<GajiViewProps> = ({
               </button>
             ))}
           </div>
-
-          {period !== 'all' && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="px-2.5 py-1 text-xs rounded-xl border border-white/10 bg-[#0b0c10] text-white font-medium focus:border-[#25F4EE]"
-            />
-          )}
         </div>
+
+        {period !== 'all' && (
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-3 py-1.5 text-xs rounded-xl border border-white/10 bg-[#0b0c10] text-white font-medium focus:border-[#25F4EE]"
+          />
+        )}
       </div>
 
       {/* Non-Owner Privacy Notice */}

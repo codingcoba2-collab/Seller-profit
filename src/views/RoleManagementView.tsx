@@ -44,7 +44,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [salaryType, setSalaryType] = useState<SalaryType>('hourly');
   const [salaryRate, setSalaryRate] = useState<number>(30000);
 
-  // Incentive configs mapped per role with Tier support
+  // Incentive configs mapped per role with Tier and Bundling/Satuan support
   const [incentiveMap, setIncentiveMap] = useState<{
     [key in UserRole]?: {
       type: IncentiveType;
@@ -53,10 +53,29 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       hasTierRule?: boolean;
       tierThresholdPackages?: number;
       tierRate?: number;
+      tierCalculationMode?: TierCalculationMode;
+      hasSeparateBundlingSatuan?: boolean;
+      satuanRate?: number;
+      satuanIncentiveType?: 'per_pcs_sold' | 'per_package_sold' | 'percentage';
+      bundlingRate?: number;
+      bundlingIncentiveType?: 'per_package_sold' | 'per_pcs_sold' | 'percentage';
     }
   }>({
-    host: { type: 'per_pcs_sold', rate: 1000, description: 'Insentif per pcs terjual', hasTierRule: false, tierThresholdPackages: 50, tierRate: 1500 },
-    admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 80, tierRate: 800 },
+    host: { 
+      type: 'per_pcs_sold', 
+      rate: 1000, 
+      description: 'Insentif per pcs terjual', 
+      hasTierRule: false, 
+      tierThresholdPackages: 15, 
+      tierRate: 3000, 
+      tierCalculationMode: 'excess_only',
+      hasSeparateBundlingSatuan: false,
+      satuanRate: 1000,
+      satuanIncentiveType: 'per_pcs_sold',
+      bundlingRate: 2500,
+      bundlingIncentiveType: 'per_package_sold',
+    },
+    admin_toko: { type: 'per_package_sold', rate: 500, description: 'Insentif per paket', hasTierRule: false, tierThresholdPackages: 15, tierRate: 1500, tierCalculationMode: 'excess_only' },
     sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
     steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
     owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
@@ -226,6 +245,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
         hasTierRule: Boolean(cfg.hasTierRule),
         tierThresholdPackages: cfg.hasTierRule ? (Number(cfg.tierThresholdPackages) || 0) : undefined,
         tierRate: cfg.hasTierRule ? (Number(cfg.tierRate) || 0) : undefined,
+        tierCalculationMode: cfg.tierCalculationMode || 'excess_only',
+        hasSeparateBundlingSatuan: r === 'host' ? Boolean(cfg.hasSeparateBundlingSatuan) : undefined,
+        satuanRate: r === 'host' && cfg.hasSeparateBundlingSatuan ? (Number(cfg.satuanRate) || 0) : undefined,
+        satuanIncentiveType: r === 'host' && cfg.hasSeparateBundlingSatuan ? (cfg.satuanIncentiveType || 'per_pcs_sold') : undefined,
+        bundlingRate: r === 'host' && cfg.hasSeparateBundlingSatuan ? (Number(cfg.bundlingRate) || 0) : undefined,
+        bundlingIncentiveType: r === 'host' && cfg.hasSeparateBundlingSatuan ? (cfg.bundlingIncentiveType || 'per_package_sold') : undefined,
       };
     });
 
@@ -277,26 +302,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without subtitle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-role"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-white">
-              Manajemen Pegawai &amp; Role
-            </h2>
-          </div>
-        </div>
-      </div>
-
-      {/* Sub Navigation (Requirement 7) */}
+      {/* Sub Navigation */}
       <ViewSubNav
         currentSubTab={subTab}
         onChangeSubTab={setSubTab}
@@ -514,6 +520,147 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Req 4: Pengaturan Insentif Terpisah Satuan & Bundling untuk Host */}
+                    {role === 'host' && (
+                      <div className="pt-3 border-t border-white/5 space-y-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(config.hasSeparateBundlingSatuan)}
+                            onChange={e => {
+                              const checked = e.target.checked;
+                              setIncentiveMap(prev => ({
+                                ...prev,
+                                host: {
+                                  ...(prev.host || { type: 'per_pcs_sold', rate: 1000, description: '' }),
+                                  hasSeparateBundlingSatuan: checked,
+                                  satuanRate: prev.host?.satuanRate || 1000,
+                                  satuanIncentiveType: prev.host?.satuanIncentiveType || 'per_pcs_sold',
+                                  bundlingRate: prev.host?.bundlingRate || 2500,
+                                  bundlingIncentiveType: prev.host?.bundlingIncentiveType || 'per_package_sold',
+                                }
+                              }));
+                            }}
+                            className="w-4 h-4 rounded accent-[#25F4EE]"
+                          />
+                          <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
+                            Pisahkan Perhitungan Insentif Penjualan Satuan &amp; Bundling
+                          </span>
+                        </label>
+
+                        {config.hasSeparateBundlingSatuan && (
+                          <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/40 space-y-4">
+                            <div className="text-[11px] text-zinc-300">
+                              💡 Karena penjualan <b>Satuan</b> dan <b>Bundling</b> memiliki margin &amp; perhitungan berbeda, tentukan tarif komisi masing-masing:
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* 1. Pengaturan Penjualan Satuan */}
+                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#25F4EE]">
+                                  <span>🏷️ Insentif Penjualan Satuan</span>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    Model Hitungan Satuan
+                                  </label>
+                                  <select
+                                    value={config.satuanIncentiveType || 'per_pcs_sold'}
+                                    onChange={e => {
+                                      const val = e.target.value as any;
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          satuanIncentiveType: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                                  >
+                                    <option value="per_pcs_sold">Per Pcs Satuan Terjual (Rp)</option>
+                                    <option value="per_package_sold">Per Paket / Checkout Satuan (Rp)</option>
+                                    <option value="percentage">% dari Omzet Penjualan Satuan</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    {config.satuanIncentiveType === 'percentage' ? 'Persentase Satuan (%)' : 'Tarif Insentif Satuan (Rp)'}
+                                  </label>
+                                  <CommaNumberInput
+                                    value={config.satuanRate || 1000}
+                                    onChange={val => {
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          satuanRate: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 2. Pengaturan Penjualan Bundling */}
+                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                                  <span>📦 Insentif Penjualan Bundling</span>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    Model Hitungan Bundling
+                                  </label>
+                                  <select
+                                    value={config.bundlingIncentiveType || 'per_package_sold'}
+                                    onChange={e => {
+                                      const val = e.target.value as any;
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          bundlingIncentiveType: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                                  >
+                                    <option value="per_package_sold">Per Paket Bundling Terjual (Rp)</option>
+                                    <option value="per_pcs_sold">Per Pcs Barang Bundling (Rp)</option>
+                                    <option value="percentage">% dari Omzet Penjualan Bundling</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
+                                    {config.bundlingIncentiveType === 'percentage' ? 'Persentase Bundling (%)' : 'Tarif Insentif Bundling (Rp)'}
+                                  </label>
+                                  <CommaNumberInput
+                                    value={config.bundlingRate || 2500}
+                                    onChange={val => {
+                                      setIncentiveMap(prev => ({
+                                        ...prev,
+                                        host: {
+                                          ...prev.host!,
+                                          bundlingRate: val,
+                                        }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-300 font-bold focus:border-[#25F4EE]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Req 1: Skema Insentif Berjenjang / Tier Rule */}
                     {config.type !== 'none' && isHostOrAdmin && (

@@ -12,6 +12,8 @@ export type IncentiveType =
 
 export type TierCalculationMode = 'excess_only' | 'all_units';
 
+export type SaleFormat = 'satuan' | 'bundling' | 'campuran';
+
 export interface IncentiveConfig {
   type: IncentiveType;
   rate: number; // nominal rupiah or percentage (0-100)
@@ -21,6 +23,12 @@ export interface IncentiveConfig {
   tierThresholdPackages?: number; // threshold target paket penjualan (misal 15 paket)
   tierRate?: number; // tarif insentif baru/tambahan jika capai target paket (misal 3000)
   tierCalculationMode?: TierCalculationMode; // 'excess_only' (hanya kelebihan selisih paket > target) vs 'all_units' (semua paket jika capai target)
+  // Req 4: Pengaturan Insentif Terpisah Penjualan Satuan & Bundling untuk Host Live
+  hasSeparateBundlingSatuan?: boolean;
+  satuanRate?: number; // misal Rp 1.000 per pcs satuan atau per paket satuan
+  satuanIncentiveType?: 'per_pcs_sold' | 'per_package_sold' | 'percentage';
+  bundlingRate?: number; // misal Rp 2.500 per paket bundling atau per pcs
+  bundlingIncentiveType?: 'per_package_sold' | 'per_pcs_sold' | 'percentage';
 }
 
 // Req 8: Logika if rangkap role dan penjualan diatas sekian paket gaji per jam/per bulan/bonus per paket/pcs berubah
@@ -183,6 +191,13 @@ export interface SalesRecord {
   salesChannel?: SalesChannel | string; // 'shopee_live', 'tiktok_live', 'offline_store', 'shopee_reguler', 'whatsapp_order', etc.
   channelName?: string; // Display channel label e.g. "Shopee Reguler", "Toko Offline", "WhatsApp"
   category?: FashionCategory | string; // Fashion category e.g. 'pakaian_jadi', 'hijab_muslim', 'thrift_vintage'
+  saleFormat?: SaleFormat; // 'satuan' | 'bundling' | 'campuran'
+  satuanPcs?: number; // Pcs dari penjualan satuan
+  satuanPackages?: number; // Paket / order satuan
+  satuanOmzet?: number; // Omzet dari penjualan satuan
+  bundlingPcs?: number; // Pcs total dari bundling (misal 1 paket isi 3 pcs)
+  bundlingPackages?: number; // Jumlah paket bundling
+  bundlingOmzet?: number; // Omzet dari bundling
   hostIds?: string[];
   hostNames?: string[];
   adminIds?: string[]; // ID admin toko / kasir
@@ -190,8 +205,8 @@ export interface SalesRecord {
   adminId?: string; // single fallback
   adminName?: string; // single fallback
   omzet: number;
-  pcsSold: number; // jumlah pcs terjual
-  packagesSold: number; // jumlah paket / order terjual
+  pcsSold: number; // jumlah pcs terjual (total)
+  packagesSold: number; // jumlah paket / order terjual (total)
   hoursWorked?: number; // jam durasi live (jika live)
   coinUsed?: number; // koin live / voucher diskon toko
   adsUsed?: number; // iklan marketplace live / ads non-live
@@ -269,6 +284,7 @@ export type ViewState =
   | 'admin_shopee'      // Tahap 4: Admin Marketplace & Layanan
   | 'kehadiran'         // Tahap 5
   | 'penjualan'         // Tahap 6
+  | 'statistik'         // Menu Baru: Statistik Penjualan & Host Live
   | 'return'            // Tahap 7
   | 'iklan_koin'        // Tahap 8
   | 'gaji'              // Tahap 9
