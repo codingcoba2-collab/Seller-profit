@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
-import { SalesRecord, CurrentUser, Employee, SalesType, SalesChannel, FashionCategory, PaymentMethod } from '../types';
+import { SalesRecord, CurrentUser, Employee, SalesType, SalesChannel, FashionCategory, PaymentMethod, SaleFormat } from '../types';
 import { 
   formatRupiah, 
   formatNumber, 
@@ -68,7 +68,6 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
-  const [searchQuery, setSearchQuery] = useState('');
 
   // FORM STATES: Common & Live
   const [date, setDate] = useState(getTodayString());
@@ -77,6 +76,13 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [pcsSold, setPcsSold] = useState<number>(50);
   const [packagesSold, setPackagesSold] = useState<number>(35);
   const [notes, setNotes] = useState<string>('');
+
+  // FORM STATES: Live Format Penjualan (Satuan / Bundling / Campuran)
+  const [saleFormat, setSaleFormat] = useState<SaleFormat>('bundling');
+  const [satuanPcs, setSatuanPcs] = useState<number>(0);
+  const [satuanPackages, setSatuanPackages] = useState<number>(0);
+  const [bundlingPcs, setBundlingPcs] = useState<number>(0);
+  const [bundlingPackages, setBundlingPackages] = useState<number>(0);
 
   // FORM STATES: Live specific
   const [liveChannel, setLiveChannel] = useState<SalesChannel>('tiktok_live');
@@ -152,6 +158,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setOmzet(3500000);
     setPcsSold(50);
     setPackagesSold(35);
+    setSaleFormat('bundling');
+    setSatuanPcs(0);
+    setSatuanPackages(0);
+    setBundlingPcs(0);
+    setBundlingPackages(0);
     setHoursWorked(4);
     setCoinUsed(50000);
     setAdsUsed(100000);
@@ -179,6 +190,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setOmzet(sale.omzet || 0);
     setPcsSold(sale.pcsSold || 0);
     setPackagesSold(sale.packagesSold || 0);
+    setSaleFormat(sale.saleFormat || 'bundling');
+    setSatuanPcs(sale.satuanPcs || 0);
+    setSatuanPackages(sale.satuanPackages || 0);
+    setBundlingPcs(sale.bundlingPcs || 0);
+    setBundlingPackages(sale.bundlingPackages || 0);
     setNotes(sale.notes || '');
 
     const isNonLive = sale.salesType === 'non_live';
@@ -249,6 +265,14 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     const channelMeta = salesChannelLabels[liveChannel] || { label: 'Marketplace Live' };
 
+    const finalSatuanPcs = saleFormat === 'satuan' ? pcsSold : (saleFormat === 'bundling' ? 0 : satuanPcs);
+    const finalSatuanPkgs = saleFormat === 'satuan' ? packagesSold : (saleFormat === 'bundling' ? 0 : satuanPackages);
+    const finalSatuanOmzet = saleFormat === 'satuan' ? omzet : (saleFormat === 'bundling' ? 0 : Math.round((satuanPackages / Math.max(1, packagesSold)) * omzet));
+
+    const finalBundlingPcs = saleFormat === 'bundling' ? pcsSold : (saleFormat === 'satuan' ? 0 : bundlingPcs);
+    const finalBundlingPkgs = saleFormat === 'bundling' ? packagesSold : (saleFormat === 'satuan' ? 0 : bundlingPackages);
+    const finalBundlingOmzet = saleFormat === 'bundling' ? omzet : (saleFormat === 'satuan' ? 0 : Math.max(0, omzet - finalSatuanOmzet));
+
     const record: SalesRecord = {
       id: editingId || 'sale-' + Date.now(),
       storeId: currentUser.storeId,
@@ -257,6 +281,13 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       salesChannel: liveChannel,
       channelName: channelMeta.label,
       category,
+      saleFormat,
+      satuanPcs: finalSatuanPcs,
+      satuanPackages: finalSatuanPkgs,
+      satuanOmzet: finalSatuanOmzet,
+      bundlingPcs: finalBundlingPcs,
+      bundlingPackages: finalBundlingPkgs,
+      bundlingOmzet: finalBundlingOmzet,
       hostIds: selectedHostIds,
       hostNames,
       adminIds: selectedAdminIds,
@@ -358,17 +389,6 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const filteredSales = useMemo(() => {
     return salesList
       .filter(s => {
-        // Text Search
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchHost = s.hostNames?.some(h => h.toLowerCase().includes(q));
-          const matchAdmin = s.adminNames?.some(a => a.toLowerCase().includes(q)) || s.adminName?.toLowerCase().includes(q);
-          const matchChannel = (s.channelName || '').toLowerCase().includes(q) || (s.salesChannel || '').toLowerCase().includes(q);
-          const matchNotes = (s.notes || '').toLowerCase().includes(q);
-          const matchRecorded = (s.recordedBy || '').toLowerCase().includes(q);
-          if (!matchHost && !matchAdmin && !matchChannel && !matchNotes && !matchRecorded) return false;
-        }
-
         // Type filter (Live vs Non-Live)
         if (typeFilter === 'live' && s.salesType === 'non_live') return false;
         if (typeFilter === 'non_live' && (s.salesType === 'live' || !s.salesType)) return false;
@@ -391,7 +411,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [salesList, searchQuery, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
+  }, [salesList, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -491,26 +511,16 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-penjualan"
-            onClick={onBackToDashboard}
-            className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <ShoppingBag className="w-6 h-6 text-[#25F4EE]" />
-              <span>Pusat Data Penjualan Fashion</span>
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Kelola seluruh transaksi penjualan Live Marketplace, Reguler Marketplace, Toko Offline, &amp; WhatsApp Order
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <button
+          id="btn-back-dashboard-penjualan"
+          onClick={onBackToDashboard}
+          className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-2 text-xs font-bold"
+          title="Kembali ke Dashboard"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="hidden sm:inline">Dashboard</span>
+        </button>
 
         {/* Sub-Tab Navigation Switcher */}
         <div className="flex items-center gap-1.5 p-1 bg-[#161823] border border-white/10 rounded-2xl overflow-x-auto">
@@ -631,47 +641,26 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             </div>
           </div>
 
-          {/* Filter, Search & Export Actions Bar */}
+          {/* Filter Bar */}
           <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Search Box */}
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari host, admin/kasir, channel toko, nomor invoice atau catatan..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9.5 pr-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
-                />
-              </div>
-
-              {/* Action Buttons */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={exportToCSV}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                  title="Ekspor Seluruh Data Terfilter ke CSV / Excel"
-                >
-                  <Download className="w-4 h-4 text-emerald-400" />
-                  <span>Ekspor CSV</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                  title="Cetak Laporan Penjualan"
-                >
-                  <Printer className="w-4 h-4 text-sky-400" />
-                  <span>Print</span>
-                </button>
+                <Filter className="w-4 h-4 text-[#25F4EE]" />
+                <span className="text-xs font-black text-white">Filter Data Penjualan</span>
               </div>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                title="Cetak Laporan Penjualan"
+              >
+                <Printer className="w-3.5 h-3.5 text-sky-400" />
+                <span>Print</span>
+              </button>
             </div>
 
             {/* Filter Pills */}
-            <div className="pt-3 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 text-xs">
               {/* Periode */}
               <div>
                 <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
@@ -1096,6 +1085,138 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   );
                 })}
               </div>
+            </div>
+
+            {/* Opsi Jual Satuan atau Bundling (Penentu Perhitungan Insentif) */}
+            <div className="space-y-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-xs font-black text-white flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Format Penjualan Live (Opsi Satuan / Bundling)</span>
+                  <span className="text-[#FE2C55]">*</span>
+                </label>
+                <span className="text-[10px] text-zinc-400 font-medium">
+                  Insentif Host Live dihitung otomatis berdasarkan opsi yang dipilih
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Opsi Bundling */}
+                <button
+                  type="button"
+                  onClick={() => setSaleFormat('bundling')}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    saleFormat === 'bundling'
+                      ? 'bg-amber-500/15 border-amber-400 text-white shadow-lg shadow-amber-500/10 ring-1 ring-amber-400'
+                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                      📦 Jual Bundling (Paket)
+                    </span>
+                    {saleFormat === 'bundling' && <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">
+                    Sesi live menjual paket bundling. Insentif host dihitung per paket dan tarif berjenjang bundling.
+                  </p>
+                </button>
+
+                {/* Opsi Satuan */}
+                <button
+                  type="button"
+                  onClick={() => setSaleFormat('satuan')}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    saleFormat === 'satuan'
+                      ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-lg shadow-[#25F4EE]/10 ring-1 ring-[#25F4EE]'
+                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-black text-[#25F4EE] flex items-center gap-1.5">
+                      🏷️ Jual Satuan (Pcs)
+                    </span>
+                    {saleFormat === 'satuan' && <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0" />}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">
+                    Sesi live menjual produk eceran/satuan. Insentif host dihitung per pcs dan tarif berjenjang satuan.
+                  </p>
+                </button>
+
+                {/* Opsi Campuran */}
+                <button
+                  type="button"
+                  onClick={() => setSaleFormat('campuran')}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    saleFormat === 'campuran'
+                      ? 'bg-purple-500/15 border-purple-400 text-white shadow-lg shadow-purple-500/10 ring-1 ring-purple-400'
+                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                      🔀 Campuran Satuan &amp; Bundling
+                    </span>
+                    {saleFormat === 'campuran' && <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">
+                    Sesi live menjual kombinasi produk satuan dan paket bundling sekaligus.
+                  </p>
+                </button>
+              </div>
+
+              {/* Rincian Porsi jika Campuran */}
+              {saleFormat === 'campuran' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                  <div className="p-3.5 rounded-2xl bg-black/40 border border-[#25F4EE]/20 space-y-2">
+                    <span className="text-xs font-bold text-[#25F4EE]">🏷️ Porsi Jual Satuan</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-zinc-400 block mb-1">Pcs Satuan</label>
+                        <CommaNumberInput
+                          value={satuanPcs}
+                          onChange={setSatuanPcs}
+                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-zinc-400 block mb-1">Paket/Order Satuan</label>
+                        <CommaNumberInput
+                          value={satuanPackages}
+                          onChange={setSatuanPackages}
+                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-black/40 border border-amber-500/20 space-y-2">
+                    <span className="text-xs font-bold text-amber-300">📦 Porsi Jual Bundling</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-zinc-400 block mb-1">Pcs Bundling</label>
+                        <CommaNumberInput
+                          value={bundlingPcs}
+                          onChange={setBundlingPcs}
+                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-zinc-400 block mb-1">Paket Bundling</label>
+                        <CommaNumberInput
+                          value={bundlingPackages}
+                          onChange={setBundlingPackages}
+                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Metrics Form Grid */}

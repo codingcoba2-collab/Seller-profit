@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
 import { CurrentUser, SalesRecord, FashionCategory, SalesChannel } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, salesChannelLabels, fashionCategoryLabels } from '../utils/formatters';
@@ -19,7 +19,8 @@ import {
   Users,
   Clock,
   Coins,
-  Percent
+  Percent,
+  ArrowLeft
 } from 'lucide-react';
 
 interface StatistikViewProps {
@@ -31,12 +32,23 @@ type PeriodRange = '7days' | '14days' | '30days' | 'this_month' | 'all';
 
 export const StatistikView: React.FC<StatistikViewProps> = ({
   currentUser,
+  onBackToDashboard,
 }) => {
-  const [period, setPeriod] = useState<PeriodRange>('7days');
+  const [period, setPeriod] = useState<PeriodRange>('30days');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [salesList, setSalesList] = useState<SalesRecord[]>(() => StorageService.getSales(currentUser.storeId));
 
-  const salesList = StorageService.getSales(currentUser.storeId);
+  useEffect(() => {
+    setSalesList(StorageService.getSales(currentUser.storeId));
+    const unsub = StorageService.subscribe((col) => {
+      if (col === 'sales') {
+        setSalesList(StorageService.getSales(currentUser.storeId));
+      }
+    });
+    return unsub;
+  }, [currentUser.storeId]);
+
   const employees = StorageService.getEmployees(currentUser.storeId);
   const stockInfo = StorageService.calculateStock(currentUser.storeId);
   const hppInfo = StorageService.calculateHPP(currentUser.storeId);
@@ -251,13 +263,24 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* Filter & Period Selector Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-            <BarChart3 className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-black text-white">Statistik &amp; Analisis Penjualan</span>
-            <p className="text-[10px] text-zinc-400">Peringkat Host Live, Omzet, Volume Satuan &amp; Bundling</p>
+        <div className="flex items-center gap-3">
+          <button
+            id="btn-back-dashboard-statistik"
+            type="button"
+            onClick={onBackToDashboard}
+            className="p-2 rounded-xl bg-[#0b0c10] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 shadow-xs"
+            title="Kembali ke Dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-black text-white">Statistik &amp; Analisis Penjualan</span>
+              <p className="text-[10px] text-zinc-400">Peringkat Host Live, Omzet, Volume Satuan &amp; Bundling</p>
+            </div>
           </div>
         </div>
 

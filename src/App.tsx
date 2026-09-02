@@ -22,6 +22,7 @@ import { LabaRugiView } from './views/LabaRugiView';
 import { CashflowView } from './views/CashflowView';
 import { LabaBersihView } from './views/LabaBersihView';
 import { IndexPerformaView } from './views/IndexPerformaView';
+import { StatistikView } from './views/StatistikView';
 
 interface ToastState {
   id: number;
@@ -252,6 +253,13 @@ export default function App() {
 
         {currentView === 'index_performa' && (
           <IndexPerformaView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'statistik' && (
+          <StatistikView
             currentUser={currentUser}
             onBackToDashboard={() => handleNavigate('dashboard')}
           />

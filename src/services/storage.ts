@@ -162,6 +162,138 @@ const DEFAULT_ADS_COIN: AdsCoinDeposit[] = [
   }
 ];
 
+const DEFAULT_SALES: SalesRecord[] = [
+  {
+    id: 'sale-demo-1',
+    storeId: 'store-shopee-01',
+    date: new Date().toISOString().slice(0, 10),
+    salesType: 'live',
+    salesChannel: 'tiktok_live',
+    channelName: 'TikTok Live',
+    category: 'pakaian_jadi',
+    saleFormat: 'bundling',
+    bundlingPcs: 60,
+    bundlingPackages: 30,
+    bundlingOmzet: 3600000,
+    satuanPcs: 0,
+    satuanPackages: 0,
+    satuanOmzet: 0,
+    hostIds: ['emp-1'],
+    hostNames: ['Siti Rahma'],
+    adminIds: ['emp-1'],
+    adminNames: ['Siti Rahma'],
+    adminId: 'emp-1',
+    adminName: 'Siti Rahma',
+    omzet: 3600000,
+    pcsSold: 60,
+    packagesSold: 30,
+    hoursWorked: 4,
+    coinUsed: 50000,
+    adsUsed: 100000,
+    notes: 'Sesi Siang Live Promo Bundling Knitwear',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'sale-demo-2',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 1).toISOString().slice(0, 10),
+    salesType: 'live',
+    salesChannel: 'shopee_live',
+    channelName: 'Shopee Live',
+    category: 'hijab_muslim',
+    saleFormat: 'satuan',
+    satuanPcs: 45,
+    satuanPackages: 35,
+    satuanOmzet: 2800000,
+    bundlingPcs: 0,
+    bundlingPackages: 0,
+    bundlingOmzet: 0,
+    hostIds: ['emp-1'],
+    hostNames: ['Siti Rahma'],
+    adminIds: ['emp-1'],
+    adminNames: ['Siti Rahma'],
+    adminId: 'emp-1',
+    adminName: 'Siti Rahma',
+    omzet: 2800000,
+    pcsSold: 45,
+    packagesSold: 35,
+    hoursWorked: 3.5,
+    coinUsed: 40000,
+    adsUsed: 80000,
+    notes: 'Live Malam Flash Sale Satuan Blouse & Hijab',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+  },
+  {
+    id: 'sale-demo-3',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
+    salesType: 'live',
+    salesChannel: 'tiktok_live',
+    channelName: 'TikTok Live',
+    category: 'thrift_vintage',
+    saleFormat: 'campuran',
+    satuanPcs: 25,
+    satuanPackages: 20,
+    satuanOmzet: 1500000,
+    bundlingPcs: 40,
+    bundlingPackages: 20,
+    bundlingOmzet: 2500000,
+    hostIds: ['emp-1'],
+    hostNames: ['Siti Rahma'],
+    adminIds: ['emp-1'],
+    adminNames: ['Siti Rahma'],
+    adminId: 'emp-1',
+    adminName: 'Siti Rahma',
+    omzet: 4000000,
+    pcsSold: 65,
+    packagesSold: 40,
+    hoursWorked: 4.5,
+    coinUsed: 60000,
+    adsUsed: 120000,
+    notes: 'Live Thrift Spesial Campuran Satuan & Paket',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: 'sale-demo-4',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 3).toISOString().slice(0, 10),
+    salesType: 'non_live',
+    salesChannel: 'shopee_reguler',
+    channelName: 'Shopee Reguler',
+    category: 'pakaian_jadi',
+    omzet: 2200000,
+    pcsSold: 32,
+    packagesSold: 28,
+    adsUsed: 50000,
+    coinUsed: 0,
+    paymentMethod: 'shopeepay',
+    notes: 'Order Masuk Reguler Marketplace',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: 'sale-demo-5',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 4).toISOString().slice(0, 10),
+    salesType: 'non_live',
+    salesChannel: 'offline_store',
+    channelName: 'Toko Offline',
+    category: 'pakaian_jadi',
+    omzet: 3500000,
+    pcsSold: 48,
+    packagesSold: 30,
+    adsUsed: 0,
+    coinUsed: 0,
+    paymentMethod: 'cash',
+    notes: 'Penjualan Pengunjung Toko Fisik Weekend',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+  }
+];
+
 type SyncListener = (collectionName: string) => void;
 
 export class StorageService {
@@ -651,7 +783,11 @@ export class StorageService {
   // SALES
   static getSales(storeId: string): SalesRecord[] {
     const raw = localStorage.getItem(STORAGE_KEYS.SALES);
-    const all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+    let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+    if (!raw || all.length === 0) {
+      all = DEFAULT_SALES;
+      localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+    }
     return all.filter(s => s.storeId === storeId);
   }
 
@@ -1062,8 +1198,8 @@ export class StorageService {
           empTotalPackages += hostPkgs;
           empTotalPcs += hostPcs;
 
-          // Req 4: Perhitungan Terpisah Penjualan Satuan & Bundling
-          if (config.hasSeparateBundlingSatuan) {
+          // Req: Perhitungan Terpisah Penjualan Satuan & Bundling
+          if (config.hasSeparateBundlingSatuan || (config.bundlingRate !== undefined && config.bundlingRate > 0) || (config.satuanRate !== undefined && config.satuanRate > 0)) {
             let hostSatuanPcs = 0;
             let hostSatuanPkgs = 0;
             let hostSatuanOmzet = 0;
@@ -1092,18 +1228,45 @@ export class StorageService {
               }
             });
 
+            const threshold = config.tierThresholdPackages || 0;
+            const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && hostPkgs >= threshold);
+            const tierMode = config.tierCalculationMode || 'excess_only';
+
             // 1. Hitung Insentif Satuan
             const satuanRate = config.satuanRate || 0;
+            const satuanTierRate = config.tierRateSatuan || config.tierRate || satuanRate;
             const satuanType = config.satuanIncentiveType || 'per_pcs_sold';
             let satuanAmount = 0;
             let satuanDesc = '';
 
             if (satuanType === 'per_pcs_sold') {
-              satuanAmount = Math.round(hostSatuanPcs * satuanRate);
-              satuanDesc = `📦 Insentif Satuan (${hostSatuanPcs.toFixed(0)} pcs x Rp ${satuanRate.toLocaleString('id-ID')})`;
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+                const excessPcs = Math.round(hostSatuanPcs * excessRatio);
+                const basePcs = Math.max(0, hostSatuanPcs - excessPcs);
+                satuanAmount = Math.round((basePcs * satuanRate) + (excessPcs * satuanTierRate));
+                satuanDesc = `📦 Insentif Satuan (${basePcs} pcs dasar x Rp ${satuanRate.toLocaleString('id-ID')} + ${excessPcs} pcs tier x Rp ${satuanTierRate.toLocaleString('id-ID')})`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                satuanAmount = Math.round(hostSatuanPcs * satuanTierRate);
+                satuanDesc = `✨ Target Tier Tercapai: Insentif Satuan (${hostSatuanPcs.toFixed(0)} pcs x Rp ${satuanTierRate.toLocaleString('id-ID')})`;
+              } else {
+                satuanAmount = Math.round(hostSatuanPcs * satuanRate);
+                satuanDesc = `📦 Insentif Satuan (${hostSatuanPcs.toFixed(0)} pcs x Rp ${satuanRate.toLocaleString('id-ID')})`;
+              }
             } else if (satuanType === 'per_package_sold') {
-              satuanAmount = Math.round(hostSatuanPkgs * satuanRate);
-              satuanDesc = `📦 Insentif Satuan (${hostSatuanPkgs.toFixed(0)} paket x Rp ${satuanRate.toLocaleString('id-ID')})`;
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+                const excessPkgs = Math.round(hostSatuanPkgs * excessRatio);
+                const basePkgs = Math.max(0, hostSatuanPkgs - excessPkgs);
+                satuanAmount = Math.round((basePkgs * satuanRate) + (excessPkgs * satuanTierRate));
+                satuanDesc = `📦 Insentif Satuan (${basePkgs} paket dasar x Rp ${satuanRate.toLocaleString('id-ID')} + ${excessPkgs} paket tier x Rp ${satuanTierRate.toLocaleString('id-ID')})`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                satuanAmount = Math.round(hostSatuanPkgs * satuanTierRate);
+                satuanDesc = `✨ Target Tier Tercapai: Insentif Satuan (${hostSatuanPkgs.toFixed(0)} paket x Rp ${satuanTierRate.toLocaleString('id-ID')})`;
+              } else {
+                satuanAmount = Math.round(hostSatuanPkgs * satuanRate);
+                satuanDesc = `📦 Insentif Satuan (${hostSatuanPkgs.toFixed(0)} paket x Rp ${satuanRate.toLocaleString('id-ID')})`;
+              }
             } else if (satuanType === 'percentage') {
               satuanAmount = Math.round((satuanRate / 100) * hostSatuanOmzet);
               satuanDesc = `📦 Insentif Satuan (${satuanRate}% dari Omzet Rp ${Math.round(hostSatuanOmzet).toLocaleString('id-ID')})`;
@@ -1111,16 +1274,39 @@ export class StorageService {
 
             // 2. Hitung Insentif Bundling
             const bundlingRate = config.bundlingRate || 0;
+            const bundlingTierRate = config.tierRateBundling || config.tierRate || bundlingRate;
             const bundlingType = config.bundlingIncentiveType || 'per_package_sold';
             let bundlingAmount = 0;
             let bundlingDesc = '';
 
             if (bundlingType === 'per_package_sold') {
-              bundlingAmount = Math.round(hostBundlingPkgs * bundlingRate);
-              bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPkgs.toFixed(0)} paket x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+                const excessPkgs = Math.round(hostBundlingPkgs * excessRatio);
+                const basePkgs = Math.max(0, hostBundlingPkgs - excessPkgs);
+                bundlingAmount = Math.round((basePkgs * bundlingRate) + (excessPkgs * bundlingTierRate));
+                bundlingDesc = `🎁 Insentif Bundling (${basePkgs} paket dasar x Rp ${bundlingRate.toLocaleString('id-ID')} + ${excessPkgs} paket tier x Rp ${bundlingTierRate.toLocaleString('id-ID')})`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                bundlingAmount = Math.round(hostBundlingPkgs * bundlingTierRate);
+                bundlingDesc = `✨ Target Tier Tercapai: Insentif Bundling (${hostBundlingPkgs.toFixed(0)} paket x Rp ${bundlingTierRate.toLocaleString('id-ID')})`;
+              } else {
+                bundlingAmount = Math.round(hostBundlingPkgs * bundlingRate);
+                bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPkgs.toFixed(0)} paket x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+              }
             } else if (bundlingType === 'per_pcs_sold') {
-              bundlingAmount = Math.round(hostBundlingPcs * bundlingRate);
-              bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPcs.toFixed(0)} pcs x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+              if (isTierAchieved && tierMode === 'excess_only') {
+                const excessRatio = hostPkgs > 0 ? Math.max(0, hostPkgs - threshold) / hostPkgs : 0;
+                const excessPcs = Math.round(hostBundlingPcs * excessRatio);
+                const basePcs = Math.max(0, hostBundlingPcs - excessPcs);
+                bundlingAmount = Math.round((basePcs * bundlingRate) + (excessPcs * bundlingTierRate));
+                bundlingDesc = `🎁 Insentif Bundling (${basePcs} pcs dasar x Rp ${bundlingRate.toLocaleString('id-ID')} + ${excessPcs} pcs tier x Rp ${bundlingTierRate.toLocaleString('id-ID')})`;
+              } else if (isTierAchieved && tierMode === 'all_units') {
+                bundlingAmount = Math.round(hostBundlingPcs * bundlingTierRate);
+                bundlingDesc = `✨ Target Tier Tercapai: Insentif Bundling (${hostBundlingPcs.toFixed(0)} pcs x Rp ${bundlingTierRate.toLocaleString('id-ID')})`;
+              } else {
+                bundlingAmount = Math.round(hostBundlingPcs * bundlingRate);
+                bundlingDesc = `🎁 Insentif Bundling (${hostBundlingPcs.toFixed(0)} pcs x Rp ${bundlingRate.toLocaleString('id-ID')})`;
+              }
             } else if (bundlingType === 'percentage') {
               bundlingAmount = Math.round((bundlingRate / 100) * hostBundlingOmzet);
               bundlingDesc = `🎁 Insentif Bundling (${bundlingRate}% dari Omzet Rp ${Math.round(hostBundlingOmzet).toLocaleString('id-ID')})`;
