@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { CurrentUser, ViewState } from '../types';
 import { StorageService } from '../services/storage';
-import { formatNumber, roleLabels } from '../utils/formatters';
+import { roleLabels } from '../utils/formatters';
 import { 
   ArrowLeft, 
   ShoppingBag, 
   LogOut, 
-  Coins, 
-  Package, 
-  Megaphone,
   Smartphone,
   Settings,
   RefreshCw,
   Cloud,
-  DownloadCloud
+  DownloadCloud,
+  Palette
 } from 'lucide-react';
+import { AppLogo } from './AppLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { UpdateAppModal } from './UpdateAppModal';
+import { ThemeSelectorModal } from './ThemeSelectorModal';
 
 interface NavbarProps {
   currentUser: CurrentUser;
@@ -37,9 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const stockInfo = StorageService.calculateStock(currentUser.storeId);
-  const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -62,18 +61,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     switch (view) {
       case 'dashboard': return 'Beranda Utama';
       case 'role_management': return 'Manajemen Pegawai & Role';
-      case 'steam_sortir': return 'Sortir & Steam Ball';
-      case 'modal_stok': return 'Modal & Stok Ball (HPP)';
+      case 'steam_sortir': return 'Sortir, QC & Finishing';
+      case 'modal_stok': return 'Modal & Stok Fashion (HPP)';
       case 'admin_shopee': return 'Biaya Admin Marketplace & Layanan';
       case 'kehadiran': return 'Presensi & Kehadiran Shift';
-      case 'penjualan': return 'Data Penjualan Host Live';
+      case 'penjualan': return 'Data Penjualan (Live & Non-Live)';
       case 'return': return 'Data Retur / Paket Return';
       case 'iklan_koin': return 'Saldo Biaya Iklan & Koin Live';
       case 'gaji': return 'Slip Gaji & Insentif';
-      case 'laba_rugi': return 'Laporan Laba & Rugi Live';
+      case 'laba_rugi': return 'Laporan Laba & Rugi Sesi';
       case 'cashflow': return 'Cashflow & Arus Kas';
       case 'laba_bersih': return 'Laporan Laba Bersih Toko';
-      case 'index_performa': return 'Indeks Performa Tim';
+      case 'index_performa': return 'Indeks Performa & Efektivitas AI';
       default: return 'Seller Profit';
     }
   };
@@ -81,13 +80,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white">
-        {/* Top micro bar for store context and quick stock/ad balances */}
-        <div className="bg-[#0b0c10] border-b border-white/5 px-4 py-1.5 text-xs">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+        {/* Clean, minimalist micro bar */}
+        <div className="bg-[#0b0c10]/90 border-b border-white/5 px-4 py-1.5 text-xs">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 font-medium">
-              <span className="inline-flex items-center gap-1.5 bg-[#161823] text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-white/10">
+              <span className="inline-flex items-center gap-1.5 bg-[#161823] text-zinc-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-white/10 shadow-xs">
                 <ShoppingBag className="w-3 h-3 text-[#25F4EE]" />
-                <span>{currentUser.storeName}</span>
+                <span className="truncate max-w-[140px] sm:max-w-none">{currentUser.storeName}</span>
               </span>
 
               {/* Realtime Cloud Online status badge */}
@@ -96,49 +95,37 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={handleManualSync}
                 disabled={isSyncing}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition cursor-pointer"
-                title="Status database online Firestore terhubung di semua HP. Klik untuk paksa refresh."
+                title="Status database online Firestore terhubung. Klik untuk refresh sync."
               >
                 <Cloud className={`w-3 h-3 text-emerald-400 ${isSyncing ? 'animate-bounce' : ''}`} />
-                <span className="hidden sm:inline">Online Sync</span>
+                <span className="hidden sm:inline">Sync Cloud</span>
                 <RefreshCw className={`w-2.5 h-2.5 ml-0.5 ${isSyncing ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="flex items-center gap-2 sm:gap-3 text-[11px]">
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Stok Barang (Total Masuk - Terjual)">
-                <Package className="w-3 h-3 text-[#25F4EE]" />
-                <span className="hidden xs:inline text-zinc-400">Stok:</span>
-                <strong className={`font-bold ${stockInfo.remainingStock < 50 ? 'text-[#FE2C55]' : 'text-white'}`}>
-                  {formatNumber(stockInfo.remainingStock)} pcs
-                </strong>
-              </div>
-
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Iklan Marketplace">
-                <Megaphone className="w-3 h-3 text-[#25F4EE]" />
-                <span className="hidden xs:inline text-zinc-400">Iklan:</span>
-                <strong className={`font-bold ${adsCoinInfo.remainingAds <= 0 ? 'text-[#FE2C55]' : 'text-white'}`}>
-                  Rp {formatNumber(adsCoinInfo.remainingAds)}
-                </strong>
-              </div>
-
-              <div className="flex items-center gap-1 bg-[#161823] border border-white/10 px-2 py-0.5 rounded-lg" title="Sisa Saldo Koin Live Marketplace">
-                <Coins className="w-3 h-3 text-amber-400" />
-                <span className="hidden xs:inline text-zinc-400">Koin Live:</span>
-                <strong className={`font-bold ${adsCoinInfo.remainingCoin <= 0 ? 'text-[#FE2C55]' : 'text-white'}`}>
-                  Rp {formatNumber(adsCoinInfo.remainingCoin)}
-                </strong>
-              </div>
+            {/* Quick Actions in Top Bar */}
+            <div className="flex items-center gap-2 text-[11px]">
+              {/* Theme Palette Switcher */}
+              <button
+                id="btn-theme-switcher"
+                type="button"
+                onClick={() => setShowThemeModal(true)}
+                className="inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 px-2.5 py-0.5 rounded-full transition cursor-pointer active:scale-95"
+                title="Pilih Tema Warna & Tampilan"
+              >
+                <Palette className="w-3 h-3 text-[#25F4EE]" />
+                <span className="hidden xs:inline text-[11px] font-semibold">Tema</span>
+              </button>
 
               {/* Install Guide Button */}
               <button
                 id="btn-install-guide-navbar"
                 onClick={onOpenInstallGuide}
-                className="inline-flex items-center gap-1 bg-[#25F4EE]/15 hover:bg-[#25F4EE]/25 text-[#25F4EE] border border-[#25F4EE]/40 font-bold px-2.5 py-0.5 rounded-lg transition cursor-pointer active:scale-95 shadow-xs"
-                title="Petunjuk Install Aplikasi di HP"
+                className="inline-flex items-center gap-1 bg-[#25F4EE]/15 hover:bg-[#25F4EE]/25 text-[#25F4EE] border border-[#25F4EE]/40 font-bold px-2.5 py-0.5 rounded-full transition cursor-pointer active:scale-95 shadow-xs"
+                title="Petunjuk Pasang di Layar Utama HP"
               >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span className="text-[11px]">Install HP</span>
+                <Smartphone className="w-3 h-3" />
+                <span className="text-[10px] font-bold">Install HP</span>
               </button>
             </div>
           </div>
@@ -157,19 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Kembali ke Menu</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-white shadow-xs">
-                  <ShoppingBag className="w-5 h-5 text-[#25F4EE]" />
-                </div>
-                <div>
-                  <h1 className="text-sm sm:text-base font-black text-white tracking-tight leading-tight flex items-center gap-1.5">
-                    <span>Seller Profit</span>
-                  </h1>
-                  <p className="text-[10px] text-zinc-400 font-medium">
-                    Sistem Akuntansi &amp; Live Shop
-                  </p>
-                </div>
-              </div>
+              <AppLogo size="sm" showText={true} />
             )}
 
             {currentView !== 'dashboard' && (
@@ -200,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Update App Button (Req: Tombol bertuliskan Update jelas tanpa uninstall) */}
+              {/* Update App Button */}
               <button
                 id="btn-update-app"
                 onClick={() => setShowUpdateModal(true)}
@@ -251,6 +226,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClose={() => setShowUpdateModal(false)}
         onNotify={onNotify}
       />
+
+      {/* Theme Selector Modal */}
+      <ThemeSelectorModal
+        isOpen={showThemeModal}
+        onClose={() => setShowThemeModal(false)}
+        onNotify={onNotify}
+      />
     </>
   );
 };
+

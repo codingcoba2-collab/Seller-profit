@@ -1,10 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="128" fill="#0f172a"/>
-  <rect x="96" y="96" width="320" height="320" rx="64" fill="#10b981"/>
-  <!-- Bar chart -->
-  <rect x="144" y="272" width="48" height="96" rx="12" fill="#ffffff"/>
-  <rect x="224" y="208" width="48" height="160" rx="12" fill="#ffffff"/>
-  <rect x="304" y="144" width="48" height="224" rx="12" fill="#ffffff"/>
-  <!-- Sparkle / Arrow -->
-  <circle cx="328" cy="112" r="16" fill="#f59e0b"/>
+  <rect width="512" height="512" rx="128" fill="#0B0C10"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#161823" stroke="#25F4EE" stroke-width="8" stroke-opacity="0.3"/>
+  <defs>
+    <linearGradient id="grad-cyan" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25F4EE" />
+      <stop offset="1" stop-color="#00D2FF" />
+    </linearGradient>
+    <linearGradient id="grad-pink" x1="64" y1="200" x2="448" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FE2C55" />
+      <stop offset="1" stop-color="#FF5B85" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Hanger Hook -->
+  <path d="M256 120 C256 90, 280 68, 308 68 C336 68, 358 90, 358 118 C358 146, 336 168, 308 168 L256 168 L256 210" 
+        stroke="url(#grad-cyan)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+        
+  <!-- Hanger Triangular Frame -->
+  <path d="M100 320 L256 210 L412 320 C412 320 390 350 350 350 L162 350 C122 350 100 320 100 320 Z" 
+        stroke="url(#grad-pink)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+        
+  <!-- Upward Financial Growth Line -->
+  <path d="M130 410 L236 300 L296 350 L400 200" 
+        stroke="url(#grad-cyan)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  
+  <!-- Arrow Head -->
+  <path d="M340 200 L400 200 L400 260" 
+        stroke="url(#grad-cyan)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+        
+  <!-- Diamond Spark Points -->
+  <circle cx="400" cy="200" r="22" fill="#FE2C55"/>
+  <circle cx="130" cy="410" r="18" fill="#25F4EE"/>
 </svg>

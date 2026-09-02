@@ -1,27 +1,107 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --primary-color: #25F4EE;
+    --secondary-color: #FE2C55;
+    --accent-color: #00F2FE;
+    --bg-main: #0b0c10;
+    --bg-card: #161823;
+    --text-main: #f4f4f6;
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Royal Gold & Amber Theme */
+  [data-theme-palette="royal_gold"] {
+    --primary-color: #F59E0B;
+    --secondary-color: #D97706;
+    --accent-color: #FBBF24;
+    --bg-main: #0c0a09;
+    --bg-card: #1c1917;
+  }
+
+  /* Emerald & Jade Luxe Theme */
+  [data-theme-palette="emerald_luxe"] {
+    --primary-color: #10B981;
+    --secondary-color: #059669;
+    --accent-color: #34D399;
+    --bg-main: #061712;
+    --bg-card: #0c261e;
+  }
+
+  /* Midnight Cyber & Purple Theme */
+  [data-theme-palette="midnight_cyber"] {
+    --primary-color: #8B5CF6;
+    --secondary-color: #EC4899;
+    --accent-color: #A78BFA;
+    --bg-main: #090514;
+    --bg-card: #130d24;
+  }
+
+  /* Rose & Ruby Glamour Theme */
+  [data-theme-palette="rose_glamour"] {
+    --primary-color: #F43F5E;
+    --secondary-color: #FB7185;
+    --accent-color: #FDA4AF;
+    --bg-main: #140508;
+    --bg-card: #220b12;
+  }
+
+  /* Ocean & Sapphire Breeze Theme */
+  [data-theme-palette="ocean_breeze"] {
+    --primary-color: #0284C7;
+    --secondary-color: #06B6D4;
+    --accent-color: #38BDF8;
+    --bg-main: #04131d;
+    --bg-card: #082032;
+  }
+
+  /* Minimalist Slate & Silver Theme */
+  [data-theme-palette="minimalist_slate"] {
+    --primary-color: #E2E8F0;
+    --secondary-color: #94A3B8;
+    --accent-color: #F8FAFC;
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+  }
+
+  /* Light Mode Support */
+  [data-theme-mode="light"] {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --border-color: rgba(0, 0, 0, 0.08);
+  }
+
   body {
-    background-color: #0b0c10;
-    color: #f4f4f6;
+    background-color: var(--bg-main, #0b0c10);
+    color: var(--text-main, #f4f4f6);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     selection-background-color: #FE2C55;
     selection-color: #ffffff;
+    min-height: 100vh;
   }
 }
 
-/* Custom TikTok Neon & Dark Card styling helpers */
-.tiktok-bg {
-  background-color: #0b0c10;
+/* Custom Scrollbar for sleek UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
-.tiktok-card {
-  background-color: #161823;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
+/* Card hover animation */
 .tiktok-card-hover {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -31,26 +111,25 @@
   transform: translateY(-2px);
 }
 
+/* Glow effects */
 .tiktok-glow-pink {
   box-shadow: 0 0 20px -2px rgba(254, 44, 85, 0.4);
 }
-
 .tiktok-glow-cyan {
   box-shadow: 0 0 20px -2px rgba(37, 244, 238, 0.4);
 }
 
-/* Pulse animation for TikTok Loading Screen */
-@keyframes tiktok-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.8;
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
   }
-  50% {
-    transform: scale(1.08);
+  to {
     opacity: 1;
+    transform: scale(1);
   }
 }
-
-.animate-tiktok-pulse {
-  animation: tiktok-pulse 1.8s ease-in-out infinite;
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
 }

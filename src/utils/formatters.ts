@@ -71,12 +71,58 @@ export const roleLabels: Record<string, string> = {
 };
 
 export const roleBadgeColors: Record<string, string> = {
-  owner: 'bg-amber-100 text-amber-800 border-amber-300',
-  host: 'bg-pink-100 text-pink-800 border-pink-300',
-  admin_toko: 'bg-sky-100 text-sky-800 border-sky-300',
-  sortir: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-  steam: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-  multi_role: 'bg-purple-100 text-purple-800 border-purple-300',
+  owner: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  host: 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/30',
+  admin_toko: 'bg-[#25F4EE]/15 text-[#25F4EE] border-[#25F4EE]/30',
+  sortir: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  steam: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  multi_role: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+};
+
+export const fashionCategoryLabels: Record<string, string> = {
+  semua_fashion: 'Semua Kategori Fashion',
+  thrift_vintage: 'Thrift / Vintage Import',
+  pakaian_jadi: 'Pakaian Jadi / Konveksi Baru',
+  hijab_muslim: 'Gamis, Hijab & Busana Muslim',
+  kaos_distro: 'Kaos, Distro & Streetwear',
+  kemeja_celana: 'Kemeja, Celana & Formal',
+  sepatu_sandal: 'Sepatu, Sandal & Footwear',
+  tas_dompet: 'Tas, Ransel & Dompet',
+  aksesoris: 'Aksesoris & Pelengkap',
+  custom_jahit: 'Custom / Jahit / Handmade',
+  umum_fashion: 'Fashion Umum & Lainnya',
+};
+
+export const salesChannelLabels: Record<string, { label: string; type: 'live' | 'non_live'; color: string }> = {
+  tiktok_live: { label: 'TikTok Live', type: 'live', color: 'from-[#FE2C55] to-[#25F4EE]' },
+  shopee_live: { label: 'Shopee Live', type: 'live', color: 'from-orange-500 to-amber-500' },
+  tokopedia_live: { label: 'Tokopedia Live', type: 'live', color: 'from-emerald-500 to-teal-500' },
+  instagram_live: { label: 'Instagram Live', type: 'live', color: 'from-pink-500 to-purple-600' },
+  shopee_reguler: { label: 'Shopee Marketplace Reguler', type: 'non_live', color: 'from-orange-500 to-orange-600' },
+  tiktok_shop_reguler: { label: 'TikTok Shop Reguler', type: 'non_live', color: 'from-zinc-900 to-zinc-700' },
+  tokopedia_reguler: { label: 'Tokopedia Reguler', type: 'non_live', color: 'from-emerald-600 to-green-600' },
+  offline_store: { label: 'Toko Offline / Butik', type: 'non_live', color: 'from-blue-500 to-indigo-600' },
+  whatsapp_order: { label: 'WhatsApp / Chat Order', type: 'non_live', color: 'from-emerald-500 to-green-500' },
+  dm_instagram: { label: 'DM Instagram / Sosmed', type: 'non_live', color: 'from-purple-500 to-pink-500' },
+  website: { label: 'Website Toko / Olshop', type: 'non_live', color: 'from-sky-500 to-blue-600' },
+  lainnya: { label: 'Channel Lainnya', type: 'non_live', color: 'from-zinc-500 to-zinc-600' },
+};
+
+export const inventoryUnitLabels: Record<string, string> = {
+  ball_karung: 'Ball / Karung (100 - 500 pcs)',
+  grosir_seri: 'Grosir / Seri Model',
+  lusin: 'Lusin (12 pcs)',
+  kodi: 'Kodi (20 pcs)',
+  satuan_pcs: 'Satuan Pcs',
+};
+
+export const paymentMethodLabels: Record<string, string> = {
+  transfer: 'Transfer Bank',
+  qris: 'QRIS / E-Wallet',
+  cash: 'Tunai / Cash',
+  cod: 'COD (Bayar di Tempat)',
+  marketplace_balance: 'Saldo Marketplace',
+  lainnya: 'Lainnya',
 };
 
 export const formatAttendanceRole = (roleStr: string | undefined): string => {
@@ -88,3 +134,4 @@ export const formatAttendanceRole = (roleStr: string | undefined): string => {
   }
   return parts.map(p => roleLabels[p] || p).join(' & ');
 };
+

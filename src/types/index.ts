@@ -76,16 +76,84 @@ export interface StoreAccount {
   };
 }
 
+export type FashionCategory = 
+  | 'semua_fashion'
+  | 'thrift_vintage'
+  | 'pakaian_jadi'
+  | 'hijab_muslim'
+  | 'kaos_distro'
+  | 'kemeja_celana'
+  | 'sepatu_sandal'
+  | 'tas_dompet'
+  | 'aksesoris'
+  | 'custom_jahit'
+  | 'umum_fashion';
+
+export type InventoryUnitType = 
+  | 'ball_karung'
+  | 'grosir_seri'
+  | 'lusin'
+  | 'kodi'
+  | 'satuan_pcs';
+
+export type SalesType = 'live' | 'non_live';
+
+export type SalesChannel = 
+  | 'tiktok_live'
+  | 'shopee_live'
+  | 'tokopedia_live'
+  | 'instagram_live'
+  | 'shopee_reguler'
+  | 'tiktok_shop_reguler'
+  | 'tokopedia_reguler'
+  | 'offline_store'
+  | 'whatsapp_order'
+  | 'dm_instagram'
+  | 'website'
+  | 'lainnya';
+
+export type PaymentMethod = 'transfer' | 'qris' | 'cash' | 'cod' | 'marketplace_balance' | 'lainnya';
+
+export type ThemeMode = 'dark' | 'light';
+
+export type ThemePalette = 'neon' | 'emerald' | 'violet' | 'coral' | 'ocean' | 'minimalist';
+
+export interface ThemeConfig {
+  mode: ThemeMode;
+  palette: ThemePalette;
+}
+
+export interface AIEmployeeEvaluation {
+  employeeId: string;
+  employeeName: string;
+  overallScore: number;
+  performanceGrade: string;
+  efficiencyRating: {
+    productivity: number;
+    salesContribution: number;
+    discipline: number;
+    qualityControl: number;
+  };
+  summary: string;
+  strengths: string[];
+  areasForImprovement: string[];
+  actionableRecommendations: string[];
+  suggestedShiftStrategy: string;
+  evaluatedAt?: string;
+}
+
 export interface BallInventory {
   id: string;
   storeId: string;
   date: string;
-  ballType: string;
+  ballType: string; // nama stok / kode / nama ball / seri
+  category?: FashionCategory; // Kategori fashion (Thrift, Baju Baru, Hijab, Distro, dll.)
+  unitType?: InventoryUnitType; // Ball karung, Lusin, Seri, Satuan, dll.
   modalPrice: number;
-  pcsCount: number; // isi ball
-  shippingCost: number; // ongkir ball
-  steamCost: number; // biaya steam
-  sortirCost: number; // biaya sortir
+  pcsCount: number; // isi pcs total
+  shippingCost: number; // ongkir
+  steamCost: number; // biaya steam / finishing
+  sortirCost: number; // biaya sortir / QC
   hppPerPcs: number; // (modal + ongkir + steam + sortir) / pcs
   returnMechanism: 'estimate' | 'detail';
   estimateReturnPercentage: number;
@@ -111,18 +179,24 @@ export interface SalesRecord {
   id: string;
   storeId: string;
   date: string;
-  hostIds: string[];
-  hostNames: string[];
-  adminIds?: string[]; // ID admin toko yang bertugas catat & packing di sesi live ini
-  adminNames?: string[]; // Nama admin toko yang bertugas
+  salesType?: SalesType; // 'live' vs 'non_live'
+  salesChannel?: SalesChannel | string; // 'shopee_live', 'tiktok_live', 'offline_store', 'shopee_reguler', 'whatsapp_order', etc.
+  channelName?: string; // Display channel label e.g. "Shopee Reguler", "Toko Offline", "WhatsApp"
+  category?: FashionCategory | string; // Fashion category e.g. 'pakaian_jadi', 'hijab_muslim', 'thrift_vintage'
+  hostIds?: string[];
+  hostNames?: string[];
+  adminIds?: string[]; // ID admin toko / kasir
+  adminNames?: string[]; // Nama admin toko / kasir
   adminId?: string; // single fallback
   adminName?: string; // single fallback
   omzet: number;
   pcsSold: number; // jumlah pcs terjual
-  packagesSold: number; // jumlah paket terjual
-  hoursWorked: number;
-  coinUsed: number;
-  adsUsed: number;
+  packagesSold: number; // jumlah paket / order terjual
+  hoursWorked?: number; // jam durasi live (jika live)
+  coinUsed?: number; // koin live / voucher diskon toko
+  adsUsed?: number; // iklan marketplace live / ads non-live
+  paymentMethod?: PaymentMethod | string;
+  notes?: string; // Catatan invoice / pesanan pelanggan
   recordedBy: string;
   createdAt: string;
 }

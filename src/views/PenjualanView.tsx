@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
-import { SalesRecord, CurrentUser, Employee } from '../types';
-import { formatRupiah, formatNumber, formatDateIndo, getTodayString } from '../utils/formatters';
+import { SalesRecord, CurrentUser, Employee, SalesType, SalesChannel, FashionCategory, PaymentMethod } from '../types';
+import { 
+  formatRupiah, 
+  formatNumber, 
+  formatDateIndo, 
+  getTodayString, 
+  salesChannelLabels, 
+  fashionCategoryLabels, 
+  paymentMethodLabels 
+} from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
-import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
   TrendingUp, 
   Trash2, 
@@ -14,11 +21,24 @@ import {
   Users, 
   AlertTriangle, 
   CheckCircle2, 
-  Lock, 
   Edit3, 
   ArrowLeft, 
   Filter, 
-  Search 
+  Search,
+  Store,
+  Video,
+  ShoppingBag,
+  Layers,
+  FileSpreadsheet,
+  Download,
+  CreditCard,
+  Tag,
+  ExternalLink,
+  ChevronDown,
+  Printer,
+  Sparkles,
+  Eye,
+  X
 } from 'lucide-react';
 
 interface PenjualanViewProps {
@@ -27,33 +47,50 @@ interface PenjualanViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+type PenjualanSubTab = 'rekap' | 'input_live' | 'input_non_live';
+
 export const PenjualanView: React.FC<PenjualanViewProps> = ({
   currentUser,
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<SubTabType>('output');
+  const [subTab, setSubTab] = useState<PenjualanSubTab>('rekap');
   const [salesList, setSalesList] = useState<SalesRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingDetailSale, setViewingDetailSale] = useState<SalesRecord | null>(null);
 
-  // Filter states for Output tab
+  // Filter states for Rekap tab
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'live' | 'non_live'>('all');
+  const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Form states
+  // FORM STATES: Common & Live
   const [date, setDate] = useState(getTodayString());
+  const [category, setCategory] = useState<FashionCategory>('pakaian_jadi');
+  const [omzet, setOmzet] = useState<number>(3500000);
+  const [pcsSold, setPcsSold] = useState<number>(50);
+  const [packagesSold, setPackagesSold] = useState<number>(35);
+  const [notes, setNotes] = useState<string>('');
+
+  // FORM STATES: Live specific
+  const [liveChannel, setLiveChannel] = useState<SalesChannel>('tiktok_live');
   const [selectedHostIds, setSelectedHostIds] = useState<string[]>([]);
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
-  const [omzet, setOmzet] = useState<number>(3500000);
-  const [pcsSold, setPcsSold] = useState<number>(65);
-  const [packagesSold, setPackagesSold] = useState<number>(45);
   const [hoursWorked, setHoursWorked] = useState<number>(4);
   const [coinUsed, setCoinUsed] = useState<number>(50000);
   const [adsUsed, setAdsUsed] = useState<number>(100000);
+
+  // FORM STATES: Non-Live specific
+  const [nonLiveChannel, setNonLiveChannel] = useState<SalesChannel>('shopee_reguler');
+  const [selectedCashierAdminIds, setSelectedCashierAdminIds] = useState<string[]>([]);
+  const [nonLiveAdsUsed, setNonLiveAdsUsed] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('transfer');
 
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const todayStr = getTodayString();
@@ -72,9 +109,10 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     }
 
     // Default select first admin_toko if available
-    const admins = empList.filter(e => e.roles.includes('admin_toko'));
+    const admins = empList.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
     if (admins.length > 0 && selectedAdminIds.length === 0) {
       setSelectedAdminIds([admins[0].id]);
+      setSelectedCashierAdminIds([admins[0].id]);
     }
   };
 
@@ -84,7 +122,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
   const toggleHost = (hostId: string) => {
     if (selectedHostIds.includes(hostId)) {
-      if (selectedHostIds.length === 1) return; // at least 1 host
+      if (selectedHostIds.length === 1) return; // minimal 1 host
       setSelectedHostIds(selectedHostIds.filter(id => id !== hostId));
     } else {
       setSelectedHostIds([...selectedHostIds, hostId]);
@@ -99,21 +137,37 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     }
   };
 
+  const toggleCashierAdmin = (adminId: string) => {
+    if (selectedCashierAdminIds.includes(adminId)) {
+      setSelectedCashierAdminIds(selectedCashierAdminIds.filter(id => id !== adminId));
+    } else {
+      setSelectedCashierAdminIds([...selectedCashierAdminIds, adminId]);
+    }
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setDate(getTodayString());
+    setCategory('pakaian_jadi');
     setOmzet(3500000);
-    setPcsSold(65);
-    setPackagesSold(45);
+    setPcsSold(50);
+    setPackagesSold(35);
     setHoursWorked(4);
     setCoinUsed(50000);
     setAdsUsed(100000);
+    setNonLiveAdsUsed(0);
+    setNotes('');
+    setPaymentMethod('transfer');
+    setLiveChannel('tiktok_live');
+    setNonLiveChannel('shopee_reguler');
+
     const admins = employees.filter(e => e.roles.includes('admin_toko'));
     setSelectedAdminIds(admins.length > 0 ? [admins[0].id] : []);
+    setSelectedCashierAdminIds(admins.length > 0 ? [admins[0].id] : []);
     setErrorMessage('');
   };
 
-  const handleEdit = (sale: SalesRecord) => {
+  const handleStartEdit = (sale: SalesRecord) => {
     if (sale.date !== todayStr && !currentUser.isOwner) {
       onNotify('Hanya Owner Toko yang dapat mengedit data penjualan tanggal lampau!', 'error');
       return;
@@ -121,28 +175,44 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     setEditingId(sale.id);
     setDate(sale.date);
-    setSelectedHostIds(sale.hostIds || []);
-    setSelectedAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
-    setOmzet(sale.omzet);
-    setPcsSold(sale.pcsSold);
-    setPackagesSold(sale.packagesSold);
-    setHoursWorked(sale.hoursWorked);
-    setCoinUsed(sale.coinUsed);
-    setAdsUsed(sale.adsUsed);
+    setCategory((sale.category as FashionCategory) || 'pakaian_jadi');
+    setOmzet(sale.omzet || 0);
+    setPcsSold(sale.pcsSold || 0);
+    setPackagesSold(sale.packagesSold || 0);
+    setNotes(sale.notes || '');
+
+    const isNonLive = sale.salesType === 'non_live';
+
+    if (isNonLive) {
+      setNonLiveChannel((sale.salesChannel as SalesChannel) || 'shopee_reguler');
+      setSelectedCashierAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
+      setNonLiveAdsUsed(sale.adsUsed || 0);
+      setPaymentMethod((sale.paymentMethod as PaymentMethod) || 'transfer');
+      setSubTab('input_non_live');
+    } else {
+      setLiveChannel((sale.salesChannel as SalesChannel) || 'tiktok_live');
+      setSelectedHostIds(sale.hostIds || []);
+      setSelectedAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
+      setHoursWorked(sale.hoursWorked || 4);
+      setCoinUsed(sale.coinUsed || 0);
+      setAdsUsed(sale.adsUsed || 0);
+      setSubTab('input_live');
+    }
+
     setErrorMessage('');
-    setSubTab('input'); // Switch to input smoothly (Requirement 7)
   };
 
   const handleCancelEdit = () => {
     resetForm();
+    setSubTab('rekap');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmitLive = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
     if (selectedHostIds.length === 0) {
-      setErrorMessage('Pilih minimal 1 Host Live!');
+      setErrorMessage('Pilih minimal 1 Host Live yang bertugas!');
       return;
     }
 
@@ -158,12 +228,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     }
 
     if (adsUsed > availableAds) {
-      setErrorMessage(`Sisa saldo iklan tidak mencukupi! Sisa tersedia: ${formatRupiah(availableAds)}, diinput: ${formatRupiah(adsUsed)}`);
+      setErrorMessage(`Sisa saldo iklan tidak mencukupi! Sisa: ${formatRupiah(availableAds)}, diinput: ${formatRupiah(adsUsed)}`);
       return;
     }
 
     if (coinUsed > availableCoins) {
-      setErrorMessage(`Sisa saldo koin tidak mencukupi! Sisa tersedia: ${formatRupiah(availableCoins)}, diinput: ${formatRupiah(coinUsed)}`);
+      setErrorMessage(`Sisa saldo koin tidak mencukupi! Sisa: ${formatRupiah(availableCoins)}, diinput: ${formatRupiah(coinUsed)}`);
       return;
     }
 
@@ -177,10 +247,16 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       return emp ? emp.name : 'Admin Toko';
     });
 
+    const channelMeta = salesChannelLabels[liveChannel] || { label: 'Marketplace Live' };
+
     const record: SalesRecord = {
       id: editingId || 'sale-' + Date.now(),
       storeId: currentUser.storeId,
       date,
+      salesType: 'live',
+      salesChannel: liveChannel,
+      channelName: channelMeta.label,
+      category,
       hostIds: selectedHostIds,
       hostNames,
       adminIds: selectedAdminIds,
@@ -193,21 +269,74 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       hoursWorked,
       coinUsed,
       adsUsed,
+      notes,
       recordedBy: currentUser.name,
       createdAt: new Date().toISOString(),
     };
 
     if (editingId) {
       StorageService.updateSale(record);
-      onNotify('Perubahan data penjualan berhasil disimpan!', 'success');
+      onNotify('Data penjualan Live berhasil diperbarui!', 'success');
     } else {
       StorageService.addSale(record);
-      onNotify('Data penjualan sesi live berhasil disimpan!', 'success');
+      onNotify('Data penjualan sesi Live berhasil disimpan!', 'success');
     }
 
     loadData();
     resetForm();
-    setSubTab('output');
+    setSubTab('rekap');
+  };
+
+  const handleSubmitNonLive = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (omzet <= 0) {
+      setErrorMessage('Nominal omzet penjualan harus lebih dari Rp 0!');
+      return;
+    }
+
+    const adminNames = selectedCashierAdminIds.map(id => {
+      const emp = employees.find(e => e.id === id);
+      return emp ? emp.name : 'Admin / Kasir';
+    });
+
+    const channelMeta = salesChannelLabels[nonLiveChannel] || { label: 'Non-Live Marketplace' };
+
+    const record: SalesRecord = {
+      id: editingId || 'sale-nonlive-' + Date.now(),
+      storeId: currentUser.storeId,
+      date,
+      salesType: 'non_live',
+      salesChannel: nonLiveChannel,
+      channelName: channelMeta.label,
+      category,
+      adminIds: selectedCashierAdminIds,
+      adminNames,
+      adminId: selectedCashierAdminIds[0] || '',
+      adminName: adminNames[0] || '',
+      omzet,
+      pcsSold,
+      packagesSold,
+      adsUsed: nonLiveAdsUsed,
+      coinUsed: 0,
+      paymentMethod,
+      notes,
+      recordedBy: currentUser.name,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (editingId) {
+      StorageService.updateSale(record);
+      onNotify('Data penjualan Non-Live berhasil diperbarui!', 'success');
+    } else {
+      StorageService.addSale(record);
+      onNotify('Data penjualan Non-Live berhasil dicatat!', 'success');
+    }
+
+    loadData();
+    resetForm();
+    setSubTab('rekap');
   };
 
   const handleDelete = (sale: SalesRecord) => {
@@ -215,7 +344,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       onNotify('Hanya Owner Toko yang dapat menghapus data penjualan tanggal lampau!', 'error');
       return;
     }
-    if (confirm('Hapus data penjualan ini?')) {
+    if (confirm(`Hapus data penjualan ${sale.channelName || 'ini'} tanggal ${formatDateIndo(sale.date)}?`)) {
       StorageService.deleteSale(sale.id);
       loadData();
       onNotify('Data penjualan berhasil dihapus.', 'info');
@@ -225,85 +354,624 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     }
   };
 
+  // Filtered & Sorted Sales Data
+  const filteredSales = useMemo(() => {
+    return salesList
+      .filter(s => {
+        // Text Search
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchHost = s.hostNames?.some(h => h.toLowerCase().includes(q));
+          const matchAdmin = s.adminNames?.some(a => a.toLowerCase().includes(q)) || s.adminName?.toLowerCase().includes(q);
+          const matchChannel = (s.channelName || '').toLowerCase().includes(q) || (s.salesChannel || '').toLowerCase().includes(q);
+          const matchNotes = (s.notes || '').toLowerCase().includes(q);
+          const matchRecorded = (s.recordedBy || '').toLowerCase().includes(q);
+          if (!matchHost && !matchAdmin && !matchChannel && !matchNotes && !matchRecorded) return false;
+        }
+
+        // Type filter (Live vs Non-Live)
+        if (typeFilter === 'live' && s.salesType === 'non_live') return false;
+        if (typeFilter === 'non_live' && (s.salesType === 'live' || !s.salesType)) return false;
+
+        // Channel filter
+        if (channelFilter !== 'all' && s.salesChannel !== channelFilter) return false;
+
+        // Category filter
+        if (categoryFilter !== 'all' && s.category !== categoryFilter) return false;
+
+        // Period filter
+        if (periodFilter === 'today') return s.date === todayStr;
+        if (periodFilter === 'range') return s.date >= startDate && s.date <= endDate;
+        if (periodFilter === 'weekly') {
+          const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+          return s.date >= weekAgo && s.date <= todayStr;
+        }
+        if (periodFilter === 'monthly') return s.date.startsWith(todayStr.slice(0, 7));
+
+        return true;
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [salesList, searchQuery, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
+
+  // Aggregate Metrics
+  const metrics = useMemo(() => {
+    const totalOmzet = filteredSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+    const totalPcs = filteredSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+    const totalPackages = filteredSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+    const totalAds = filteredSales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
+    const totalCoin = filteredSales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
+
+    const liveSales = filteredSales.filter(s => s.salesType === 'live' || !s.salesType);
+    const nonLiveSales = filteredSales.filter(s => s.salesType === 'non_live');
+
+    const liveOmzet = liveSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+    const nonLiveOmzet = nonLiveSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+
+    const avgBasketSize = totalPackages > 0 ? Math.round(totalOmzet / totalPackages) : 0;
+    const avgPcsPerOrder = totalPackages > 0 ? (totalPcs / totalPackages).toFixed(1) : '0';
+
+    return {
+      totalOmzet,
+      totalPcs,
+      totalPackages,
+      totalAds,
+      totalCoin,
+      liveCount: liveSales.length,
+      liveOmzet,
+      nonLiveCount: nonLiveSales.length,
+      nonLiveOmzet,
+      avgBasketSize,
+      avgPcsPerOrder,
+      totalTransactions: filteredSales.length,
+    };
+  }, [filteredSales]);
+
+  // Export CSV Handler
+  const exportToCSV = () => {
+    if (filteredSales.length === 0) {
+      onNotify('Tidak ada data penjualan untuk diekspor!', 'error');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'Tanggal',
+      'Tipe',
+      'Channel',
+      'Kategori Fashion',
+      'Omzet (Rp)',
+      'Pcs Terjual',
+      'Paket Terjual',
+      'Host Live',
+      'Admin / Kasir',
+      'Iklan (Rp)',
+      'Koin Live (Rp)',
+      'Metode Bayar',
+      'Catatan',
+      'Dicatat Oleh',
+    ];
+
+    const rows = filteredSales.map(s => [
+      `"${s.id}"`,
+      `"${s.date}"`,
+      `"${s.salesType === 'non_live' ? 'Non-Live' : 'Live'}"`,
+      `"${s.channelName || s.salesChannel || '-'}"`,
+      `"${fashionCategoryLabels[s.category as FashionCategory] || s.category || '-'}"`,
+      s.omzet || 0,
+      s.pcsSold || 0,
+      s.packagesSold || 0,
+      `"${(s.hostNames || []).join(', ') || '-'}"`,
+      `"${(s.adminNames || [s.adminName || '']).filter(Boolean).join(', ') || '-'}"`,
+      s.adsUsed || 0,
+      s.coinUsed || 0,
+      `"${paymentMethodLabels[s.paymentMethod as PaymentMethod] || s.paymentMethod || '-'}"`,
+      `"${(s.notes || '').replace(/"/g, '""')}"`,
+      `"${s.recordedBy || '-'}"`,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Rekap_Penjualan_${currentUser.storeName.replace(/\s+/g, '_')}_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    onNotify('File CSV Rekap Penjualan berhasil diunduh!', 'success');
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const hostEmployees = employees.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
   const adminEmployees = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
 
-  // Filter & sort records by date desc (Requirement 9)
-  const filteredSales = salesList
-    .filter(s => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchHost = s.hostNames?.some(h => h.toLowerCase().includes(q));
-        const matchAdmin = s.adminNames?.some(a => a.toLowerCase().includes(q)) || s.adminName?.toLowerCase().includes(q);
-        if (!matchHost && !matchAdmin) return false;
-      }
-
-      if (periodFilter === 'today') return s.date === todayStr;
-      if (periodFilter === 'range') return s.date >= startDate && s.date <= endDate;
-      if (periodFilter === 'weekly') {
-        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-        return s.date >= weekAgo && s.date <= todayStr;
-      }
-      if (periodFilter === 'monthly') return s.date.startsWith(todayStr.slice(0, 7));
-
-      return true;
-    })
-    .sort((a, b) => b.date.localeCompare(a.date));
-
-  // Metrics
-  const totalOmzetPeriod = filteredSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
-  const totalPcsPeriod = filteredSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-  const totalPkgsPeriod = filteredSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-  const totalAdsPeriod = filteredSales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
-  const totalCoinPeriod = filteredSales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header without stage labels (Requirement 5 & 6) */}
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <button
             id="btn-back-dashboard-penjualan"
             onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
+            className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
             title="Kembali ke Dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
-                Data Penjualan Live Marketplace
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Pencatatan omzet sesi live, host bertugas, admin catat/packing, pcs/paket, serta iklan &amp; koin
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+              <ShoppingBag className="w-6 h-6 text-[#25F4EE]" />
+              <span>Pusat Data Penjualan Fashion</span>
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Kelola seluruh transaksi penjualan Live Marketplace, Reguler Marketplace, Toko Offline, &amp; WhatsApp Order
             </p>
           </div>
         </div>
+
+        {/* Sub-Tab Navigation Switcher */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#161823] border border-white/10 rounded-2xl overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => {
+              if (editingId) handleCancelEdit();
+              setSubTab('rekap');
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              subTab === 'rekap'
+                ? 'bg-gradient-to-r from-[#25F4EE] to-teal-400 text-[#0b0c10] shadow-lg shadow-[#25F4EE]/20'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Semua Data Penjualan</span>
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 font-bold">
+              {salesList.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (editingId && subTab !== 'input_live') resetForm();
+              setSubTab('input_live');
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              subTab === 'input_live'
+                ? 'bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white shadow-lg shadow-[#FE2C55]/20'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Video className="w-4 h-4 text-[#FE2C55]" />
+            <span>{editingId && subTab === 'input_live' ? '✏️ Edit Live' : '+ Input Live'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (editingId && subTab !== 'input_non_live') resetForm();
+              setSubTab('input_non_live');
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              subTab === 'input_non_live'
+                ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] shadow-lg shadow-emerald-400/20'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Store className="w-4 h-4 text-emerald-400" />
+            <span>{editingId && subTab === 'input_non_live' ? '✏️ Edit Non-Live' : '+ Non-Live / Offline'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Sub Navigation (Requirement 7) */}
-      <ViewSubNav
-        currentSubTab={subTab}
-        onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Penjualan' : 'Input Penjualan'}
-        outputTitle="Riwayat Penjualan Live"
-      />
+      {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
+      {subTab === 'rekap' && (
+        <div className="space-y-6">
+          {/* Key Metric Highlights */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Total Omzet */}
+            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1 relative overflow-hidden">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
+                <span>Total Omzet Penjualan</span>
+                <TrendingUp className="w-4 h-4 text-[#25F4EE]" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-white">
+                {formatRupiah(metrics.totalOmzet)}
+              </div>
+              <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-400 font-medium">
+                <span className="text-[#FE2C55] font-bold">🔴 Live: {formatRupiah(metrics.liveOmzet)}</span>
+                <span>•</span>
+                <span className="text-emerald-400 font-bold">🏪 Non-Live: {formatRupiah(metrics.nonLiveOmzet)}</span>
+              </div>
+            </div>
 
-      {/* TAB 1: FORM INPUT / EDIT */}
-      {subTab === 'input' && (
+            {/* Total Pcs Terjual */}
+            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
+                <span>Total Pcs Barang Terjual</span>
+                <PackageCheck className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-white">
+                {formatNumber(metrics.totalPcs)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
+              </div>
+              <div className="text-[10px] text-zinc-400 pt-1">
+                Dari total <strong className="text-zinc-200">{formatNumber(metrics.totalPackages)}</strong> paket / order
+              </div>
+            </div>
+
+            {/* Rata-Rata Order */}
+            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
+                <span>Rata-Rata per Order (AOV)</span>
+                <CreditCard className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-amber-300">
+                {formatRupiah(metrics.avgBasketSize)}
+              </div>
+              <div className="text-[10px] text-zinc-400 pt-1">
+                Rata-rata volume: <strong className="text-zinc-200">{metrics.avgPcsPerOrder} pcs/paket</strong>
+              </div>
+            </div>
+
+            {/* Biaya Iklan & Koin */}
+            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
+                <span>Biaya Iklan &amp; Koin/Diskon</span>
+                <Megaphone className="w-4 h-4 text-[#FE2C55]" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-[#FE2C55]">
+                {formatRupiah(metrics.totalAds + metrics.totalCoin)}
+              </div>
+              <div className="text-[10px] text-zinc-400 pt-1">
+                Ads: {formatRupiah(metrics.totalAds)} • Koin: {formatRupiah(metrics.totalCoin)}
+              </div>
+            </div>
+          </div>
+
+          {/* Filter, Search & Export Actions Bar */}
+          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Search Box */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari host, admin/kasir, channel toko, nomor invoice atau catatan..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9.5 pr-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportToCSV}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                  title="Ekspor Seluruh Data Terfilter ke CSV / Excel"
+                >
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>Ekspor CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                  title="Cetak Laporan Penjualan"
+                >
+                  <Printer className="w-4 h-4 text-sky-400" />
+                  <span>Print</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="pt-3 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 text-xs">
+              {/* Periode */}
+              <div>
+                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
+                  Periode Waktu
+                </label>
+                <select
+                  value={periodFilter}
+                  onChange={e => setPeriodFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
+                >
+                  <option value="all">Semua Waktu</option>
+                  <option value="today">Hari Ini</option>
+                  <option value="weekly">7 Hari Terakhir</option>
+                  <option value="monthly">Bulan Ini</option>
+                  <option value="range">Rentang Tanggal</option>
+                </select>
+              </div>
+
+              {/* Tipe Penjualan */}
+              <div>
+                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
+                  Tipe Penjualan
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={e => setTypeFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
+                >
+                  <option value="all">Semua Tipe (Live &amp; Non-Live)</option>
+                  <option value="live">🔴 Live Streaming Saja</option>
+                  <option value="non_live">🏪 Non-Live / Marketplace / Offline</option>
+                </select>
+              </div>
+
+              {/* Channel */}
+              <div>
+                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
+                  Channel Penjualan
+                </label>
+                <select
+                  value={channelFilter}
+                  onChange={e => setChannelFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
+                >
+                  <option value="all">Semua Channel</option>
+                  {Object.entries(salesChannelLabels).map(([key, val]) => (
+                    <option key={key} value={key}>
+                      {val.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Kategori Fashion */}
+              <div>
+                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
+                  Kategori Fashion
+                </label>
+                <select
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
+                >
+                  <option value="all">Semua Kategori Fashion</option>
+                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
+                    <option key={key} value={key}>
+                      {val}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date range picker if selected */}
+              {periodFilter === 'range' && (
+                <div className="col-span-2 sm:col-span-4 lg:col-span-1 flex items-center gap-1.5">
+                  <div className="flex-1">
+                    <label className="block text-[9px] text-zinc-400 font-bold uppercase mb-0.5">Dari</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="w-full px-2 py-1.5 rounded-lg bg-[#0b0c10] border border-white/10 text-[11px] text-white"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[9px] text-zinc-400 font-bold uppercase mb-0.5">Sampai</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="w-full px-2 py-1.5 rounded-lg bg-[#0b0c10] border border-white/10 text-[11px] text-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Table / List View */}
+          <div className="rounded-3xl bg-[#161823] border border-white/10 shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#25F4EE]" />
+                <span>Daftar Transaksi Penjualan ({filteredSales.length})</span>
+              </h3>
+              <div className="text-xs text-zinc-400">
+                Menampilkan data terurut dari tanggal terbaru
+              </div>
+            </div>
+
+            {filteredSales.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
+                  <ShoppingBag className="w-6 h-6" />
+                </div>
+                <div className="text-sm font-bold text-zinc-300">
+                  Tidak Ada Data Penjualan Ditemukan
+                </div>
+                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                  Silakan ubah filter pencarian atau input data penjualan baru via tab Live / Non-Live di atas.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-zinc-300">
+                  <thead className="bg-[#0b0c10] text-[11px] uppercase tracking-wider text-zinc-400 font-bold border-b border-white/10">
+                    <tr>
+                      <th className="px-4 py-3.5">Tanggal &amp; Channel</th>
+                      <th className="px-4 py-3.5">Tipe &amp; Kategori</th>
+                      <th className="px-4 py-3.5">Host / Admin</th>
+                      <th className="px-4 py-3.5 text-right">Pcs / Paket</th>
+                      <th className="px-4 py-3.5 text-right">Biaya Iklan/Koin</th>
+                      <th className="px-4 py-3.5 text-right">Omzet Total</th>
+                      <th className="px-4 py-3.5 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredSales.map(sale => {
+                      const isLive = sale.salesType === 'live' || !sale.salesType;
+                      const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
+                        label: sale.channelName || (isLive ? 'Marketplace Live' : 'Marketplace Reguler'),
+                        color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
+                      };
+
+                      return (
+                        <tr key={sale.id} className="hover:bg-white/5 transition">
+                          {/* Tanggal & Channel */}
+                          <td className="px-4 py-3.5">
+                            <div className="font-bold text-white leading-tight">
+                              {formatDateIndo(sale.date)}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-zinc-200 border border-white/10">
+                                {channelInfo.label}
+                              </span>
+                              {sale.notes && (
+                                <span className="text-[10px] text-zinc-400 truncate max-w-[120px]" title={sale.notes}>
+                                  📝 {sale.notes}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Tipe & Kategori */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-1.5">
+                              {isLive ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FE2C55]/15 text-[#FE2C55] border border-[#FE2C55]/30">
+                                  <Video className="w-3 h-3" />
+                                  <span>LIVE</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  <Store className="w-3 h-3" />
+                                  <span>NON-LIVE</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-1">
+                              {fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion Umum'}
+                            </div>
+                          </td>
+
+                          {/* Host / Admin */}
+                          <td className="px-4 py-3.5">
+                            {isLive ? (
+                              <div>
+                                <div className="font-semibold text-zinc-200">
+                                  🎤 {(sale.hostNames || []).join(', ') || 'Host Live'}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5">
+                                  📦 Admin: {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || '-'}
+                                  {sale.hoursWorked ? ` (${sale.hoursWorked} jam)` : ''}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="font-semibold text-zinc-200">
+                                  💼 {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || 'Kasir / Admin'}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5">
+                                  💳 Bayar: {paymentMethodLabels[sale.paymentMethod as PaymentMethod] || sale.paymentMethod || 'Transfer'}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Pcs / Paket */}
+                          <td className="px-4 py-3.5 text-right font-semibold">
+                            <div className="text-white font-black">
+                              {formatNumber(sale.pcsSold)} <span className="text-[10px] text-zinc-400">pcs</span>
+                            </div>
+                            <div className="text-[10px] text-zinc-400">
+                              {formatNumber(sale.packagesSold)} paket
+                            </div>
+                          </td>
+
+                          {/* Biaya Iklan / Koin */}
+                          <td className="px-4 py-3.5 text-right">
+                            {(sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0 ? (
+                              <div>
+                                <div className="text-zinc-300 font-bold">
+                                  Rp {formatNumber((sale.adsUsed || 0) + (sale.coinUsed || 0))}
+                                </div>
+                                <div className="text-[10px] text-zinc-500">
+                                  Ads: {formatNumber(sale.adsUsed || 0)} {sale.coinUsed ? `• Koin: ${formatNumber(sale.coinUsed)}` : ''}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-zinc-600">-</span>
+                            )}
+                          </td>
+
+                          {/* Omzet Total */}
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="text-sm font-black text-[#25F4EE]">
+                              {formatRupiah(sale.omzet)}
+                            </div>
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td className="px-4 py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {/* Detail Modal */}
+                              <button
+                                type="button"
+                                onClick={() => setViewingDetailSale(sale)}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
+                                title="Lihat Detail Transaksi"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(sale)}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-zinc-300 hover:text-[#25F4EE] transition cursor-pointer"
+                                title="Edit Data Penjualan"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Delete Button */}
+                              {(sale.date === todayStr || currentUser.isOwner) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(sale)}
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] transition cursor-pointer"
+                                  title="Hapus Data Penjualan"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB 2: INPUT PENJUALAN LIVE ================= */}
+      {subTab === 'input_live' && (
         <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
-              {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <TrendingUp className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Data Penjualan Sesi Live' : 'Form Input Penjualan Live Marketplace'}</span>
+              <Video className="w-5 h-5 text-[#FE2C55]" />
+              <span>{editingId ? 'Edit Data Sesi Live Streaming' : 'Input Penjualan Live Marketplace'}</span>
             </h3>
             {editingId && (
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
+                className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
               >
                 Batal Edit
               </button>
@@ -311,376 +979,585 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           </div>
 
           {errorMessage && (
-            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Tanggal */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Tanggal Penjualan Live <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                id="input-sale-date"
-                type="date"
-                required
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full sm:w-64 px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-              />
+          <form onSubmit={handleSubmitLive} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tanggal */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Tanggal Live <span className="text-[#FE2C55]">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium disabled:opacity-50"
+                  required
+                />
+              </div>
+
+              {/* Channel Live */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Platform Live Streaming <span className="text-[#FE2C55]">*</span>
+                </label>
+                <select
+                  value={liveChannel}
+                  onChange={e => setLiveChannel(e.target.value as SalesChannel)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium"
+                >
+                  <option value="tiktok_live">TikTok Live</option>
+                  <option value="shopee_live">Shopee Live</option>
+                  <option value="tokopedia_live">Tokopedia Live</option>
+                  <option value="instagram_live">Instagram Live</option>
+                </select>
+              </div>
+
+              {/* Kategori Fashion */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Kategori Produk Fashion yang Dijual
+                </label>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value as FashionCategory)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium"
+                >
+                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
+                    <option key={key} value={key}>
+                      {val}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Host Live */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-zinc-300">
-                  Host Live Yang Bertugas (Bisa Lebih Dari 1) <span className="text-[#FE2C55]">*</span>
-                </label>
-                <span className="text-[11px] text-zinc-400">
-                  Dipilih: <strong className="text-white">{selectedHostIds.length}</strong> Host
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {/* Pemilihan Host Live (Bisa Multi Host) */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-300">
+                Pilih Host Live yang Bertugas <span className="text-[#FE2C55]">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {hostEmployees.map(emp => {
-                  const isChecked = selectedHostIds.includes(emp.id);
+                  const isSelected = selectedHostIds.includes(emp.id);
                   return (
                     <button
                       key={emp.id}
                       type="button"
                       onClick={() => toggleHost(emp.id)}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-                        isChecked
-                          ? 'bg-[#25F4EE] text-black border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
-                          : 'bg-[#0b0c10] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-white shadow-lg shadow-[#FE2C55]/10'
+                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
                       }`}
                     >
                       <div className="truncate">
                         <div className="text-xs font-bold truncate">{emp.name}</div>
-                        <div className={`text-[10px] ${isChecked ? 'text-black/70' : 'text-zinc-500'}`}>
-                          @{emp.username}
-                        </div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">Host Live</div>
                       </div>
-                      {isChecked && <CheckCircle2 className="w-4 h-4 text-black shrink-0" />}
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-[#FE2C55] shrink-0" />}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Admin Toko */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300">
-                    Admin Toko Yang Bertugas (Catat &amp; Packing di Sesi Ini)
-                  </label>
-                  <p className="text-[11px] text-zinc-500">
-                    Insentif admin toko dihitung khusus dari paket yang dicatat oleh admin yang dipilih
-                  </p>
-                </div>
-                <span className="text-[11px] text-zinc-400">
-                  Dipilih: <strong className="text-white">{selectedAdminIds.length}</strong> Admin
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {/* Pemilihan Admin Toko Pendamping */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-300">
+                Pilih Admin Catat &amp; Packing (Opsional)
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {adminEmployees.map(emp => {
-                  const isChecked = selectedAdminIds.includes(emp.id);
+                  const isSelected = selectedAdminIds.includes(emp.id);
                   return (
                     <button
                       key={emp.id}
                       type="button"
                       onClick={() => toggleAdmin(emp.id)}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-                        isChecked
-                          ? 'bg-[#25F4EE] text-black border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
-                          : 'bg-[#0b0c10] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-lg shadow-[#25F4EE]/10'
+                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
                       }`}
                     >
                       <div className="truncate">
                         <div className="text-xs font-bold truncate">{emp.name}</div>
-                        <div className={`text-[10px] ${isChecked ? 'text-black/70' : 'text-zinc-500'}`}>
-                          @{emp.username}
-                        </div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">Admin Toko</div>
                       </div>
-                      {isChecked && <CheckCircle2 className="w-4 h-4 text-black shrink-0" />}
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0" />}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Omzet & Pcs & Paket */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Metrics Form Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
+              {/* Omzet */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Total Omzet Live (Rp) <span className="text-[#FE2C55]">*</span>
                 </label>
                 <CommaNumberInput
-                  id="input-omzet"
                   value={omzet}
                   onChange={setOmzet}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-black focus:border-[#25F4EE]"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-[#25F4EE] focus:outline-hidden focus:border-[#25F4EE]"
+                  placeholder="0"
                 />
               </div>
 
+              {/* Pcs Terjual */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Total Pcs Terjual <span className="text-[#FE2C55]">*</span>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
                 </label>
-                <input
-                  id="input-pcs-sold"
-                  type="number"
-                  required
-                  min="0"
+                <CommaNumberInput
                   value={pcsSold}
-                  onChange={e => setPcsSold(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                  onChange={setPcsSold}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                  placeholder="0"
                 />
               </div>
 
+              {/* Paket Terjual */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Total Paket / Resi Terjual <span className="text-[#FE2C55]">*</span>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Jumlah Paket Terjual <span className="text-[#FE2C55]">*</span>
+                </label>
+                <CommaNumberInput
+                  value={packagesSold}
+                  onChange={setPackagesSold}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Durasi Jam Live */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Durasi Live (Jam)
                 </label>
                 <input
-                  id="input-packages-sold"
                   type="number"
-                  required
-                  min="0"
-                  value={packagesSold}
-                  onChange={e => setPackagesSold(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                  step="0.5"
+                  min="0.5"
+                  value={hoursWorked}
+                  onChange={e => setHoursWorked(parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
                 />
+              </div>
+
+              {/* Saldo Iklan Terpakai */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Biaya Iklan Live (Rp)
+                </label>
+                <CommaNumberInput
+                  value={adsUsed}
+                  onChange={setAdsUsed}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                  placeholder="0"
+                />
+                <div className="text-[10px] text-zinc-500 mt-1">
+                  Sisa saldo ads: {formatRupiah(adsCoinInfo.remainingAds)}
+                </div>
+              </div>
+
+              {/* Saldo Koin Terpakai */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Biaya Koin Live (Rp)
+                </label>
+                <CommaNumberInput
+                  value={coinUsed}
+                  onChange={setCoinUsed}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                  placeholder="0"
+                />
+                <div className="text-[10px] text-zinc-500 mt-1">
+                  Sisa saldo koin: {formatRupiah(adsCoinInfo.remainingCoin)}
+                </div>
               </div>
             </div>
 
-            {/* Durasi Jam Live */}
+            {/* Catatan Sesi */}
             <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Durasi Live (Jam) <span className="text-[#FE2C55]">*</span>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Catatan Sesi Live (Opsional)
               </label>
               <input
-                id="input-hours"
-                type="number"
-                step="0.5"
-                min="0.5"
-                max="24"
-                required
-                value={hoursWorked}
-                onChange={e => setHoursWorked(Number(e.target.value))}
-                className="w-full sm:w-48 px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Misal: Tema Flash Sale Baju Rajut, Launching Koleksi Baru, dll."
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
               />
             </div>
 
-            {/* Pemakaian Saldo Iklan & Koin */}
-            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
-              <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-                <Megaphone className="w-4 h-4 text-[#25F4EE]" />
-                <span>Pemakaian Iklan &amp; Koin di Sesi Ini</span>
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-zinc-300">
-                      Saldo Iklan Dipakai (Rp)
-                    </label>
-                    <span className="text-[10px] text-zinc-500">
-                      Sisa Saldo: {formatRupiah(adsCoinInfo.remainingAds)}
-                    </span>
-                  </div>
-                  <CommaNumberInput
-                    value={adsUsed}
-                    onChange={setAdsUsed}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-zinc-300">
-                      Saldo Koin Dipakai (Rp)
-                    </label>
-                    <span className="text-[10px] text-zinc-500">
-                      Sisa Saldo: {formatRupiah(adsCoinInfo.remainingCoin)}
-                    </span>
-                  </div>
-                  <CommaNumberInput
-                    value={coinUsed}
-                    onChange={setCoinUsed}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                  />
-                </div>
-              </div>
+            {/* Submit Button */}
+            <div className="pt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition cursor-pointer"
+              >
+                Reset Form
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-[#FE2C55]/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{editingId ? 'Simpan Perubahan Live' : 'Simpan Penjualan Live'}</span>
+              </button>
             </div>
-
-            <button
-              id="btn-submit-sales"
-              type="submit"
-              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{editingId ? 'Simpan Perubahan Penjualan' : 'Simpan Data Penjualan Live'}</span>
-            </button>
           </form>
         </div>
       )}
 
-      {/* TAB 2: OUTPUT & LAPORAN */}
-      {subTab === 'output' && (
-        <div className="space-y-4">
-          {/* Summary metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Omzet</div>
-              <div className="text-lg font-black text-[#25F4EE] mt-1">
-                {formatRupiah(totalOmzetPeriod)}
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Pcs Terjual</div>
-              <div className="text-lg font-black text-white mt-1">
-                {formatNumber(totalPcsPeriod)} <span className="text-xs font-normal text-zinc-400">pcs</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Paket Terjual</div>
-              <div className="text-lg font-black text-white mt-1">
-                {formatNumber(totalPkgsPeriod)} <span className="text-xs font-normal text-zinc-400">paket</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-              <div className="text-[11px] font-semibold text-zinc-400">Iklan Terpakai</div>
-              <div className="text-lg font-black text-white mt-1">
-                {formatRupiah(totalAdsPeriod)}
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg col-span-2 sm:col-span-1">
-              <div className="text-[11px] font-semibold text-zinc-400">Koin Terpakai</div>
-              <div className="text-lg font-black text-white mt-1">
-                {formatRupiah(totalCoinPeriod)}
-              </div>
-            </div>
+      {/* ================= TAB 3: INPUT PENJUALAN NON-LIVE (MARKETPLACE REGULER / OFFLINE) ================= */}
+      {subTab === 'input_non_live' && (
+        <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <Store className="w-5 h-5 text-emerald-400" />
+              <span>{editingId ? 'Edit Data Penjualan Non-Live' : 'Input Penjualan Non-Live (Marketplace / Offline / WA)'}</span>
+            </h3>
+            {editingId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
+              >
+                Batal Edit
+              </button>
+            )}
           </div>
 
-          {/* Filter Bar */}
-          <div className="p-4 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-48 sm:w-60">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          {errorMessage && (
+            <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitNonLive} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tanggal */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
+                </label>
                 <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari host / admin..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium disabled:opacity-50"
+                  required
                 />
               </div>
 
-              <select
-                value={periodFilter}
-                onChange={e => setPeriodFilter(e.target.value as any)}
-                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+              {/* Channel Non-Live */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Channel Penjualan <span className="text-[#FE2C55]">*</span>
+                </label>
+                <select
+                  value={nonLiveChannel}
+                  onChange={e => setNonLiveChannel(e.target.value as SalesChannel)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
+                >
+                  <option value="shopee_reguler">Shopee Marketplace Reguler</option>
+                  <option value="tiktok_shop_reguler">TikTok Shop Reguler</option>
+                  <option value="tokopedia_reguler">Tokopedia Reguler</option>
+                  <option value="offline_store">Toko Offline / Butik Fashion</option>
+                  <option value="whatsapp_order">WhatsApp / Chat Order</option>
+                  <option value="dm_instagram">DM Instagram / Sosmed</option>
+                  <option value="website">Website / Olshop</option>
+                  <option value="lainnya">Lainnya</option>
+                </select>
+              </div>
+
+              {/* Kategori Fashion */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Kategori Produk Fashion
+                </label>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value as FashionCategory)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
+                >
+                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
+                    <option key={key} value={key}>
+                      {val}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Metode Pembayaran */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Metode Pembayaran
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
+                >
+                  <option value="transfer">Transfer Bank</option>
+                  <option value="qris">QRIS / E-Wallet</option>
+                  <option value="cash">Tunai / Cash Toko</option>
+                  <option value="cod">COD (Bayar di Tempat)</option>
+                  <option value="marketplace_balance">Saldo Rekening Marketplace</option>
+                  <option value="lainnya">Lainnya</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Admin / Kasir yang Memproses */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-300">
+                Pilih Admin Toko / Kasir yang Memproses
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {adminEmployees.map(emp => {
+                  const isSelected = selectedCashierAdminIds.includes(emp.id);
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => toggleCashierAdmin(emp.id)}
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-emerald-500/15 border-emerald-400 text-white shadow-lg shadow-emerald-500/10'
+                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="truncate">
+                        <div className="text-xs font-bold truncate">{emp.name}</div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">Admin / Kasir</div>
+                      </div>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Metrics Form Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
+              {/* Omzet */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Total Omzet Penjualan (Rp) <span className="text-[#FE2C55]">*</span>
+                </label>
+                <CommaNumberInput
+                  value={omzet}
+                  onChange={setOmzet}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-emerald-400 focus:outline-hidden focus:border-emerald-400"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Pcs Terjual */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
+                </label>
+                <CommaNumberInput
+                  value={pcsSold}
+                  onChange={setPcsSold}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Paket / Resi */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Jumlah Paket / Transaksi <span className="text-[#FE2C55]">*</span>
+                </label>
+                <CommaNumberInput
+                  value={packagesSold}
+                  onChange={setPackagesSold}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Biaya Iklan Marketplace Reguler */}
+              <div className="sm:col-span-3">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Biaya Iklan / Ads Marketplace (Opsional, jika ada)
+                </label>
+                <CommaNumberInput
+                  value={nonLiveAdsUsed}
+                  onChange={setNonLiveAdsUsed}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            {/* Catatan / No Invoice */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Catatan / Nomor Invoice / Nama Pelanggan (Opsional)
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Misal: Pesanan Grosir Butik Bandung, No. Resi #INV-9821, dll."
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-emerald-400"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition cursor-pointer"
               >
-                <option value="all">Semua Periode</option>
-                <option value="today">Hari Ini</option>
-                <option value="weekly">7 Hari</option>
-                <option value="monthly">Bulan Ini</option>
-              </select>
+                Reset Form
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] text-xs font-black transition cursor-pointer shadow-lg shadow-emerald-400/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{editingId ? 'Simpan Perubahan Non-Live' : 'Simpan Penjualan Non-Live'}</span>
+              </button>
             </div>
+          </form>
+        </div>
+      )}
 
-            <button
-              onClick={() => {
-                handleCancelEdit();
-                setSubTab('input');
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md cursor-pointer"
-            >
-              + Input Penjualan
-            </button>
-          </div>
-
-          {/* Sales Records List (Sorted by date desc) */}
-          <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                Daftar Sesi Penjualan Live ({filteredSales.length})
-              </h3>
-            </div>
-
-            {filteredSales.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 text-xs">
-                Belum ada data penjualan live pada filter ini.
+      {/* ================= DETAIL MODAL ================= */}
+      {viewingDetailSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#25F4EE]/15 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Detail Transaksi Penjualan</h3>
+                  <p className="text-xs text-zinc-400">{formatDateIndo(viewingDetailSale.date)}</p>
+                </div>
               </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {filteredSales.map(sale => (
-                  <div key={sale.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/5 transition">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-black text-white">
-                          {formatDateIndo(sale.date)}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#0b0c10] text-[#25F4EE] text-[10px] font-bold border border-[#25F4EE]/30">
-                          {sale.hoursWorked} Jam Live
-                        </span>
-                      </div>
+              <button
+                onClick={() => setViewingDetailSale(null)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                      <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span>Host: <strong className="text-zinc-200">{sale.hostNames?.join(', ') || 'Host'}</strong></span>
-                        <span>•</span>
-                        <span>Admin: <strong className="text-zinc-200">{sale.adminNames?.join(', ') || sale.adminName || 'Admin Toko'}</strong></span>
-                        <span>•</span>
-                        <span>{sale.pcsSold} pcs</span>
-                        <span>•</span>
-                        <span>{sale.packagesSold} paket</span>
-                      </div>
+            <div className="p-6 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
+                <div>
+                  <span className="text-[10px] text-zinc-400 block">Tipe Penjualan</span>
+                  <span className="font-bold text-white text-sm">
+                    {viewingDetailSale.salesType === 'non_live' ? '🏪 Non-Live / Marketplace / Offline' : '🔴 Live Streaming'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 block">Channel Penjualan</span>
+                  <span className="font-bold text-[#25F4EE] text-sm">
+                    {viewingDetailSale.channelName || viewingDetailSale.salesChannel || '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 block">Kategori Fashion</span>
+                  <span className="font-bold text-zinc-200">
+                    {fashionCategoryLabels[viewingDetailSale.category as FashionCategory] || viewingDetailSale.category || 'Fashion Umum'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 block">Total Omzet</span>
+                  <span className="font-black text-base text-[#25F4EE]">
+                    {formatRupiah(viewingDetailSale.omzet)}
+                  </span>
+                </div>
+              </div>
 
-                      <div className="text-[11px] text-zinc-500 flex flex-wrap gap-2">
-                        <span>Iklan: {formatRupiah(sale.adsUsed || 0)}</span>
-                        <span>•</span>
-                        <span>Koin: {formatRupiah(sale.coinUsed || 0)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className="text-sm font-black text-[#25F4EE]">
-                          {formatRupiah(sale.omzet)}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">
-                          Omzet Kotor
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleEdit(sale)}
-                          className="p-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition cursor-pointer"
-                          title="Edit Penjualan"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sale)}
-                          className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
-                          title="Hapus Penjualan"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b border-white/5">
+                  <span className="text-zinc-400">Jumlah Pcs Terjual:</span>
+                  <span className="font-bold text-white">{formatNumber(viewingDetailSale.pcsSold)} pcs</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-white/5">
+                  <span className="text-zinc-400">Jumlah Paket / Order:</span>
+                  <span className="font-bold text-white">{formatNumber(viewingDetailSale.packagesSold)} paket</span>
+                </div>
+                {viewingDetailSale.hostNames && viewingDetailSale.hostNames.length > 0 && (
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-zinc-400">Host Live Bertugas:</span>
+                    <span className="font-bold text-pink-400">{viewingDetailSale.hostNames.join(', ')}</span>
                   </div>
-                ))}
+                )}
+                <div className="flex justify-between py-2 border-b border-white/5">
+                  <span className="text-zinc-400">Admin Toko / Kasir:</span>
+                  <span className="font-bold text-sky-400">
+                    {(viewingDetailSale.adminNames || [viewingDetailSale.adminName || '']).filter(Boolean).join(', ') || '-'}
+                  </span>
+                </div>
+                {(viewingDetailSale.adsUsed || 0) > 0 && (
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-zinc-400">Biaya Iklan Terpakai:</span>
+                    <span className="font-bold text-[#FE2C55]">{formatRupiah(viewingDetailSale.adsUsed)}</span>
+                  </div>
+                )}
+                {(viewingDetailSale.coinUsed || 0) > 0 && (
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-zinc-400">Biaya Koin / Diskon:</span>
+                    <span className="font-bold text-amber-400">{formatRupiah(viewingDetailSale.coinUsed)}</span>
+                  </div>
+                )}
+                {viewingDetailSale.notes && (
+                  <div className="py-2">
+                    <span className="text-zinc-400 block mb-1">Catatan / No. Invoice:</span>
+                    <p className="text-zinc-200 bg-[#0b0c10] p-3 rounded-xl border border-white/10 font-mono">
+                      {viewingDetailSale.notes}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const s = viewingDetailSale;
+                  setViewingDetailSale(null);
+                  handleStartEdit(s);
+                }}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Edit Transaksi Ini
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingDetailSale(null)}
+                className="px-5 py-2 rounded-xl bg-[#25F4EE] text-[#0b0c10] font-black text-xs transition hover:opacity-90 cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
