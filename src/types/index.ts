@@ -169,6 +169,7 @@ export interface CashflowRecord {
   employeeId?: string; // ID pegawai jika kategori gaji_pegawai
   employeeName?: string; // Nama pegawai jika kategori gaji_pegawai
   periodMonth?: string; // Periode bulan gaji (misal: "2026-09" atau "September 2026")
+  paymentType?: 'gaji_insentif' | 'kasbon'; // Opsi pembayaran gaji & insentif vs kasbon
   proofImageUrl?: string; // Foto bukti transfer / struk pembayaran gaji (base64)
   createdAt: string;
 }

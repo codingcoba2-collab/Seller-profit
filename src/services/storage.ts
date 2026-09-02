@@ -1336,8 +1336,11 @@ export class StorageService {
     filterDateFn?: (date: string) => boolean
   ): {
     totalPaid: number;
+    totalGajiPaid: number;
+    totalKasbon: number;
+    hasKasbon: boolean;
     remainingUnpaid: number;
-    status: 'paid' | 'partial' | 'unpaid';
+    status: 'paid' | 'partial' | 'unpaid' | 'kasbon_exceeded';
     payments: CashflowRecord[];
     paymentRecords: CashflowRecord[];
   } {
@@ -1352,17 +1355,39 @@ export class StorageService {
       (c.employeeId === employeeId || (!c.employeeId && c.description?.toLowerCase().includes(employeeId.toLowerCase())))
     );
 
-    const totalPaid = paymentRecords.reduce((acc, c) => acc + (c.amount || 0), 0);
-    const remainingUnpaid = Math.max(0, totalGrandSalary - totalPaid);
-    const status: 'paid' | 'partial' | 'unpaid' = 
-      totalPaid >= totalGrandSalary && totalGrandSalary > 0 
-        ? 'paid' 
-        : totalPaid > 0 
-          ? 'partial' 
-          : 'unpaid';
+    const isKasbonRecord = (c: CashflowRecord) => 
+      c.paymentType === 'kasbon' || 
+      (c.description && c.description.toLowerCase().includes('kasbon'));
+
+    const totalKasbon = paymentRecords
+      .filter(c => isKasbonRecord(c))
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
+    const totalGajiPaid = paymentRecords
+      .filter(c => !isKasbonRecord(c))
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
+    const totalPaid = totalGajiPaid + totalKasbon;
+    // Sisa belum dibayar / sisa gaji bersih: jika kasbon/pembayaran melebihi hak gaji, nilai menjadi minus
+    const remainingUnpaid = totalGrandSalary - totalPaid;
+    const hasKasbon = totalKasbon > 0;
+
+    let status: 'paid' | 'partial' | 'unpaid' | 'kasbon_exceeded' = 'unpaid';
+    if (remainingUnpaid < 0) {
+      status = 'kasbon_exceeded';
+    } else if (remainingUnpaid === 0 && (totalGrandSalary > 0 || totalPaid > 0)) {
+      status = 'paid';
+    } else if (totalPaid > 0) {
+      status = 'partial';
+    } else {
+      status = 'unpaid';
+    }
 
     return {
       totalPaid,
+      totalGajiPaid,
+      totalKasbon,
+      hasKasbon,
       remainingUnpaid,
       status,
       payments: paymentRecords,

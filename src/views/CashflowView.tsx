@@ -66,6 +66,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   // Gaji Pegawai specific states
   const [employeeId, setEmployeeId] = useState<string>('');
   const [employeeName, setEmployeeName] = useState<string>('');
+  const [paymentType, setPaymentType] = useState<'gaji_insentif' | 'kasbon'>('gaji_insentif');
   const [periodMonth, setPeriodMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -94,6 +95,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setType('outflow');
     setAmount(150000);
     setCategory('packing');
+    setPaymentType('gaji_insentif');
     setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
     if (employees.length > 0) {
       setEmployeeId(employees[0].id);
@@ -113,6 +115,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setType(item.type);
     setAmount(item.amount);
     setCategory(item.category);
+    setPaymentType(item.paymentType || (item.description?.toLowerCase().includes('kasbon') ? 'kasbon' : 'gaji_insentif'));
     setDescription(item.description || '');
     setEmployeeId(item.employeeId || (employees[0]?.id || ''));
     setEmployeeName(item.employeeName || (employees[0]?.name || ''));
@@ -132,10 +135,19 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       if (selectedEmp) {
         setEmployeeId(selectedEmp.id);
         setEmployeeName(selectedEmp.name);
-        setDescription(`Pembayaran Gaji & Insentif - ${selectedEmp.name} (Periode ${periodMonth})`);
+        const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
+        setDescription(`${prefix} - ${selectedEmp.name} (Periode ${periodMonth})`);
       }
-    } else if (newCat === 'packing' && description.includes('Gaji')) {
+    } else if (newCat === 'packing' && (description.includes('Gaji') || description.includes('Kasbon'))) {
       setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
+    }
+  };
+
+  const handlePaymentTypeChange = (newType: 'gaji_insentif' | 'kasbon') => {
+    setPaymentType(newType);
+    if (employeeName) {
+      const prefix = newType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
+      setDescription(`${prefix} - ${employeeName} (Periode ${periodMonth})`);
     }
   };
 
@@ -144,7 +156,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     const emp = employees.find(e => e.id === empId);
     if (emp) {
       setEmployeeName(emp.name);
-      setDescription(`Pembayaran Gaji & Insentif - ${emp.name} (Periode ${periodMonth})`);
+      const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
+      setDescription(`${prefix} - ${emp.name} (Periode ${periodMonth})`);
     }
   };
 
@@ -182,6 +195,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       type,
       amount,
       category: type === 'inflow' ? 'penarikan_shopee' : category,
+      paymentType: (type === 'outflow' && category === 'gaji_pegawai') ? paymentType : undefined,
       description,
       employeeId: (type === 'outflow' && category === 'gaji_pegawai') ? employeeId : undefined,
       employeeName: (type === 'outflow' && category === 'gaji_pegawai') ? employeeName : undefined,
@@ -389,8 +403,60 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
                   <Receipt className="w-4 h-4 text-[#25F4EE]" />
                   <span className="text-xs font-black text-[#25F4EE] uppercase tracking-wider">
-                    Detail Pembayaran Gaji Pegawai &amp; Bukti Foto
+                    Detail Pembayaran Gaji / Kasbon Pegawai
                   </span>
+                </div>
+
+                {/* 2 Opsi Jenis Pembayaran: Gaji & Insentif vs Kasbon */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-2">
+                    Pilih Jenis Pembayaran <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentTypeChange('gaji_insentif')}
+                      className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer ${
+                        paymentType === 'gaji_insentif'
+                          ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                          : 'bg-[#161823] border-white/10 text-zinc-400 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-emerald-400 flex items-center gap-1.5">
+                          💼 Pembayaran Gaji &amp; Insentif
+                        </span>
+                        {paymentType === 'gaji_insentif' && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-400 leading-tight">
+                        Pembayaran gaji pokok dan insentif kerja pegawai
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentTypeChange('kasbon')}
+                      className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer ${
+                        paymentType === 'kasbon'
+                          ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+                          : 'bg-[#161823] border-white/10 text-zinc-400 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-amber-400 flex items-center gap-1.5">
+                          💳 Kasbon
+                        </span>
+                        {paymentType === 'kasbon' && (
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-400 leading-tight">
+                        Pinjaman / penarikan kasbon di muka oleh pegawai
+                      </p>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -421,7 +487,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       onChange={e => {
                         setPeriodMonth(e.target.value);
                         if (employeeName) {
-                          setDescription(`Pembayaran Gaji & Insentif - ${employeeName} (Periode ${e.target.value})`);
+                          const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
+                          setDescription(`${prefix} - ${employeeName} (Periode ${e.target.value})`);
                         }
                       }}
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-medium focus:border-[#25F4EE]"
@@ -708,10 +775,16 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                           item.type === 'inflow' 
                             ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' 
                             : item.category === 'gaji_pegawai'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            ? (item.paymentType === 'kasbon' || item.description?.toLowerCase().includes('kasbon'))
+                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                             : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
                         }`}>
-                          {item.type === 'inflow' ? 'Penarikan Marketplace' : CATEGORY_LABELS[item.category] || item.category}
+                          {item.type === 'inflow' 
+                            ? 'Penarikan Marketplace' 
+                            : item.category === 'gaji_pegawai'
+                            ? ((item.paymentType === 'kasbon' || item.description?.toLowerCase().includes('kasbon')) ? '💳 Kasbon Pegawai' : '💼 Gaji & Insentif')
+                            : CATEGORY_LABELS[item.category] || item.category}
                         </span>
 
                         {item.employeeName && (
