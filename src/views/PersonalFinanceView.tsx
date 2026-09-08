@@ -79,8 +79,14 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
   const [expenses, setExpenses] = useState<PersonalExpenseRecord[]>([]);
 
   const loadData = () => {
+    StorageService.cleanupLegacyPriveExpenses(currentUser.storeId);
     const alloc = StorageService.getPersonalBudgetAllocation(currentUser.storeId);
-    setTotalIncome(alloc.totalIncome || 1000000);
+    
+    // Otomatis akumulasi total dana pribadi dari pencatatan konsumsi pribadi di cashflow toko
+    const cashflowPriveTotal = StorageService.getTotalKonsumsiPribadi(currentUser.storeId);
+    const effectiveIncome = cashflowPriveTotal > 0 ? cashflowPriveTotal : (alloc.totalIncome || 0);
+
+    setTotalIncome(effectiveIncome);
     setSehariHariPercent(alloc.sehariHariPercent ?? 50);
     setUtangPercent(alloc.utangPercent ?? 20);
     setTabunganPercent(alloc.tabunganPercent ?? 15);
@@ -150,10 +156,6 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       onNotify(`Total alokasi persentase harus tepat 100%! (Saat ini: ${totalPercent}%)`, 'error');
       return;
     }
-    if (totalIncome <= 0) {
-      onNotify('Nominal uang pribadi yang masuk harus lebih dari Rp 0.', 'error');
-      return;
-    }
 
     const alloc: PersonalBudgetAllocation = {
       totalIncome,
@@ -165,7 +167,7 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
     };
 
     StorageService.savePersonalBudgetAllocation(currentUser.storeId, alloc);
-    onNotify('Pengaturan alokasi keuangan pribadi berhasil disimpan!', 'success');
+    onNotify('Pengaturan alokasi persentase pos keuangan pribadi berhasil disimpan!', 'success');
     setActiveTab('laporan');
   };
 
@@ -745,50 +747,49 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
           <div className="border-b border-white/10 pb-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
               <Sliders className="w-4 h-4 text-[#25F4EE]" />
-              <span>Pengaturan Biaya &amp; Alokasi Uang Pribadi</span>
+              <span>Pengaturan Biaya &amp; Alokasi Pos Keuangan Pribadi</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Tentukan uang pribadi yang masuk (misal: Rp 1.000.000) dan atur pembagian persentase untuk masing-masing pos alokasi (total harus 100%).
+              Uang pribadi otomatis masuk dan diakumulasikan dari pencatatan <strong>Konsumsi Pribadi</strong> di Cashflow Toko. Silakan masukkan persentase pembagian pos di bawah (total harus tepat 100%).
             </p>
           </div>
 
           <form onSubmit={handleSaveAllocation} className="space-y-6">
-            {/* Input Uang Pribadi Masuk */}
-            <div className="p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-white flex items-center gap-1.5">
-                  <Wallet className="w-4 h-4 text-emerald-400" />
-                  <span>Uang Pribadi yang Masuk (Prive / Income Bulanan)</span>
-                </label>
-                <span className="text-sm font-black text-emerald-400">
-                  {formatRupiah(totalIncome)}
-                </span>
-              </div>
-              <CommaNumberInput
-                id="input-total-income"
-                value={totalIncome}
-                onChange={setTotalIncome}
-                className="w-full px-3.5 py-3 text-sm font-bold rounded-xl bg-[#161823] border border-white/10 text-white focus:border-[#25F4EE]"
-              />
-              <div className="flex flex-wrap gap-1.5">
-                {[500000, 1000000, 2000000, 5000000, 10000000].map(val => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setTotalIncome(val)}
-                    className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300"
-                  >
-                    Rp {formatNumber(val)}
-                  </button>
-                ))}
+            {/* Total Alokasi Masuk (Otomatis dari Cashflow Konsumsi Pribadi) */}
+            <div className="p-5 rounded-2xl bg-[#0b0c10] border border-emerald-500/20 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <Wallet className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Total Alokasi Uang Pribadi Masuk</span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[10px] font-black border border-emerald-500/30">
+                        Otomatis Sinkron
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Dihitung otomatis dari pengeluaran konsumsi pribadi (prive) di Cashflow &amp; Arus Kas Toko.
+                    </p>
+                  </div>
+                </div>
+                <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-white/5">
+                  <div className="text-lg sm:text-2xl font-black text-emerald-400">
+                    {formatRupiah(totalIncome)}
+                  </div>
+                  <span className="text-[10px] text-zinc-500 block">
+                    Total Dana Prive Siap Dialokasikan
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* 4 Allocation Percentage Sliders */}
+            {/* 4 Allocation Percentage Number Inputs */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-                  Alokasi Persentase Pos Keuangan
+                  Alokasi Persentase Pos Keuangan (Input Angka Langsung)
                 </h4>
                 <div className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
                   totalPercent === 100 
@@ -800,105 +801,129 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
               </div>
 
               {/* 1. Sehari-hari */}
-              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span>🛒</span>
-                    <span>1. Alokasi Sehari-hari (Makan, Belanja Pokok)</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-[#25F4EE]">{sehariHariPercent}%</span>
-                    <span className="text-[11px] text-zinc-400">
-                      ({formatRupiah(budgetNominal.sehari_hari)})
-                    </span>
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 hover:border-[#25F4EE]/40 transition">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">🛒</span>
+                    <div>
+                      <h5 className="text-xs font-bold text-white">1. Alokasi Sehari-hari (Makan &amp; Kebutuhan Pokok)</h5>
+                      <span className="text-[11px] text-zinc-400">
+                        Nominal anggaran: <strong className="text-[#25F4EE]">{formatRupiah(budgetNominal.sehari_hari)}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <label htmlFor="input-percent-sehari-hari" className="text-xs font-bold text-zinc-400">Input Persentase:</label>
+                    <div className="flex items-center gap-1.5 bg-[#161823] border border-white/10 px-3 py-1.5 rounded-xl focus-within:border-[#25F4EE]">
+                      <input
+                        id="input-percent-sehari-hari"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={sehariHariPercent}
+                        onChange={e => setSehariHariPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 text-right font-black text-[#25F4EE] text-sm bg-transparent outline-none"
+                      />
+                      <span className="text-xs font-bold text-zinc-400">%</span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sehariHariPercent}
-                  onChange={e => setSehariHariPercent(parseInt(e.target.value) || 0)}
-                  className="w-full accent-[#25F4EE]"
-                />
               </div>
 
               {/* 2. Utang */}
-              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span>💳</span>
-                    <span>2. Alokasi Utang &amp; Cicilan</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-rose-400">{utangPercent}%</span>
-                    <span className="text-[11px] text-zinc-400">
-                      ({formatRupiah(budgetNominal.utang)})
-                    </span>
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 hover:border-rose-400/40 transition">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">💳</span>
+                    <div>
+                      <h5 className="text-xs font-bold text-white">2. Alokasi Utang &amp; Cicilan</h5>
+                      <span className="text-[11px] text-zinc-400">
+                        Nominal anggaran: <strong className="text-rose-400">{formatRupiah(budgetNominal.utang)}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <label htmlFor="input-percent-utang" className="text-xs font-bold text-zinc-400">Input Persentase:</label>
+                    <div className="flex items-center gap-1.5 bg-[#161823] border border-white/10 px-3 py-1.5 rounded-xl focus-within:border-rose-400">
+                      <input
+                        id="input-percent-utang"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={utangPercent}
+                        onChange={e => setUtangPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 text-right font-black text-rose-400 text-sm bg-transparent outline-none"
+                      />
+                      <span className="text-xs font-bold text-zinc-400">%</span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={utangPercent}
-                  onChange={e => setUtangPercent(parseInt(e.target.value) || 0)}
-                  className="w-full accent-rose-400"
-                />
               </div>
 
               {/* 3. Tabungan */}
-              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span>💰</span>
-                    <span>3. Alokasi Tabungan &amp; Dana Darurat</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-emerald-400">{tabunganPercent}%</span>
-                    <span className="text-[11px] text-zinc-400">
-                      ({formatRupiah(budgetNominal.tabungan)})
-                    </span>
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 hover:border-emerald-400/40 transition">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">💰</span>
+                    <div>
+                      <h5 className="text-xs font-bold text-white">3. Alokasi Tabungan &amp; Dana Darurat</h5>
+                      <span className="text-[11px] text-zinc-400">
+                        Nominal anggaran: <strong className="text-emerald-400">{formatRupiah(budgetNominal.tabungan)}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <label htmlFor="input-percent-tabungan" className="text-xs font-bold text-zinc-400">Input Persentase:</label>
+                    <div className="flex items-center gap-1.5 bg-[#161823] border border-white/10 px-3 py-1.5 rounded-xl focus-within:border-emerald-400">
+                      <input
+                        id="input-percent-tabungan"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={tabunganPercent}
+                        onChange={e => setTabunganPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 text-right font-black text-emerald-400 text-sm bg-transparent outline-none"
+                      />
+                      <span className="text-xs font-bold text-zinc-400">%</span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={tabunganPercent}
-                  onChange={e => setTabunganPercent(parseInt(e.target.value) || 0)}
-                  className="w-full accent-emerald-400"
-                />
               </div>
 
               {/* 4. Investasi & Pengembangan Toko */}
-              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <span>🚀</span>
-                    <span>4. Investasi &amp; Pengembangan Toko</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-purple-400">{investasiTokoPercent}%</span>
-                    <span className="text-[11px] text-zinc-400">
-                      ({formatRupiah(budgetNominal.investasi_toko)})
-                    </span>
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 hover:border-purple-400/40 transition">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">🚀</span>
+                    <div>
+                      <h5 className="text-xs font-bold text-white">4. Investasi &amp; Pengembangan Toko</h5>
+                      <span className="text-[11px] text-zinc-400">
+                        Nominal anggaran: <strong className="text-purple-400">{formatRupiah(budgetNominal.investasi_toko)}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <label htmlFor="input-percent-investasi" className="text-xs font-bold text-zinc-400">Input Persentase:</label>
+                    <div className="flex items-center gap-1.5 bg-[#161823] border border-white/10 px-3 py-1.5 rounded-xl focus-within:border-purple-400">
+                      <input
+                        id="input-percent-investasi"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={investasiTokoPercent}
+                        onChange={e => setInvestasiTokoPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 text-right font-black text-purple-400 text-sm bg-transparent outline-none"
+                      />
+                      <span className="text-xs font-bold text-zinc-400">%</span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={investasiTokoPercent}
-                  onChange={e => setInvestasiTokoPercent(parseInt(e.target.value) || 0)}
-                  className="w-full accent-purple-400"
-                />
               </div>
             </div>
 
             {/* Preset Standard Buttons */}
             <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2">
-              <span className="text-xs font-bold text-zinc-300 block">Pilih Preset Rekomendasi:</span>
+              <span className="text-xs font-bold text-zinc-300 block">Pilih Preset Rekomendasi Cepat:</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"

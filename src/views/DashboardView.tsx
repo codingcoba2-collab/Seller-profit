@@ -26,7 +26,11 @@ import {
   Tag,
   Layers,
   CircleDollarSign,
-  UserCheck
+  UserCheck,
+  ArrowLeft,
+  ArrowRight,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 
@@ -63,7 +67,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const hppInfo = StorageService.calculateHPP(currentUser.storeId);
   const salesList = StorageService.getSales(currentUser.storeId);
 
-  const [selectedCategory, setSelectedCategory] = useState<'all' | MenuCategory>('all');
+  // Default: null (hanya menampilkan 3 menu utama: Persiapan, Penjualan, Keuangan di awal)
+  const [activeCategory, setActiveCategory] = useState<MenuCategory | null>(null);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -264,33 +269,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     badgeBg: string;
     badgeText: string;
     borderAccent: string;
+    icon: React.ComponentType<{ className?: string }>;
+    iconColor: string;
+    gradientBg: string;
+    hoverBorder: string;
   }[] = [
     {
       key: 'persiapan',
       number: 1,
       title: 'Persiapan',
-      description: 'Manajemen pegawai & stok, modal & stok (HPP), sortir, QC & finishing, biaya admin channel marketplace, dan saldo iklan',
+      description: 'Manajemen pegawai & stok, modal & stok (HPP), sortir, QC & finishing, biaya admin marketplace, dan deposit saldo iklan & koin live.',
       badgeBg: 'bg-emerald-500/15',
       badgeText: 'text-emerald-400',
       borderAccent: 'border-emerald-500/30',
+      icon: Package,
+      iconColor: 'text-emerald-400',
+      gradientBg: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
+      hoverBorder: 'hover:border-emerald-500/60',
     },
     {
       key: 'penjualan',
       number: 2,
       title: 'Penjualan',
-      description: 'Presensi kehadiran shift, data penjualan live & non-live (S-XL), statistik penjualan, paket retur, laba rugi sesi & index AI',
+      description: 'Presensi kehadiran shift, data penjualan live & non-live (S-XL), statistik penjualan, paket retur, laba rugi sesi, dan evaluasi performa AI.',
       badgeBg: 'bg-[#FE2C55]/15',
       badgeText: 'text-[#FE2C55]',
       borderAccent: 'border-[#FE2C55]/30',
+      icon: TrendingUp,
+      iconColor: 'text-[#FE2C55]',
+      gradientBg: 'from-[#FE2C55]/15 via-[#FE2C55]/5 to-transparent',
+      hoverBorder: 'hover:border-[#FE2C55]/60',
     },
     {
       key: 'keuangan',
       number: 3,
       title: 'Keuangan',
-      description: 'Slip gaji & insentif, cashflow arus kas toko (konsumsi pribadi), laba bersih toko, dan cashflow keuangan pribadi',
+      description: 'Slip gaji & insentif, cashflow arus kas toko (konsumsi pribadi otomatis sinkron), laba bersih toko, dan cashflow keuangan pribadi owner.',
       badgeBg: 'bg-[#25F4EE]/15',
       badgeText: 'text-[#25F4EE]',
       borderAccent: 'border-[#25F4EE]/30',
+      icon: Wallet,
+      iconColor: 'text-[#25F4EE]',
+      gradientBg: 'from-[#25F4EE]/15 via-[#25F4EE]/5 to-transparent',
+      hoverBorder: 'hover:border-[#25F4EE]/60',
     },
   ];
 
@@ -301,9 +322,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return currentUser.roles.some(r => item.allowedRoles.includes(r));
   };
 
-  const filteredCategories = selectedCategory === 'all' 
-    ? categoriesMeta 
-    : categoriesMeta.filter(c => c.key === selectedCategory);
+  const currentCat = activeCategory ? categoriesMeta.find(c => c.key === activeCategory) : null;
+  const currentCatItems = activeCategory ? menuItems.filter(m => m.category === activeCategory) : [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
@@ -443,192 +463,260 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* CATEGORY NAV TABS (Requirement 1: Satukan beberapa menu ke dalam kategori agar dashboard tidak terlalu banyak menu) */}
-      <div className="space-y-4 pt-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
-          <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#25F4EE]" />
-              <span>Kategori Menu Dashboard</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Pilih kategori atau lihat seluruh modul yang terorganisasi rapi.
-            </p>
+      {/* TAMPILAN MENU: 
+          Jika activeCategory === null -> HANYA 3 MENU UTAMA (Persiapan, Penjualan, Keuangan).
+          Jika activeCategory !== null -> Halaman Sub-Menu dari kategori terpilih.
+      */}
+      {activeCategory === null ? (
+        <div className="space-y-4 pt-2">
+          {/* Header Dashboard Awal */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#25F4EE]" />
+                <span>Pilih Menu Utama</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Dashboard awal diringkas menjadi 3 menu utama. Klik salah satu menu untuk membuka sub-menu modul terkait:
+              </p>
+            </div>
+
+            <span className="text-xs font-bold text-zinc-300 px-3 py-1 rounded-full bg-white/5 border border-white/10 self-start sm:self-auto">
+              3 Kategori Menu
+            </span>
           </div>
 
-          {/* Category Quick Filter Pills */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              id="filter-cat-all"
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
-                selectedCategory === 'all'
-                  ? 'bg-white text-zinc-900 border-white shadow-md'
-                  : 'bg-[#161823] hover:bg-[#1f2232] text-zinc-300 border-white/10'
-              }`}
-            >
-              <span>Semua Menu</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                selectedCategory === 'all' ? 'bg-zinc-200 text-zinc-800' : 'bg-white/10 text-zinc-300'
-              }`}>
-                {menuItems.length}
-              </span>
-            </button>
+          {/* 3 Main Menu Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-1">
+            {categoriesMeta.map((cat) => {
+              const catItems = menuItems.filter((m) => m.category === cat.key);
+              const CatIcon = cat.icon;
 
-            <button
-              id="filter-cat-persiapan"
-              type="button"
-              onClick={() => setSelectedCategory('persiapan')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
-                selectedCategory === 'persiapan'
-                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                  : 'bg-[#161823] hover:bg-[#1f2232] text-emerald-400 border-white/10'
-              }`}
-            >
-              <span>1. Persiapan</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                selectedCategory === 'persiapan' ? 'bg-emerald-900 text-emerald-100' : 'bg-emerald-500/20 text-emerald-300'
-              }`}>
-                {menuItems.filter(m => m.category === 'persiapan').length}
-              </span>
-            </button>
+              return (
+                <div
+                  key={cat.key}
+                  id={`card-main-menu-${cat.key}`}
+                  onClick={() => setActiveCategory(cat.key)}
+                  className={`group relative rounded-3xl p-6 sm:p-7 border bg-[#161823] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between gap-6 shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.99] ${cat.hoverBorder} ${cat.borderAccent}`}
+                >
+                  {/* Ambient Glow */}
+                  <div
+                    className={`absolute -right-12 -bottom-12 w-48 h-48 rounded-full blur-3xl opacity-25 pointer-events-none bg-gradient-to-br ${cat.gradientBg}`}
+                  />
 
-            <button
-              id="filter-cat-penjualan"
-              type="button"
-              onClick={() => setSelectedCategory('penjualan')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
-                selectedCategory === 'penjualan'
-                  ? 'bg-[#FE2C55] text-white border-[#FE2C55] shadow-md shadow-[#FE2C55]/20'
-                  : 'bg-[#161823] hover:bg-[#1f2232] text-[#FE2C55] border-white/10'
-              }`}
-            >
-              <span>2. Penjualan</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                selectedCategory === 'penjualan' ? 'bg-black/40 text-white' : 'bg-[#FE2C55]/20 text-[#FE2C55]'
-              }`}>
-                {menuItems.filter(m => m.category === 'penjualan').length}
-              </span>
-            </button>
+                  <div className="space-y-4 relative z-10">
+                    {/* Top Number Badge & Sub-menu Count */}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm border ${cat.badgeBg} ${cat.badgeText} ${cat.borderAccent} shadow-md`}
+                      >
+                        0{cat.number}
+                      </span>
+                      <span
+                        className={`text-[11px] font-black px-3 py-1 rounded-full border ${cat.badgeBg} ${cat.badgeText} ${cat.borderAccent}`}
+                      >
+                        {catItems.length} Sub-Menu
+                      </span>
+                    </div>
 
-            <button
-              id="filter-cat-keuangan"
-              type="button"
-              onClick={() => setSelectedCategory('keuangan')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
-                selectedCategory === 'keuangan'
-                  ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
-                  : 'bg-[#161823] hover:bg-[#1f2232] text-[#25F4EE] border-white/10'
-              }`}
-            >
-              <span>3. Keuangan</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                selectedCategory === 'keuangan' ? 'bg-teal-950 text-teal-100' : 'bg-[#25F4EE]/20 text-[#25F4EE]'
-              }`}>
-                {menuItems.filter(m => m.category === 'keuangan').length}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* CATEGORIZED SECTIONS */}
-        <div className="space-y-6">
-          {filteredCategories.map(cat => {
-            const catItems = menuItems.filter(m => m.category === cat.key);
-
-            return (
-              <div
-                key={cat.key}
-                id={`section-category-${cat.key}`}
-                className="bg-[#12141d] rounded-2xl p-4 sm:p-5 border border-white/5 space-y-4"
-              >
-                {/* Category Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black border ${cat.badgeBg} ${cat.badgeText} ${cat.borderAccent}`}>
-                      {cat.number}
-                    </span>
-                    <div>
-                      <h4 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                        <span>Kategori {cat.number}: {cat.title}</span>
+                    {/* Icon & Title */}
+                    <div className="space-y-2.5">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${cat.iconColor} group-hover:scale-110 transition-transform shadow-inner`}
+                      >
+                        <CatIcon className="w-7 h-7" />
+                      </div>
+                      <h4 className="text-xl font-black text-white group-hover:text-white tracking-tight flex items-center gap-2">
+                        <span>{cat.title}</span>
                       </h4>
-                      <p className="text-[11px] text-zinc-400 line-clamp-1">
-                        {cat.description}
-                      </p>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-xs text-zinc-300 leading-relaxed min-h-[44px]">
+                      {cat.description}
+                    </p>
+
+                    {/* Preview of modules list */}
+                    <div className="pt-3 border-t border-white/5 space-y-1.5">
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block">
+                        Daftar Sub-Menu di dalamnya:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {catItems.map((item) => (
+                          <span
+                            key={item.tab}
+                            className="text-[10px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-zinc-300 font-medium truncate max-w-[200px]"
+                          >
+                            {item.title}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <span className="text-[11px] text-zinc-400 font-semibold self-start sm:self-auto bg-[#161823] px-2.5 py-1 rounded-lg border border-white/10">
-                    {catItems.length} Menu
-                  </span>
+                  {/* Action Button */}
+                  <div className="relative z-10 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-black text-white group-hover:text-[#25F4EE] transition-colors">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
+                      <span>Buka Sub-Menu {cat.title}</span>
+                    </span>
+                    <div className="w-9 h-9 rounded-xl bg-white/5 group-hover:bg-[#25F4EE] group-hover:text-zinc-950 flex items-center justify-center transition-all shadow-md">
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* HALAMAN SUB-MENU SETELAH MENU UTAMA DI-PENCET */
+        <div className="space-y-6 pt-1">
+          {/* Top Back & Category Switcher Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                id="btn-back-to-main-dashboard"
+                type="button"
+                onClick={() => setActiveCategory(null)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-black text-xs transition border border-white/10 cursor-pointer shadow-md active:scale-95 group"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#25F4EE] group-hover:-translate-x-0.5 transition-transform" />
+                <span>← Kembali ke 3 Menu Utama</span>
+              </button>
 
-                {/* Items Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
-                  {catItems.map((item) => {
-                    const accessible = canAccess(item);
-                    const Icon = item.icon;
+              <div className="h-6 w-px bg-white/10 hidden sm:block" />
 
-                    return (
-                      <button
-                        key={item.tab}
-                        id={`menu-card-${item.tab}`}
-                        type="button"
-                        onClick={() => {
-                          if (accessible) {
-                            onNavigate(item.tab);
-                          } else {
-                            onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
-                          }
-                        }}
-                        className={`text-center p-3.5 sm:p-4 rounded-2xl transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-between gap-2.5 group border cursor-pointer min-h-[140px] sm:min-h-[148px] ${
-                          accessible
-                            ? 'bg-[#161823] hover:bg-[#1c1f2e] border-white/10 hover:border-[#25F4EE]/50 shadow-md hover:shadow-lg hover:shadow-[#25F4EE]/10 active:scale-95'
-                            : 'bg-[#12141c]/60 border-white/5 opacity-50 cursor-not-allowed'
-                        }`}
-                      >
-                        {/* Top Badge or Lock */}
-                        <div className="w-full flex items-center justify-between">
-                          {item.badgeText ? (
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border truncate max-w-[85%] ${
-                                accessible
-                                  ? 'bg-white/5 text-zinc-300 border-white/10'
-                                  : 'bg-zinc-800 text-zinc-500 border-zinc-700'
-                              }`}
-                            >
-                              {item.badgeText}
-                            </span>
-                          ) : <span />}
+              <div>
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400 block">
+                  Halaman Sub-Menu
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span>
+                    Kategori {currentCat?.number}: {currentCat?.title}
+                  </span>
+                </h3>
+              </div>
+            </div>
 
-                          {!accessible && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
-                        </div>
+            {/* Quick Switch Tabs between the 3 main categories */}
+            <div className="flex items-center gap-1.5 self-start md:self-auto bg-[#0b0c10] p-1.5 rounded-2xl border border-white/10">
+              {categoriesMeta.map((c) => (
+                <button
+                  key={c.key}
+                  id={`btn-switch-cat-${c.key}`}
+                  type="button"
+                  onClick={() => setActiveCategory(c.key)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    activeCategory === c.key
+                      ? 'bg-white text-zinc-950 shadow-sm font-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>
+                    {c.number}. {c.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                        {/* Centered Icon */}
-                        <div
-                          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 group-hover:scale-110 group-hover:border-[#25F4EE]/40 transition-transform shadow-inner ${
-                            accessible ? item.iconColor : 'text-zinc-500'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                        </div>
-
-                        {/* Title & Subtitle */}
-                        <div className="w-full">
-                          <h5 className="text-xs font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-snug line-clamp-2">
-                            {item.title}
-                          </h5>
-                        </div>
-                      </button>
-                    );
-                  })}
+          {/* Active Category Header Banner */}
+          {currentCat && (
+            <div
+              className={`p-5 sm:p-6 rounded-3xl border bg-gradient-to-r ${currentCat.gradientBg} bg-[#161823] ${currentCat.borderAccent} flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg`}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${currentCat.iconColor} shrink-0 shadow-inner`}
+                >
+                  <currentCat.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base sm:text-lg font-black text-white">
+                    Daftar Sub-Menu Kategori {currentCat.title}
+                  </h4>
+                  <p className="text-xs text-zinc-300 max-w-2xl mt-0.5 leading-relaxed">
+                    {currentCat.description}
+                  </p>
                 </div>
               </div>
-            );
-          })}
+
+              <span
+                className={`text-xs font-black px-3.5 py-1.5 rounded-xl border ${currentCat.badgeBg} ${currentCat.badgeText} ${currentCat.borderAccent} shrink-0 self-start sm:self-auto`}
+              >
+                {currentCatItems.length} Sub-Menu Tersedia
+              </span>
+            </div>
+          )}
+
+          {/* Sub-menu Cards Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+            {currentCatItems.map((item) => {
+              const accessible = canAccess(item);
+              const Icon = item.icon;
+
+              return (
+                <button
+                  key={item.tab}
+                  id={`menu-card-${item.tab}`}
+                  type="button"
+                  onClick={() => {
+                    if (accessible) {
+                      onNavigate(item.tab);
+                    } else {
+                      onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
+                    }
+                  }}
+                  className={`text-center p-4 rounded-2xl transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-between gap-3 group border cursor-pointer min-h-[160px] ${
+                    accessible
+                      ? 'bg-[#161823] hover:bg-[#1c1f2e] border-white/10 hover:border-[#25F4EE]/50 shadow-md hover:shadow-xl hover:shadow-[#25F4EE]/10 active:scale-95'
+                      : 'bg-[#12141c]/60 border-white/5 opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  {/* Top Badge or Lock */}
+                  <div className="w-full flex items-center justify-between">
+                    {item.badgeText ? (
+                      <span
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md border truncate max-w-[85%] ${
+                          accessible
+                            ? 'bg-white/5 text-zinc-300 border-white/10'
+                            : 'bg-zinc-800 text-zinc-500 border-zinc-700'
+                        }`}
+                      >
+                        {item.badgeText}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+
+                    {!accessible && <Lock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />}
+                  </div>
+
+                  {/* Centered Icon */}
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 group-hover:scale-110 group-hover:border-[#25F4EE]/40 transition-transform shadow-inner ${
+                      accessible ? item.iconColor : 'text-zinc-500'
+                    }`}
+                  >
+                    <Icon className="w-6 h-6" />
+                  </div>
+
+                  {/* Title & Subtitle */}
+                  <div className="w-full space-y-1">
+                    <h5 className="text-xs font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-snug line-clamp-2">
+                      {item.title}
+                    </h5>
+                    <p className="text-[10px] text-zinc-400 line-clamp-1">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Theme Selector Modal */}
       <ThemeSelectorModal

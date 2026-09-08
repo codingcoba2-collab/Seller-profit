@@ -973,19 +973,9 @@ export class StorageService {
     this.syncToCloud('cashflow', c.id, c);
     this.notifyListeners('cashflow');
 
-    // Otomatis sinkronkan jika pengeluaran konsumsi pribadi
+    // Otomatis sinkronkan konsumsi pribadi kas toko ke total alokasi keuangan pribadi owner
     if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
-      const pExp: PersonalExpenseRecord = {
-        id: `pexp-cf-${c.id}`,
-        storeId: c.storeId,
-        date: c.date,
-        category: c.personalBudgetCategory || 'sehari_hari',
-        amount: c.amount,
-        description: `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`,
-        sourceCashflowId: c.id,
-        createdAt: c.createdAt || new Date().toISOString(),
-      };
-      this.addPersonalExpense(pExp);
+      this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
     }
   }
 
@@ -999,31 +989,8 @@ export class StorageService {
       this.syncToCloud('cashflow', c.id, c);
       this.notifyListeners('cashflow');
 
-      // Update sinkronisasi pengeluaran pribadi
-      const pList = this.getPersonalExpenses(c.storeId);
-      const matched = pList.find(p => p.sourceCashflowId === c.id || p.id === `pexp-cf-${c.id}`);
-      if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
-        if (matched) {
-          matched.amount = c.amount;
-          matched.date = c.date;
-          matched.description = `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`;
-          matched.category = c.personalBudgetCategory || matched.category || 'sehari_hari';
-          this.updatePersonalExpense(matched);
-        } else {
-          this.addPersonalExpense({
-            id: `pexp-cf-${c.id}`,
-            storeId: c.storeId,
-            date: c.date,
-            category: c.personalBudgetCategory || 'sehari_hari',
-            amount: c.amount,
-            description: `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`,
-            sourceCashflowId: c.id,
-            createdAt: c.createdAt || new Date().toISOString(),
-          });
-        }
-      } else if (matched) {
-        this.deletePersonalExpense(matched.id);
-      }
+      // Update sinkronisasi konsumsi pribadi ke alokasi keuangan pribadi
+      this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
     }
   }
 
@@ -1036,34 +1003,68 @@ export class StorageService {
     this.deleteFromCloud('cashflow', id);
     this.notifyListeners('cashflow');
 
-    // Hapus sinkronisasi pengeluaran pribadi jika ada
     if (target) {
-      const pList = this.getPersonalExpenses(target.storeId);
-      const matched = pList.find(p => p.sourceCashflowId === id || p.id === `pexp-cf-${id}`);
-      if (matched) {
-        this.deletePersonalExpense(matched.id);
+      this.syncKonsumsiPribadiToPersonalAllocation(target.storeId);
+    }
+  }
+
+  // Helper untuk sinkronisasi konsumsi pribadi dari cashflow ke alokasi total keuangan pribadi
+  static syncKonsumsiPribadiToPersonalAllocation(storeId: string) {
+    const totalKonsumsi = this.getTotalKonsumsiPribadi(storeId);
+    const alloc = this.getPersonalBudgetAllocation(storeId);
+    alloc.totalIncome = totalKonsumsi;
+    alloc.updatedAt = new Date().toISOString();
+    this.savePersonalBudgetAllocation(storeId, alloc);
+  }
+
+  static getTotalKonsumsiPribadi(storeId: string, filterDateFn?: (date: string) => boolean): number {
+    const cashflows = this.getCashflow(storeId);
+    const filtered = cashflows.filter(c => 
+      c.type === 'outflow' && 
+      c.category === 'konsumsi_pribadi' && 
+      (!filterDateFn || filterDateFn(c.date))
+    );
+    return filtered.reduce((sum, c) => sum + (c.amount || 0), 0);
+  }
+
+  static cleanupLegacyPriveExpenses(storeId: string) {
+    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    if (!raw) return;
+    try {
+      const all: PersonalExpenseRecord[] = JSON.parse(raw);
+      const filtered = all.filter(e => !(e.id.startsWith('pexp-cf-') || (e as any).sourceCashflowId));
+      if (filtered.length !== all.length) {
+        this.savePersonalExpenses(filtered);
       }
+    } catch {
+      // ignore
     }
   }
 
   // PERSONAL FINANCE & CASHFLOW (Arus Keuangan Pribadi)
   static getPersonalBudgetAllocation(storeId: string): PersonalBudgetAllocation {
+    const totalKonsumsi = this.getTotalKonsumsiPribadi(storeId);
     const raw = localStorage.getItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`);
-    if (raw) {
-      try {
-        return JSON.parse(raw);
-      } catch (e) {
-        // fallback to default
-      }
-    }
-    return {
-      totalIncome: 1000000, // Default 1.000.000 sesuai contoh user
+    let alloc: PersonalBudgetAllocation = {
+      totalIncome: totalKonsumsi > 0 ? totalKonsumsi : 0,
       sehariHariPercent: 50,
       utangPercent: 20,
       tabunganPercent: 15,
       investasiTokoPercent: 15,
       updatedAt: new Date().toISOString(),
     };
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        alloc = { ...alloc, ...parsed };
+      } catch (e) {
+        // fallback
+      }
+    }
+    if (totalKonsumsi > 0) {
+      alloc.totalIncome = totalKonsumsi;
+    }
+    return alloc;
   }
 
   static savePersonalBudgetAllocation(storeId: string, allocation: PersonalBudgetAllocation) {
@@ -1116,7 +1117,8 @@ export class StorageService {
       expenses = expenses.filter(e => filterDateFn(e.date));
     }
 
-    const totalIncome = allocation.totalIncome || 0;
+    const filteredIncome = this.getTotalKonsumsiPribadi(storeId, filterDateFn);
+    const totalIncome = filteredIncome > 0 ? filteredIncome : (allocation.totalIncome || 0);
 
     // Alokasi Saldo per Pos
     const alokasiSehariHari = Math.round((allocation.sehariHariPercent / 100) * totalIncome);
