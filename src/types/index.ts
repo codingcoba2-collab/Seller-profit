@@ -321,11 +321,16 @@ export interface CurrentUser {
 export type ViewState = 
   | 'login'
   | 'dashboard'
+  | 'category_persiapan'
+  | 'category_penjualan'
+  | 'category_keuangan'
   | 'role_management'   // Persiapan: Manajemen Pegawai & Role
   | 'modal_stok'        // Persiapan: Modal & Stok (HPP)
   | 'steam_sortir'      // Persiapan: Sortir, QC dan Finishing
   | 'admin_shopee'      // Persiapan: Biaya Admin Marketplace
   | 'iklan_koin'        // Persiapan: Saldo Biaya Iklan & Koin Live
+  | 'topup_saldo_input' // Topup Saldo Form Input
+  | 'topup_saldo_riwayat' // Topup Saldo Riwayat
   | 'kehadiran'         // Penjualan: Presensi & Kehadiran Shift
   | 'penjualan'         // Penjualan: Data Penjualan (Live & Non-Live)
   | 'statistik'         // Penjualan: Statistik & Analisis Penjualan

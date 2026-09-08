@@ -1,12 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CurrentUser, ViewState } from './types';
 import { StorageService } from './services/storage';
 import { Navbar } from './components/Navbar';
+import { BreadcrumbBar } from './components/BreadcrumbBar';
 import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
+import { AppLogo } from './components/AppLogo';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { 
+  RoutePath, 
+  normalizePath, 
+  isRouteAllowed, 
+  viewStateToPath 
+} from './services/navigation';
 
-// Views
+// Category Page
+import { CategoryPageView } from './views/CategoryPageView';
+
+// Feature Views
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { RoleManagementView } from './views/RoleManagementView';
@@ -16,7 +27,6 @@ import { AdminShopeeView } from './views/AdminShopeeView';
 import { KehadiranView } from './views/KehadiranView';
 import { PenjualanView } from './views/PenjualanView';
 import { ReturnView } from './views/ReturnView';
-import { IklanKoinView } from './views/IklanKoinView';
 import { GajiView } from './views/GajiView';
 import { LabaRugiView } from './views/LabaRugiView';
 import { CashflowView } from './views/CashflowView';
@@ -24,6 +34,11 @@ import { LabaBersihView } from './views/LabaBersihView';
 import { IndexPerformaView } from './views/IndexPerformaView';
 import { StatistikView } from './views/StatistikView';
 import { PersonalFinanceView } from './views/PersonalFinanceView';
+
+// Top Up Saldo Specialized Views
+import { TopupSaldoHubView } from './views/TopupSaldoHubView';
+import { TopupSaldoInputView } from './views/TopupSaldoInputView';
+import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
 
 interface ToastState {
   id: number;
@@ -33,50 +48,122 @@ interface ToastState {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [currentView, setCurrentView] = useState<ViewState>('login');
+  const [currentRoute, setCurrentRoute] = useState<RoutePath>('/dashboard');
+  const [topupEditId, setTopupEditId] = useState<string | null>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Initialize store and session with smooth loading screen
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const user = StorageService.getCurrentUser();
-      if (user) {
-        setCurrentUser(user);
-        setCurrentView('dashboard');
-      }
-      setIsLoading(false);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  // Helper toast notification
+  const handleNotify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const newToast: ToastState = {
       id: Date.now() + Math.random(),
       message,
       type,
     };
-    setToasts(prev => [...prev, newToast]);
+    setToasts((prev) => [...prev, newToast]);
 
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== newToast.id));
+      setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
     }, 4000);
-  };
+  }, []);
 
   const removeToast = (id: number) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // Centralized Navigation Handler
+  const handleNavigate = useCallback(
+    (target: RoutePath | ViewState | string, editId?: string) => {
+      // Resolve path
+      let resolvedPath: RoutePath;
+      if (typeof target === 'string' && target.startsWith('/')) {
+        resolvedPath = normalizePath(target);
+      } else {
+        resolvedPath = viewStateToPath(target as ViewState);
+      }
+
+      // Check permission if user is logged in
+      if (currentUser && !isRouteAllowed(resolvedPath, currentUser)) {
+        handleNotify('Akses menu ini dibatasi untuk peran Anda.', 'error');
+        return;
+      }
+
+      if (editId) {
+        setTopupEditId(editId);
+      } else if (resolvedPath !== '/topup-saldo/input') {
+        setTopupEditId(null);
+      }
+
+      // Update browser history
+      if (window.location.pathname !== resolvedPath) {
+        window.history.pushState({}, '', resolvedPath);
+      }
+
+      setIsNavigating(true);
+      setCurrentRoute(resolvedPath);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 950);
+    },
+    [currentUser, handleNotify]
+  );
+
+  // Initialize store, session & URL route on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const user = StorageService.getCurrentUser();
+      const initialPath = normalizePath(window.location.pathname);
+
+      if (user) {
+        setCurrentUser(user);
+        if (isRouteAllowed(initialPath, user)) {
+          setCurrentRoute(initialPath);
+          window.history.replaceState({}, '', initialPath);
+        } else {
+          setCurrentRoute('/dashboard');
+          window.history.replaceState({}, '', '/dashboard');
+        }
+      } else {
+        setCurrentRoute('/dashboard');
+      }
+      setIsLoading(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Listen to browser Back and Forward button events (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = normalizePath(window.location.pathname);
+      if (currentUser && !isRouteAllowed(path, currentUser)) {
+        handleNotify('Akses menu ini dibatasi untuk peran Anda.', 'error');
+        setCurrentRoute('/dashboard');
+        window.history.replaceState({}, '', '/dashboard');
+      } else {
+        setCurrentRoute(path);
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentUser, handleNotify]);
 
   const handleLoginSuccess = (user: CurrentUser) => {
     setIsLoading(true);
     setTimeout(() => {
       setCurrentUser(user);
-      setCurrentView('dashboard');
+      const currentUrlPath = normalizePath(window.location.pathname);
+      const destination = isRouteAllowed(currentUrlPath, user) ? currentUrlPath : '/dashboard';
+      setCurrentRoute(destination);
+      window.history.replaceState({}, '', destination);
       setIsLoading(false);
-    }, 400);
+    }, 300);
   };
 
   const handleLogout = () => {
@@ -84,30 +171,18 @@ export default function App() {
     setTimeout(() => {
       StorageService.setCurrentUser(null);
       setCurrentUser(null);
-      setCurrentView('login');
+      window.history.replaceState({}, '', '/dashboard');
       setIsLoading(false);
     }, 300);
   };
 
-  const handleNavigate = (view: ViewState) => {
-    if (view === currentView) return;
-    setIsNavigating(true);
-    setTimeout(() => {
-      setCurrentView(view);
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 150);
-    }, 200);
-  };
-
-  // Loading Screen (Requirement 10)
+  // Loading Screen
   if (isLoading) {
     return <LoadingScreen storeName={currentUser?.storeName} />;
   }
 
   // If not logged in, render LoginView
-  if (!currentUser || currentView === 'login') {
+  if (!currentUser) {
     return (
       <>
         <LoginView
@@ -125,159 +200,238 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col font-sans selection:bg-[#FE2C55] selection:text-white relative">
-      {/* Page Navigation Loading Overlay / Progress Bar */}
+      {/* Page Navigation Transition Screen with App Logo (~1s) */}
       {isNavigating && (
-        <div className="fixed inset-0 z-50 bg-[#0b0c10]/80 backdrop-blur-sm flex flex-col items-center justify-center transition-all animate-fadeIn">
-          <div className="w-12 h-12 rounded-2xl bg-[#161823] border border-white/20 flex items-center justify-center shadow-2xl relative">
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] opacity-50 animate-pulse blur-xs" />
-            <div className="w-6 h-6 border-2 border-[#25F4EE] border-t-transparent rounded-full animate-spin relative z-10" />
+        <div className="fixed inset-0 z-50 bg-[#0b0c10]/85 backdrop-blur-sm flex flex-col items-center justify-center transition-all animate-fadeIn">
+          {/* Neon Glow Ambient */}
+          <div className="absolute w-60 h-60 rounded-full bg-[#FE2C55]/20 blur-3xl pointer-events-none -translate-x-1/4" />
+          <div className="absolute w-60 h-60 rounded-full bg-[#25F4EE]/20 blur-3xl pointer-events-none translate-x-1/4" />
+
+          <div className="relative z-10 flex flex-col items-center text-center space-y-4">
+            {/* App Logo with animated rings */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute -inset-2.5 rounded-3xl border-2 border-[#25F4EE]/60 animate-ping opacity-60 pointer-events-none" style={{ animationDuration: '1.4s' }} />
+              <div className="absolute -inset-1 rounded-2xl border-2 border-[#FE2C55]/60 animate-spin opacity-80 pointer-events-none" style={{ animationDuration: '2s' }} />
+              <div className="relative z-10 p-2 rounded-2xl bg-[#161823] border border-white/20 shadow-2xl animate-pulse">
+                <AppLogo size="lg" showText={false} />
+              </div>
+            </div>
+
+            {/* App Brand & Loading indicator */}
+            <div className="space-y-1 pt-1">
+              <div className="font-black text-sm text-white tracking-wide flex items-center justify-center gap-1">
+                <span>Seller</span>
+                <span className="bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] bg-clip-text text-transparent">
+                  Profit
+                </span>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 pt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#25F4EE] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FE2C55] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
           </div>
-          <p className="mt-3 text-xs font-bold text-zinc-300 tracking-wider">
-            Memuat Halaman...
-          </p>
         </div>
       )}
 
-      {/* Navbar */}
+      {/* Header & Navbar */}
       <Navbar
         currentUser={currentUser}
-        currentView={currentView}
+        currentRoute={currentRoute}
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         onOpenInstallGuide={() => setShowInstallGuide(true)}
         onNotify={handleNotify}
       />
 
+      {/* Breadcrumb Navigation Bar */}
+      <BreadcrumbBar
+        currentRoute={currentRoute}
+        onNavigate={handleNavigate}
+      />
+
       {/* Main Content Area */}
       <main className={`flex-1 pb-16 transition-opacity duration-200 ${isNavigating ? 'opacity-30' : 'opacity-100'}`}>
-        {currentView === 'dashboard' && (
+        {/* 1. Dashboard Utama */}
+        {currentRoute === '/dashboard' && (
           <DashboardView
             currentUser={currentUser}
             onNavigate={handleNavigate}
             onOpenInstallGuide={() => setShowInstallGuide(true)}
+            onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'role_management' && (
+        {/* 2. Halaman Kategori Utama */}
+        {currentRoute === '/persiapan' && (
+          <CategoryPageView
+            categoryKey="persiapan"
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/penjualan' && (
+          <CategoryPageView
+            categoryKey="penjualan"
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/keuangan' && (
+          <CategoryPageView
+            categoryKey="keuangan"
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {/* 3. Halaman Fitur: PERSIAPAN */}
+        {currentRoute === '/persiapan/manajemen-pegawai' && (
           <RoleManagementView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/persiapan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'modal_stok' && (
+        {currentRoute === '/persiapan/modal-stok' && (
           <ModalStokView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/persiapan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'steam_sortir' && (
+        {currentRoute === '/persiapan/sortir-qc' && (
           <SteamSortirView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/persiapan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'admin_shopee' && (
+        {currentRoute === '/persiapan/biaya-admin' && (
           <AdminShopeeView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/persiapan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'kehadiran' && (
+        {/* TOP UP SALDO: HUB, INPUT & RIWAYAT (Halaman Khusus) */}
+        {currentRoute === '/topup-saldo' && (
+          <TopupSaldoHubView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/topup-saldo/input' && (
+          <TopupSaldoInputView
+            currentUser={currentUser}
+            editId={topupEditId}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/topup-saldo/riwayat' && (
+          <TopupSaldoRiwayatView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {/* 4. Halaman Fitur: PENJUALAN */}
+        {currentRoute === '/penjualan/kehadiran' && (
           <KehadiranView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'penjualan' && (
+        {currentRoute === '/penjualan/transaksi' && (
           <PenjualanView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
             onNotify={handleNotify}
           />
         )}
 
-        {currentView === 'return' && (
-          <ReturnView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-            onNotify={handleNotify}
-          />
-        )}
-
-        {currentView === 'iklan_koin' && (
-          <IklanKoinView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-            onNotify={handleNotify}
-          />
-        )}
-
-        {currentView === 'gaji' && (
-          <GajiView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-            onNotify={handleNotify}
-          />
-        )}
-
-        {currentView === 'laba_rugi' && (
-          <LabaRugiView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-          />
-        )}
-
-        {currentView === 'cashflow' && (
-          <CashflowView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-            onNotify={handleNotify}
-          />
-        )}
-
-        {currentView === 'laba_bersih' && (
-          <LabaBersihView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-          />
-        )}
-
-        {currentView === 'keuangan_pribadi' && (
-          <PersonalFinanceView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-            onNotify={handleNotify}
-          />
-        )}
-
-        {currentView === 'index_performa' && (
-          <IndexPerformaView
-            currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
-          />
-        )}
-
-        {currentView === 'statistik' && (
+        {currentRoute === '/penjualan/statistik' && (
           <StatistikView
             currentUser={currentUser}
-            onBackToDashboard={() => handleNavigate('dashboard')}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
+          />
+        )}
+
+        {currentRoute === '/penjualan/retur' && (
+          <ReturnView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/penjualan/laba-rugi' && (
+          <LabaRugiView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
+          />
+        )}
+
+        {currentRoute === '/penjualan/performa' && (
+          <IndexPerformaView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
+          />
+        )}
+
+        {/* 5. Halaman Fitur: KEUANGAN */}
+        {currentRoute === '/keuangan/gaji' && (
+          <GajiView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/keuangan')}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/keuangan/cashflow' && (
+          <CashflowView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/keuangan')}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/keuangan/laba-bersih' && (
+          <LabaBersihView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/keuangan')}
+          />
+        )}
+
+        {currentRoute === '/keuangan/pribadi' && (
+          <PersonalFinanceView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/keuangan')}
+            onNotify={handleNotify}
           />
         )}
       </main>
 
       {/* Floating Toast Container */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-        {toasts.map(toast => (
+        {toasts.map((toast) => (
           <div
             key={toast.id}
             className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl shadow-2xl border text-xs font-semibold backdrop-blur-md ${

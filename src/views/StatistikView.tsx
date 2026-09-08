@@ -29,11 +29,13 @@ interface StatistikViewProps {
 }
 
 type PeriodRange = '7days' | '14days' | '30days' | 'this_month' | 'all';
+type StatistikSubView = 'menu' | 'grafik' | 'top_host' | 'channel' | 'satuan_vs_bundling';
 
 export const StatistikView: React.FC<StatistikViewProps> = ({
   currentUser,
   onBackToDashboard,
 }) => {
+  const [activeSubView, setActiveSubView] = useState<StatistikSubView>('menu');
   const [period, setPeriod] = useState<PeriodRange>('30days');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
@@ -259,332 +261,427 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
     return Object.values(map).sort((a, b) => b.omzet - a.omzet);
   }, [filteredSales]);
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Filter & Period Selector Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-back-dashboard-statistik"
-            type="button"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-[#0b0c10] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 shadow-xs"
-            title="Kembali ke Dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-              <BarChart3 className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-xs font-black text-white">Statistik &amp; Analisis Penjualan</span>
-              <p className="text-[10px] text-zinc-400">Peringkat Host Live, Omzet, Volume Satuan &amp; Bundling</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Period Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {[
-            { key: '7days', label: '7 Hari' },
-            { key: '14days', label: '14 Hari' },
-            { key: '30days', label: '30 Hari' },
-            { key: 'this_month', label: 'Bulan Ini' },
-            { key: 'all', label: 'Semua' },
-          ].map(p => (
+  // MENU UTAMA STATISTIK & ANALISIS (Pilihan 4 Menu dalam Grid 2 ke Samping)
+  if (activeSubView === 'menu') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-3">
             <button
-              key={p.key}
+              id="btn-back-dashboard-statistik"
               type="button"
-              onClick={() => setPeriod(p.key as PeriodRange)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                period === p.key
-                  ? 'bg-gradient-to-r from-[#25F4EE] to-teal-400 text-[#0b0c10] shadow-md shadow-[#25F4EE]/20'
-                  : 'bg-[#0b0c10] text-zinc-400 hover:text-white border border-white/5'
-              }`}
+              onClick={onBackToDashboard}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+              title="Kembali ke Dashboard"
             >
-              {p.label}
+              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Kembali</span>
             </button>
-          ))}
-        </div>
-      </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#25F4EE]" />
+                <span>Statistik &amp; Analisis Penjualan</span>
+              </h2>
+            </div>
+          </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Total Omzet */}
-        <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1 relative overflow-hidden">
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-            <span>Total Omzet Penjualan</span>
-            <TrendingUp className="w-4 h-4 text-[#25F4EE]" />
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-white">
-            {formatRupiah(metrics.totalOmzet)}
-          </div>
-          <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-400 font-medium">
-            <span className="text-[#FE2C55] font-bold">🔴 Live: {formatRupiah(metrics.liveOmzet)}</span>
-            <span>•</span>
-            <span className="text-emerald-400 font-bold">🏪 Non-Live: {formatRupiah(metrics.nonLiveOmzet)}</span>
+          <div className="text-right text-xs text-zinc-400">
+            Total Omzet: <strong className="text-[#25F4EE]">{formatRupiah(metrics.totalOmzet)}</strong>
           </div>
         </div>
 
-        {/* Total Pcs Terjual */}
-        <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-            <span>Total Pcs Barang Terjual</span>
-            <Package className="w-4 h-4 text-emerald-400" />
+        {/* Ringkasan Ringkas */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Omzet</div>
+            <div className="text-sm sm:text-base font-black text-white truncate">{formatRupiah(metrics.totalOmzet)}</div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-white">
-            {formatNumber(metrics.totalPcs)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Pcs Terjual</div>
+            <div className="text-sm sm:text-base font-black text-[#25F4EE] truncate">{formatNumber(metrics.totalPcs)} pcs</div>
           </div>
-          <div className="text-[10px] text-zinc-400 pt-1">
-            Dari <strong className="text-zinc-200">{formatNumber(metrics.totalPackages)}</strong> paket / transaksi
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Paket</div>
+            <div className="text-sm sm:text-base font-black text-white truncate">{formatNumber(metrics.totalPackages)} paket</div>
           </div>
-        </div>
-
-        {/* Satuan vs Bundling */}
-        <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-            <span>Satuan vs Bundling</span>
-            <Layers className="w-4 h-4 text-sky-400" />
-          </div>
-          <div className="text-sm font-black text-white mt-1">
-            <span className="text-[#25F4EE]">🏷️ Satuan: {formatNumber(metrics.satuanPcs)} pcs</span>
-          </div>
-          <div className="text-xs font-bold text-amber-300">
-            📦 Bundling: {formatNumber(metrics.bundlingPackages)} paket ({formatNumber(metrics.bundlingPcs)} pcs)
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Omzet/Jam Live</div>
+            <div className="text-sm sm:text-base font-black text-amber-300 truncate">{formatRupiah(metrics.avgOmzetPerHour)}/jam</div>
           </div>
         </div>
 
-        {/* Produktivitas Live */}
-        <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-            <span>Produktivitas Jam Live</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+        {/* Pilihan 4 Menu Output: Grid Kecil 2 Kesamping, Sisanya ke Bawah */}
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
+            Pilih Modul Analisis:
           </div>
-          <div className="text-xl sm:text-2xl font-black text-amber-300">
-            {formatRupiah(metrics.avgOmzetPerHour)} <span className="text-xs text-zinc-400 font-normal">/ jam</span>
-          </div>
-          <div className="text-[10px] text-zinc-400 pt-1">
-            Rata-rata: <strong className="text-zinc-200">{metrics.avgPcsPerHour} pcs/jam live</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Charts & Leaderboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Trend Bar Chart */}
-        <div className="lg:col-span-2 p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-                <BarChart3 className="w-4 h-4" />
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* 1. Grafik Tren Penjualan */}
+            <div
+              id="menu-stat-grafik"
+              onClick={() => setActiveSubView('grafik')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
+                    Grafik Tren Penjualan
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Tren omzet harian &amp; volume pesanan
+                  </p>
+                </div>
               </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Lihat visual grafik →</span>
+                <span className="text-[#25F4EE] font-bold">Buka</span>
+              </div>
+            </div>
+
+            {/* 2. Peringkat Top Host */}
+            <div
+              id="menu-stat-top-host"
+              onClick={() => setActiveSubView('top_host')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
+                    Peringkat Top Host
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Leaderboard omzet, jam &amp; pcs host
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>{hostLeaderboard.length} Host aktif →</span>
+                <span className="text-[#FE2C55] font-bold">Buka</span>
+              </div>
+            </div>
+
+            {/* 3. Kontribusi Channel */}
+            <div
+              id="menu-stat-channel"
+              onClick={() => setActiveSubView('channel')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-sky-400/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-sky-400 shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-sky-300 transition-colors truncate">
+                    Kontribusi Channel
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Pangsa TikTok, Shopee &amp; Offline
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Pangsa pasar penjualan →</span>
+                <span className="text-sky-400 font-bold">Buka</span>
+              </div>
+            </div>
+
+            {/* 4. Analisis Satuan vs Bundling */}
+            <div
+              id="menu-stat-satuan-bundling"
+              onClick={() => setActiveSubView('satuan_vs_bundling')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-purple-400/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-purple-400 shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-purple-300 transition-colors truncate">
+                    Satuan vs Bundling
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Perbandingan paket vs eceran
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Rasio penjualan produk →</span>
+                <span className="text-purple-400 font-bold">Buka</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // HEADER SUB-VIEW DETAIL DENGAN TOMBOL BACK KE MENU STATISTIK
+  const SubHeader = ({ title, icon: Icon, color = 'text-[#25F4EE]' }: { title: string; icon: any; color?: string }) => (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveSubView('menu')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+          title="Kembali ke Menu Statistik"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Menu Statistik</span>
+        </button>
+        <span className={`text-xs sm:text-sm font-black text-white flex items-center gap-1.5 px-1`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+          <span>{title}</span>
+        </span>
+      </div>
+
+      {/* Period Filter Selector */}
+      <div className="flex items-center gap-1 overflow-x-auto self-start sm:self-auto bg-[#0b0c10] p-1 rounded-xl border border-white/10">
+        {[
+          { key: '7days', label: '7 Hari' },
+          { key: '14days', label: '14 Hari' },
+          { key: '30days', label: '30 Hari' },
+          { key: 'this_month', label: 'Bulan Ini' },
+          { key: 'all', label: 'Semua' },
+        ].map(p => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => setPeriod(p.key as PeriodRange)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              period === p.key
+                ? 'bg-white text-zinc-950 shadow-sm font-black'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* 1. HALAMAN KHUSUS: GRAFIK TREN PENJUALAN */}
+      {activeSubView === 'grafik' && (
+        <>
+          <SubHeader title="Grafik Tren Penjualan Harian" icon={BarChart3} color="text-[#25F4EE]" />
+
+          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-white">Grafik Tren Penjualan Harian</h3>
-                <p className="text-[10px] text-zinc-400">Visualisasi omzet &amp; volume pesanan harian</p>
+                <h3 className="text-sm sm:text-base font-black text-white">Visualisasi Omzet &amp; Pesanan</h3>
+                <p className="text-xs text-zinc-400">Tren penjualan per hari berdasarkan periode yang dipilih</p>
               </div>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 border border-white/10">
-              {trendDays.length} Titik Data
-            </span>
-          </div>
-
-          {/* Interactive Visual Bar Chart */}
-          <div className="h-48 flex items-end justify-between gap-2 pt-6 px-2 bg-[#0b0c10] rounded-2xl border border-white/5 overflow-x-auto">
-            {trendDays.map((day, idx) => {
-              const heightPct = Math.max(12, Math.round((day.omzet / maxOmzet) * 100));
-              const isToday = idx === trendDays.length - 1;
-
-              return (
-                <div key={day.dateStr} className="flex-1 min-w-[24px] flex flex-col items-center gap-1.5 h-full justify-end group relative">
-                  {/* Tooltip on Hover */}
-                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black/95 text-white text-[10px] px-2.5 py-1.5 rounded-xl border border-white/20 pointer-events-none whitespace-nowrap z-20 shadow-2xl">
-                    <div className="font-extrabold text-[#25F4EE]">{formatRupiah(day.omzet)}</div>
-                    <div className="text-zinc-300">{day.pcs} pcs • {day.packages} paket</div>
-                    <div className="text-[9px] text-zinc-500">{formatDateIndo(day.dateStr)}</div>
-                  </div>
-
-                  {/* Bar */}
-                  <div className="w-full max-w-[36px] rounded-t-xl bg-zinc-800 relative flex items-end overflow-hidden" style={{ height: `${heightPct}%` }}>
-                    <div 
-                      className={`w-full h-full rounded-t-xl transition-all duration-300 ${
-                        isToday 
-                          ? 'bg-gradient-to-t from-[#FE2C55] to-[#25F4EE] opacity-100 shadow-[0_0_12px_rgba(37,244,238,0.5)]' 
-                          : day.omzet > 0 
-                            ? 'bg-[#25F4EE] opacity-80 group-hover:opacity-100' 
-                            : 'bg-zinc-800'
-                      }`}
-                    />
-                  </div>
-
-                  {/* Label */}
-                  <span className={`text-[10px] font-bold truncate max-w-[32px] text-center ${isToday ? 'text-[#25F4EE]' : 'text-zinc-500'}`}>
-                    {isToday ? 'Kini' : day.dayName}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#25F4EE]" />
-              <span>Omzet Terverifikasi</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#FE2C55]" />
-              <span>Puncak Live</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Host Leaderboard */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 flex items-center justify-center text-[#FE2C55]">
-                  <Flame className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black text-white">Peringkat Top Host Live</h3>
-                  <p className="text-[10px] text-zinc-400">Total omzet &amp; produktivitas host</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-[#25F4EE] border border-[#25F4EE]/30">
-                {hostLeaderboard.length} Host Aktif
+              <span className="text-xs font-bold px-3 py-1 rounded-xl bg-white/5 text-[#25F4EE] border border-white/10">
+                {trendDays.length} Hari Data
               </span>
             </div>
 
-            <div className="space-y-2.5 max-h-[290px] overflow-y-auto pr-1">
+            {/* Interactive Visual Bar Chart */}
+            <div className="h-64 flex items-end justify-between gap-2 pt-8 px-3 bg-[#0b0c10] rounded-2xl border border-white/5 overflow-x-auto">
+              {trendDays.map((day, idx) => {
+                const heightPct = Math.max(12, Math.round((day.omzet / maxOmzet) * 100));
+                const isToday = idx === trendDays.length - 1;
+
+                return (
+                  <div key={day.dateStr} className="flex-1 min-w-[28px] flex flex-col items-center gap-1.5 h-full justify-end group relative">
+                    {/* Tooltip on Hover */}
+                    <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-black/95 text-white text-[10px] px-2.5 py-1.5 rounded-xl border border-white/20 pointer-events-none whitespace-nowrap z-20 shadow-2xl">
+                      <div className="font-extrabold text-[#25F4EE]">{formatRupiah(day.omzet)}</div>
+                      <div className="text-zinc-300">{day.pcs} pcs • {day.packages} paket</div>
+                      <div className="text-[9px] text-zinc-500">{formatDateIndo(day.dateStr)}</div>
+                    </div>
+
+                    {/* Bar */}
+                    <div className="w-full max-w-[36px] rounded-t-xl bg-zinc-800 relative flex items-end overflow-hidden" style={{ height: `${heightPct}%` }}>
+                      <div 
+                        className={`w-full h-full rounded-t-xl transition-all duration-300 ${
+                          isToday 
+                            ? 'bg-gradient-to-t from-[#FE2C55] to-[#25F4EE] opacity-100 shadow-[0_0_12px_rgba(37,244,238,0.5)]' 
+                            : day.omzet > 0 
+                              ? 'bg-[#25F4EE] opacity-80 group-hover:opacity-100' 
+                              : 'bg-zinc-800'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Label */}
+                    <span className={`text-[10px] font-bold truncate max-w-[32px] text-center ${isToday ? 'text-[#25F4EE]' : 'text-zinc-500'}`}>
+                      {isToday ? 'Kini' : day.dayName}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-zinc-400 px-1 pt-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#25F4EE]" />
+                <span>Omzet Terverifikasi</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FE2C55]" />
+                <span>Puncak Live Streaming</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 2. HALAMAN KHUSUS: PERINGKAT TOP HOST */}
+      {activeSubView === 'top_host' && (
+        <>
+          <SubHeader title="Peringkat Top Host Live Streaming" icon={Flame} color="text-[#FE2C55]" />
+
+          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white">Leaderboard Kinerja Host</h3>
+                <p className="text-xs text-zinc-400">Peringkat berdasarkan omzet penjualan live streaming</p>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-xl bg-white/5 text-[#FE2C55] border border-white/10">
+                {hostLeaderboard.length} Host Tercatat
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
               {hostLeaderboard.length > 0 ? (
                 hostLeaderboard.map((host, idx) => {
                   const medals = ['🥇', '🥈', '🥉'];
                   return (
                     <div
                       key={host.name}
-                      className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between gap-3 hover:border-[#25F4EE]/30 transition"
+                      className="p-3.5 sm:p-4 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between gap-3 hover:border-[#25F4EE]/30 transition"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">{medals[idx] || `#${idx + 1}`}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">{medals[idx] || `#${idx + 1}`}</span>
                         <div>
-                          <h4 className="text-xs font-bold text-white">{host.name}</h4>
-                          <p className="text-[10px] text-zinc-400">
+                          <h4 className="text-sm font-bold text-white">{host.name}</h4>
+                          <p className="text-xs text-zinc-400">
                             {formatNumber(Math.round(host.pcs))} pcs • {host.sessions} sesi ({Math.round(host.hours)} jam)
                           </p>
-                          <div className="text-[9px] text-zinc-500 mt-0.5">
+                          <div className="text-[10px] text-zinc-500 mt-0.5">
                             Satuan: {formatNumber(Math.round(host.satuanPcs))} pcs | Bundling: {formatNumber(Math.round(host.bundlingPkgs))} paket
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-extrabold text-[#25F4EE]">
+                        <div className="text-sm font-extrabold text-[#25F4EE]">
                           {formatRupiah(Math.round(host.omzet))}
+                        </div>
+                        <div className="text-[10px] text-zinc-400">
+                          {host.hours > 0 ? formatRupiah(Math.round(host.omzet / host.hours)) : 0}/jam
                         </div>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="text-center py-8 text-xs text-zinc-500 bg-[#0b0c10] rounded-2xl border border-white/5">
-                  Belum ada data penjualan host pada periode ini.
+                <div className="text-center py-12 text-xs text-zinc-500 bg-[#0b0c10] rounded-2xl border border-white/5">
+                  Belum ada data penjualan host pada rentang waktu ini.
                 </div>
               )}
             </div>
           </div>
+        </>
+      )}
 
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between text-xs mt-2">
-            <span className="text-zinc-400">Rata-rata HPP Toko:</span>
-            <strong className="text-[#25F4EE] font-black text-sm">
-              {formatRupiah(hppInfo.weightedAverageHpp)} / pcs
-            </strong>
-          </div>
-        </div>
-      </div>
+      {/* 3. HALAMAN KHUSUS: KONTRIBUSI CHANNEL */}
+      {activeSubView === 'channel' && (
+        <>
+          <SubHeader title="Kontribusi per Channel Penjualan" icon={ShoppingBag} color="text-sky-400" />
 
-      {/* Channel Distribution Table & Satuan vs Bundling Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Channel Breakdown Card */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-sky-400/10 border border-sky-400/30 flex items-center justify-center text-sky-400">
-              <ShoppingBag className="w-3.5 h-3.5" />
+          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-white">Distribusi Omzet Kanal Penjualan</h3>
+              <p className="text-xs text-zinc-400">Perbandingan kontribusi dari TikTok Shop, Shopee Live, Tokopedia, dan Offline</p>
             </div>
-            <h3 className="text-xs sm:text-sm font-black text-white">Kontribusi per Channel Penjualan</h3>
-          </div>
 
-          <div className="space-y-2 pt-1">
-            {channelDistribution.length > 0 ? (
-              channelDistribution.map(ch => {
-                const pct = metrics.totalOmzet > 0 ? Math.round((ch.omzet / metrics.totalOmzet) * 100) : 0;
-                return (
-                  <div key={ch.label} className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-white">{ch.label}</span>
-                      <span className="text-[#25F4EE]">{formatRupiah(ch.omzet)} ({pct}%)</span>
+            <div className="space-y-3 pt-1">
+              {channelDistribution.length > 0 ? (
+                channelDistribution.map(ch => {
+                  const pct = metrics.totalOmzet > 0 ? Math.round((ch.omzet / metrics.totalOmzet) * 100) : 0;
+                  return (
+                    <div key={ch.label} className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
+                      <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
+                        <span className="text-white">{ch.label}</span>
+                        <span className="text-[#25F4EE]">{formatRupiah(ch.omzet)} ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                        <div className="bg-[#25F4EE] h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-zinc-400">
+                        <span>{formatNumber(ch.pcs)} pcs terjual</span>
+                        <span>{formatNumber(ch.packages)} transaksi/paket</span>
+                      </div>
                     </div>
-                    <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-[#25F4EE] h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>{formatNumber(ch.pcs)} pcs terjual</span>
-                      <span>{formatNumber(ch.packages)} transaksi/paket</span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-6 text-xs text-zinc-500">
-                Belum ada data channel.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Satuan vs Bundling Analysis Card */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-purple-400/10 border border-purple-400/30 flex items-center justify-center text-purple-400">
-              <Layers className="w-3.5 h-3.5" />
-            </div>
-            <h3 className="text-xs sm:text-sm font-black text-white">Analisis Model Penjualan (Satuan vs Bundling)</h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            {/* Satuan Card */}
-            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-[#25F4EE] bg-[#25F4EE]/10 px-2.5 py-0.5 rounded-full">
-                🏷️ Penjualan Satuan
-              </div>
-              <div className="text-base font-black text-white">
-                {formatRupiah(metrics.satuanOmzet)}
-              </div>
-              <div className="text-[10px] text-zinc-400 space-y-0.5">
-                <div>Pcs: <strong className="text-zinc-200">{formatNumber(metrics.satuanPcs)} pcs</strong></div>
-                <div>Paket: <strong className="text-zinc-200">{formatNumber(metrics.satuanPackages)} paket</strong></div>
-              </div>
-            </div>
-
-            {/* Bundling Card */}
-            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded-full">
-                📦 Penjualan Bundling
-              </div>
-              <div className="text-base font-black text-white">
-                {formatRupiah(metrics.bundlingOmzet)}
-              </div>
-              <div className="text-[10px] text-zinc-400 space-y-0.5">
-                <div>Paket: <strong className="text-zinc-200">{formatNumber(metrics.bundlingPackages)} paket</strong></div>
-                <div>Isi Pcs: <strong className="text-zinc-200">{formatNumber(metrics.bundlingPcs)} pcs</strong></div>
-              </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-12 text-xs text-zinc-500 bg-[#0b0c10] rounded-2xl border border-white/5">
+                  Belum ada data transaksi channel pada periode ini.
+                </div>
+              )}
             </div>
           </div>
+        </>
+      )}
 
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 text-[11px] text-zinc-400 leading-relaxed">
-            💡 <strong>Rekomendasi Host:</strong> Penjualan bundling mempercepat perputaran volume stok, sedangkan penjualan satuan menjaga margin per pcs tetap tinggi.
+      {/* 4. HALAMAN KHUSUS: ANALISIS SATUAN VS BUNDLING */}
+      {activeSubView === 'satuan_vs_bundling' && (
+        <>
+          <SubHeader title="Analisis Format Penjualan (Satuan vs Bundling)" icon={Layers} color="text-purple-400" />
+
+          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-white">Perbandingan Model Penjualan</h3>
+              <p className="text-xs text-zinc-400">Evaluasi efektivitas transaksi bundling paket terhadap eceran satuan</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Satuan Card */}
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2.5">
+                <div className="inline-flex items-center gap-1 text-xs font-bold text-[#25F4EE] bg-[#25F4EE]/10 px-3 py-1 rounded-full">
+                  🏷️ Penjualan Satuan
+                </div>
+                <div className="text-xl font-black text-white">
+                  {formatRupiah(metrics.satuanOmzet)}
+                </div>
+                <div className="text-xs text-zinc-400 space-y-1">
+                  <div>Volume Terjual: <strong className="text-zinc-200">{formatNumber(metrics.satuanPcs)} pcs</strong></div>
+                  <div>Jumlah Transaksi: <strong className="text-zinc-200">{formatNumber(metrics.satuanPackages)} paket</strong></div>
+                </div>
+              </div>
+
+              {/* Bundling Card */}
+              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2.5">
+                <div className="inline-flex items-center gap-1 text-xs font-bold text-amber-300 bg-amber-400/10 px-3 py-1 rounded-full">
+                  📦 Penjualan Bundling
+                </div>
+                <div className="text-xl font-black text-white">
+                  {formatRupiah(metrics.bundlingOmzet)}
+                </div>
+                <div className="text-xs text-zinc-400 space-y-1">
+                  <div>Paket Bundling: <strong className="text-zinc-200">{formatNumber(metrics.bundlingPackages)} paket</strong></div>
+                  <div>Isi Total Pcs: <strong className="text-zinc-200">{formatNumber(metrics.bundlingPcs)} pcs</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 text-xs text-zinc-400 leading-relaxed">
+              💡 <strong>Rekomendasi Host &amp; Toko:</strong> Penjualan bundling mempercepat perputaran volume stok gudang dan menekan ongkir, sedangkan penjualan satuan menjaga margin profit per pcs tetap maksimal.
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

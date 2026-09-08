@@ -12,6 +12,9 @@ import {
   KeyRound, 
   CheckCircle2, 
   ArrowLeft, 
+  ArrowRight,
+  ChevronRight,
+  UserPlus,
   Search, 
   ShieldCheck,
   Sparkles
@@ -30,7 +33,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<SubTabType>('output');
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [formStep, setFormStep] = useState<number>(1);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string>('');
@@ -211,6 +215,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setMonthlyBonusType('percentage');
     setMonthlyBonusValue(1.0);
     setMonthlyBonusDesc('Bonus pencapaian omzet bulanan toko');
+    setEditingId(null);
+    setFormStep(1);
   };
 
   const handleEdit = (emp: Employee) => {
@@ -249,11 +255,13 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       setMonthlyBonusActive(false);
     }
 
-    setSubTab('input'); // Switch to input form smoothly (Requirement 7)
+    setFormStep(1);
+    setViewMode('form');
   };
 
   const handleCancelEdit = () => {
     resetForm();
+    setViewMode('list');
   };
 
   const handleDelete = (id: string) => {
@@ -345,7 +353,43 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
     loadData();
     resetForm();
-    setSubTab('output');
+    setViewMode('list');
+  };
+
+  const handleNextStep = () => {
+    if (formStep === 1) {
+      if (!name.trim()) {
+        onNotify('Nama lengkap wajib diisi!', 'error');
+        return;
+      }
+      if (!username.trim()) {
+        onNotify('Username login wajib diisi!', 'error');
+        return;
+      }
+      const cleanUsername = username.toLowerCase().replace(/\s+/g, '');
+      if (
+        (!editingId || cleanUsername !== initialUsername.toLowerCase().replace(/\s+/g, '')) &&
+        StorageService.isUsernameTaken(cleanUsername, editingId || undefined, currentUser.storeId)
+      ) {
+        onNotify(`Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
+        return;
+      }
+      setFormStep(2);
+    } else if (formStep === 2) {
+      if (selectedRoles.length === 0) {
+        onNotify('Pilih minimal 1 role jabatan untuk pegawai!', 'error');
+        return;
+      }
+      setFormStep(3);
+    } else if (formStep === 3) {
+      setFormStep(4);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (formStep > 1) {
+      setFormStep(prev => prev - 1);
+    }
   };
 
   const filteredEmployees = employees.filter(emp => {
@@ -355,857 +399,757 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Sub Navigation */}
-      <ViewSubNav
-        currentSubTab={subTab}
-        onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Pegawai' : 'Input Pegawai Baru'}
-        outputTitle="Daftar Pegawai &amp; Akses"
-      />
-
-      {/* TAB 1: FORM INPUT / EDIT */}
-      {subTab === 'input' && (
-        <div className="max-w-4xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-black text-white text-base flex items-center gap-2">
-              {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <Users className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Data Pegawai & Role' : 'Form Registrasi Pegawai Baru'}</span>
-            </h3>
-            {editingId && (
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
+      {/* 1. HALAMAN DAFTAR PEGAWAI (OUTPUT) */}
+      {viewMode === 'list' && (
+        <div className="space-y-6">
+          {/* Header Bar Output */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
+            <div className="flex items-center gap-3">
               <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
+                onClick={onBackToDashboard}
+                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
+                title="Kembali ke Dashboard"
               >
-                Batal Edit
+                <ArrowLeft className="w-5 h-5" />
               </button>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nama Lengkap <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Contoh: Siti Rahma"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                />
+                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#25F4EE]" />
+                  <span>Data Pegawai &amp; Akses Role</span>
+                </h2>
+                <p className="text-xs text-zinc-400">Kelola daftar tim, hak akses akun, dan skema gaji/komisi</p>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Username Login <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="siti_host"
-                  className={`w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border text-white focus:border-[#25F4EE] ${
-                    username.trim() &&
-                    (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
-                    StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
-                      ? 'border-[#FE2C55]'
-                      : 'border-white/10'
-                  }`}
-                />
-                {username.trim() &&
-                  (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
-                  StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
-                  <p className="text-[#FE2C55] text-[10px] font-bold mt-1">
-                    already exist please use another name
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Password <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="123"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-mono focus:border-[#25F4EE]"
-                />
-              </div>
-            </div>
-
-            {/* Pilihan Multi-Role */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-2">
-                Pilih Hak Akses Role (Bisa Rangkap Jabatan) <span className="text-[#FE2C55]">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                {ALL_ROLES.map(role => {
-                  const isChecked = selectedRoles.includes(role);
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
-                      className={`p-3 rounded-2xl border text-xs font-extrabold flex flex-col items-center justify-center gap-1.5 transition cursor-pointer ${
-                        isChecked
-                          ? 'bg-[#25F4EE] text-black border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
-                          : 'bg-[#0b0c10] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
-                      }`}
-                    >
-                      <span className="capitalize">{roleLabels[role]}</span>
-                      {isChecked && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Pengaturan Gaji Pokok */}
-            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-4">
-              <h4 className="text-xs font-bold text-[#25F4EE]">
-                Pengaturan Gaji Pokok
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Tipe Hitungan Gaji Pokok
-                  </label>
-                  <select
-                    value={salaryType}
-                    onChange={e => setSalaryType(e.target.value as SalaryType)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    <option value="hourly">Per Jam (Cocok untuk Host Live)</option>
-                    <option value="daily">Per Hari / Shift (Cocok untuk Admin / Sortir / Steam)</option>
-                    <option value="monthly">Bulanan (Gaji Tetap)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Nominal Gaji Pokok (Rp)
-                  </label>
-                  <CommaNumberInput
-                    value={salaryRate}
-                    onChange={setSalaryRate}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Pengaturan Insentif Per Role */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Pengaturan Insentif Per Role Terpilih</span>
-                </h4>
-              </div>
-
-              {selectedRoles.map(role => {
-                const config = incentiveMap[role] || { type: 'none', rate: 0, description: '' };
-                const isHostOrAdmin = role === 'host' || role === 'admin_toko';
-
-                return (
-                  <div key={role} className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-4">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-                      <span className="text-xs font-black text-white flex items-center gap-2">
-                        <span>Insentif Role:</span>
-                        <span className="text-[#25F4EE] bg-[#25F4EE]/10 px-2 py-0.5 rounded-lg border border-[#25F4EE]/30">
-                          {roleLabels[role]}
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                          Tipe Insentif
-                        </label>
-                        <select
-                          value={config.type}
-                          onChange={e => handleIncentiveChange(role, e.target.value as IncentiveType)}
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                        >
-                          <option value="none">Tanpa Insentif</option>
-                          {role === 'host' && (
-                            <>
-                              <option value="per_pcs_sold">Per Pcs Terjual Live</option>
-                              <option value="per_package_sold">Per Paket Terjual</option>
-                            </>
-                          )}
-                          {role === 'admin_toko' && (
-                            <>
-                              <option value="per_package_sold">Per Paket Dicatat &amp; Packing</option>
-                              <option value="per_pcs_sold">Per Pcs Dicatat</option>
-                            </>
-                          )}
-                          {(role === 'sortir' || role === 'steam') && (
-                            <option value="per_ball_pcs">Per Pcs Layak Jual (Reject Tidak Dihitung)</option>
-                          )}
-                          <option value="fixed_amount">Nominal Tetap (Flat)</option>
-                        </select>
-                      </div>
-
-                      {config.type !== 'none' && !(role === 'host' && config.hasSeparateBundlingSatuan) && (
-                        <div>
-                          <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                            {config.type === 'fixed_amount' 
-                              ? 'Nominal Komisi Flat (Rp)' 
-                              : role === 'host'
-                                ? (config.type === 'per_pcs_sold' ? 'Tarif Komisi Dasar per Pcs Live (Rp)' : 'Tarif Komisi Dasar per Paket Live (Rp)')
-                                : role === 'admin_toko'
-                                  ? (config.type === 'per_package_sold' ? 'Tarif per Paket Packing (Rp)' : 'Tarif per Pcs Dicatat (Rp)')
-                                  : 'Tarif Komisi (Rp)'}
-                          </label>
-                          <CommaNumberInput
-                            value={config.rate}
-                            onChange={val => handleIncentiveChange(role, config.type, val)}
-                            className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                          />
-                          {role === 'host' && (
-                            <span className="text-[10px] text-[#25F4EE] mt-1 block">
-                              💡 Tarif ini otomatis digunakan saat sesi Live di Data Penjualan diset <b>Satuan</b> maupun <b>Bundling</b>.
-                            </span>
-                          )}
-                          {(role === 'sortir' || role === 'steam') && config.type === 'per_ball_pcs' && (
-                            <span className="text-[10px] text-[#25F4EE] mt-1 block">
-                              ✨ Insentif hanya dihitung dari jumlah <b>Pcs Layak Jual</b> (barang reject otomatis diabaikan).
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Req 4: Pengaturan Insentif Terpisah Satuan & Bundling untuk Host */}
-                    {role === 'host' && (
-                      <div className="pt-3 border-t border-white/5 space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(config.hasSeparateBundlingSatuan)}
-                            onChange={e => {
-                              const checked = e.target.checked;
-                              setIncentiveMap(prev => ({
-                                ...prev,
-                                host: {
-                                  ...(prev.host || { type: 'per_pcs_sold', rate: 1000, description: '' }),
-                                  hasSeparateBundlingSatuan: checked,
-                                  satuanRate: prev.host?.satuanRate || 1000,
-                                  satuanIncentiveType: prev.host?.satuanIncentiveType || 'per_pcs_sold',
-                                  bundlingRate: prev.host?.bundlingRate || 2500,
-                                  bundlingIncentiveType: prev.host?.bundlingIncentiveType || 'per_package_sold',
-                                }
-                              }));
-                            }}
-                            className="w-4 h-4 rounded accent-[#25F4EE]"
-                          />
-                          <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
-                            Pisahkan Perhitungan Insentif Penjualan Satuan &amp; Bundling
-                          </span>
-                        </label>
-
-                        {config.hasSeparateBundlingSatuan && (
-                          <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/40 space-y-4">
-                            <div className="text-[11px] text-zinc-300">
-                              💡 Karena penjualan <b>Satuan</b> dan <b>Bundling</b> memiliki margin &amp; perhitungan berbeda, tentukan tarif komisi masing-masing:
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* 1. Pengaturan Penjualan Bundling */}
-                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                                  <span>📦 Insentif Penjualan Bundling</span>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    Model Hitungan Bundling
-                                  </label>
-                                  <select
-                                    value={config.bundlingIncentiveType || 'per_package_sold'}
-                                    onChange={e => {
-                                      const val = e.target.value as any;
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          bundlingIncentiveType: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                                  >
-                                    <option value="per_package_sold">Per Paket Bundling Terjual (Rp)</option>
-                                    <option value="per_pcs_sold">Per Pcs Barang Bundling (Rp)</option>
-                                    <option value="percentage">% dari Omzet Penjualan Bundling</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    {config.bundlingIncentiveType === 'percentage' ? 'Persentase Bundling (%)' : 'Tarif Insentif Bundling (Rp)'}
-                                  </label>
-                                  <CommaNumberInput
-                                    value={config.bundlingRate || 2500}
-                                    onChange={val => {
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          bundlingRate: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-300 font-bold focus:border-[#25F4EE]"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* 2. Pengaturan Penjualan Satuan */}
-                              <div className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-3">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-[#25F4EE]">
-                                  <span>🏷️ Insentif Penjualan Satuan</span>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    Model Hitungan Satuan
-                                  </label>
-                                  <select
-                                    value={config.satuanIncentiveType || 'per_pcs_sold'}
-                                    onChange={e => {
-                                      const val = e.target.value as any;
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          satuanIncentiveType: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                                  >
-                                    <option value="per_pcs_sold">Per Pcs Satuan Terjual (Rp)</option>
-                                    <option value="per_package_sold">Per Paket / Checkout Satuan (Rp)</option>
-                                    <option value="percentage">% dari Omzet Penjualan Satuan</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1">
-                                    {config.satuanIncentiveType === 'percentage' ? 'Persentase Satuan (%)' : 'Tarif Insentif Satuan (Rp)'}
-                                  </label>
-                                  <CommaNumberInput
-                                    value={config.satuanRate || 1000}
-                                    onChange={val => {
-                                      setIncentiveMap(prev => ({
-                                        ...prev,
-                                        host: {
-                                          ...prev.host!,
-                                          satuanRate: val,
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Req 1: Skema Insentif Berjenjang / Tier Rule */}
-                    {config.type !== 'none' && isHostOrAdmin && (
-                      <div className="pt-3 border-t border-white/5 space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(config.hasTierRule)}
-                            onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, e.target.checked)}
-                            className="w-4 h-4 rounded accent-[#25F4EE]"
-                          />
-                          <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
-                            Aktifkan Skema Insentif Berjenjang (Tier Target Penjualan)
-                          </span>
-                        </label>
-
-                        {config.hasTierRule && (
-                          <div className="p-4 rounded-xl bg-[#161823] border border-[#25F4EE]/30 space-y-4">
-                            <div>
-                              <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                                Target Minimal Penjualan (Paket)
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={config.tierThresholdPackages || 15}
-                                onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
-                                placeholder="Contoh: 15"
-                                className="w-full sm:w-1/2 px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                              />
-                              <span className="text-[10px] text-zinc-400 mt-1 block">
-                                Batas ambang minimal tercapainya bonus target penjualan (misal 15 paket).
-                              </span>
-                            </div>
-
-                            {/* Input Berjenjang/Naik: Bundling & Satuan */}
-                            <div className="space-y-3 pt-2 border-t border-white/5">
-                              <div>
-                                <label className="block text-[11px] font-bold text-amber-300 mb-1">
-                                  Tarif Insentif Berjenjang / Naik (Bundling) (Rp)
-                                </label>
-                                <CommaNumberInput
-                                  value={config.tierRateBundling || config.tierRate || 3000}
-                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, val, undefined)}
-                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-300 font-bold focus:border-[#25F4EE]"
-                                />
-                                <span className="text-[10px] text-zinc-400 mt-1 block">
-                                  Tarif insentif berjenjang untuk penjualan kategori <b>Bundling</b> saat capai target.
-                                </span>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-bold text-[#25F4EE] mb-1">
-                                  Tarif Insentif Berjenjang / Naik (Satuan) (Rp)
-                                </label>
-                                <CommaNumberInput
-                                  value={config.tierRateSatuan || (config.tierRate ? Math.round(config.tierRate / 2) : 1500)}
-                                  onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, undefined, val)}
-                                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
-                                />
-                                <span className="text-[10px] text-zinc-400 mt-1 block">
-                                  Tarif insentif berjenjang untuk penjualan kategori <b>Satuan</b> saat capai target.
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Opsi Metode Perhitungan Skema Berjenjang */}
-                            <div className="pt-3 border-t border-white/10 space-y-2.5">
-                              <label className="block text-xs font-bold text-white">
-                                Metode Perhitungan Insentif Saat Capai Target:
-                              </label>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                {/* Opsi 1: Excess Only (Progresif / Selisih Saja) */}
-                                <div 
-                                  onClick={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'excess_only')}
-                                  className={`p-3 rounded-xl border cursor-pointer transition select-none flex flex-col justify-between ${
-                                    (config.tierCalculationMode || 'excess_only') === 'excess_only'
-                                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white shadow-sm'
-                                      : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:border-white/20'
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <input
-                                      type="radio"
-                                      name={`tier-mode-${role}`}
-                                      checked={(config.tierCalculationMode || 'excess_only') === 'excess_only'}
-                                      onChange={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'excess_only')}
-                                      className="mt-0.5 accent-[#25F4EE]"
-                                    />
-                                    <div>
-                                      <div className="text-xs font-bold text-white flex items-center gap-1">
-                                        <span>Hanya Selisih Paket di Atas Target</span>
-                                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Rekomendasi</span>
-                                      </div>
-                                      <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
-                                        Paket sampai batas target tetap pakai <b className="text-white">tarif standar</b>, dan hanya paket kelebihannya yang dihitung <b className="text-[#25F4EE]">tarif berjenjang (Bundling / Satuan)</b>.
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Opsi 2: All Units (Flat Tier) */}
-                                <div 
-                                  onClick={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'all_units')}
-                                  className={`p-3 rounded-xl border cursor-pointer transition select-none flex flex-col justify-between ${
-                                    config.tierCalculationMode === 'all_units'
-                                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white shadow-sm'
-                                      : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:border-white/20'
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <input
-                                      type="radio"
-                                      name={`tier-mode-${role}`}
-                                      checked={config.tierCalculationMode === 'all_units'}
-                                      onChange={() => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, 'all_units')}
-                                      className="mt-0.5 accent-[#25F4EE]"
-                                    />
-                                    <div>
-                                      <div className="text-xs font-bold text-white">
-                                        Seluruh Paket Dihitung Tarif Baru
-                                      </div>
-                                      <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed">
-                                        Begitu penjualan tembus target, <b className="text-white">seluruh paket</b> otomatis langsung dikalikan dengan tarif berjenjang yang lebih tinggi.
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Live Simulation Box */}
-                            <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/10 text-xs space-y-1.5">
-                              <div className="text-[11px] font-bold text-zinc-400 flex items-center justify-between">
-                                <span>💡 Simulasi Perhitungan ({config.tierThresholdPackages || 15} Target vs 17 Paket Terjual):</span>
-                              </div>
-                              <div className="text-zinc-300 text-[11px] space-y-1">
-                                <p>
-                                  • <b className="text-amber-300">Bundling:</b> Tarif Berjenjang @ {formatRupiah(config.tierRateBundling || config.tierRate || 3000)}
-                                </p>
-                                <p>
-                                  • <b className="text-[#25F4EE]">Satuan:</b> Tarif Berjenjang @ {formatRupiah(config.tierRateSatuan || 1500)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Req 2: Pengaturan Bonus Rangkap Role Penjualan Paket */}
-            {selectedRoles.length > 1 && (
-              <div className="p-5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/40">
-                      Multi-Role Rule
-                    </span>
-                    <h4 className="text-xs font-black text-white">
-                      Bonus Rangkap Role Penjualan Paket
-                    </h4>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={multiRoleActive}
-                      onChange={e => setMultiRoleActive(e.target.checked)}
-                      className="w-4 h-4 rounded accent-purple-400"
-                    />
-                    <span className="text-xs font-bold text-purple-300">
-                      {multiRoleActive ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </label>
-                </div>
-
-                <p className="text-[11px] text-zinc-400">
-                  Pegawai ini merangkap {selectedRoles.length} role ({selectedRoles.map(r => roleLabels[r]).join(', ')}). Atur kompensasi tambahan jika total paket penjualan toko/sesi menembus target.
-                </p>
-
-                {multiRoleActive && (
-                  <div className="space-y-3 pt-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                          Target Penjualan Paket
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={multiRoleThreshold}
-                          onChange={e => setMultiRoleThreshold(Number(e.target.value))}
-                          placeholder="Contoh: 100"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-purple-400"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                          Bentuk Tambahan Benefit
-                        </label>
-                        <select
-                          value={multiRoleBenefitType}
-                          onChange={e => setMultiRoleBenefitType(e.target.value as any)}
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-purple-400"
-                        >
-                          <option value="bonus_per_package">Tambahan Bonus Per Paket</option>
-                          <option value="bonus_per_pcs">Tambahan Bonus Per Pcs</option>
-                          <option value="hourly_rate_override">Kenaikan Gaji Pokok (Per Jam/Shift)</option>
-                          <option value="fixed_amount">Bonus Pasti Nominal Tetap (Flat)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                          Nominal Benefit (Rp)
-                        </label>
-                        <CommaNumberInput
-                          value={multiRoleBenefitValue}
-                          onChange={setMultiRoleBenefitValue}
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-purple-300 font-bold focus:border-purple-400"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                        Keterangan Aturan Rangkap Role
-                      </label>
-                      <input
-                        type="text"
-                        value={multiRoleDesc}
-                        onChange={e => setMultiRoleDesc(e.target.value)}
-                        placeholder="Contoh: Bonus rangkap host & admin toko saat tembus 100 paket"
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white focus:border-purple-400"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Req 4: Pengaturan Target Omzet & Bonus Bulanan Toko */}
-            <div className="p-5 rounded-2xl bg-[#0b0c10] border border-amber-500/30 space-y-4">
-              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40">
-                    Monthly Target
-                  </span>
-                  <h4 className="text-xs font-black text-white">
-                    Bonus Bulanan Pencapaian Target Omzet Toko
-                  </h4>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={monthlyBonusActive}
-                    onChange={e => setMonthlyBonusActive(e.target.checked)}
-                    className="w-4 h-4 rounded accent-amber-400"
-                  />
-                  <span className="text-xs font-bold text-amber-300">
-                    {monthlyBonusActive ? 'Aktif' : 'Nonaktif'}
-                  </span>
-                </label>
-              </div>
-
-              <p className="text-[11px] text-zinc-400">
-                Berikan apresiasi bonus akhir bulan kepada pegawai jika omzet kotor toko dalam bulan berjalan mencapai atau melampaui target tertentu.
-              </p>
-
-              {monthlyBonusActive && (
-                <div className="space-y-3 pt-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                        Target Omzet Toko (Rp)
-                      </label>
-                      <CommaNumberInput
-                        value={monthlyTargetOmzet}
-                        onChange={setMonthlyTargetOmzet}
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                        Tipe Perhitungan Bonus
-                      </label>
-                      <select
-                        value={monthlyBonusType}
-                        onChange={e => setMonthlyBonusType(e.target.value as any)}
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-amber-400"
-                      >
-                        <option value="percentage">Persentase Omzet Kotor Toko (%)</option>
-                        <option value="percentage_laba_bersih">Persentase Laba Bersih Toko (%)</option>
-                        <option value="fixed">Nominal Pasti Tetap (Rp)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                        {monthlyBonusType === 'percentage' 
-                          ? 'Besar Bonus Omzet (%)' 
-                          : monthlyBonusType === 'percentage_laba_bersih'
-                          ? 'Besar Bonus Laba Bersih (%)'
-                          : 'Besar Bonus Flat (Rp)'}
-                      </label>
-                      {monthlyBonusType === 'percentage' || monthlyBonusType === 'percentage_laba_bersih' ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          max="100"
-                          value={monthlyBonusValue}
-                          onChange={e => setMonthlyBonusValue(parseFloat(e.target.value) || 0)}
-                          placeholder="Contoh: 5"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
-                        />
-                      ) : (
-                        <CommaNumberInput
-                          value={monthlyBonusValue}
-                          onChange={setMonthlyBonusValue}
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-amber-400"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {monthlyBonusType === 'percentage_laba_bersih' && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
-                      💡 <strong>Skema Laba Bersih:</strong> Jika omzet kotor bulan ini tembus target (≥ Rp {monthlyTargetOmzet.toLocaleString('id-ID')}), pegawai akan menerima bonus sebesar <strong>{monthlyBonusValue}% dari total Laba Bersih Akhir toko</strong> (setelah dikurangi HPP final, biaya admin/iklan/koin, dan biaya operasional).
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">
-                      Keterangan Bonus Bulanan
-                    </label>
-                    <input
-                      type="text"
-                      value={monthlyBonusDesc}
-                      onChange={e => setMonthlyBonusDesc(e.target.value)}
-                      placeholder="Contoh: Bonus target omzet bulanan toko tembus 100jt"
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
             <button
-              id="btn-submit-employee"
-              type="submit"
-              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
+              onClick={() => {
+                resetForm();
+                setViewMode('form');
+                setFormStep(1);
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{editingId ? 'Simpan Perubahan Pegawai' : 'Daftarkan Pegawai Baru'}</span>
+              <UserPlus className="w-4 h-4" />
+              <span>+ Registrasi Pegawai Baru</span>
             </button>
-          </form>
-        </div>
-      )}
+          </div>
 
-      {/* TAB 2: OUTPUT & DAFTAR PEGAWAI */}
-      {subTab === 'output' && (
-        <div className="space-y-4">
-          <div className="p-4 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          {/* Search Bar & Total Summary */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari pegawai..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                placeholder="Cari berdasarkan nama atau username..."
+                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-2xl bg-[#161823] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] transition"
               />
             </div>
-            <button
-              onClick={() => {
-                resetForm();
-                setSubTab('input');
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md cursor-pointer"
-            >
-              + Tambah Pegawai
-            </button>
-          </div>
-
-          <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="divide-y divide-white/5">
-              {filteredEmployees.map(emp => (
-                <div key={emp.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/5 transition">
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-black text-white">
-                        {emp.name}
-                      </span>
-                      <span className="text-[11px] text-zinc-400 font-mono">
-                        @{emp.username}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {emp.roles.map(r => (
-                        <span
-                          key={r}
-                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
-                        >
-                          {roleLabels[r]}
-                        </span>
-                      ))}
-
-                      {/* Info Tarif Satuan & Bundling jika Host */}
-                      {emp.roles.includes('host') && emp.incentiveConfigs?.host && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30">
-                          {emp.incentiveConfigs.host.hasSeparateBundlingSatuan ? (
-                            <>🏷️ Satuan: {formatRupiah(emp.incentiveConfigs.host.satuanRate || emp.incentiveConfigs.host.rate)} • 📦 Bundling: {formatRupiah(emp.incentiveConfigs.host.bundlingRate || emp.incentiveConfigs.host.rate)}</>
-                          ) : (
-                            <>Tarif Live: {formatRupiah(emp.incentiveConfigs.host.rate)} / {emp.incentiveConfigs.host.type === 'per_package_sold' ? 'Paket' : 'Pcs'}</>
-                          )}
-                        </span>
-                      )}
-
-                      {/* Tier badge if exists */}
-                      {Object.values(emp.incentiveConfigs || {}).some(c => Boolean((c as IncentiveConfig)?.hasTierRule)) && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/40">
-                          ✨ Tier Insentif Aktif
-                        </span>
-                      )}
-
-                      {/* Multi-role badge */}
-                      {emp.multiRoleSalesRule?.active && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                          🎁 Bonus Rangkap Role
-                        </span>
-                      )}
-
-                      {/* Monthly target badge */}
-                      {emp.monthlyOmzetBonusRule?.active && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                          🏆 Bonus Target Omzet
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span>Gaji Pokok: <strong className="text-zinc-200">{formatRupiah(emp.salaryRate)}</strong> / {emp.salaryType === 'hourly' ? 'Jam' : 'Hari'}</span>
-                      {emp.multiRoleSalesRule?.active && (
-                        <span>• Target Rangkap: $\ge$ {emp.multiRoleSalesRule.thresholdPackages} paket</span>
-                      )}
-                      {emp.monthlyOmzetBonusRule?.active && (
-                        <span>• Target Omzet: {formatRupiah(emp.monthlyOmzetBonusRule.targetOmzet)}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 self-end sm:self-center">
-                    <button
-                      onClick={() => handleEdit(emp)}
-                      className="p-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition cursor-pointer"
-                      title="Edit Pegawai"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(emp.id)}
-                      className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
-                      title="Hapus Pegawai"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="text-xs font-bold text-zinc-400 self-center">
+              Total Pegawai: <strong className="text-white">{filteredEmployees.length} orang</strong>
             </div>
           </div>
+
+          {/* Daftar Kartu Pegawai */}
+          <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
+            {filteredEmployees.length > 0 ? (
+              <div className="divide-y divide-white/5">
+                {filteredEmployees.map(emp => (
+                  <div key={emp.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-black text-white">
+                          {emp.name}
+                        </span>
+                        <span className="text-xs text-zinc-400 font-mono bg-[#0b0c10] px-2 py-0.5 rounded-lg border border-white/5">
+                          @{emp.username}
+                        </span>
+                      </div>
+
+                      {/* Role Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {emp.roles.map(r => (
+                          <span
+                            key={r}
+                            className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
+                          >
+                            {roleLabels[r]}
+                          </span>
+                        ))}
+
+                        {emp.roles.includes('host') && emp.incentiveConfigs?.host && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30">
+                            {emp.incentiveConfigs.host.hasSeparateBundlingSatuan ? (
+                              <>🏷️ Satuan: {formatRupiah(emp.incentiveConfigs.host.satuanRate || emp.incentiveConfigs.host.rate)} • 📦 Bundling: {formatRupiah(emp.incentiveConfigs.host.bundlingRate || emp.incentiveConfigs.host.rate)}</>
+                            ) : (
+                              <>Tarif Live: {formatRupiah(emp.incentiveConfigs.host.rate)} / {emp.incentiveConfigs.host.type === 'per_package_sold' ? 'Paket' : 'Pcs'}</>
+                            )}
+                          </span>
+                        )}
+
+                        {Object.values(emp.incentiveConfigs || {}).some(c => Boolean((c as IncentiveConfig)?.hasTierRule)) && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/40">
+                            ✨ Tier Target Aktif
+                          </span>
+                        )}
+
+                        {emp.multiRoleSalesRule?.active && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            🎁 Bonus Rangkap Role
+                          </span>
+                        )}
+
+                        {emp.monthlyOmzetBonusRule?.active && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            🏆 Target Omzet Toko
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Detail Ringkas */}
+                      <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span>Gaji Pokok: <strong className="text-zinc-200">{formatRupiah(emp.salaryRate)}</strong> / {emp.salaryType === 'hourly' ? 'Jam' : emp.salaryType === 'daily' ? 'Hari' : 'Bulan'}</span>
+                        {emp.multiRoleSalesRule?.active && (
+                          <span>Target Rangkap: $\ge$ {emp.multiRoleSalesRule.thresholdPackages} paket</span>
+                        )}
+                        {emp.monthlyOmzetBonusRule?.active && (
+                          <span>Target Omzet: {formatRupiah(emp.monthlyOmzetBonusRule.targetOmzet)}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        onClick={() => handleEdit(emp)}
+                        className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition text-xs font-bold cursor-pointer"
+                        title="Edit Pegawai"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(emp.id)}
+                        className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                        title="Hapus Pegawai"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-zinc-500 text-xs">
+                Belum ada data pegawai yang cocok dengan pencarian.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 2. HALAMAN FORM WIZARD (INPUT / EDIT) */}
+      {viewMode === 'form' && (
+        <div className="space-y-6">
+          {/* Header Form dengan Tombol Kembali ke Daftar */}
+          <div className="flex items-center justify-between bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
+                title="Kembali ke Daftar Pegawai"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
+                  <span>{editingId ? 'Edit Data Pegawai' : 'Form Registrasi Pegawai Baru'}</span>
+                </h2>
+                <p className="text-xs text-zinc-400">Pengisian bertahap agar informasi terstruktur dan nyaman dibaca</p>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
+              Langkah {formStep} dari 4
+            </div>
+          </div>
+
+          {/* Wizard Stepper Progress Bar */}
+          <div className="grid grid-cols-4 gap-2 bg-[#161823] p-3 rounded-2xl border border-white/10 text-xs">
+            {[
+              { step: 1, label: 'Akun Login', icon: '👤' },
+              { step: 2, label: 'Hak Akses Role', icon: '🛡️' },
+              { step: 3, label: 'Gaji & Insentif', icon: '💰' },
+              { step: 4, label: 'Bonus & Target', icon: '🏆' },
+            ].map(item => {
+              const isActive = formStep === item.step;
+              const isDone = formStep > item.step;
+              return (
+                <button
+                  key={item.step}
+                  type="button"
+                  onClick={() => {
+                    // Hanya izinkan lompat ke step yang sudah atau step 1
+                    if (isDone || item.step <= formStep) {
+                      setFormStep(item.step);
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
+                    isActive
+                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] font-black'
+                      : isDone
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
+                  <span className="truncate text-[11px] sm:text-xs">
+                    {item.step}. {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Form Container */}
+          <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+            {/* TAHAP 1: DATA IDENTITAS & AKUN */}
+            {formStep === 1 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">1</span>
+                    <span>Data Akun &amp; Kredensial Login Pegawai</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Masukkan nama pegawai dan akun yang digunakan untuk login ke aplikasi.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Nama Lengkap <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Contoh: Siti Rahma"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Username Login <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      placeholder="siti_host"
+                      className={`w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border text-white focus:border-[#25F4EE] ${
+                        username.trim() &&
+                        (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
+                        StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
+                          ? 'border-[#FE2C55]'
+                          : 'border-white/10'
+                      }`}
+                    />
+                    {username.trim() &&
+                      (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
+                      StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
+                      <p className="text-[#FE2C55] text-[11px] font-bold mt-1">
+                        Username sudah digunakan, silakan pilih yang lain
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Password Login <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="123"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-mono focus:border-[#25F4EE]"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 text-xs text-zinc-400">
+                  💡 Akun ini akan digunakan pegawai saat login. Password default dapat diisi <strong>123</strong> untuk kemudahan setup awal.
+                </div>
+              </div>
+            )}
+
+            {/* TAHAP 2: ROLE & HAK AKSES */}
+            {formStep === 2 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">2</span>
+                    <span>Pilih Hak Akses Role Pegawai</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Satu pegawai dapat memegang lebih dari satu role (bisa rangkap jabatan).</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {ALL_ROLES.map(role => {
+                    const isChecked = selectedRoles.includes(role);
+                    const descriptions: { [key in UserRole]: string } = {
+                      owner: 'Akses penuh seluruh data finansial, modal, dan konfigurasi sistem',
+                      host: 'Mencatat sesi live streaming, penjualan per sesi, dan komisi live',
+                      admin_toko: 'Pencatatan pesanan harian, status packing, dan operasional toko',
+                      sortir: 'Pencatatan sortir ball pakaian baru dan grading kualitas',
+                      steam: 'Pencatatan proses steam, finishing pakaian, dan kelayakan jual',
+                    };
+
+                    return (
+                      <div
+                        key={role}
+                        onClick={() => toggleRole(role)}
+                        className={`p-4 rounded-2xl border cursor-pointer transition select-none flex flex-col justify-between gap-3 ${
+                          isChecked
+                            ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white shadow-md shadow-[#25F4EE]/10'
+                            : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="capitalize font-black text-sm text-white">
+                            {roleLabels[role]}
+                          </span>
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${
+                            isChecked ? 'bg-[#25F4EE] text-black' : 'border border-white/20 text-transparent'
+                          }`}>
+                            ✓
+                          </div>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-zinc-400">
+                          {descriptions[role]}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAHAP 3: GAJI POKOK & INSENTIF PER ROLE */}
+            {formStep === 3 && (
+              <div className="space-y-6">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">3</span>
+                    <span>Pengaturan Gaji Pokok &amp; Insentif Role</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Tentukan skema gaji pokok dan komisi per pcs / paket untuk role yang telah dipilih.</p>
+                </div>
+
+                {/* Pengaturan Gaji Pokok */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                  <h4 className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                    <span>💵 Skema Gaji Pokok</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1">
+                        Tipe Hitungan Gaji Pokok
+                      </label>
+                      <select
+                        value={salaryType}
+                        onChange={e => setSalaryType(e.target.value as SalaryType)}
+                        className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                      >
+                        <option value="hourly">Per Jam (Cocok untuk Host Live)</option>
+                        <option value="daily">Per Hari / Shift (Cocok untuk Admin / Sortir / Steam)</option>
+                        <option value="monthly">Bulanan (Gaji Tetap)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1">
+                        Nominal Gaji Pokok (Rp)
+                      </label>
+                      <CommaNumberInput
+                        value={salaryRate}
+                        onChange={setSalaryRate}
+                        className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pengaturan Insentif Per Role */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#25F4EE]" />
+                    <span>Insentif / Komisi untuk Role yang Dipilih:</span>
+                  </h4>
+
+                  {selectedRoles.map(role => {
+                    const config = incentiveMap[role] || { type: 'none', rate: 0, description: '' };
+                    const isHostOrAdmin = role === 'host' || role === 'admin_toko';
+
+                    return (
+                      <div key={role} className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                          <span className="text-xs font-black text-white flex items-center gap-2">
+                            <span>Insentif Role:</span>
+                            <span className="text-[#25F4EE] bg-[#25F4EE]/10 px-2 py-0.5 rounded-lg border border-[#25F4EE]/30">
+                              {roleLabels[role]}
+                            </span>
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                              Tipe Insentif
+                            </label>
+                            <select
+                              value={config.type}
+                              onChange={e => handleIncentiveChange(role, e.target.value as IncentiveType)}
+                              className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                            >
+                              <option value="none">Tanpa Insentif</option>
+                              {role === 'host' && (
+                                <>
+                                  <option value="per_pcs_sold">Per Pcs Terjual Live</option>
+                                  <option value="per_package_sold">Per Paket Terjual</option>
+                                </>
+                              )}
+                              {role === 'admin_toko' && (
+                                <>
+                                  <option value="per_package_sold">Per Paket Dicatat &amp; Packing</option>
+                                  <option value="per_pcs_sold">Per Pcs Dicatat</option>
+                                </>
+                              )}
+                              {(role === 'sortir' || role === 'steam') && (
+                                <option value="per_ball_pcs">Per Pcs Layak Jual (Reject Tidak Dihitung)</option>
+                              )}
+                              <option value="fixed_amount">Nominal Tetap (Flat)</option>
+                            </select>
+                          </div>
+
+                          {config.type !== 'none' && !(role === 'host' && config.hasSeparateBundlingSatuan) && (
+                            <div>
+                              <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                                {config.type === 'fixed_amount' 
+                                  ? 'Nominal Komisi Flat (Rp)' 
+                                  : role === 'host'
+                                    ? (config.type === 'per_pcs_sold' ? 'Tarif Komisi Dasar per Pcs Live (Rp)' : 'Tarif Komisi Dasar per Paket Live (Rp)')
+                                    : role === 'admin_toko'
+                                      ? (config.type === 'per_package_sold' ? 'Tarif per Paket Packing (Rp)' : 'Tarif per Pcs Dicatat (Rp)')
+                                      : 'Tarif Komisi (Rp)'}
+                              </label>
+                              <CommaNumberInput
+                                value={config.rate}
+                                onChange={val => handleIncentiveChange(role, config.type, val)}
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Pengaturan Terpisah Satuan & Bundling untuk Host */}
+                        {role === 'host' && (
+                          <div className="pt-3 border-t border-white/5 space-y-3">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(config.hasSeparateBundlingSatuan)}
+                                onChange={e => {
+                                  const checked = e.target.checked;
+                                  setIncentiveMap(prev => ({
+                                    ...prev,
+                                    host: {
+                                      ...(prev.host || { type: 'per_pcs_sold', rate: 1000, description: '' }),
+                                      hasSeparateBundlingSatuan: checked,
+                                      satuanRate: prev.host?.satuanRate || 1000,
+                                      satuanIncentiveType: prev.host?.satuanIncentiveType || 'per_pcs_sold',
+                                      bundlingRate: prev.host?.bundlingRate || 2500,
+                                      bundlingIncentiveType: prev.host?.bundlingIncentiveType || 'per_package_sold',
+                                    }
+                                  }));
+                                }}
+                                className="w-4 h-4 rounded accent-[#25F4EE]"
+                              />
+                              <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
+                                Pisahkan Perhitungan Insentif Penjualan Satuan &amp; Bundling
+                              </span>
+                            </label>
+
+                            {config.hasSeparateBundlingSatuan && (
+                              <div className="p-3.5 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {/* Bundling */}
+                                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/5 space-y-2">
+                                    <span className="text-xs font-bold text-amber-300">📦 Insentif Bundling</span>
+                                    <CommaNumberInput
+                                      value={config.bundlingRate || 2500}
+                                      onChange={val => {
+                                        setIncentiveMap(prev => ({
+                                          ...prev,
+                                          host: {
+                                            ...prev.host!,
+                                            bundlingRate: val,
+                                          }
+                                        }));
+                                      }}
+                                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold focus:border-[#25F4EE]"
+                                    />
+                                  </div>
+
+                                  {/* Satuan */}
+                                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/5 space-y-2">
+                                    <span className="text-xs font-bold text-[#25F4EE]">🏷️ Insentif Satuan</span>
+                                    <CommaNumberInput
+                                      value={config.satuanRate || 1000}
+                                      onChange={val => {
+                                        setIncentiveMap(prev => ({
+                                          ...prev,
+                                          host: {
+                                            ...prev.host!,
+                                            satuanRate: val,
+                                          }
+                                        }));
+                                      }}
+                                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-[#25F4EE] font-bold focus:border-[#25F4EE]"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Tier Rule */}
+                        {config.type !== 'none' && isHostOrAdmin && (
+                          <div className="pt-3 border-t border-white/5 space-y-3">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(config.hasTierRule)}
+                                onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, e.target.checked)}
+                                className="w-4 h-4 rounded accent-[#25F4EE]"
+                              />
+                              <span className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
+                                Aktifkan Skema Insentif Berjenjang (Tier Target Penjualan)
+                              </span>
+                            </label>
+
+                            {config.hasTierRule && (
+                              <div className="p-3.5 rounded-xl bg-[#161823] border border-[#25F4EE]/30 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                                      Target Minimal (Paket)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={config.tierThresholdPackages || 15}
+                                      onChange={e => handleIncentiveChange(role, config.type, undefined, undefined, true, Number(e.target.value))}
+                                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-amber-300 mb-1">
+                                      Tier Bundling (Rp)
+                                    </label>
+                                    <CommaNumberInput
+                                      value={config.tierRateBundling || config.tierRate || 3000}
+                                      onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, val, undefined)}
+                                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-300 font-bold"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-[#25F4EE] mb-1">
+                                      Tier Satuan (Rp)
+                                    </label>
+                                    <CommaNumberInput
+                                      value={config.tierRateSatuan || 1500}
+                                      onChange={val => handleIncentiveChange(role, config.type, undefined, undefined, true, undefined, undefined, undefined, undefined, val)}
+                                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-bold"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAHAP 4: BONUS TARGET & KONFIRMASI SIMPAN */}
+            {formStep === 4 && (
+              <div className="space-y-6">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">4</span>
+                    <span>Bonus Target Tambahan &amp; Konfirmasi Simpan</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Aturan bonus tambahan pencapaian target toko dan ringkasan data sebelum disimpan.</p>
+                </div>
+
+                {/* Bonus Rangkap Role */}
+                {selectedRoles.length > 1 && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-white flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px]">Multi-Role</span>
+                        <span>Bonus Rangkap Role Penjualan Paket</span>
+                      </h4>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={multiRoleActive}
+                          onChange={e => setMultiRoleActive(e.target.checked)}
+                          className="w-4 h-4 rounded accent-purple-400"
+                        />
+                        <span className="text-xs font-bold text-purple-300">{multiRoleActive ? 'Aktif' : 'Nonaktif'}</span>
+                      </label>
+                    </div>
+
+                    {multiRoleActive && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-300 mb-1">Target Paket</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={multiRoleThreshold}
+                            onChange={e => setMultiRoleThreshold(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-300 mb-1">Nominal Benefit (Rp)</label>
+                          <CommaNumberInput
+                            value={multiRoleBenefitValue}
+                            onChange={setMultiRoleBenefitValue}
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-purple-300 font-bold"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Bonus Omzet Bulanan */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-amber-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-white flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px]">Monthly Target</span>
+                      <span>Bonus Pencapaian Target Omzet Bulanan</span>
+                    </h4>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={monthlyBonusActive}
+                        onChange={e => setMonthlyBonusActive(e.target.checked)}
+                        className="w-4 h-4 rounded accent-amber-400"
+                      />
+                      <span className="text-xs font-bold text-amber-300">{monthlyBonusActive ? 'Aktif' : 'Nonaktif'}</span>
+                    </label>
+                  </div>
+
+                  {monthlyBonusActive && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">Target Omzet (Rp)</label>
+                        <CommaNumberInput
+                          value={monthlyTargetOmzet}
+                          onChange={setMonthlyTargetOmzet}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">Persentase Bonus (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={monthlyBonusValue}
+                          onChange={e => setMonthlyBonusValue(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-amber-300 font-bold"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Ringkasan Konfirmasi */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 text-xs">
+                  <div className="text-zinc-400 font-bold mb-1">📋 Ringkasan Data Pegawai:</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-300">
+                    <div>Nama: <strong className="text-white block">{name || '-'}</strong></div>
+                    <div>Username: <strong className="text-[#25F4EE] block font-mono">@{username || '-'}</strong></div>
+                    <div>Role: <strong className="text-white block">{selectedRoles.map(r => roleLabels[r]).join(', ') || '-'}</strong></div>
+                    <div>Gaji Pokok: <strong className="text-emerald-400 block">{formatRupiah(salaryRate)}</strong></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stepper Navigation Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              {formStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Tahap Sebelumnya</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Daftar</span>
+                </button>
+              )}
+
+              {formStep < 4 ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+                >
+                  <span>Lanjut: {formStep === 1 ? 'Pilih Role' : formStep === 2 ? 'Gaji & Insentif' : 'Bonus Target'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  id="btn-submit-employee"
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-98 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingId ? 'Simpan Perubahan Pegawai' : 'Daftarkan Pegawai Sekarang'}</span>
+                </button>
+              )}
+            </div>
+          </form>
         </div>
       )}
     </div>

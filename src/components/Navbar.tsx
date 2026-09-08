@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import { CurrentUser, ViewState } from '../types';
 import { StorageService } from '../services/storage';
 import { roleLabels } from '../utils/formatters';
+import { RoutePath, getParentRoute, getPageTitle } from '../services/navigation';
 import { 
   ArrowLeft, 
   ShoppingBag, 
   LogOut, 
-  Smartphone,
-  Settings,
-  RefreshCw,
-  Cloud,
-  DownloadCloud,
-  Palette
+  Settings, 
+  DownloadCloud, 
+  Palette 
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -20,8 +18,8 @@ import { ThemeSelectorModal } from './ThemeSelectorModal';
 
 interface NavbarProps {
   currentUser: CurrentUser;
-  currentView: ViewState;
-  onNavigate: (tab: ViewState) => void;
+  currentRoute: RoutePath;
+  onNavigate: (route: RoutePath) => void;
   onLogout: () => void;
   onOpenInstallGuide: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -29,7 +27,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
-  currentView,
+  currentRoute,
   onNavigate,
   onLogout,
   onOpenInstallGuide,
@@ -38,46 +36,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleManualSync = async () => {
-    setIsSyncing(true);
-    try {
-      const ok = await StorageService.syncAllFromCloud(currentUser.storeId);
-      if (ok) {
-        onNotify('Data berhasil disinkronkan dari Cloud Firestore.', 'success');
-      } else {
-        onNotify('Koneksi sinkronisasi lokal aktif.', 'info');
-      }
-    } catch {
-      onNotify('Gagal menyinkronkan data cloud.', 'error');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Clean module page titles without stage numbers
-  const getPageTitle = (view: ViewState): string => {
-    switch (view) {
-      case 'dashboard': return 'Beranda Utama';
-      case 'role_management': return 'Manajemen Pegawai & Role';
-      case 'steam_sortir': return 'Sortir, QC & Finishing';
-      case 'modal_stok': return 'Modal & Stok Fashion (HPP)';
-      case 'admin_shopee': return 'Biaya Admin Marketplace & Layanan';
-      case 'kehadiran': return 'Presensi & Kehadiran Shift';
-      case 'penjualan': return 'Data Penjualan (Live & Non-Live)';
-      case 'statistik': return 'Statistik & Analisis Penjualan';
-      case 'return': return 'Data Retur / Paket Return';
-      case 'iklan_koin': return 'Saldo Biaya Iklan & Koin Live';
-      case 'gaji': return 'Slip Gaji & Insentif';
-      case 'laba_rugi': return 'Laporan Laba & Rugi Sesi';
-      case 'cashflow': return 'Cashflow & Arus Kas';
-      case 'keuangan_pribadi': return 'Cashflow & Keuangan Pribadi';
-      case 'laba_bersih': return 'Laporan Laba Bersih Toko';
-      case 'index_performa': return 'Indeks Performa & Efektivitas AI';
-      default: return 'Seller Profit';
-    }
-  };
+  const parent = getParentRoute(currentRoute);
+  const isHome = currentRoute === '/dashboard';
 
   return (
     <>
@@ -86,25 +47,34 @@ export const Navbar: React.FC<NavbarProps> = ({
         className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white"
       >
         {/* Main navigation header (Lowered to clear iPhone notch completely) */}
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            {currentView !== 'dashboard' ? (
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {!isHome ? (
               <button
-                id="btn-back-to-dashboard"
-                onClick={() => onNavigate('dashboard')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95"
+                id="btn-back-to-parent"
+                onClick={() => onNavigate(parent ? parent.path : '/dashboard')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
+                title={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
               >
-                <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-                <span>Kembali ke Menu</span>
+                <ArrowLeft className="w-4 h-4 text-[#25F4EE] shrink-0" />
+                <span className="truncate max-w-[100px] sm:max-w-[160px] md:max-w-none">
+                  {parent ? parent.label : 'Beranda'}
+                </span>
               </button>
             ) : (
-              <AppLogo size="sm" showText={true} />
+              <div 
+                onClick={() => onNavigate('/dashboard')} 
+                className="cursor-pointer shrink-0"
+                id="navbar-app-logo"
+              >
+                <AppLogo size="sm" showText={true} />
+              </div>
             )}
 
-            {currentView !== 'dashboard' && (
-              <div className="hidden md:block">
-                <h2 className="text-sm font-black text-white">
-                  {getPageTitle(currentView)}
+            {!isHome && (
+              <div className="pl-2 border-l border-white/10 min-w-0">
+                <h2 className="text-xs sm:text-sm font-black text-white truncate">
+                  {getPageTitle(currentRoute)}
                 </h2>
               </div>
             )}
@@ -118,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {currentUser.name}
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-0.5">
-                  {currentUser.roles.map(r => (
+                  {currentUser.roles.map((r) => (
                     <span
                       key={r}
                       className="inline-block px-1.5 py-0.2 rounded text-[10px] font-bold bg-white/10 text-zinc-300 border border-white/10"
@@ -200,4 +170,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </>
   );
 };
-

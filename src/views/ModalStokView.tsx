@@ -40,7 +40,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<SubTabType>('output');
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [formStep, setFormStep] = useState<number>(1);
   const [inventoryList, setInventoryList] = useState<BallInventory[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -104,6 +105,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     setNotes('');
     setSelectedSizes(['S', 'M', 'L', 'XL']);
     setSizeBreakdown({ S: 75, M: 75, L: 75, XL: 75 });
+    setFormStep(1);
   };
 
   const handleStartEdit = (ball: BallInventory) => {
@@ -114,19 +116,21 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     setUnitType(ball.unitType || 'ball_karung');
     setModalPrice(ball.modalPrice);
     setPcsCount(ball.pcsCount);
-    setShippingCost(ball.shippingCost);
-    setSteamCost(ball.steamCost);
-    setSortirCost(ball.sortirCost);
+    setShippingCost(ball.shippingCost || 0);
+    setSteamCost(ball.steamCost || 0);
+    setSortirCost(ball.sortirCost || 0);
     setNotes(ball.notes || '');
     setReturnMechanism(ball.returnMechanism || 'detail');
     setEstimateReturnPercentage(ball.estimateReturnPercentage || 3.0);
     setSelectedSizes(ball.sizes || ['S', 'M', 'L', 'XL']);
     setSizeBreakdown(ball.sizeBreakdown || {});
-    setSubTab('input');
+    setFormStep(1);
+    setViewMode('form');
   };
 
   const handleCancelEdit = () => {
     resetForm();
+    setViewMode('list');
   };
 
   const toggleSize = (size: string) => {
@@ -152,6 +156,32 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       next[sz] = countPerSize + (idx === 0 ? remainder : 0);
     });
     setSizeBreakdown(next);
+  };
+
+  const handleNextStep = () => {
+    if (formStep === 1) {
+      if (!ballType.trim()) {
+        onNotify('Harap isi nama stok / kode barang / tipe ball!', 'error');
+        return;
+      }
+      setFormStep(2);
+    } else if (formStep === 2) {
+      if (pcsCount <= 0) {
+        onNotify('Jumlah pcs harus lebih besar dari 0!', 'error');
+        return;
+      }
+      if (modalPrice < 0) {
+        onNotify('Harga modal tidak boleh negatif!', 'error');
+        return;
+      }
+      setFormStep(3);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (formStep > 1) {
+      setFormStep(prev => prev - 1);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -204,7 +234,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
     loadData();
     resetForm();
-    setSubTab('output');
+    setViewMode('list');
   };
 
   const handleDelete = (id: string) => {
@@ -241,71 +271,455 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Sisa Stok Bar */}
-      <div className="flex items-center justify-between bg-[#161823] p-3.5 rounded-3xl border border-white/10 shadow-lg">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-            <Package className="w-5 h-5" />
-          </div>
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
+      {/* HEADER UTAMA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={viewMode === 'form' ? handleCancelEdit : onBackToDashboard}
+            className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
+            title={viewMode === 'form' ? 'Kembali ke Daftar Stok' : 'Kembali ke Dashboard'}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div>
-            <div className="text-[11px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
-            <div className="text-base font-black text-white">
-              {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs pakaian</span>
-            </div>
+            <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#25F4EE]" />
+              <span>{viewMode === 'form' ? (editingId ? 'Edit Data Stok & HPP' : 'Input Stok Fashion & HPP') : 'Modal, Stok & Kalkulasi HPP'}</span>
+            </h2>
+            <p className="text-xs text-zinc-400">
+              {viewMode === 'form'
+                ? 'Pengisian bertahap 3 langkah agar rapi dan nyaman tanpa scroll panjang'
+                : 'Kelola riwayat pembelian stok pakaian dan pantau sisa stok fisik toko'}
+            </p>
           </div>
         </div>
-        <div className="text-right text-xs text-zinc-400">
-          Total Terjual: <b className="text-[#25F4EE]">{formatNumber(stockInfo.totalPcsSold)} pcs</b>
-        </div>
+
+        {viewMode === 'list' ? (
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setViewMode('form');
+              setFormStep(1);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+          >
+            <Package className="w-4 h-4" />
+            <span>+ Input Stok / Ball Baru</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
+            Langkah {formStep} dari 3
+          </div>
+        )}
       </div>
 
-      {/* Sub Navigation */}
-      <ViewSubNav
-        currentSubTab={subTab}
-        onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Stok' : '+ Input Stok / Ball Baru'}
-        outputTitle="Laporan &amp; Riwayat Stok Fashion"
-      />
-
-      {/* TAB 1: FORM INPUT / EDIT */}
-      {subTab === 'input' && (
-        <div className="max-w-4xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-black text-white text-base flex items-center gap-2">
-              {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <Package className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Data Stok & Kalkulasi HPP' : 'Input Data Stok Fashion Baru & HPP'}</span>
-            </h3>
-            {editingId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
-              >
-                Batal Edit
-              </button>
-            )}
+      {/* TAMPILAN FORM WIZARD (INPUT / EDIT) */}
+      {viewMode === 'form' && (
+        <div className="space-y-6">
+          {/* Stepper Progress */}
+          <div className="grid grid-cols-3 gap-2 bg-[#161823] p-3 rounded-2xl border border-white/10 text-xs">
+            {[
+              { step: 1, label: 'Info & Kategori Barang', icon: '📦' },
+              { step: 2, label: 'Modal Beli & HPP', icon: '💰' },
+              { step: 3, label: 'Ukuran & Return', icon: '📏' },
+            ].map(item => {
+              const isActive = formStep === item.step;
+              const isDone = formStep > item.step;
+              return (
+                <button
+                  key={item.step}
+                  type="button"
+                  onClick={() => {
+                    if (isDone || item.step <= formStep) {
+                      setFormStep(item.step);
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
+                    isActive
+                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] font-black'
+                      : isDone
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
+                  <span className="truncate text-[11px] sm:text-xs">
+                    {item.step}. {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Tanggal Masuk Stok <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+            {/* TAHAP 1: IDENTITAS & KATEGORI BARANG */}
+            {formStep === 1 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">1</span>
+                    <span>Informasi Dasar Barang &amp; Kategori</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Masukkan tanggal kedatangan stok, nama stok / ball, dan kategorinya.</p>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Tanggal Masuk Stok <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Kategori Fashion <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <select
+                      value={category}
+                      onChange={e => setCategory(e.target.value as FashionCategory)}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                    >
+                      {Object.entries(fashionCategoryLabels).map(([key, val]) => (
+                        <option key={key} value={key}>
+                          {val}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Satuan Stok <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <select
+                      value={unitType}
+                      onChange={e => setUnitType(e.target.value as InventoryUnitType)}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                    >
+                      {Object.entries(inventoryUnitLabels).map(([key, val]) => (
+                        <option key={key} value={key}>
+                          {val}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Nama Stok / Tipe Ball / Seri <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={ballType}
+                    onChange={e => setBallType(e.target.value)}
+                    placeholder="Misal: Ball Knit Korea Grade A / Celana Cargo Vintage / Dress Katun"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Catatan / Nama Supplier (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Misal: Supplier Bandung Grosir, Ball Segel Merah, dll."
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* TAHAP 2: MODAL BELI & BIAYA HPP */}
+            {formStep === 2 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">2</span>
+                    <span>Harga Modal Beli &amp; Komponen Biaya HPP</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Masukkan jumlah total pcs barang dan seluruh biaya terkait untuk menghitung HPP per pcs secara akurat.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Isi / Jumlah Pcs Barang <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={pcsCount}
+                      onChange={e => setPcsCount(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Harga Beli / Modal (Rp) <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <CommaNumberInput
+                      value={modalPrice}
+                      onChange={setModalPrice}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Biaya Ongkos Kirim (Rp)
+                    </label>
+                    <CommaNumberInput
+                      value={shippingCost}
+                      onChange={setShippingCost}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Biaya Steam / Finishing / Tag (Rp)
+                    </label>
+                    <CommaNumberInput
+                      value={steamCost}
+                      onChange={setSteamCost}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Biaya Sortir / QC / Packing (Rp)
+                    </label>
+                    <CommaNumberInput
+                      value={sortirCost}
+                      onChange={setSortirCost}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                    />
+                  </div>
+                </div>
+
+                {/* Live HPP Calculation preview card */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+                      <Calculator className="w-4 h-4" />
+                      <span>Kalkulasi Otomatis HPP per Pcs:</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-0.5">
+                      ({formatRupiah(modalPrice)} + {formatRupiah(shippingCost)} + {formatRupiah(steamCost)} + {formatRupiah(sortirCost)}) / {pcsCount} pcs
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-black text-[#25F4EE]">
+                      {formatRupiah(calculatedHpp)} / pcs
+                    </div>
+                    <div className="text-[10px] text-zinc-500">
+                      Total Modal: {formatRupiah(totalBallCost)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAHAP 3: BREAKDOWN UKURAN & RETURN */}
+            {formStep === 3 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">3</span>
+                    <span>Distribusi Ukuran &amp; Ketentuan Return</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-1">Atur pembagian size pakaian dan mekanisme estimasi return.</p>
+                </div>
+
+                {/* Ukuran Varian */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-300">
+                      Pilihan Varian Ukuran dalam Stok / Ball Ini
+                    </label>
+                    <button
+                      type="button"
+                      onClick={distributeSizesEvenly}
+                      className="text-[11px] font-bold text-[#25F4EE] hover:underline cursor-pointer"
+                    >
+                      Bagi Rata Otomatis ({pcsCount} pcs)
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {['Allsize', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Jumbo'].map(sz => {
+                      const isSel = selectedSizes.includes(sz);
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => toggleSize(sz)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition cursor-pointer ${
+                            isSel
+                              ? 'bg-[#25F4EE] text-black border-[#25F4EE]'
+                              : 'bg-[#161823] text-zinc-400 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Input masing-masing size */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+                    {selectedSizes.map(sz => (
+                      <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                        <span className="text-[11px] font-bold text-zinc-400">Size {sz}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={sizeBreakdown[sz] ?? 0}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setSizeBreakdown(prev => ({ ...prev, [sz]: Math.max(0, val) }));
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-[#0b0c10] border border-white/10 text-white font-bold text-center"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-[11px] text-zinc-400 flex items-center justify-between pt-1">
+                    <span>
+                      Total terdistribusi:{' '}
+                      <strong className="text-white">
+                        {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                      </strong>
+                    </span>
+                    <span>
+                      Target total:{' '}
+                      <strong className="text-[#25F4EE]">{pcsCount} pcs</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Return Mechanism */}
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                  <label className="text-xs font-bold text-zinc-300">
+                    Mekanisme Return Barang Penjualan
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setReturnMechanism('detail')}
+                      className={`p-3 rounded-xl border cursor-pointer transition select-none ${
+                        returnMechanism === 'detail'
+                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white'
+                          : 'bg-[#161823] border-white/10 text-zinc-400'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">Pencatatan Detail Riil</div>
+                      <p className="text-[11px] text-zinc-400 mt-1">Dicatat manual per paket yang benar-benar diretur pelanggan.</p>
+                    </div>
+
+                    <div
+                      onClick={() => setReturnMechanism('estimate')}
+                      className={`p-3 rounded-xl border cursor-pointer transition select-none ${
+                        returnMechanism === 'estimate'
+                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white'
+                          : 'bg-[#161823] border-white/10 text-zinc-400'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">Estimasi Otomatis (%)</div>
+                      <p className="text-[11px] text-zinc-400 mt-1">Cadangan retur otomatis dialokasikan dari persentase omzet.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stepper Navigation Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              {formStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Tahap Sebelumnya</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Daftar</span>
+                </button>
+              )}
+
+              {formStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+                >
+                  <span>Lanjut: {formStep === 1 ? 'Modal & HPP' : 'Ukuran & Return'}</span>
+                  <ArrowLeft className="w-4 h-4 rotate-180" />
+                </button>
+              ) : (
+                <button
+                  id="btn-submit-ball"
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-98 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingId ? 'Simpan Perubahan Stok' : 'Simpan Data Stok &amp; HPP'}</span>
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* TAMPILAN LAPORAN & RIWAYAT STOK (LIST VIEW) */}
+      {viewMode === 'list' && (
+        <div className="space-y-6">
+          {/* Sisa Stok Bar */}
+          <div className="flex items-center justify-between bg-[#161823] p-4 rounded-3xl border border-white/10 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
+                <Layers className="w-5 h-5" />
+              </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Kategori Fashion <span className="text-[#FE2C55]">*</span>
-                </label>
+                <div className="text-[11px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
+                <div className="text-lg font-black text-white">
+                  {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs pakaian</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right text-xs text-zinc-400">
+              Total Terjual: <b className="text-[#25F4EE]">{formatNumber(stockInfo.totalPcsSold)} pcs</b>
+            </div>
+          </div>
+          {/* FORM REMOVED */}
                 <select
                   value={category}
                   onChange={e => setCategory(e.target.value as FashionCategory)}
