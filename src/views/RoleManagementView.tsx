@@ -3,7 +3,6 @@ import { StorageService } from '../services/storage';
 import { Employee, UserRole, SalaryType, IncentiveType, CurrentUser, IncentiveConfig, TierCalculationMode } from '../types';
 import { formatRupiah, formatNumber, roleLabels, roleBadgeColors } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
-import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
   Users, 
   Trash2, 

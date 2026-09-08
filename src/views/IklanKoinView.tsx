@@ -3,7 +3,6 @@ import { StorageService } from '../services/storage';
 import { AdsCoinDeposit, CurrentUser } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
-import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
   Coins, 
   Megaphone, 
@@ -16,7 +15,9 @@ import {
   TrendingUp,
   Target,
   Sparkles,
-  BarChart3
+  ArrowRight,
+  ClipboardList,
+  PlusCircle
 } from 'lucide-react';
 
 interface IklanKoinViewProps {
@@ -25,12 +26,15 @@ interface IklanKoinViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+type IklanKoinViewMode = 'menu' | 'input' | 'output';
+
 export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   currentUser,
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<SubTabType>('output');
+  const [viewMode, setViewMode] = useState<IklanKoinViewMode>('menu');
+  const [inputStep, setInputStep] = useState<number>(1);
   const [depositList, setDepositList] = useState<AdsCoinDeposit[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -88,6 +92,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
     setAdsAmount(1000000);
     setCoinAmount(500000);
     setNotes('Topup Marketplace Ads & Koin Live');
+    setInputStep(1);
   };
 
   const handleStartEdit = (item: AdsCoinDeposit) => {
@@ -96,7 +101,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
     setAdsAmount(item.adsAmount);
     setCoinAmount(item.coinAmount);
     setNotes(item.notes || '');
-    setSubTab('input');
+    setInputStep(1);
+    setViewMode('input');
   };
 
   const handleCancelEdit = () => {
@@ -106,12 +112,12 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (adsAmount <= 0 && coinAmount <= 0) {
-      onNotify('Masukkan nominal topup iklan atau koin!', 'error');
+      onNotify('Harap isi nominal topup saldo Iklan atau Koin!', 'error');
       return;
     }
 
-    const newDeposit: AdsCoinDeposit = {
-      id: editingId || 'adscoin-' + Date.now(),
+    const record: AdsCoinDeposit = {
+      id: editingId || 'adcoin-' + Date.now(),
       storeId: currentUser.storeId,
       date,
       adsAmount,
@@ -122,35 +128,36 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
 
     if (editingId) {
       const all = StorageService.getAdsCoins(currentUser.storeId);
-      const updated = all.map(d => d.id === editingId ? newDeposit : d);
-      localStorage.setItem('shopee_lr_adscoins', JSON.stringify(updated));
-      onNotify('Perubahan saldo topup iklan/koin berhasil disimpan!', 'success');
+      const updated = all.map(d => d.id === editingId ? record : d);
+      localStorage.setItem('shopee_lr_adcoins', JSON.stringify(updated));
+      onNotify('Perubahan saldo iklan & koin berhasil disimpan!', 'success');
     } else {
-      StorageService.addAdsCoin(newDeposit);
-      onNotify('Top-up saldo iklan/koin berhasil dicatat!', 'success');
+      StorageService.addAdsCoin(record);
+      onNotify('Topup saldo iklan & koin berhasil dicatat!', 'success');
     }
 
     loadData();
     resetForm();
-    setSubTab('output');
+    setViewMode('output');
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Hapus riwayat topup ini?')) {
+    if (confirm('Hapus riwayat deposit saldo ini?')) {
       StorageService.deleteAdsCoin(id);
       loadData();
-      onNotify('Data top-up berhasil dihapus.', 'info');
+      onNotify('Riwayat deposit saldo dihapus.', 'info');
       if (editingId === id) {
         handleCancelEdit();
       }
     }
   };
 
-  // Filter & sort list by date desc
+  // Filter list
   const filteredList = depositList
     .filter(d => {
       if (searchQuery.trim()) {
-        if (!d.notes?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        const q = searchQuery.toLowerCase();
+        if (!d.notes.toLowerCase().includes(q)) return false;
       }
       if (periodFilter === 'today') return d.date === getTodayString();
       if (periodFilter === 'range') return d.date >= startDate && d.date <= endDate;
@@ -164,309 +171,470 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* ROAS & Saldo Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* ROAS Metric Card */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-[#25F4EE]/30 shadow-xl space-y-3 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/40">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-sm text-white">ROAS Iklan Live</h3>
-                <span className="text-[11px] text-zinc-400">Return On Ad Spend</span>
-              </div>
+  // ================= 1. MENU HUB STATE (2 Pilihan Grid) =================
+  if (viewMode === 'menu') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              id="btn-back-dashboard-iklankoin"
+              type="button"
+              onClick={onBackToDashboard}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Kembali</span>
+            </button>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-[#25F4EE]" />
+                <span>Saldo Iklan &amp; Koin Live</span>
+              </h2>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
-              parseFloat(roasMetrics.roasAdsOnly) >= 4 
-                ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' 
-                : parseFloat(roasMetrics.roasAdsOnly) >= 2 
-                ? 'bg-amber-400/10 text-amber-400 border-amber-400/30'
-                : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
-            }`}>
-              {parseFloat(roasMetrics.roasAdsOnly) >= 4 ? 'Menguntungkan' : parseFloat(roasMetrics.roasAdsOnly) >= 2 ? 'Moderat' : 'Optimasi'}
-            </span>
           </div>
 
-          <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-zinc-400">Rasio Omzet vs Iklan:</div>
-            <div className="text-3xl font-black text-[#25F4EE] mt-1 flex items-baseline gap-1">
-              <span>{roasMetrics.roasAdsOnly}x</span>
-              <span className="text-xs text-zinc-400 font-semibold">ROAS</span>
-            </div>
-            <div className="text-[11px] text-zinc-400 mt-2">
-              Tiap Rp 1 biaya iklan menghasilkan Rp {roasMetrics.roasAdsOnly} omzet.
-            </div>
+          <div className="text-right text-xs text-zinc-400">
+            ROAS Pemasaran: <strong className="text-[#25F4EE]">{roasMetrics.roasTotalMarketing}x</strong>
           </div>
         </div>
 
-        {/* Iklan Marketplace */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-                <Megaphone className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-sm text-white">Saldo Marketplace Ads</h3>
-                <span className="text-[11px] text-zinc-400">Kredit Iklan Aktif</span>
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-              Realtime
-            </span>
-          </div>
-
-          <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-zinc-400">Sisa Saldo Iklan:</div>
-            <div className="text-2xl sm:text-3xl font-black mt-1 text-[#25F4EE]">
+        {/* Ringkasan Ringkas */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Sisa Saldo Iklan</div>
+            <div className={`text-sm sm:text-base font-black truncate ${adsCoinInfo.remainingAds < 0 ? 'text-[#FE2C55]' : 'text-[#25F4EE]'}`}>
               {formatRupiah(adsCoinInfo.remainingAds)}
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5 text-[11px] text-zinc-400">
-              <div>Topup: <strong className="text-white">{formatRupiah(adsCoinInfo.totalAdsTopup)}</strong></div>
-              <div>Terpakai: <strong className="text-white">{formatRupiah(adsCoinInfo.totalAdsUsed)}</strong></div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Sisa Saldo Koin</div>
+            <div className={`text-sm sm:text-base font-black truncate ${adsCoinInfo.remainingCoin < 0 ? 'text-[#FE2C55]' : 'text-amber-300'}`}>
+              {formatRupiah(adsCoinInfo.remainingCoin)}
             </div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Topup Iklan</div>
+            <div className="text-sm sm:text-base font-black text-white truncate">{formatRupiah(adsCoinInfo.totalAdsTopup)}</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Topup Koin</div>
+            <div className="text-sm sm:text-base font-black text-white truncate">{formatRupiah(adsCoinInfo.totalCoinTopup)}</div>
           </div>
         </div>
 
-        {/* Koin Marketplace */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-amber-400 border border-white/10">
-                <Coins className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-sm text-white">Saldo Koin Live</h3>
-                <span className="text-[11px] text-zinc-400">Koin Live Reward</span>
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400/10 text-amber-400 border border-amber-400/20">
-              Realtime
-            </span>
+        {/* Grid Kecil 2 Kesamping: Input vs Output */}
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
+            Pilih Aksi:
           </div>
-
-          <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-zinc-400">Sisa Saldo Koin Live:</div>
-            <div className="text-2xl sm:text-3xl font-black mt-1 text-amber-400">
-              {formatRupiah(adsCoinInfo.remainingCoin)}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* Card 1: Form Input */}
+            <div
+              id="menu-card-input-iklankoin"
+              onClick={() => {
+                resetForm();
+                setInputStep(1);
+                setViewMode('input');
+              }}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
+                  <PlusCircle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
+                    Top Up Saldo Iklan &amp; Koin
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Catat pengisian saldo bertahap
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Input data baru →</span>
+                <span className="text-[#25F4EE] font-bold">Buka Form</span>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5 text-[11px] text-zinc-400">
-              <div>Topup: <strong className="text-white">{formatRupiah(adsCoinInfo.totalCoinTopup)}</strong></div>
-              <div>Terpakai: <strong className="text-white">{formatRupiah(adsCoinInfo.totalCoinUsed)}</strong></div>
+
+            {/* Card 2: Laporan & Riwayat */}
+            <div
+              id="menu-card-output-iklankoin"
+              onClick={() => setViewMode('output')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shrink-0">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors truncate">
+                    Riwayat Saldo &amp; ROAS
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Rekap deposit &amp; efektivitas iklan
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>{filteredList.length} Deposit Tercatat →</span>
+                <span className="text-amber-400 font-bold">Buka Data</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Sub Navigation */}
-      <ViewSubNav
-        currentSubTab={subTab}
-        onChangeSubTab={setSubTab}
-        inputTitle={editingId ? '✏️ Sedang Mengedit Topup' : 'Input Topup Saldo'}
-        outputTitle="Riwayat Topup Saldo"
-      />
+  // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
+  if (viewMode === 'input') {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Top Header with Back Button */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <button
+            id="btn-back-menu-iklankoin"
+            type="button"
+            onClick={() => {
+              resetForm();
+              setViewMode('menu');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Kembali ke Menu</span>
+          </button>
 
-      {/* TAB 1: FORM INPUT / EDIT */}
-      {subTab === 'input' && (
-        <div className="max-w-3xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-black text-white text-base flex items-center gap-2">
-              {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <Wallet className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingId ? 'Edit Data Top-Up Saldo' : 'Form Top-Up Saldo Iklan & Koin'}</span>
-            </h3>
-            {editingId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
-              >
-                Batal Edit
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">
+              {editingId ? '✏️ Edit Deposit' : 'Topup Saldo Iklan & Koin'}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+              Tahap {inputStep} dari 2
+            </span>
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Tanggal Top-Up <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                id="input-topup-date"
-                type="date"
-                required
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nominal Topup Marketplace Ads / Iklan (Rp)
-                </label>
-                <CommaNumberInput
-                  id="input-topup-ads"
-                  value={adsAmount}
-                  onChange={setAdsAmount}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-[#25F4EE] font-black focus:border-[#25F4EE]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nominal Topup Koin Live (Rp)
-                </label>
-                <CommaNumberInput
-                  id="input-topup-coin"
-                  value={coinAmount}
-                  onChange={setCoinAmount}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-amber-400 font-black focus:border-[#25F4EE]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Keterangan / Sumber Dana Topup
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Contoh: Topup via BCA / Saldo Penjual"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-              />
-            </div>
-
-            <button
-              id="btn-submit-topup"
-              type="submit"
-              className="w-full py-3.5 rounded-2xl text-xs font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{editingId ? 'Simpan Perubahan Top-up' : 'Simpan Transaksi Top-Up'}</span>
-            </button>
-          </form>
         </div>
-      )}
 
-      {/* TAB 2: OUTPUT & LAPORAN */}
-      {subTab === 'output' && (
-        <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="p-4 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-48 sm:w-60">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari keterangan..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-                />
+        {/* Stepper Header Pills */}
+        <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 rounded-2xl border border-white/10 text-xs">
+          <button
+            type="button"
+            onClick={() => setInputStep(1)}
+            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
+              inputStep === 1
+                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
+                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
+            }`}
+          >
+            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
+            <span>Tanggal &amp; Saldo Iklan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputStep(2)}
+            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
+              inputStep === 2
+                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
+                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
+            }`}
+          >
+            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
+            <span>Saldo Koin &amp; Catatan</span>
+          </button>
+        </div>
+
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
+          {/* TAHAP 1: Tanggal & Saldo Iklan */}
+          {inputStep === 1 && (
+            <div className="space-y-4">
+              <div className="border-b border-white/10 pb-2">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Tahap 1: Tanggal &amp; Topup Iklan Berbayar</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Masukkan tanggal pengisian dan nominal saldo iklan berbayar marketplace.</p>
               </div>
 
-              <select
-                value={periodFilter}
-                onChange={e => setPeriodFilter(e.target.value as any)}
-                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              >
-                <option value="all">Semua Periode</option>
-                <option value="today">Hari Ini</option>
-                <option value="weekly">7 Hari</option>
-                <option value="monthly">Bulan Ini</option>
-              </select>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Tanggal Pengisian Saldo <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                  />
+                </div>
 
-            <button
-              onClick={() => {
-                resetForm();
-                setSubTab('input');
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md cursor-pointer"
-            >
-              + Input Topup
-            </button>
+                <div>
+                  <label className="block text-xs font-bold text-[#25F4EE] mb-1">
+                    Nominal Top Up Saldo Iklan (Rp)
+                  </label>
+                  <CommaNumberInput
+                    value={adsAmount}
+                    onChange={setAdsAmount}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                  />
+                  <span className="text-[10px] text-zinc-400 mt-1 block">
+                    {formatRupiah(adsAmount)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setInputStep(2)}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+                >
+                  <span>Tahap Selanjutnya: Saldo Koin &amp; Catatan</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAHAP 2: Saldo Koin & Catatan */}
+          {inputStep === 2 && (
+            <div className="space-y-4">
+              <div className="border-b border-white/10 pb-2">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-amber-300" />
+                  <span>Tahap 2: Topup Saldo Koin Saweran &amp; Catatan</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Masukkan topup koin untuk giveaway/saweran live dan catatan bukti transaksi.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-amber-300 mb-1">
+                    Nominal Top Up Saldo Koin Live (Rp)
+                  </label>
+                  <CommaNumberInput
+                    value={coinAmount}
+                    onChange={setCoinAmount}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-amber-400"
+                  />
+                  <span className="text-[10px] text-zinc-400 mt-1 block">
+                    {formatRupiah(coinAmount)}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Catatan / Keterangan Sumber Topup
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Misal: Topup BCA Shopee Ads & Koin TikTok Live"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-between border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setInputStep(1)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Tahap Sebelumnya</span>
+                </button>
+
+                <button
+                  id="btn-submit-deposit"
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingId ? 'Simpan Perubahan' : 'Simpan Pengisian Saldo'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </form>
+      </div>
+    );
+  }
+
+  // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* Top Header Bar with Back Button */}
+      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <button
+          id="btn-back-menu-from-output-iklankoin"
+          type="button"
+          onClick={() => setViewMode('menu')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Kembali ke Menu</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-open-form-from-output-iklankoin"
+            type="button"
+            onClick={() => {
+              resetForm();
+              setInputStep(1);
+              setViewMode('input');
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Topup Saldo Baru</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ROAS Summary Highlights */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-1">
+          <div className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>ROAS Iklan (Ads Only)</span>
+          </div>
+          <div className="text-xl font-black text-[#25F4EE]">
+            {roasMetrics.roasAdsOnly}x
+          </div>
+          <div className="text-[10px] text-zinc-500">Omzet / Pemakaian Iklan</div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-1">
+          <div className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
+            <span>ROAS Total Pemasaran</span>
+          </div>
+          <div className="text-xl font-black text-amber-300">
+            {roasMetrics.roasTotalMarketing}x
+          </div>
+          <div className="text-[10px] text-zinc-500">Omzet / (Iklan + Koin)</div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-1 col-span-2 lg:col-span-1">
+          <div className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1.5">
+            <Wallet className="w-3.5 h-3.5 text-white" />
+            <span>Biaya Iklan / Paket Terjual</span>
+          </div>
+          <div className="text-xl font-black text-white">
+            {formatRupiah(roasMetrics.adCostPerOrder)}
+          </div>
+          <div className="text-[10px] text-zinc-500">Efisiensi akuisisi pesanan</div>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-44 sm:w-60">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari catatan topup..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+            />
           </div>
 
-          {/* List of Topups (Sorted by date desc) */}
-          <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                Riwayat Top-up Saldo ({filteredList.length})
-              </h3>
-            </div>
+          <select
+            value={periodFilter}
+            onChange={e => setPeriodFilter(e.target.value as any)}
+            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+          >
+            <option value="all">Semua Periode</option>
+            <option value="today">Hari Ini</option>
+            <option value="weekly">7 Hari Terakhir</option>
+            <option value="monthly">Bulan Ini</option>
+          </select>
+        </div>
 
-            {filteredList.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 text-xs">
-                Belum ada data top-up pada filter ini.
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
+        <div className="text-xs text-zinc-400 font-semibold">
+          Total: <strong className="text-white">{filteredList.length}</strong> deposit
+        </div>
+      </div>
+
+      {/* Table of Records */}
+      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
+          <h3 className="text-xs font-black text-white flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#25F4EE]" />
+            <span>Riwayat Pengisian Saldo Iklan &amp; Koin</span>
+          </h3>
+        </div>
+
+        {filteredList.length === 0 ? (
+          <div className="text-center py-12 text-zinc-500 text-xs">
+            Belum ada catatan topup saldo pada periode ini.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
+                <tr>
+                  <th className="p-3 font-semibold">Tanggal</th>
+                  <th className="p-3 font-semibold text-right text-[#25F4EE]">Topup Iklan</th>
+                  <th className="p-3 font-semibold text-right text-amber-300">Topup Koin</th>
+                  <th className="p-3 font-semibold text-right text-white">Total Saldo</th>
+                  <th className="p-3 font-semibold">Catatan</th>
+                  <th className="p-3 font-semibold text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
                 {filteredList.map(item => (
-                  <div key={item.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/5 transition">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-black text-white">
-                          {formatDateIndo(item.date)}
-                        </span>
-                        {item.adsAmount > 0 && (
-                          <span className="px-2 py-0.5 rounded-md bg-[#25F4EE]/10 text-[#25F4EE] text-[10px] font-bold border border-[#25F4EE]/30">
-                            Iklan: {formatRupiah(item.adsAmount)}
-                          </span>
-                        )}
-                        {item.coinAmount > 0 && (
-                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-bold border border-amber-500/30">
-                            Koin: {formatRupiah(item.coinAmount)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-xs text-zinc-400">
-                        {item.notes}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className="text-sm font-black text-white">
-                          {formatRupiah(item.adsAmount + item.coinAmount)}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">
-                          Total Topup
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleStartEdit(item)}
-                          className="p-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition cursor-pointer"
-                          title="Edit Topup"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
-                          title="Hapus Topup"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <tr key={item.id} className="hover:bg-white/5 transition">
+                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
+                      {formatDateIndo(item.date)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-right font-bold text-[#25F4EE]">
+                      {formatRupiah(item.adsAmount)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-right font-bold text-amber-300">
+                      {formatRupiah(item.coinAmount)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-right font-bold text-white">
+                      {formatRupiah((item.adsAmount || 0) + (item.coinAmount || 0))}
+                    </td>
+                    <td className="p-3 text-zinc-300 max-w-xs truncate">
+                      {item.notes}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(item)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                        title="Edit Deposit"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                        title="Hapus Catatan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

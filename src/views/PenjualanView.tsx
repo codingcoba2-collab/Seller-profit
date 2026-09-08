@@ -48,14 +48,14 @@ interface PenjualanViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-type PenjualanSubTab = 'rekap' | 'input_live' | 'input_non_live';
+type PenjualanViewMode = 'menu' | 'rekap' | 'input_live' | 'input_non_live';
 
 export const PenjualanView: React.FC<PenjualanViewProps> = ({
   currentUser,
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<PenjualanSubTab>('rekap');
+  const [viewMode, setViewMode] = useState<PenjualanViewMode>('menu');
   const [salesList, setSalesList] = useState<SalesRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
@@ -240,7 +240,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       setSelectedCashierAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
       setNonLiveAdsUsed(sale.adsUsed || 0);
       setPaymentMethod((sale.paymentMethod as PaymentMethod) || 'transfer');
-      setSubTab('input_non_live');
+      setViewMode('input_non_live');
     } else {
       setLiveChannel((sale.salesChannel as SalesChannel) || 'tiktok_live');
       setSelectedHostIds(sale.hostIds || []);
@@ -248,7 +248,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       setHoursWorked(sale.hoursWorked || 4);
       setCoinUsed(sale.coinUsed || 0);
       setAdsUsed(sale.adsUsed || 0);
-      setSubTab('input_live');
+      setViewMode('input_live');
     }
 
     setErrorMessage('');
@@ -256,11 +256,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
   const handleCancelEdit = () => {
     resetForm();
-    setSubTab('rekap');
+    setViewMode('rekap');
   };
 
   const liveIncentivePreview = useMemo(() => {
-    if (subTab !== 'input_live' || selectedHostIds.length === 0) return [];
+    if (viewMode !== 'input_live' || selectedHostIds.length === 0) return [];
     const finalSatuanPcs = saleFormat === 'satuan' ? pcsSold : (saleFormat === 'bundling' ? 0 : satuanPcs);
     const finalSatuanPkgs = saleFormat === 'satuan' ? packagesSold : (saleFormat === 'bundling' ? 0 : satuanPackages);
     const finalSatuanOmzet = saleFormat === 'satuan' ? omzet : (saleFormat === 'bundling' ? 0 : Math.round((satuanPackages / Math.max(1, packagesSold || 1)) * omzet));
@@ -295,7 +295,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         hostCfg,
       };
     }).filter(Boolean) as { emp: Employee; res: ReturnType<typeof calculateHostIncentiveForSale>; hostCfg: any }[];
-  }, [subTab, selectedHostIds, saleFormat, pcsSold, packagesSold, omzet, satuanPcs, satuanPackages, bundlingPcs, bundlingPackages, employees]);
+  }, [viewMode, selectedHostIds, saleFormat, pcsSold, packagesSold, omzet, satuanPcs, satuanPackages, bundlingPcs, bundlingPackages, employees]);
 
   const handleSubmitLive = (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,7 +392,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     loadData();
     resetForm();
-    setSubTab('rekap');
+    setViewMode('rekap');
   };
 
   const handleSubmitNonLive = (e: React.FormEvent) => {
@@ -447,7 +447,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     loadData();
     resetForm();
-    setSubTab('rekap');
+    setViewMode('rekap');
   };
 
   const handleDelete = (sale: SalesRecord) => {
@@ -588,77 +588,190 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const hostEmployees = employees.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
   const adminEmployees = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
 
+  // ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) =================
+  if (viewMode === 'menu') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              id="btn-back-dashboard-penjualan"
+              type="button"
+              onClick={onBackToDashboard}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Kembali</span>
+            </button>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-[#25F4EE]" />
+                <span>Transaksi Penjualan Toko</span>
+              </h2>
+            </div>
+          </div>
+
+          <div className="text-right text-xs text-zinc-400">
+            Total Transaksi: <strong className="text-[#25F4EE]">{salesList.length}</strong>
+          </div>
+        </div>
+
+        {/* Ringkasan Ringkas */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Omzet</div>
+            <div className="text-sm sm:text-base font-black text-white">{formatRupiah(metrics.totalOmzet)}</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Terjual</div>
+            <div className="text-sm sm:text-base font-black text-emerald-400">{formatNumber(metrics.totalPcs)} pcs</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10 col-span-2 sm:col-span-1">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Order / Paket</div>
+            <div className="text-sm sm:text-base font-black text-amber-300">{formatNumber(metrics.totalPackages)} paket</div>
+          </div>
+        </div>
+
+        {/* Grid Kecil 2 Kesamping jika tidak cukup sisanya ke bawah */}
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
+            Pilih Aksi:
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* Card 1: Input Live */}
+            <div
+              id="menu-card-input-live"
+              onClick={() => {
+                resetForm();
+                setViewMode('input_live');
+              }}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
+                    Input Penjualan Live
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    TikTok Live, Shopee Live, Host &amp; Insentif
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Catat sesi streaming →</span>
+                <span className="text-[#FE2C55] font-bold">Buka Form</span>
+              </div>
+            </div>
+
+            {/* Card 2: Input Non-Live */}
+            <div
+              id="menu-card-input-non-live"
+              onClick={() => {
+                resetForm();
+                setViewMode('input_non_live');
+              }}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-emerald-400/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Store className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-400 transition-colors truncate">
+                    Input Non-Live / Offline
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Marketplace reguler, toko offline &amp; kasir
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Catat order offline/reguler →</span>
+                <span className="text-emerald-400 font-bold">Buka Form</span>
+              </div>
+            </div>
+
+            {/* Card 3: Rekap Data */}
+            <div
+              id="menu-card-rekap-sales"
+              onClick={() => setViewMode('rekap')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98 col-span-2 sm:col-span-1"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
+                    Riwayat &amp; Rekap Penjualan
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Tabel rekap, filter, print &amp; ekspor CSV
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>{salesList.length} Transaksi Tercatat →</span>
+                <span className="text-[#25F4EE] font-bold">Buka Data</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header Bar */}
+      {/* Header Bar (Tanpa Tab Switcher, Pakai Tombol Back) */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
         <button
-          id="btn-back-dashboard-penjualan"
-          onClick={onBackToDashboard}
+          id="btn-back-menu-penjualan"
+          onClick={() => {
+            if (editingId) handleCancelEdit();
+            setViewMode('menu');
+          }}
           className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-2 text-xs font-bold"
-          title="Kembali ke Dashboard"
+          title="Kembali ke Menu Penjualan"
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="hidden sm:inline">Dashboard</span>
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <span>Kembali ke Menu</span>
         </button>
 
-        {/* Sub-Tab Navigation Switcher */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#161823] border border-white/10 rounded-2xl overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => {
-              if (editingId) handleCancelEdit();
-              setSubTab('rekap');
-            }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              subTab === 'rekap'
-                ? 'bg-gradient-to-r from-[#25F4EE] to-teal-400 text-[#0b0c10] shadow-lg shadow-[#25F4EE]/20'
-                : 'text-zinc-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Semua Data Penjualan</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 font-bold">
-              {salesList.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (editingId && subTab !== 'input_live') resetForm();
-              setSubTab('input_live');
-            }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              subTab === 'input_live'
-                ? 'bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white shadow-lg shadow-[#FE2C55]/20'
-                : 'text-zinc-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Video className="w-4 h-4 text-[#FE2C55]" />
-            <span>{editingId && subTab === 'input_live' ? '✏️ Edit Live' : '+ Input Live'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (editingId && subTab !== 'input_non_live') resetForm();
-              setSubTab('input_non_live');
-            }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              subTab === 'input_non_live'
-                ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] shadow-lg shadow-emerald-400/20'
-                : 'text-zinc-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Store className="w-4 h-4 text-emerald-400" />
-            <span>{editingId && subTab === 'input_non_live' ? '✏️ Edit Non-Live' : '+ Non-Live / Offline'}</span>
-          </button>
-        </div>
+        {viewMode === 'rekap' && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setViewMode('input_live');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[#FE2C55] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>+ Input Live</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setViewMode('input_non_live');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>+ Input Non-Live</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
-      {subTab === 'rekap' && (
+      {viewMode === 'rekap' && (
         <div className="space-y-6">
           {/* Key Metric Highlights */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -1049,7 +1162,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       )}
 
       {/* ================= TAB 2: INPUT PENJUALAN LIVE ================= */}
-      {subTab === 'input_live' && (
+      {viewMode === 'input_live' && (
         <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">
@@ -1586,7 +1699,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       )}
 
       {/* ================= TAB 3: INPUT PENJUALAN NON-LIVE (MARKETPLACE REGULER / OFFLINE) ================= */}
-      {subTab === 'input_non_live' && (
+      {viewMode === 'input_non_live' && (
         <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <h3 className="text-base font-black text-white flex items-center gap-2">

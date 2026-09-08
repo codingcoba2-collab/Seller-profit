@@ -107,7 +107,7 @@ export default function App() {
 
       setTimeout(() => {
         setIsNavigating(false);
-      }, 950);
+      }, 1000);
     },
     [currentUser, handleNotify]
   );
@@ -140,6 +140,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = normalizePath(window.location.pathname);
+      setIsNavigating(true);
       if (currentUser && !isRouteAllowed(path, currentUser)) {
         handleNotify('Akses menu ini dibatasi untuk peran Anda.', 'error');
         setCurrentRoute('/dashboard');
@@ -148,6 +149,9 @@ export default function App() {
         setCurrentRoute(path);
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 1000);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -202,7 +206,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col font-sans selection:bg-[#FE2C55] selection:text-white relative">
       {/* Page Navigation Transition Screen with App Logo (~1s) */}
       {isNavigating && (
-        <div className="fixed inset-0 z-50 bg-[#0b0c10]/85 backdrop-blur-sm flex flex-col items-center justify-center transition-all animate-fadeIn">
+        <div className="fixed inset-0 z-[99999] bg-[#0b0c10] flex flex-col items-center justify-center transition-all animate-fadeIn select-none cursor-wait">
           {/* Neon Glow Ambient */}
           <div className="absolute w-60 h-60 rounded-full bg-[#FE2C55]/20 blur-3xl pointer-events-none -translate-x-1/4" />
           <div className="absolute w-60 h-60 rounded-full bg-[#25F4EE]/20 blur-3xl pointer-events-none translate-x-1/4" />

@@ -3,7 +3,6 @@ import { StorageService } from '../services/storage';
 import { CashflowRecord, CurrentUser, Employee } from '../types';
 import { formatRupiah, formatDateIndo, getTodayString, roleLabels } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
-import { ViewSubNav, SubTabType } from '../components/ViewSubNav';
 import { 
   Wallet, 
   ArrowDownCircle, 
@@ -11,16 +10,16 @@ import {
   Trash2, 
   CheckCircle2, 
   Edit3, 
-  ArrowLeft,
-  Filter,
+  ArrowLeft, 
   Search,
-  Calendar,
   Image as ImageIcon,
   Upload,
   X,
   Eye,
-  UserCheck,
-  Receipt
+  PlusCircle,
+  ClipboardList,
+  ArrowRight,
+  Layers
 } from 'lucide-react';
 
 interface CashflowViewProps {
@@ -28,6 +27,8 @@ interface CashflowViewProps {
   onBackToDashboard: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
+
+type CashflowViewMode = 'menu' | 'input' | 'output';
 
 const CATEGORY_LABELS: Record<string, string> = {
   packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
@@ -45,7 +46,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   onBackToDashboard,
   onNotify,
 }) => {
-  const [subTab, setSubTab] = useState<SubTabType>('output');
+  const [viewMode, setViewMode] = useState<CashflowViewMode>('menu');
+  const [inputStep, setInputStep] = useState<number>(1);
   const [cashflowList, setCashflowList] = useState<CashflowRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingItem, setEditingItem] = useState<CashflowRecord | null>(null);
@@ -108,6 +110,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     const now = new Date();
     setPeriodMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     setProofImageUrl('');
+    setInputStep(1);
   };
 
   const handleStartEdit = (item: CashflowRecord) => {
@@ -122,7 +125,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setEmployeeName(item.employeeName || (employees[0]?.name || ''));
     setPeriodMonth(item.periodMonth || getTodayString().slice(0, 7));
     setProofImageUrl(item.proofImageUrl || '');
-    setSubTab('input');
+    setInputStep(1);
+    setViewMode('input');
   };
 
   const handleCancelEdit = () => {
@@ -168,7 +172,6 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size limit (< 5MB)
     if (file.size > 5 * 1024 * 1024) {
       onNotify('Ukuran file foto maksimal 5MB!', 'error');
       return;
@@ -176,10 +179,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setProofImageUrl(reader.result);
-        onNotify('Foto bukti berhasil diunggah!', 'success');
-      }
+      setProofImageUrl(reader.result as string);
+      onNotify('Foto nota berhasil diunggah.', 'info');
     };
     reader.readAsDataURL(file);
   };
@@ -187,68 +188,70 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (amount <= 0) {
-      onNotify('Nominal harus lebih dari 0!', 'error');
+      onNotify('Nominal transaksi harus lebih dari Rp 0!', 'error');
       return;
     }
 
-    const newRecord: CashflowRecord = {
+    const record: CashflowRecord = {
       id: editingItem ? editingItem.id : 'cf-' + Date.now(),
       storeId: currentUser.storeId,
       date,
       type,
       amount,
-      category: type === 'inflow' ? 'penarikan_shopee' : category,
-      paymentType: (type === 'outflow' && category === 'gaji_pegawai') ? paymentType : undefined,
+      category,
       description,
-      employeeId: (type === 'outflow' && category === 'gaji_pegawai') ? employeeId : undefined,
-      employeeName: (type === 'outflow' && category === 'gaji_pegawai') ? employeeName : undefined,
-      periodMonth: (type === 'outflow' && category === 'gaji_pegawai') ? periodMonth : undefined,
-      proofImageUrl: (type === 'outflow' && proofImageUrl) ? proofImageUrl : undefined,
-      createdAt: editingItem ? editingItem.createdAt : new Date().toISOString(),
+      recordedBy: currentUser.name,
+      createdAt: new Date().toISOString(),
+      employeeId: category === 'gaji_pegawai' ? employeeId : undefined,
+      employeeName: category === 'gaji_pegawai' ? employeeName : undefined,
+      paymentType: category === 'gaji_pegawai' ? paymentType : undefined,
+      periodMonth: category === 'gaji_pegawai' ? periodMonth : undefined,
+      proofImageUrl: proofImageUrl || undefined,
     };
 
     if (editingItem) {
-      StorageService.updateCashflow(newRecord);
-      onNotify('Perubahan data cashflow berhasil disimpan!', 'success');
-      setEditingItem(null);
+      const all = StorageService.getCashflow(currentUser.storeId);
+      const updated = all.map(c => c.id === editingItem.id ? record : c);
+      localStorage.setItem('shopee_lr_cashflow', JSON.stringify(updated));
+      onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
     } else {
-      StorageService.addCashflow(newRecord);
-      onNotify('Catatan cashflow kas berhasil disimpan!', 'success');
+      StorageService.addCashflow(record);
+      onNotify('Transaksi arus kas berhasil dicatat!', 'success');
     }
 
     loadData();
     resetForm();
-    setSubTab('output');
+    setViewMode('output');
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Hapus pencatatan cashflow ini?')) {
+    if (confirm('Hapus transaksi ini?')) {
       StorageService.deleteCashflow(id);
       loadData();
-      onNotify('Data cashflow berhasil dihapus.', 'info');
+      onNotify('Transaksi berhasil dihapus.', 'info');
       if (editingItem?.id === id) {
         handleCancelEdit();
       }
     }
   };
 
-  // Filter & Sort list by date descending
+  // Filter list
   const filteredList = cashflowList
-    .filter(c => {
+    .filter(item => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const descMatch = c.description?.toLowerCase().includes(q);
-        const empMatch = c.employeeName?.toLowerCase().includes(q);
-        const catMatch = (CATEGORY_LABELS[c.category] || c.category).toLowerCase().includes(q);
-        if (!descMatch && !empMatch && !catMatch) return false;
+        const matchDesc = item.description?.toLowerCase().includes(q);
+        const matchCat = CATEGORY_LABELS[item.category]?.toLowerCase().includes(q);
+        const matchEmp = item.employeeName?.toLowerCase().includes(q);
+        if (!matchDesc && !matchCat && !matchEmp) return false;
       }
-      if (periodFilter === 'today') return c.date === getTodayString();
-      if (periodFilter === 'range') return c.date >= startDate && c.date <= endDate;
+      if (periodFilter === 'today') return item.date === getTodayString();
+      if (periodFilter === 'range') return item.date >= startDate && item.date <= endDate;
       if (periodFilter === 'weekly') {
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-        return c.date >= weekAgo && c.date <= getTodayString();
+        return item.date >= weekAgo && item.date <= getTodayString();
       }
-      if (periodFilter === 'monthly') return c.date.startsWith(getTodayString().slice(0, 7));
+      if (periodFilter === 'monthly') return item.date.startsWith(getTodayString().slice(0, 7));
 
       return true;
     })
@@ -256,624 +259,622 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   const totalInflow = filteredList.filter(c => c.type === 'inflow').reduce((acc, c) => acc + c.amount, 0);
   const totalOutflow = filteredList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
-  const netCashflow = totalInflow - totalOutflow;
+  const netCash = totalInflow - totalOutflow;
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Sub Navigation (2 Clean Tabs) */}
-      <ViewSubNav
-        currentSubTab={subTab}
-        onChangeSubTab={setSubTab}
-        inputTitle={editingItem ? '✏️ Sedang Mengedit Transaksi' : 'Input Kas Masuk/Keluar'}
-        outputTitle="Output &amp; Rekap Kas"
-      />
-
-      {/* TAB 1: FORM INPUT / EDIT */}
-      {subTab === 'input' && (
-        <div className="max-w-3xl mx-auto bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-black text-white text-base flex items-center gap-2">
-              {editingItem ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <Wallet className="w-5 h-5 text-[#25F4EE]" />}
-              <span>{editingItem ? 'Edit Catatan Arus Kas' : 'Input Catatan Kas Masuk / Keluar'}</span>
-            </h3>
-            {editingItem && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs font-bold text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 cursor-pointer transition"
-              >
-                Batal Edit
-              </button>
-            )}
+  // ================= 1. MENU HUB STATE (2 Pilihan Grid) =================
+  if (viewMode === 'menu') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              id="btn-back-dashboard-cashflow"
+              type="button"
+              onClick={onBackToDashboard}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Kembali</span>
+            </button>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[#25F4EE]" />
+                <span>Buku Kas &amp; Arus Keuangan</span>
+              </h2>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                    <Calendar className="w-4 h-4" />
-                  </div>
+          <div className="text-right text-xs text-zinc-400">
+            Arus Bersih: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
+          </div>
+        </div>
+
+        {/* Ringkasan Ringkas */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Pemasukan Kas</div>
+            <div className="text-sm sm:text-base font-black text-[#25F4EE]">{formatRupiah(totalInflow)}</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Pengeluaran Kas</div>
+            <div className="text-sm sm:text-base font-black text-[#FE2C55]">{formatRupiah(totalOutflow)}</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10 col-span-2 sm:col-span-1">
+            <div className="text-[10px] text-zinc-400 font-semibold">Saldo Kas Bersih</div>
+            <div className={`text-sm sm:text-base font-black ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+              {formatRupiah(netCash)}
+            </div>
+          </div>
+        </div>
+
+        {/* Grid Kecil 2 Kesamping: Input vs Output */}
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
+            Pilih Aksi:
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* Card 1: Form Input */}
+            <div
+              id="menu-card-input-cashflow"
+              onClick={() => {
+                resetForm();
+                setInputStep(1);
+                setViewMode('input');
+              }}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
+                  <PlusCircle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
+                    Catat Transaksi Kas
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Input pengeluaran/pemasukan bertahap
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>Input data baru →</span>
+                <span className="text-[#25F4EE] font-bold">Buka Form</span>
+              </div>
+            </div>
+
+            {/* Card 2: Laporan & Riwayat */}
+            <div
+              id="menu-card-output-cashflow"
+              onClick={() => setViewMode('output')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
+                    Buku Kas &amp; Riwayat
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
+                    Tabel rincian mutasi kas
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>{filteredList.length} Transaksi Tercatat →</span>
+                <span className="text-[#FE2C55] font-bold">Buka Data</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
+  if (viewMode === 'input') {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Top Header with Back Button */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <button
+            id="btn-back-menu-cashflow"
+            type="button"
+            onClick={() => {
+              resetForm();
+              setViewMode('menu');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Kembali ke Menu</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white">
+              {editingItem ? '✏️ Edit Transaksi' : 'Catat Transaksi Kas'}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+              Tahap {inputStep} dari 2
+            </span>
+          </div>
+        </div>
+
+        {/* Stepper Header Pills */}
+        <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 rounded-2xl border border-white/10 text-xs">
+          <button
+            type="button"
+            onClick={() => setInputStep(1)}
+            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
+              inputStep === 1
+                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
+                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
+            }`}
+          >
+            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
+            <span>Jenis &amp; Kategori</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputStep(2)}
+            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
+              inputStep === 2
+                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
+                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
+            }`}
+          >
+            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
+            <span>Nominal &amp; Nota</span>
+          </button>
+        </div>
+
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
+          {/* TAHAP 1: Jenis Transaksi & Kategori */}
+          {inputStep === 1 && (
+            <div className="space-y-4">
+              <div className="border-b border-white/10 pb-2">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Tahap 1: Jenis Transaksi, Tanggal &amp; Kategori</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Tentukan apakah kas masuk atau pengeluaran operasional toko.</p>
+              </div>
+
+              {/* Inflow vs Outflow */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setType('outflow');
+                    setCategory('packing');
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    type === 'outflow'
+                      ? 'bg-[#FE2C55]/10 border-[#FE2C55] text-[#FE2C55]'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <ArrowUpCircle className="w-4 h-4" />
+                  <span>Pengeluaran (Kas Keluar)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setType('inflow');
+                    setCategory('penarikan_shopee');
+                  }}
+                  className={`p-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    type === 'inflow'
+                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE]'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <ArrowDownCircle className="w-4 h-4" />
+                  <span>Pemasukan (Kas Masuk)</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
+                  </label>
                   <input
                     type="date"
                     required
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Jenis Arus Kas <span className="text-[#FE2C55]">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setType('outflow')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                      type === 'outflow'
-                        ? 'bg-[#FE2C55] text-white border-[#FE2C55] shadow-md shadow-[#FE2C55]/20'
-                        : 'bg-[#0b0c10] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
-                    }`}
-                  >
-                    <ArrowDownCircle className="w-4 h-4" />
-                    <span>Pengeluaran (Kas Keluar)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setType('inflow')}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                      type === 'inflow'
-                        ? 'bg-[#25F4EE] text-black border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
-                        : 'bg-[#0b0c10] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
-                    }`}
-                  >
-                    <ArrowUpCircle className="w-4 h-4" />
-                    <span>Penarikan Marketplace</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Nominal (Rp) <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  id="input-cashflow-amount"
-                  value={amount}
-                  onChange={setAmount}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-                />
-              </div>
-
-              {type === 'outflow' && (
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Kategori Pengeluaran
+                    Kategori Transaksi <span className="text-[#FE2C55]">*</span>
                   </label>
                   <select
                     value={category}
-                    onChange={e => handleCategoryChange(e.target.value as CashflowRecord['category'])}
+                    onChange={e => handleCategoryChange(e.target.value as any)}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   >
-                    <option value="gaji_pegawai">💼 Gaji Pegawai / Karyawan</option>
-                    <option value="konsumsi_pribadi">👤 Konsumsi Pribadi (Prive Owner)</option>
-                    <option value="packing">📦 Bahan Packing (Lakban, Plastik, Bubble Wrap)</option>
-                    <option value="makan_minum">🍱 Konsumsi / Makan &amp; Minum Tim</option>
-                    <option value="listrik_wifi">⚡ Listrik, Air &amp; Internet WiFi</option>
-                    <option value="sewa_tempat">🏢 Sewa Tempat / Ruko Live</option>
-                    <option value="lainnya">⚙️ Operasional Lainnya</option>
+                    {type === 'outflow' ? (
+                      <>
+                        <option value="packing">Bahan Packing (Lakban/Plastik)</option>
+                        <option value="makan_minum">Konsumsi / Makan Tim</option>
+                        <option value="listrik_wifi">Listrik, Air &amp; Internet WiFi</option>
+                        <option value="sewa_tempat">Sewa Tempat / Ruko</option>
+                        <option value="gaji_pegawai">Gaji / Kasbon Pegawai</option>
+                        <option value="konsumsi_pribadi">Konsumsi Pribadi (Prive Owner)</option>
+                        <option value="lainnya">Operasional Lainnya</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="penarikan_shopee">Penarikan Saldo Marketplace</option>
+                        <option value="lainnya">Pemasukan Lainnya / Modal Tambahan</option>
+                      </>
+                    )}
                   </select>
                 </div>
+              </div>
+
+              {category === 'gaji_pegawai' && (
+                <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-3">
+                  <div className="text-xs font-bold text-purple-300">Rincian Pembayaran Pegawai</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-400 mb-1">Pilih Pegawai</label>
+                      <select
+                        value={employeeId}
+                        onChange={e => handleEmployeeChange(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                      >
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-400 mb-1">Tipe Pembayaran</label>
+                      <select
+                        value={paymentType}
+                        onChange={e => handlePaymentTypeChange(e.target.value as any)}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                      >
+                        <option value="gaji_insentif">Gaji / Insentif</option>
+                        <option value="kasbon">Kasbon Pegawai</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-400 mb-1">Periode Bulan</label>
+                      <input
+                        type="month"
+                        value={periodMonth}
+                        onChange={e => {
+                          setPeriodMonth(e.target.value);
+                          if (employeeName) {
+                            const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
+                            setDescription(`${prefix} - ${employeeName} (Periode ${e.target.value})`);
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                      >
+                      </input>
+                    </div>
+                  </div>
+                </div>
               )}
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setInputStep(2)}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+                >
+                  <span>Tahap Selanjutnya: Nominal &amp; Nota</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* OPSI KHUSUS KONSUMSI PRIBADI */}
-            {type === 'outflow' && category === 'konsumsi_pribadi' && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-2">
-                <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
-                  <UserCheck className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs font-black text-purple-400 uppercase tracking-wider">
-                    Konsumsi Pribadi (Prive Owner)
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-300 leading-relaxed">
-                  Penarikan uang pribadi ini otomatis masuk dan menambah <strong className="text-white">Alokasi Total</strong> pada menu <strong className="text-purple-300">Cashflow &amp; Keuangan Pribadi</strong>. Pembagian ke masing-masing pos (<em className="text-zinc-400">sehari-hari, utang, tabungan, investasi</em>) ditentukan di pengaturan persentase keuangan pribadi.
-                </p>
+          {/* TAHAP 2: Nominal Transaksi & Nota / Catatan */}
+          {inputStep === 2 && (
+            <div className="space-y-4">
+              <div className="border-b border-white/10 pb-2">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Tahap 2: Masukkan Nominal &amp; Foto Nota Bukti</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Tentukan nilai nominal rupiah dan lampirkan bukti pengeluaran jika ada.</p>
               </div>
-            )}
 
-            {/* OPSI KHUSUS GAJI PEGAWAI */}
-            {type === 'outflow' && category === 'gaji_pegawai' && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-4">
-                <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
-                  <Receipt className="w-4 h-4 text-[#25F4EE]" />
-                  <span className="text-xs font-black text-[#25F4EE] uppercase tracking-wider">
-                    Detail Pembayaran Gaji / Kasbon Pegawai
-                  </span>
-                </div>
-
-                {/* 2 Opsi Jenis Pembayaran: Gaji & Insentif vs Kasbon */}
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-2">
-                    Pilih Jenis Pembayaran <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handlePaymentTypeChange('gaji_insentif')}
-                      className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer ${
-                        paymentType === 'gaji_insentif'
-                          ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                          : 'bg-[#161823] border-white/10 text-zinc-400 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-emerald-400 flex items-center gap-1.5">
-                          💼 Pembayaran Gaji &amp; Insentif
-                        </span>
-                        {paymentType === 'gaji_insentif' && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-[10px] text-zinc-400 leading-tight">
-                        Pembayaran gaji pokok dan insentif kerja pegawai
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePaymentTypeChange('kasbon')}
-                      className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer ${
-                        paymentType === 'kasbon'
-                          ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
-                          : 'bg-[#161823] border-white/10 text-zinc-400 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-amber-400 flex items-center gap-1.5">
-                          💳 Kasbon
-                        </span>
-                        {paymentType === 'kasbon' && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-[10px] text-zinc-400 leading-tight">
-                        Pinjaman / penarikan kasbon di muka oleh pegawai
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Pilih Pegawai / Penerima Gaji <span className="text-[#FE2C55]">*</span>
-                    </label>
-                    <select
-                      value={employeeId}
-                      onChange={e => handleEmployeeChange(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                    >
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.roles.map(r => roleLabels[r] || r).join(', ')})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Periode Gaji (Bulan)
-                    </label>
-                    <input
-                      type="month"
-                      value={periodMonth}
-                      onChange={e => {
-                        setPeriodMonth(e.target.value);
-                        if (employeeName) {
-                          const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
-                          setDescription(`${prefix} - ${employeeName} (Periode ${e.target.value})`);
-                        }
-                      }}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-medium focus:border-[#25F4EE]"
-                    />
-                  </div>
-                </div>
-
-                {/* Upload Foto Bukti Pembayaran */}
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
-                      <span>Upload Foto Bukti Transfer / Struk Gaji</span>
-                    </span>
-                    {proofImageUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setProofImageUrl('')}
-                        className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
-                      >
-                        Hapus Foto
-                      </button>
-                    )}
-                  </label>
-
-                  {proofImageUrl ? (
-                    <div className="relative group rounded-2xl overflow-hidden border border-emerald-500/30 bg-[#161823] p-3 flex items-center gap-3">
-                      <img
-                        src={proofImageUrl}
-                        alt="Bukti Transfer"
-                        className="w-16 h-16 object-cover rounded-xl border border-white/10"
-                      />
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-emerald-400">✓ Bukti Foto Terlampir</p>
-                        <p className="text-[11px] text-zinc-400">Akan ditampilkan pada slip gaji pegawai</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewPhotoUrl(proofImageUrl)}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
-                        title="Lihat Foto Penuh"
-                      >
-                        <Eye className="w-4 h-4 text-[#25F4EE]" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-white/15 hover:border-[#25F4EE]/50 bg-[#161823] p-4 rounded-2xl text-center cursor-pointer transition group"
-                    >
-                      <Upload className="w-6 h-6 text-zinc-400 group-hover:text-[#25F4EE] mx-auto mb-1 transition" />
-                      <p className="text-xs font-bold text-zinc-300 group-hover:text-white">
-                        Klik untuk upload foto bukti transfer / struk kas
-                      </p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">
-                        Format PNG, JPG, JPEG (Maks. 5MB)
-                      </p>
-                    </div>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Optional proof photo for other outflow categories too */}
-            {type === 'outflow' && category !== 'gaji_pegawai' && (
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Upload Foto Nota / Bukti Pengeluaran (Opsional)</span>
-                  </span>
-                  {proofImageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setProofImageUrl('')}
-                      className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
-                    >
-                      Hapus Foto
-                    </button>
-                  )}
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Nominal Transaksi (Rp) <span className="text-[#FE2C55]">*</span>
                 </label>
+                <CommaNumberInput
+                  value={amount}
+                  onChange={setAmount}
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                />
+                <span className="text-[10px] text-zinc-400 mt-1 block">
+                  {formatRupiah(amount)}
+                </span>
+              </div>
 
-                {proofImageUrl ? (
-                  <div className="relative group rounded-2xl overflow-hidden border border-white/15 bg-[#0b0c10] p-2.5 flex items-center gap-3">
-                    <img
-                      src={proofImageUrl}
-                      alt="Bukti Nota"
-                      className="w-12 h-12 object-cover rounded-xl border border-white/10"
-                    />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-zinc-200">Foto Nota Terlampir</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPhotoUrl(proofImageUrl)}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
-                      title="Lihat Foto"
-                    >
-                      <Eye className="w-4 h-4 text-[#25F4EE]" />
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border border-dashed border-white/15 hover:border-white/30 bg-[#0b0c10] py-2.5 px-3 rounded-xl text-center cursor-pointer transition flex items-center justify-center gap-2"
-                  >
-                    <Upload className="w-4 h-4 text-zinc-400" />
-                    <span className="text-xs font-medium text-zinc-400">Lampirkan foto struk/nota</span>
-                  </div>
-                )}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Keterangan / Deskripsi Transaksi <span className="text-[#FE2C55]">*</span>
+                </label>
                 <input
-                  ref={fileInputRef}
+                  type="text"
+                  required
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Misal: Beli lakban 5 roll & plastik polymailer"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
+                />
+              </div>
+
+              {/* Upload Bukti Nota */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Foto Nota / Bukti Transfer (Opsional)
+                </label>
+                <input
                   type="file"
+                  ref={fileInputRef}
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
+
+                {proofImageUrl ? (
+                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0b0c10] border border-white/10">
+                    <img
+                      src={proofImageUrl}
+                      alt="Bukti Nota"
+                      className="w-14 h-14 object-cover rounded-xl border border-white/10"
+                    />
+                    <div className="flex-1 min-w-0 text-xs">
+                      <span className="text-emerald-400 font-bold block">✓ Foto Bukti Terlampir</span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-[10px] text-[#25F4EE] hover:underline cursor-pointer mr-3"
+                      >
+                        Ganti Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProofImageUrl('')}
+                        className="text-[10px] text-[#FE2C55] hover:underline cursor-pointer"
+                      >
+                        Hapus Foto
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full p-4 rounded-2xl bg-[#0b0c10] border border-dashed border-white/10 hover:border-[#25F4EE]/40 transition text-center cursor-pointer"
+                  >
+                    <Upload className="w-5 h-5 mx-auto text-zinc-400 mb-1" />
+                    <span className="text-xs text-zinc-300 font-bold block">Klik untuk Unggah Foto Nota</span>
+                    <span className="text-[10px] text-zinc-500">Mendukung format JPG, PNG maksimal 5MB</span>
+                  </button>
+                )}
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Keterangan / Rincian
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Rincian pengeluaran kas"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-              />
+              <div className="pt-3 flex items-center justify-between border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setInputStep(1)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Tahap Sebelumnya</span>
+                </button>
+
+                <button
+                  id="btn-submit-cashflow"
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingItem ? 'Simpan Perubahan' : 'Simpan Transaksi Kas'}</span>
+                </button>
+              </div>
             </div>
+          )}
+        </form>
+      </div>
+    );
+  }
 
-            <button
-              id="btn-submit-cashflow"
-              type="submit"
-              className="w-full py-3.5 rounded-2xl text-xs font-extrabold text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 shadow-lg shadow-[#FE2C55]/20 active:scale-[0.98] transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{editingItem ? 'Simpan Perubahan Cashflow' : 'Simpan Transaksi Kas'}</span>
-            </button>
-          </form>
+  // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* Top Header Bar with Back Button */}
+      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <button
+          id="btn-back-menu-from-output-cashflow"
+          type="button"
+          onClick={() => setViewMode('menu')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Kembali ke Menu</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-open-form-from-output-cashflow"
+            type="button"
+            onClick={() => {
+              resetForm();
+              setInputStep(1);
+              setViewMode('input');
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Catat Transaksi Baru</span>
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* TAB 2: OUTPUT & LAPORAN */}
-      {subTab === 'output' && (
-        <div className="space-y-6">
-          {/* Summary metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Penarikan Dana (Inflow)</div>
-              <div className="text-xl font-black text-[#25F4EE] mt-1">
-                {formatRupiah(totalInflow)}
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Pengeluaran Kas (Outflow)</div>
-              <div className="text-xl font-black text-[#FE2C55] mt-1">
-                {formatRupiah(totalOutflow)}
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-[#0b0c10] text-white border border-white/10 shadow-xl">
-              <div className="text-[11px] font-semibold text-zinc-400">Net Arus Kas (Sisa Kas)</div>
-              <div className={`text-xl font-black mt-1 ${netCashflow >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                {formatRupiah(netCashflow)}
-              </div>
-            </div>
+      {/* Filter Bar */}
+      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-44 sm:w-60">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari deskripsi / kategori..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+            />
           </div>
 
-          {/* Filter Bar */}
-          <div className="p-4 bg-[#161823] rounded-2xl border border-white/10 shadow-xl space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold text-zinc-400 mr-1 flex items-center gap-1">
-                  <Filter className="w-3.5 h-3.5" />
-                  <span>Periode:</span>
-                </span>
-                <button
-                  onClick={() => setPeriodFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    periodFilter === 'all' ? 'bg-[#25F4EE] text-black shadow-md' : 'bg-[#0b0c10] text-zinc-400 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  Semua
-                </button>
-                <button
-                  onClick={() => setPeriodFilter('today')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    periodFilter === 'today' ? 'bg-[#25F4EE] text-black shadow-md' : 'bg-[#0b0c10] text-zinc-400 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  Hari Ini
-                </button>
-                <button
-                  onClick={() => setPeriodFilter('weekly')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    periodFilter === 'weekly' ? 'bg-[#25F4EE] text-black shadow-md' : 'bg-[#0b0c10] text-zinc-400 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  7 Hari
-                </button>
-                <button
-                  onClick={() => setPeriodFilter('monthly')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    periodFilter === 'monthly' ? 'bg-[#25F4EE] text-black shadow-md' : 'bg-[#0b0c10] text-zinc-400 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  Bulan Ini
-                </button>
-                <button
-                  onClick={() => setPeriodFilter('range')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    periodFilter === 'range' ? 'bg-[#25F4EE] text-black shadow-md' : 'bg-[#0b0c10] text-zinc-400 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  Rentang Tgl
-                </button>
-              </div>
+          <select
+            value={periodFilter}
+            onChange={e => setPeriodFilter(e.target.value as any)}
+            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+          >
+            <option value="all">Semua Periode</option>
+            <option value="today">Hari Ini</option>
+            <option value="weekly">7 Hari Terakhir</option>
+            <option value="monthly">Bulan Ini</option>
+          </select>
+        </div>
 
-              <div className="relative flex-1 sm:max-w-xs">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-zinc-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari rincian / pegawai..."
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-                />
-              </div>
-            </div>
+        <div className="text-xs text-zinc-400 font-semibold">
+          Total: <strong className="text-white">{filteredList.length}</strong> transaksi
+        </div>
+      </div>
 
-            {periodFilter === 'range' && (
-              <div className="flex items-center gap-2 pt-2 border-t border-white/10 text-xs">
-                <span className="text-zinc-400 font-medium">Dari:</span>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                  className="px-2.5 py-1 rounded-lg bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                />
-                <span className="text-zinc-400 font-medium">Sampai:</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
-                  className="px-2.5 py-1 rounded-lg bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                />
-              </div>
-            )}
+      {/* Table of Records */}
+      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
+          <h3 className="text-xs font-black text-white flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-[#25F4EE]" />
+            <span>Riwayat Mutasi Buku Kas</span>
+          </h3>
+        </div>
+
+        {filteredList.length === 0 ? (
+          <div className="text-center py-12 text-zinc-500 text-xs">
+            Belum ada transaksi arus kas pada periode ini.
           </div>
-
-          {/* List of Cashflow */}
-          <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-                Daftar Mutasi Kas ({filteredList.length})
-              </h3>
-            </div>
-
-            {filteredList.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 text-xs">
-                Belum ada data kas pada filter ini.
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
+                <tr>
+                  <th className="p-3 font-semibold">Tanggal</th>
+                  <th className="p-3 font-semibold">Jenis</th>
+                  <th className="p-3 font-semibold">Kategori</th>
+                  <th className="p-3 font-semibold">Keterangan</th>
+                  <th className="p-3 font-semibold text-right">Nominal</th>
+                  <th className="p-3 font-semibold text-center">Nota</th>
+                  <th className="p-3 font-semibold text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
                 {filteredList.map(item => (
-                  <div key={item.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/5 transition">
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-black text-white">
-                          {formatDateIndo(item.date)}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                          item.type === 'inflow' 
-                            ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' 
-                            : item.category === 'gaji_pegawai'
-                            ? (item.paymentType === 'kasbon' || item.description?.toLowerCase().includes('kasbon'))
-                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
-                        }`}>
-                          {item.type === 'inflow' 
-                            ? 'Penarikan Marketplace' 
-                            : item.category === 'gaji_pegawai'
-                            ? ((item.paymentType === 'kasbon' || item.description?.toLowerCase().includes('kasbon')) ? '💳 Kasbon Pegawai' : '💼 Gaji & Insentif')
-                            : CATEGORY_LABELS[item.category] || item.category}
-                        </span>
-
-                        {item.employeeName && (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-white/10 flex items-center gap-1">
-                            <UserCheck className="w-3 h-3" />
-                            <span>{item.employeeName}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-xs text-zinc-300">
-                        {item.description}
-                      </div>
-
-                      {/* Photo Thumbnail Button if exists */}
-                      {item.proofImageUrl && (
+                  <tr key={item.id} className="hover:bg-white/5 transition">
+                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
+                      {formatDateIndo(item.date)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        item.type === 'inflow' 
+                          ? 'bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20'
+                          : 'bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20'
+                      }`}>
+                        {item.type === 'inflow' ? 'Masuk' : 'Keluar'}
+                      </span>
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-zinc-300">
+                      {CATEGORY_LABELS[item.category] || item.category}
+                    </td>
+                    <td className="p-3 text-zinc-300 max-w-xs truncate">
+                      {item.description}
+                    </td>
+                    <td className={`p-3 whitespace-nowrap text-right font-bold ${
+                      item.type === 'inflow' ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
+                    }`}>
+                      {item.type === 'inflow' ? '+' : '-'}{formatRupiah(item.amount)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-center">
+                      {item.proofImageUrl ? (
                         <button
                           type="button"
                           onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/30 cursor-pointer transition"
+                          className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                          title="Lihat Nota"
                         >
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          <span>Lihat Bukti Foto / Struk</span>
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
+                      ) : (
+                        <span className="text-zinc-600">-</span>
                       )}
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className={`text-sm font-black ${item.type === 'inflow' ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                          {item.type === 'inflow' ? '+' : '-'}{formatRupiah(item.amount)}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleStartEdit(item)}
-                          className="p-2 rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
-                          title="Edit Cashflow"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-xl text-rose-400 hover:bg-[#FE2C55]/20 hover:text-[#FE2C55] transition cursor-pointer"
-                          title="Hapus Cashflow"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(item)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                        title="Edit Transaksi"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                        title="Hapus Transaksi"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Modal Preview Bukti Foto Penuh */}
+      {/* Image Preview Modal */}
       {previewPhotoUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="relative max-w-2xl w-full bg-[#161823] rounded-3xl border border-white/20 p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-[#25F4EE]" />
-                <span>Foto Bukti Transaksi / Pembayaran</span>
-              </h4>
+        <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#161823] rounded-2xl border border-white/10 p-4 max-w-md w-full space-y-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h4 className="text-xs font-bold text-white">Foto Bukti Nota</h4>
               <button
+                type="button"
                 onClick={() => setPreviewPhotoUrl(null)}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="max-h-[70vh] overflow-auto flex items-center justify-center rounded-2xl bg-[#0b0c10] p-2 border border-white/10">
-              <img
-                src={previewPhotoUrl}
-                alt="Foto Bukti"
-                className="max-h-[65vh] w-auto object-contain rounded-xl"
-              />
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={() => setPreviewPhotoUrl(null)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
+            <img
+              src={previewPhotoUrl}
+              alt="Preview Nota"
+              className="w-full max-h-96 object-contain rounded-xl border border-white/5 bg-black"
+            />
           </div>
         </div>
       )}
     </div>
   );
 };
-
