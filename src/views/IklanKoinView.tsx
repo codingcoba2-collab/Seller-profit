@@ -19,6 +19,8 @@ import {
   ClipboardList,
   PlusCircle
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface IklanKoinViewProps {
   currentUser: CurrentUser;
@@ -37,6 +39,22 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   const [inputStep, setInputStep] = useState<number>(1);
   const [depositList, setDepositList] = useState<AdsCoinDeposit[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter states
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -126,30 +144,52 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (editingId) {
-      const all = StorageService.getAdsCoins(currentUser.storeId);
-      const updated = all.map(d => d.id === editingId ? record : d);
-      localStorage.setItem('shopee_lr_adcoins', JSON.stringify(updated));
-      onNotify('Perubahan saldo iklan & koin berhasil disimpan!', 'success');
-    } else {
-      StorageService.addAdsCoin(record);
-      onNotify('Topup saldo iklan & koin berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingId) {
+        const all = StorageService.getAdsCoins(currentUser.storeId);
+        const updated = all.map(d => d.id === editingId ? record : d);
+        localStorage.setItem('shopee_lr_adcoins', JSON.stringify(updated));
+        onNotify('Perubahan saldo iklan & koin berhasil disimpan!', 'success');
+      } else {
+        StorageService.addAdsCoin(record);
+        onNotify('Topup saldo iklan & koin berhasil dicatat!', 'success');
+      }
 
-    loadData();
-    resetForm();
-    setViewMode('output');
+      loadData();
+      resetForm();
+      setViewMode('output');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Saldo' : 'Konfirmasi Catat Top-Up Saldo',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan data deposit saldo ini?`
+        : `Apakah Anda yakin ingin menyimpan deposit saldo iklan ${formatRupiah(adsAmount)} dan koin ${formatRupiah(coinAmount)}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Saldo',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus riwayat deposit saldo ini?')) {
-      StorageService.deleteAdsCoin(id);
-      loadData();
-      onNotify('Riwayat deposit saldo dihapus.', 'info');
-      if (editingId === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, noteText?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Riwayat Saldo',
+      message: `Apakah Anda yakin ingin menghapus data riwayat deposit saldo ${noteText ? `"${noteText}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Data',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteAdsCoin(id);
+        loadData();
+        onNotify('Riwayat deposit saldo dihapus.', 'info');
+        if (editingId === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter list
@@ -244,17 +284,22 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Top Up Saldo Iklan &amp; Koin
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Catat pengisian saldo bertahap
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Top Up Saldo Iklan & Koin"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Catat pengisian saldo bertahap"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru →</span>
+                <span>Input data baru</span>
                 <span className="text-[#25F4EE] font-bold">Buka Form</span>
               </div>
             </div>
@@ -269,17 +314,22 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors truncate">
-                    Riwayat Saldo &amp; ROAS
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Rekap deposit &amp; efektivitas iklan
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Riwayat Saldo & ROAS"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Rekap deposit & efektivitas iklan"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredList.length} Deposit Tercatat →</span>
+                <span>{filteredList.length} Deposit Tercatat</span>
                 <span className="text-amber-400 font-bold">Buka Data</span>
               </div>
             </div>
@@ -621,7 +671,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDelete(item.id, item.notes || `${formatRupiah((item.adsAmount || 0) + (item.coinAmount || 0))}`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Catatan"
                       >
@@ -635,6 +685,16 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -1,6 +1,27 @@
 <!doctype html>
 <html lang="id">
   <head>
+    <script>
+      // Suppress benign [vite] failed to connect to websocket error in sandboxed environment
+      (function() {
+        var _origError = console.error;
+        console.error = function() {
+          if (arguments.length > 0) {
+            var first = arguments[0];
+            if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('websocket') !== -1)) {
+              return;
+            }
+          }
+          return _origError.apply(console, arguments);
+        };
+        window.addEventListener('error', function(e) {
+          if (e && e.message && (e.message.indexOf('[vite]') !== -1 || e.message.indexOf('websocket') !== -1)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Seller Profit</title>

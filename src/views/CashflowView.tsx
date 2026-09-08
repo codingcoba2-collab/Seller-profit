@@ -21,6 +21,8 @@ import {
   ArrowRight,
   Layers
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface CashflowViewProps {
   currentUser: CurrentUser;
@@ -52,6 +54,22 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingItem, setEditingItem] = useState<CashflowRecord | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter states
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -209,30 +227,52 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       proofImageUrl: proofImageUrl || undefined,
     };
 
-    if (editingItem) {
-      const all = StorageService.getCashflow(currentUser.storeId);
-      const updated = all.map(c => c.id === editingItem.id ? record : c);
-      localStorage.setItem('shopee_lr_cashflow', JSON.stringify(updated));
-      onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
-    } else {
-      StorageService.addCashflow(record);
-      onNotify('Transaksi arus kas berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingItem) {
+        const all = StorageService.getCashflow(currentUser.storeId);
+        const updated = all.map(c => c.id === editingItem.id ? record : c);
+        localStorage.setItem('shopee_lr_cashflow', JSON.stringify(updated));
+        onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
+      } else {
+        StorageService.addCashflow(record);
+        onNotify('Transaksi arus kas berhasil dicatat!', 'success');
+      }
 
-    loadData();
-    resetForm();
-    setViewMode('output');
+      loadData();
+      resetForm();
+      setViewMode('output');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingItem ? 'Konfirmasi Simpan Perubahan Transaksi' : 'Konfirmasi Catat Transaksi Kas',
+      message: editingItem
+        ? `Apakah Anda yakin ingin menyimpan perubahan transaksi ${formatRupiah(amount)}?`
+        : `Apakah Anda yakin ingin mencatat ${type === 'inflow' ? 'pemasukan' : 'pengeluaran'} sebesar ${formatRupiah(amount)}?`,
+      type: editingItem ? 'edit' : 'create',
+      confirmText: editingItem ? 'Ya, Simpan Perubahan' : 'Ya, Catat Transaksi',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus transaksi ini?')) {
-      StorageService.deleteCashflow(id);
-      loadData();
-      onNotify('Transaksi berhasil dihapus.', 'info');
-      if (editingItem?.id === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, desc?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Transaksi Kas',
+      message: `Apakah Anda yakin ingin menghapus transaksi ${desc ? `"${desc}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Transaksi',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteCashflow(id);
+        loadData();
+        onNotify('Transaksi berhasil dihapus.', 'info');
+        if (editingItem?.id === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter list
@@ -328,17 +368,22 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Catat Transaksi Kas
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Input pengeluaran/pemasukan bertahap
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Catat Transaksi Kas"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Input pengeluaran/pemasukan bertahap"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru →</span>
+                <span>Input data baru</span>
                 <span className="text-[#25F4EE] font-bold">Buka Form</span>
               </div>
             </div>
@@ -353,17 +398,22 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
-                    Buku Kas &amp; Riwayat
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Tabel rincian mutasi kas
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Buku Kas & Riwayat"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Tabel rincian mutasi kas"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredList.length} Transaksi Tercatat →</span>
+                <span>{filteredList.length} Transaksi Tercatat</span>
                 <span className="text-[#FE2C55] font-bold">Buka Data</span>
               </div>
             </div>
@@ -838,7 +888,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDelete(item.id, item.description || `${CATEGORY_LABELS[item.category] || item.category} (${formatRupiah(item.amount)})`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Transaksi"
                       >
@@ -875,6 +925,16 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

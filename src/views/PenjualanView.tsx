@@ -41,6 +41,8 @@ import {
   Eye,
   X
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface PenjualanViewProps {
   currentUser: CurrentUser;
@@ -61,6 +63,22 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingDetailSale, setViewingDetailSale] = useState<SalesRecord | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter states for Rekap tab
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -382,17 +400,30 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (editingId) {
-      StorageService.updateSale(record);
-      onNotify('Data penjualan Live berhasil diperbarui!', 'success');
-    } else {
-      StorageService.addSale(record);
-      onNotify('Data penjualan sesi Live berhasil disimpan!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingId) {
+        StorageService.updateSale(record);
+        onNotify('Data penjualan Live berhasil diperbarui!', 'success');
+      } else {
+        StorageService.addSale(record);
+        onNotify('Data penjualan sesi Live berhasil disimpan!', 'success');
+      }
+      loadData();
+      resetForm();
+      setViewMode('rekap');
+    };
 
-    loadData();
-    resetForm();
-    setViewMode('rekap');
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Live' : 'Konfirmasi Catat Penjualan Live',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan penjualan ${channelMeta.label} tanggal ${formatDateIndo(date)}?`
+        : `Apakah Anda yakin ingin menyimpan data transaksi penjualan live senilai ${formatRupiah(omzet)}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Penjualan',
+      onConfirm: executeSave,
+    });
   };
 
   const handleSubmitNonLive = (e: React.FormEvent) => {
@@ -437,17 +468,30 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (editingId) {
-      StorageService.updateSale(record);
-      onNotify('Data penjualan Non-Live berhasil diperbarui!', 'success');
-    } else {
-      StorageService.addSale(record);
-      onNotify('Data penjualan Non-Live berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingId) {
+        StorageService.updateSale(record);
+        onNotify('Data penjualan Non-Live berhasil diperbarui!', 'success');
+      } else {
+        StorageService.addSale(record);
+        onNotify('Data penjualan Non-Live berhasil dicatat!', 'success');
+      }
+      loadData();
+      resetForm();
+      setViewMode('rekap');
+    };
 
-    loadData();
-    resetForm();
-    setViewMode('rekap');
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Non-Live' : 'Konfirmasi Catat Penjualan Non-Live',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan penjualan non-live tanggal ${formatDateIndo(date)}?`
+        : `Apakah Anda yakin ingin menyimpan transaksi non-live senilai ${formatRupiah(omzet)}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Penjualan',
+      onConfirm: executeSave,
+    });
   };
 
   const handleDelete = (sale: SalesRecord) => {
@@ -455,14 +499,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       onNotify('Hanya Owner Toko yang dapat menghapus data penjualan tanggal lampau!', 'error');
       return;
     }
-    if (confirm(`Hapus data penjualan ${sale.channelName || 'ini'} tanggal ${formatDateIndo(sale.date)}?`)) {
-      StorageService.deleteSale(sale.id);
-      loadData();
-      onNotify('Data penjualan berhasil dihapus.', 'info');
-      if (editingId === sale.id) {
-        handleCancelEdit();
-      }
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Data Penjualan',
+      message: `Apakah Anda yakin ingin menghapus data penjualan ${sale.channelName || 'ini'} tanggal ${formatDateIndo(sale.date)} senilai ${formatRupiah(sale.omzet)}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Data',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteSale(sale.id);
+        loadData();
+        onNotify('Data penjualan berhasil dihapus.', 'info');
+        if (editingId === sale.id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filtered & Sorted Sales Data
@@ -652,17 +705,22 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
                   <Video className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
-                    Input Penjualan Live
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    TikTok Live, Shopee Live, Host &amp; Insentif
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Input Penjualan Live"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="TikTok Live, Shopee Live, Host & Insentif"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Catat sesi streaming →</span>
+                <span>Catat sesi streaming</span>
                 <span className="text-[#FE2C55] font-bold">Buka Form</span>
               </div>
             </div>
@@ -680,17 +738,22 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-emerald-400 shrink-0">
                   <Store className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-400 transition-colors truncate">
-                    Input Non-Live / Offline
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Marketplace reguler, toko offline &amp; kasir
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Input Non-Live / Offline"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-400 transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Marketplace reguler, toko offline & kasir"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Catat order offline/reguler →</span>
+                <span>Catat order offline/reguler</span>
                 <span className="text-emerald-400 font-bold">Buka Form</span>
               </div>
             </div>
@@ -705,17 +768,22 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <Layers className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Riwayat &amp; Rekap Penjualan
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Tabel rekap, filter, print &amp; ekspor CSV
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Riwayat & Rekap Penjualan"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Tabel rekap, filter, print & ekspor CSV"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{salesList.length} Transaksi Tercatat →</span>
+                <span>{salesList.length} Transaksi Tercatat</span>
                 <span className="text-[#25F4EE] font-bold">Buka Data</span>
               </div>
             </div>
@@ -2175,6 +2243,17 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Pop Up Pertanyaan CRUD Penjualan */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { StorageService } from '../services/storage';
 import { AdsCoinDeposit, CurrentUser } from '../types';
 import { formatRupiah, formatDateIndo, getTodayString } from '../utils/formatters';
 import { RoutePath } from '../services/navigation';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { 
   History, 
   ArrowLeft, 
@@ -32,6 +33,22 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
 
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'delete',
+    onConfirm: () => {},
+  });
+
   const loadData = () => {
     const list = StorageService.getAdsCoins(currentUser.storeId);
     setDepositList(list);
@@ -41,12 +58,20 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
     loadData();
   }, [currentUser.storeId]);
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus riwayat topup ini?')) {
-      StorageService.deleteAdsCoin(id);
-      loadData();
-      onNotify('Data top-up berhasil dihapus.', 'info');
-    }
+  const handleDelete = (id: string, noteText?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Riwayat Top-Up',
+      message: `Apakah Anda yakin ingin menghapus data riwayat top-up ${noteText ? `"${noteText}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Data',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteAdsCoin(id);
+        loadData();
+        onNotify('Data top-up berhasil dihapus.', 'info');
+      },
+    });
   };
 
   // Filter & sort list by date desc
@@ -250,7 +275,7 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(item.id)}
+                            onClick={() => handleDelete(item.id, item.notes || `Rp ${formatRupiah(total)}`)}
                             className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] border border-white/10 transition cursor-pointer"
                             title="Hapus data"
                           >
@@ -266,6 +291,16 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

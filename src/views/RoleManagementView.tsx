@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
 interface RoleManagementViewProps {
   currentUser: CurrentUser;
@@ -38,6 +39,22 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Form State
   const [name, setName] = useState('');
@@ -263,15 +280,23 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setViewMode('list');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Yakin ingin menghapus data pegawai ini?')) {
-      StorageService.deleteEmployee(id);
-      loadData();
-      onNotify('Data pegawai berhasil dihapus.', 'info');
-      if (editingId === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, empName?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Data Pegawai',
+      message: `Apakah Anda yakin ingin menghapus data pegawai ${empName ? `"${empName}"` : 'ini'}? Tindakan ini tidak dapat dibatalkan.`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Pegawai',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteEmployee(id);
+        loadData();
+        onNotify('Data pegawai berhasil dihapus.', 'info');
+        if (editingId === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -283,7 +308,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
     const cleanUsername = username.toLowerCase().replace(/\s+/g, '');
     if (StorageService.isUsernameTaken(cleanUsername, editingId || undefined, currentUser.storeId)) {
-      onNotify(`Username "${cleanUsername}" already exist please use another name`, 'error');
+      onNotify(`Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
       return;
     }
 
@@ -343,16 +368,30 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    StorageService.addOrUpdateEmployee(empData);
-    if (editingId) {
-      onNotify('Perubahan data pegawai berhasil disimpan!', 'success');
-    } else {
-      onNotify('Pegawai baru berhasil didaftarkan!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      StorageService.addOrUpdateEmployee(empData);
+      if (editingId) {
+        onNotify('Perubahan data pegawai berhasil disimpan!', 'success');
+      } else {
+        onNotify('Pegawai baru berhasil didaftarkan!', 'success');
+      }
 
-    loadData();
-    resetForm();
-    setViewMode('list');
+      loadData();
+      resetForm();
+      setViewMode('list');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Pegawai' : 'Konfirmasi Daftarkan Pegawai Baru',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan data pegawai "${name}"?`
+        : `Apakah Anda yakin ingin mendaftarkan pegawai baru "${name}" dengan username @${cleanUsername}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Daftarkan Pegawai',
+      onConfirm: executeSave,
+    });
   };
 
   const handleNextStep = () => {
@@ -529,7 +568,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         <span>Edit</span>
                       </button>
                       <button
-                        onClick={() => handleDelete(emp.id)}
+                        onClick={() => handleDelete(emp.id, emp.name)}
                         className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
                         title="Hapus Pegawai"
                       >
@@ -1151,6 +1190,17 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
           </form>
         </div>
       )}
+
+      {/* Confirmation Modal for CRUD Pegawai */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

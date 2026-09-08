@@ -18,6 +18,8 @@ import {
   ClipboardList,
   PlusCircle
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface SteamSortirViewProps {
   currentUser: CurrentUser;
@@ -35,6 +37,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [viewMode, setViewMode] = useState<SteamSortirViewMode>('menu');
   const [inputStep, setInputStep] = useState<number>(1);
   const [editingRecord, setEditingRecord] = useState<SteamSortirRecord | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter state for Output tab
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -172,27 +190,49 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       createdAt: editingRecord ? editingRecord.createdAt : new Date().toISOString(),
     };
 
-    if (editingRecord) {
-      StorageService.updateSteamSortir(record);
-      onNotify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
-    } else {
-      StorageService.addSteamSortir(record);
-      onNotify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingRecord) {
+        StorageService.updateSteamSortir(record);
+        onNotify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
+      } else {
+        StorageService.addSteamSortir(record);
+        onNotify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
+      }
 
-    resetForm();
-    handleCancelEdit();
-    setViewMode('output');
+      resetForm();
+      handleCancelEdit();
+      setViewMode('output');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingRecord ? 'Konfirmasi Simpan Perubahan Pengerjaan' : 'Konfirmasi Catat Sortir & Steam',
+      message: editingRecord
+        ? `Apakah Anda yakin ingin menyimpan perubahan data pengerjaan ball "${finalBallName}"?`
+        : `Apakah Anda yakin ingin menyimpan data pengerjaan ball "${finalBallName}" (${formatNumber(record.pcsTotal)} pcs)?`,
+      type: editingRecord ? 'edit' : 'create',
+      confirmText: editingRecord ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Data',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Yakin ingin menghapus riwayat pengerjaan ball ini?')) {
-      StorageService.deleteSteamSortir(id);
-      onNotify('Data pengerjaan berhasil dihapus.', 'info');
-      if (editingRecord?.id === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, name?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Riwayat Pengerjaan',
+      message: `Apakah Anda yakin ingin menghapus riwayat pengerjaan ${name ? `"${name}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Data',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteSteamSortir(id);
+        onNotify('Data pengerjaan berhasil dihapus.', 'info');
+        if (editingRecord?.id === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter & Sort output records by date descending
@@ -303,17 +343,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Input Sortir &amp; Steam
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Catat QC pengerjaan ball bertahap
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Input Sortir & Steam"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Catat QC pengerjaan ball bertahap"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru →</span>
+                <span>Input data baru</span>
                 <span className="text-[#25F4EE] font-bold">Buka Form</span>
               </div>
             </div>
@@ -328,17 +373,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
-                    Riwayat Pengerjaan
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Laporan hasil layak &amp; reject
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Riwayat Pengerjaan"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Laporan hasil layak & reject"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredRecords.length} Data Tersedia →</span>
+                <span>{filteredRecords.length} Data Tersedia</span>
                 <span className="text-[#FE2C55] font-bold">Buka Data</span>
               </div>
             </div>
@@ -792,7 +842,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(rec.id)}
+                        onClick={() => handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Catatan"
                       >
@@ -806,6 +856,16 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

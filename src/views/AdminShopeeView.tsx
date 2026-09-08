@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ShoppingBag
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
 interface AdminShopeeViewProps {
   currentUser: CurrentUser;
@@ -29,6 +30,22 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
   const [channelFees, setChannelFees] = useState<ChannelFeeConfig[]>([]);
   const [defaultAdminPercentage, setDefaultAdminPercentage] = useState<number>(8.5);
   const [defaultServiceFee, setDefaultServiceFee] = useState<number>(1250);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // New Channel Modal / Input
   const [showAddChannel, setShowAddChannel] = useState(false);
@@ -84,30 +101,60 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
       onNotify('Minimal harus ada satu channel tersisa.', 'error');
       return;
     }
-    setChannelFees(prev => prev.filter(ch => ch.id !== id));
-    onNotify(`Channel "${name}" dihapus.`, 'info');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Channel',
+      message: `Apakah Anda yakin ingin menghapus konfigurasi channel "${name}"?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Channel',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setChannelFees(prev => prev.filter(ch => ch.id !== id));
+        onNotify(`Channel "${name}" dihapus.`, 'info');
+      },
+    });
   };
 
   const handleSaveAll = (e: React.FormEvent) => {
     e.preventDefault();
-    // Cari shopee atau fallback untuk default
-    const shopeeCh = channelFees.find(c => c.channel === 'shopee' || c.name.toLowerCase().includes('shopee'));
-    const adminPct = shopeeCh ? shopeeCh.adminPercentage : defaultAdminPercentage;
-    const servFee = shopeeCh ? shopeeCh.serviceFeePerOrder : defaultServiceFee;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Simpan Pengaturan Admin',
+      message: 'Apakah Anda yakin ingin menyimpan perubahan pengaturan biaya admin dan layanan semua channel marketplace?',
+      type: 'save',
+      confirmText: 'Ya, Simpan Pengaturan',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        // Cari shopee atau fallback untuk default
+        const shopeeCh = channelFees.find(c => c.channel === 'shopee' || c.name.toLowerCase().includes('shopee'));
+        const adminPct = shopeeCh ? shopeeCh.adminPercentage : defaultAdminPercentage;
+        const servFee = shopeeCh ? shopeeCh.serviceFeePerOrder : defaultServiceFee;
 
-    StorageService.updateStoreSettings(currentUser.storeId, {
-      adminPromoPercentage: adminPct,
-      serviceFeePerOrder: servFee,
-      channelFees: channelFees,
+        StorageService.updateStoreSettings(currentUser.storeId, {
+          adminPromoPercentage: adminPct,
+          serviceFeePerOrder: servFee,
+          channelFees: channelFees,
+        });
+
+        onNotify('Pengaturan seluruh channel marketplace & admin fee berhasil disimpan!', 'success');
+      },
     });
-
-    onNotify('Pengaturan seluruh channel marketplace & admin fee berhasil disimpan!', 'success');
   };
 
   const handleResetToDefaults = () => {
-    const defaults = StorageService.getChannelFees('');
-    setChannelFees(defaults);
-    onNotify('Daftar channel dikembalikan ke preset standar (TikTok, Shopee, Offline, Tokopedia, dll).', 'info');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Reset Channel ke Standar',
+      message: 'Apakah Anda yakin ingin mengembalikan daftar channel ke konfigurasi preset standar?',
+      type: 'delete',
+      confirmText: 'Ya, Reset ke Standar',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        const defaults = StorageService.getChannelFees('');
+        setChannelFees(defaults);
+        onNotify('Daftar channel dikembalikan ke preset standar (TikTok, Shopee, Offline, Tokopedia, dll).', 'info');
+      },
+    });
   };
 
   return (
@@ -474,6 +521,16 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

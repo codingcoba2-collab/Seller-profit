@@ -17,6 +17,7 @@ import {
   EyeOff,
   Sparkles
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from './ConfirmModal';
 
 interface DeveloperStoreListModalProps {
   isOpen: boolean;
@@ -36,6 +37,22 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
   const [errorMsg, setErrorMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Editing state
   const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
@@ -79,12 +96,12 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
     if (!existing) return;
 
     if (editStoreName.trim() && StorageService.isStoreNameTaken(editStoreName.trim(), storeId)) {
-      alert(`Nama toko "${editStoreName.trim()}" already exist please use another name`);
+      setErrorMsg(`Nama toko "${editStoreName.trim()}" sudah digunakan, silakan gunakan nama lain.`);
       return;
     }
 
     if (editOwnerUsername.trim() && StorageService.isUsernameTaken(editOwnerUsername.trim(), undefined, storeId)) {
-      alert(`Username "${editOwnerUsername.trim()}" already exist please use another name`);
+      setErrorMsg(`Username "${editOwnerUsername.trim()}" sudah digunakan, silakan gunakan username lain.`);
       return;
     }
 
@@ -95,14 +112,33 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
       ownerPassword: editOwnerPassword.trim() || existing.ownerPassword,
     };
 
-    StorageService.updateStore(updated);
-    setEditingStoreId(null);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Simpan Perubahan Toko',
+      message: `Apakah Anda yakin ingin menyimpan perubahan data toko "${updated.storeName}"?`,
+      type: 'edit',
+      confirmText: 'Ya, Simpan Perubahan',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.updateStore(updated);
+        setEditingStoreId(null);
+        setErrorMsg('');
+      },
+    });
   };
 
   const handleDeleteStore = (storeId: string, name: string) => {
-    if (window.confirm(`Yakin ingin menghapus toko "${name}" beserta datanya?`)) {
-      StorageService.deleteStore(storeId);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Toko',
+      message: `Yakin ingin menghapus toko "${name}" beserta datanya? Tindakan ini permanen.`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Toko',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteStore(storeId);
+      },
+    });
   };
 
   const handleCreateNewStore = (e: React.FormEvent) => {
@@ -113,12 +149,12 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
     }
 
     if (StorageService.isStoreNameTaken(newStoreName)) {
-      setErrorMsg(`Nama toko "${newStoreName}" already exist please use another name`);
+      setErrorMsg(`Nama toko "${newStoreName}" sudah digunakan, silakan gunakan nama lain.`);
       return;
     }
 
     if (StorageService.isUsernameTaken(newOwnerUsername)) {
-      setErrorMsg(`Username "${newOwnerUsername}" already exist please use another name`);
+      setErrorMsg(`Username "${newOwnerUsername}" sudah digunakan, silakan gunakan username lain.`);
       return;
     }
 
@@ -138,12 +174,22 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
       }
     };
 
-    StorageService.saveStores([...stores, newStore]);
-    setIsAddingStore(false);
-    setNewStoreName('');
-    setNewOwnerUsername('');
-    setNewOwnerPassword('');
-    setErrorMsg('');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Daftarkan Toko Baru',
+      message: `Apakah Anda yakin ingin mendaftarkan toko baru "${newStoreName}" dengan owner @${newOwnerUsername}?`,
+      type: 'create',
+      confirmText: 'Ya, Daftarkan Toko',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.saveStores([...stores, newStore]);
+        setIsAddingStore(false);
+        setNewStoreName('');
+        setNewOwnerUsername('');
+        setNewOwnerPassword('');
+        setErrorMsg('');
+      },
+    });
   };
 
   const filteredStores = stores.filter(s => 
@@ -446,6 +492,16 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -3,12 +3,12 @@ import { StorageService } from '../services/storage';
 import { CurrentUser } from '../types';
 import { formatRupiah } from '../utils/formatters';
 import { RoutePath } from '../services/navigation';
+import { MarqueeText } from '../components/MarqueeText';
 import {
   Coins,
   Megaphone,
   TrendingUp,
   ArrowLeft,
-  ArrowRight,
   PlusCircle,
   History,
   Sparkles,
@@ -194,24 +194,23 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
           <div
             id="card-nav-topup-input"
             onClick={() => onNavigate('/topup-saldo/input')}
-            className="group rounded-2xl p-4 sm:p-5 border border-emerald-500/30 bg-[#161823] hover:bg-[#1c1f2e] hover:border-emerald-400 transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 shadow-md active:scale-[0.99]"
+            className="group rounded-2xl p-4 sm:p-5 border border-emerald-500/30 bg-[#161823] hover:bg-[#1c1f2e] hover:border-emerald-400 transition-all duration-200 cursor-pointer flex items-center gap-3.5 shadow-md active:scale-[0.99]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-emerald-400 shrink-0 shadow-inner">
-                <PlusCircle className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors truncate">
-                  Input Top-Up Saldo
-                </h4>
-                <p className="text-xs text-zinc-400 truncate mt-0.5">
-                  Tambah saldo iklan marketplace atau koin live
-                </p>
-              </div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-emerald-400 shrink-0 shadow-inner">
+              <PlusCircle className="w-6 h-6" />
             </div>
-
-            <div className="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-emerald-400 group-hover:text-zinc-950 flex items-center justify-center transition-all shrink-0">
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <div className="min-w-0 flex-1">
+              <MarqueeText
+                text="Input Top-Up Saldo"
+                as="h4"
+                className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight"
+              />
+              <MarqueeText
+                text="Tambah saldo iklan marketplace atau koin live"
+                as="p"
+                speed={12}
+                className="text-xs text-zinc-400 leading-snug mt-0.5"
+              />
             </div>
           </div>
 
@@ -219,24 +218,23 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
           <div
             id="card-nav-topup-riwayat"
             onClick={() => onNavigate('/topup-saldo/riwayat')}
-            className="group rounded-2xl p-4 sm:p-5 border border-[#25F4EE]/30 bg-[#161823] hover:bg-[#1c1f2e] hover:border-[#25F4EE] transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 shadow-md active:scale-[0.99]"
+            className="group rounded-2xl p-4 sm:p-5 border border-[#25F4EE]/30 bg-[#161823] hover:bg-[#1c1f2e] hover:border-[#25F4EE] transition-all duration-200 cursor-pointer flex items-center gap-3.5 shadow-md active:scale-[0.99]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-[#25F4EE] shrink-0 shadow-inner">
-                <History className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                  Riwayat &amp; Mutasi Saldo
-                </h4>
-                <p className="text-xs text-zinc-400 truncate mt-0.5">
-                  Daftar transaksi, mutasi, filter tanggal &amp; edit
-                </p>
-              </div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-[#25F4EE] shrink-0 shadow-inner">
+              <History className="w-6 h-6" />
             </div>
-
-            <div className="w-8 h-8 rounded-xl bg-white/5 group-hover:bg-[#25F4EE] group-hover:text-zinc-950 flex items-center justify-center transition-all shrink-0">
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <div className="min-w-0 flex-1">
+              <MarqueeText
+                text="Riwayat & Mutasi Saldo"
+                as="h4"
+                className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+              />
+              <MarqueeText
+                text="Daftar transaksi, mutasi, filter tanggal & edit"
+                as="p"
+                speed={12}
+                className="text-xs text-zinc-400 leading-snug mt-0.5"
+              />
             </div>
           </div>
         </div>

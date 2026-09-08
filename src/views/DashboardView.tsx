@@ -4,7 +4,6 @@ import { StorageService } from '../services/storage';
 import { formatRupiah, formatNumber } from '../utils/formatters';
 import { CATEGORIES, RoutePath } from '../services/navigation';
 import {
-  Package,
   TrendingUp,
   Coins,
   Wallet,
@@ -13,12 +12,11 @@ import {
   RefreshCw,
   Palette,
   ShoppingBag,
-  Tag,
   Layers,
-  ArrowRight,
   Sparkles
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -72,7 +70,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-0.5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 text-[11px] font-semibold text-zinc-300 border border-white/10">
             <ShoppingBag className="w-3 h-3 text-[#25F4EE]" />
-            <span>{store?.storeName || 'Fashion Store Official'}</span>
+            <MarqueeText text={store?.storeName || 'Fashion Store Official'} className="max-w-[200px] sm:max-w-[300px]" />
           </div>
 
           <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
@@ -118,10 +116,69 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* DASHBOARD UTAMA: HANYA TAMPILKAN GRID PERSIAPAN, PENJUALAN, DAN KEUANGAN */}
-      <div className="space-y-4">
-        {/* 3 Main Categories Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* METRIK UTAMA DASHBOARD: OMZET HARI INI, HPP SISA STOK, DAN SALDO IKLAN & KOIN */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {/* Metric 1: Omzet Hari Ini */}
+        <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-md flex items-center justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="text-xs text-zinc-400 font-bold flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-[#FE2C55]" />
+              <span>Omzet Hari Ini</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {formatRupiah(todayOmzet)}
+            </div>
+            <div className="text-[11px] text-zinc-400">
+              <strong className="text-emerald-400">{formatNumber(todayPcs)} pcs</strong> • <strong className="text-amber-300">{formatNumber(todayPackages)} paket</strong>
+            </div>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-[#FE2C55]/10 border border-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55] shrink-0">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Metric 2: HPP & Sisa Stok */}
+        <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-md flex items-center justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="text-xs text-zinc-400 font-bold flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>HPP &amp; Sisa Stok</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {formatRupiah(hppInfo.weightedAverageHpp)} <span className="text-xs font-normal text-zinc-400">/pcs</span>
+            </div>
+            <div className="text-[11px] text-zinc-400">
+              Sisa: <strong className="text-[#25F4EE]">{formatNumber(stockInfo.remainingStock)} pcs</strong> ({formatRupiah(Math.max(0, stockInfo.remainingStock) * hppInfo.weightedAverageHpp)})
+            </div>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Metric 3: Saldo Iklan & Koin */}
+        <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-md flex items-center justify-between gap-3 sm:col-span-2 lg:col-span-1">
+          <div className="space-y-1 min-w-0">
+            <div className="text-xs text-zinc-400 font-bold flex items-center gap-1.5">
+              <Coins className="w-3.5 h-3.5 text-amber-400" />
+              <span>Saldo Iklan &amp; Koin</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {formatRupiah(adsCoinInfo.remainingAds)}
+            </div>
+            <div className="text-[11px] text-zinc-400">
+              Sisa Saldo Koin: <strong className="text-amber-400">{formatRupiah(adsCoinInfo.remainingCoin)}</strong>
+            </div>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
+            <Coins className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* DASHBOARD UTAMA: HANYA TAMPILKAN 3 MENU UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN) TANPA TULISAN SUB MENU DAN TANPA TANDA PANAH */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
           {CATEGORIES.map((cat) => {
             const CatIcon = cat.icon;
 
@@ -129,62 +186,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div
                 key={cat.key}
                 id={`card-main-menu-${cat.key}`}
-                className={`rounded-2xl border bg-[#161823] transition-all duration-200 overflow-hidden flex flex-col justify-between shadow-lg ${cat.hoverBorder} ${cat.borderAccent}`}
+                onClick={() => onNavigate(cat.path)}
+                className={`group p-4 sm:p-5 rounded-3xl border bg-[#161823] hover:bg-[#1c1f2e] transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-4 ${cat.hoverBorder} ${cat.borderAccent}`}
               >
-                {/* Category Header Bar */}
-                <div
-                  onClick={() => onNavigate(cat.path)}
-                  className="p-3.5 sm:p-4 cursor-pointer hover:bg-white/5 transition flex items-center justify-between gap-3 border-b border-white/5"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${cat.iconColor} shrink-0 shadow-inner`}
-                    >
-                      <CatIcon className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-base font-black text-white tracking-tight leading-tight truncate">
-                        {cat.title}
-                      </h4>
-                      <span className="text-[11px] text-zinc-400 font-semibold">
-                        {cat.items.length} Sub-Menu
-                      </span>
-                    </div>
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${cat.iconColor} shrink-0 shadow-inner group-hover:scale-105 transition-transform`}
+                  >
+                    <CatIcon className="w-6 h-6" />
                   </div>
-
-                  <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white shrink-0">
-                    <ArrowRight className="w-3.5 h-3.5" />
+                  <div className="min-w-0 flex-1">
+                    <MarqueeText
+                      text={cat.title}
+                      as="h3"
+                      className="text-base sm:text-lg font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                    />
+                    <MarqueeText
+                      text={cat.description}
+                      as="p"
+                      speed={14}
+                      className="text-xs text-zinc-400 mt-1 leading-snug"
+                    />
                   </div>
                 </div>
 
-                {/* Sub Menu Grid: Kecil 2 kesamping, sisanya ke bawah */}
-                <div className="p-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    {cat.items.map((item) => {
-                      const ItemIcon = item.icon;
-                      return (
-                        <button
-                          key={item.path}
-                          type="button"
-                          id={`btn-dash-sub-${item.path.replace(/\//g, '-')}`}
-                          onClick={() => onNavigate(item.path)}
-                          className="flex items-center gap-2 p-2.5 rounded-xl bg-[#0b0c10] hover:bg-white/10 border border-white/5 hover:border-white/20 transition-all text-left group cursor-pointer active:scale-95"
-                        >
-                          <div className={`w-7 h-7 rounded-lg bg-[#161823] flex items-center justify-center shrink-0 ${item.iconColor}`}>
-                            <ItemIcon className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold text-white group-hover:text-[#25F4EE] truncate leading-snug">
-                              {item.title}
-                            </div>
-                            <div className="text-[10px] text-zinc-400 truncate">
-                              {item.badgeText || 'Fitur'}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                  <span className="text-zinc-500 font-semibold group-hover:text-zinc-400 transition-colors">
+                    Akses Menu
+                  </span>
+                  <span className="font-bold text-zinc-300 group-hover:text-white transition-colors">
+                    Buka
+                  </span>
                 </div>
               </div>
             );

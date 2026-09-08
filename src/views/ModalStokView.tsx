@@ -27,6 +27,7 @@ import {
   Sparkles,
   Tag
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
 interface ModalStokViewProps {
   currentUser: CurrentUser;
@@ -43,6 +44,22 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   const [formStep, setFormStep] = useState<number>(1);
   const [inventoryList, setInventoryList] = useState<BallInventory[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter state for Output tab
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -221,30 +238,52 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       estimateReturnPercentage,
     });
 
-    if (editingId) {
-      const all = StorageService.getInventory(currentUser.storeId);
-      const updated = all.map(b => b.id === editingId ? newBall : b);
-      StorageService.saveInventory(updated);
-      onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
-    } else {
-      StorageService.addInventory(newBall);
-      onNotify('Data stok fashion baru & kalkulasi HPP berhasil disimpan!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingId) {
+        const all = StorageService.getInventory(currentUser.storeId);
+        const updated = all.map(b => b.id === editingId ? newBall : b);
+        StorageService.saveInventory(updated);
+        onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
+      } else {
+        StorageService.addInventory(newBall);
+        onNotify('Data stok fashion baru & kalkulasi HPP berhasil disimpan!', 'success');
+      }
 
-    loadData();
-    resetForm();
-    setViewMode('list');
+      loadData();
+      resetForm();
+      setViewMode('list');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Stok' : 'Konfirmasi Catat Stok Baru',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan data stok "${ballType}" ini?`
+        : `Apakah Anda yakin ingin membuat dan menyimpan data stok "${ballType}" (${formatNumber(pcsCount)} pcs)?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Stok Baru',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus pencatatan stok / ball ini?')) {
-      StorageService.deleteInventory(id);
-      loadData();
-      onNotify('Data stok berhasil dihapus.', 'info');
-      if (editingId === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, name?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Data Stok',
+      message: `Apakah Anda yakin ingin menghapus data stok ${name ? `"${name}"` : 'ini'} beserta riwayat modalnya?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Stok',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteInventory(id);
+        loadData();
+        onNotify('Data stok berhasil dihapus.', 'info');
+        if (editingId === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter & sort list by date desc
@@ -878,7 +917,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => handleDelete(item.id, item.ballType)}
                               className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] transition cursor-pointer"
                               title="Hapus Data Stok"
                             >
@@ -895,6 +934,17 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for CRUD Stok */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

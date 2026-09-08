@@ -17,6 +17,8 @@ import {
   ClipboardList,
   PlusCircle
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface KehadiranViewProps {
   currentUser: CurrentUser;
@@ -36,6 +38,22 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Filter states
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
@@ -141,30 +159,52 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (editingId) {
-      const all = StorageService.getAttendance(currentUser.storeId);
-      const updated = all.map(a => a.id === editingId ? record : a);
-      localStorage.setItem('shopee_lr_attendance', JSON.stringify(updated));
-      onNotify('Perubahan data kehadiran berhasil disimpan!', 'success');
-    } else {
-      StorageService.addAttendance(record);
-      onNotify('Presensi kehadiran berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingId) {
+        const all = StorageService.getAttendance(currentUser.storeId);
+        const updated = all.map(a => a.id === editingId ? record : a);
+        localStorage.setItem('shopee_lr_attendance', JSON.stringify(updated));
+        onNotify('Perubahan data kehadiran berhasil disimpan!', 'success');
+      } else {
+        StorageService.addAttendance(record);
+        onNotify('Presensi kehadiran berhasil dicatat!', 'success');
+      }
 
-    loadData();
-    handleCancelEdit();
-    setViewMode('output');
+      loadData();
+      handleCancelEdit();
+      setViewMode('output');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Presensi' : 'Konfirmasi Simpan Presensi',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan presensi untuk ${currentEmp.name}?`
+        : `Apakah Anda yakin ingin mencatat presensi untuk ${currentEmp.name} pada tanggal ${date}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Presensi',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus data kehadiran ini?')) {
-      StorageService.deleteAttendance(id);
-      loadData();
-      onNotify('Data kehadiran berhasil dihapus.', 'info');
-      if (editingId === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, empName?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Presensi',
+      message: `Apakah Anda yakin ingin menghapus data presensi ${empName ? `"${empName}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Data',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteAttendance(id);
+        loadData();
+        onNotify('Data kehadiran berhasil dihapus.', 'info');
+        if (editingId === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter & sort list by date desc
@@ -255,17 +295,22 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Form Presensi Kehadiran
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Catat kehadiran shift bertahap
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Form Presensi Kehadiran"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Catat kehadiran shift bertahap"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru →</span>
+                <span>Input data baru</span>
                 <span className="text-[#25F4EE] font-bold">Buka Form</span>
               </div>
             </div>
@@ -280,17 +325,22 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
-                    Riwayat Presensi Tim
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Lihat rekap log kehadiran shift
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Riwayat Presensi Tim"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Lihat rekap log kehadiran shift"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredList.length} Data Tersedia →</span>
+                <span>{filteredList.length} Data Tersedia</span>
                 <span className="text-[#FE2C55] font-bold">Buka Data</span>
               </div>
             </div>
@@ -667,7 +717,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(att.id)}
+                        onClick={() => handleDelete(att.id, `${att.employeeName} (${formatDateIndo(att.date)})`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Presensi"
                       >
@@ -681,6 +731,16 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

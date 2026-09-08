@@ -34,6 +34,8 @@ import {
   ArrowRight,
   Settings
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface PersonalFinanceViewProps {
   currentUser: CurrentUser;
@@ -66,6 +68,22 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
   const [viewMode, setViewMode] = useState<PersonalFinanceViewMode>('menu');
   const [inputStep, setInputStep] = useState<number>(1);
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('monthly');
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Allocation State (Pengaturan Biaya)
   const [totalIncome, setTotalIncome] = useState<number>(1000000);
@@ -169,9 +187,19 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    StorageService.savePersonalBudgetAllocation(currentUser.storeId, alloc);
-    onNotify('Pengaturan alokasi anggaran pribadi berhasil disimpan!', 'success');
-    setViewMode('output');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Simpan Alokasi Budget',
+      message: `Apakah Anda yakin ingin menyimpan alokasi budget dengan total pendapatan ${formatRupiah(totalIncome)}?`,
+      type: 'save',
+      confirmText: 'Ya, Simpan Alokasi',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.savePersonalBudgetAllocation(currentUser.storeId, alloc);
+        onNotify('Pengaturan alokasi anggaran pribadi berhasil disimpan!', 'success');
+        setViewMode('output');
+      },
+    });
   };
 
   // Handle Save / Update Expense
@@ -183,38 +211,52 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       return;
     }
 
-    if (editingExpense) {
-      const updated: PersonalExpenseRecord = {
-        ...editingExpense,
-        date: expenseDate,
-        category: expenseCategory,
-        amount: expenseAmount,
-        description: expenseDescription,
-      };
-      StorageService.updatePersonalExpense(updated);
-      onNotify('Data pengeluaran pribadi berhasil diperbarui!', 'success');
-      setEditingExpense(null);
-    } else {
-      const newRec: PersonalExpenseRecord = {
-        id: 'pexp-' + Date.now(),
-        storeId: currentUser.storeId,
-        date: expenseDate,
-        category: expenseCategory,
-        amount: expenseAmount,
-        description: expenseDescription,
-        createdAt: new Date().toISOString(),
-      };
-      StorageService.addPersonalExpense(newRec);
-      onNotify('Pengeluaran pribadi baru berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editingExpense) {
+        const updated: PersonalExpenseRecord = {
+          ...editingExpense,
+          date: expenseDate,
+          category: expenseCategory,
+          amount: expenseAmount,
+          description: expenseDescription,
+        };
+        StorageService.updatePersonalExpense(updated);
+        onNotify('Data pengeluaran pribadi berhasil diperbarui!', 'success');
+        setEditingExpense(null);
+      } else {
+        const newRec: PersonalExpenseRecord = {
+          id: 'pexp-' + Date.now(),
+          storeId: currentUser.storeId,
+          date: expenseDate,
+          category: expenseCategory,
+          amount: expenseAmount,
+          description: expenseDescription,
+          createdAt: new Date().toISOString(),
+        };
+        StorageService.addPersonalExpense(newRec);
+        onNotify('Pengeluaran pribadi baru berhasil dicatat!', 'success');
+      }
 
-    // Reset Form
-    setExpenseAmount(50000);
-    setExpenseDescription('');
-    setExpenseDate(getTodayString());
-    setInputStep(1);
-    loadData();
-    setViewMode('output');
+      // Reset Form
+      setExpenseAmount(50000);
+      setExpenseDescription('');
+      setExpenseDate(getTodayString());
+      setInputStep(1);
+      loadData();
+      setViewMode('output');
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      title: editingExpense ? 'Konfirmasi Simpan Perubahan Pengeluaran' : 'Konfirmasi Catat Pengeluaran',
+      message: editingExpense
+        ? `Apakah Anda yakin ingin menyimpan perubahan pengeluaran sebesar ${formatRupiah(expenseAmount)}?`
+        : `Apakah Anda yakin ingin mencatat pengeluaran ${CATEGORY_NAMES[expenseCategory]} sebesar ${formatRupiah(expenseAmount)}?`,
+      type: editingExpense ? 'edit' : 'create',
+      confirmText: editingExpense ? 'Ya, Simpan Perubahan' : 'Ya, Catat Pengeluaran',
+      onConfirm: executeSave,
+    });
   };
 
   // Handle Edit Expense
@@ -238,15 +280,23 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
   };
 
   // Handle Delete Expense
-  const handleDeleteExpense = (id: string) => {
-    if (confirm('Hapus catatan pengeluaran pribadi ini?')) {
-      StorageService.deletePersonalExpense(id);
-      loadData();
-      onNotify('Catatan pengeluaran berhasil dihapus.', 'info');
-      if (editingExpense?.id === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDeleteExpense = (id: string, desc?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Pengeluaran Pribadi',
+      message: `Apakah Anda yakin ingin menghapus catatan pengeluaran ${desc ? `"${desc}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Pengeluaran',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deletePersonalExpense(id);
+        loadData();
+        onNotify('Catatan pengeluaran berhasil dihapus.', 'info');
+        if (editingExpense?.id === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) =================
@@ -316,17 +366,22 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Catat Pengeluaran
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Input biaya belanja pribadi bertahap
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Catat Pengeluaran"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Input biaya belanja pribadi bertahap"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru →</span>
+                <span>Input data baru</span>
                 <span className="text-[#25F4EE] font-bold">Buka Form</span>
               </div>
             </div>
@@ -341,17 +396,22 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors truncate">
-                    Laporan &amp; Budget
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Monitoring batas anggaran 4 pos
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Laporan & Budget"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Monitoring batas anggaran 4 pos"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredExpenses.length} Biaya Tercatat →</span>
+                <span>{filteredExpenses.length} Biaya Tercatat</span>
                 <span className="text-amber-400 font-bold">Buka Data</span>
               </div>
             </div>
@@ -366,17 +426,22 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-purple-400 shrink-0">
                   <Settings className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-purple-400 transition-colors truncate">
-                    Alokasi Budget %
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Atur persentase 50/20/15/15 pos
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Alokasi Budget %"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-purple-400 transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Atur persentase 50/20/15/15 pos"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Konfigurasi persentase →</span>
+                <span>Konfigurasi persentase</span>
                 <span className="text-purple-400 font-bold">Atur Budget</span>
               </div>
             </div>
@@ -865,7 +930,7 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteExpense(item.id)}
+                        onClick={() => handleDeleteExpense(item.id, item.description || `${CATEGORY_NAMES[item.category]} - ${formatRupiah(item.amount)}`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Catatan"
                       >
@@ -879,6 +944,16 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

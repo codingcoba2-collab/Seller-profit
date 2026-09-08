@@ -19,6 +19,8 @@ import {
   ClipboardList,
   PlusCircle
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface ReturnViewProps {
   currentUser: CurrentUser;
@@ -37,6 +39,22 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   const [inputStep, setInputStep] = useState<number>(1);
   const [returnList, setReturnList] = useState<ReturnRecord[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   // Return Mechanism Mode (Req 1: Owner Control)
   const [isEstimateMode, setIsEstimateMode] = useState(false);
@@ -133,23 +151,44 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    StorageService.addReturn(record);
-    onNotify(editingId ? 'Perubahan data retur berhasil disimpan!' : 'Data retur paket berhasil disimpan!', 'success');
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      StorageService.addReturn(record);
+      onNotify(editingId ? 'Perubahan data retur berhasil disimpan!' : 'Data retur paket berhasil disimpan!', 'success');
+      loadData();
+      resetForm();
+      setViewMode('output');
+    };
 
-    loadData();
-    resetForm();
-    setViewMode('output');
+    setConfirmModal({
+      isOpen: true,
+      title: editingId ? 'Konfirmasi Simpan Perubahan Retur' : 'Konfirmasi Catat Retur Baru',
+      message: editingId
+        ? `Apakah Anda yakin ingin menyimpan perubahan data retur ${packageCount} paket ini?`
+        : `Apakah Anda yakin ingin menyimpan catatan retur ${packageCount} paket senilai ${formatRupiah(totalAmount)}?`,
+      type: editingId ? 'edit' : 'create',
+      confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Retur',
+      onConfirm: executeSave,
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Hapus data retur ini?')) {
-      StorageService.deleteReturn(id);
-      loadData();
-      onNotify('Data retur berhasil dihapus.', 'info');
-      if (editingId === id) {
-        handleCancelEdit();
-      }
-    }
+  const handleDelete = (id: string, reasonText?: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Data Retur',
+      message: `Apakah Anda yakin ingin menghapus catatan retur ${reasonText ? `"${reasonText}"` : 'ini'}?`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Retur',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.deleteReturn(id);
+        loadData();
+        onNotify('Data retur berhasil dihapus.', 'info');
+        if (editingId === id) {
+          handleCancelEdit();
+        }
+      },
+    });
   };
 
   // Filter & sort
@@ -299,17 +338,22 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors truncate">
-                    Input Paket Retur
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    {isEstimateMode ? 'Terkunci (Mode Estimasi Aktif)' : 'Catat paket retur baru bertahap'}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Input Paket Retur"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text={isEstimateMode ? 'Terkunci (Mode Estimasi Aktif)' : 'Catat paket retur baru bertahap'}
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{isEstimateMode ? 'Otomatis %' : 'Input data baru →'}</span>
+                <span>{isEstimateMode ? 'Otomatis %' : 'Input data baru'}</span>
                 <span className="text-[#FE2C55] font-bold">{isEstimateMode ? 'Terkunci' : 'Buka Form'}</span>
               </div>
             </div>
@@ -324,17 +368,22 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                 <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                    Riwayat Paket Retur
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    Daftar paket retur &amp; nominal
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Riwayat Paket Retur"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Daftar paket retur & nominal"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredList.length} Data Tersedia →</span>
+                <span>{filteredList.length} Data Tersedia</span>
                 <span className="text-[#25F4EE] font-bold">Buka Data</span>
               </div>
             </div>
@@ -650,7 +699,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDelete(item.id, `${item.packageCount} paket - ${item.reason}`)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
                         title="Hapus Catatan"
                       >
@@ -664,6 +713,16 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

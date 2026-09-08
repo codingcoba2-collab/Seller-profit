@@ -1,7 +1,8 @@
 import React from 'react';
 import { CurrentUser } from '../types';
 import { CATEGORIES, RoutePath, isRouteAllowed } from '../services/navigation';
-import { ArrowLeft, ArrowRight, Lock, Sparkles } from 'lucide-react';
+import { Lock } from 'lucide-react';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface CategoryPageViewProps {
   categoryKey: 'persiapan' | 'penjualan' | 'keuangan';
@@ -97,31 +98,30 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   <ItemIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
 
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                      {item.title}
-                    </h3>
-                  </div>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                    {item.subtitle}
-                  </p>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <MarqueeText
+                    text={item.title}
+                    as="h3"
+                    className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text={item.subtitle}
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
                 </div>
               </div>
 
-              {/* Right: Arrow or Lock */}
-              <div className="shrink-0 flex items-center justify-end">
-                {accessible ? (
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-[#25F4EE] group-hover:text-zinc-950 transition-all">
-                    <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </div>
-                ) : (
+              {/* Right: Lock if not accessible */}
+              {!accessible && (
+                <div className="shrink-0 flex items-center justify-end">
                   <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 bg-black/40 px-1.5 py-0.5 rounded-lg border border-zinc-700/40">
                     <Lock className="w-3 h-3" />
                     <span>Kunci</span>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { AdsCoinDeposit, CurrentUser } from '../types';
-import { getTodayString } from '../utils/formatters';
+import { getTodayString, formatRupiah } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { RoutePath } from '../services/navigation';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { 
   Wallet, 
   ArrowLeft, 
@@ -32,6 +33,22 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
   const [coinAmount, setCoinAmount] = useState<number>(500000);
   const [notes, setNotes] = useState('Topup Marketplace Ads & Koin Live');
   const [isEditing, setIsEditing] = useState<boolean>(!!editId);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     if (editId) {
@@ -64,18 +81,30 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (editId) {
-      const all = StorageService.getAdsCoins(currentUser.storeId);
-      const updated = all.map(d => d.id === editId ? newDeposit : d);
-      localStorage.setItem('shopee_lr_adscoins', JSON.stringify(updated));
-      onNotify('Perubahan saldo topup iklan/koin berhasil disimpan!', 'success');
-    } else {
-      StorageService.addAdsCoin(newDeposit);
-      onNotify('Top-up saldo iklan & koin berhasil dicatat!', 'success');
-    }
+    const executeSave = () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      if (editId) {
+        const all = StorageService.getAdsCoins(currentUser.storeId);
+        const updated = all.map(d => d.id === editId ? newDeposit : d);
+        localStorage.setItem('shopee_lr_adscoins', JSON.stringify(updated));
+        onNotify('Perubahan saldo topup iklan/koin berhasil disimpan!', 'success');
+      } else {
+        StorageService.addAdsCoin(newDeposit);
+        onNotify('Top-up saldo iklan & koin berhasil dicatat!', 'success');
+      }
+      onNavigate('/topup-saldo/riwayat');
+    };
 
-    // Redirect to history page directly
-    onNavigate('/topup-saldo/riwayat');
+    setConfirmModal({
+      isOpen: true,
+      title: isEditing ? 'Konfirmasi Simpan Perubahan Top-Up' : 'Konfirmasi Simpan Saldo Top-Up',
+      message: isEditing
+        ? `Apakah Anda yakin ingin menyimpan perubahan data top-up ini?`
+        : `Apakah Anda yakin ingin menyimpan saldo top-up iklan ${formatRupiah(adsAmount)} dan koin ${formatRupiah(coinAmount)}?`,
+      type: isEditing ? 'edit' : 'create',
+      confirmText: isEditing ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Saldo',
+      onConfirm: executeSave,
+    });
   };
 
   return (
@@ -223,6 +252,16 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -24,6 +24,7 @@ import {
   ShieldAlert,
   Plus
 } from 'lucide-react';
+import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
 interface GajiViewProps {
   currentUser: CurrentUser;
@@ -54,6 +55,22 @@ export const GajiView: React.FC<GajiViewProps> = ({
   const [payDescription, setPayDescription] = useState('');
   const [payProofImage, setPayProofImage] = useState('');
   const quickPayFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: ConfirmActionType;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'save',
+    onConfirm: () => {},
+  });
 
   const loadData = () => {
     const empList = StorageService.getEmployees(currentUser.storeId);
@@ -433,13 +450,23 @@ export const GajiView: React.FC<GajiViewProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    StorageService.addCashflow(newCashflow);
-    const successMsg = payType === 'kasbon'
-      ? `Kasbon sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`
-      : `Pembayaran gaji sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`;
-    onNotify?.(successMsg, 'success');
-    setQuickPayEmp(null);
-    loadData();
+    setConfirmModal({
+      isOpen: true,
+      title: payType === 'kasbon' ? 'Konfirmasi Catat Kasbon' : 'Konfirmasi Bayar Gaji',
+      message: `Apakah Anda yakin ingin memproses ${payType === 'kasbon' ? 'kasbon' : 'pembayaran gaji'} sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name}?`,
+      type: 'save',
+      confirmText: payType === 'kasbon' ? 'Ya, Catat Kasbon' : 'Ya, Bayar Gaji',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        StorageService.addCashflow(newCashflow);
+        const successMsg = payType === 'kasbon'
+          ? `Kasbon sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`
+          : `Pembayaran gaji sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`;
+        onNotify?.(successMsg, 'success');
+        setQuickPayEmp(null);
+        loadData();
+      },
+    });
   };
 
   return (
@@ -1187,6 +1214,16 @@ export const GajiView: React.FC<GajiViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
