@@ -72,6 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'gaji': return 'Slip Gaji & Insentif';
       case 'laba_rugi': return 'Laporan Laba & Rugi Sesi';
       case 'cashflow': return 'Cashflow & Arus Kas';
+      case 'keuangan_pribadi': return 'Cashflow & Keuangan Pribadi';
       case 'laba_bersih': return 'Laporan Laba Bersih Toko';
       case 'index_performa': return 'Indeks Performa & Efektivitas AI';
       default: return 'Seller Profit';

@@ -71,6 +71,16 @@ export interface Employee {
   createdAt: string;
 }
 
+export interface ChannelFeeConfig {
+  id: string;
+  channel: string; // 'shopee' | 'tiktok' | 'tokopedia' | 'offline' | 'whatsapp' | 'lainnya'
+  name: string; // e.g. 'Shopee Live & Marketplace', 'TikTok Shop', 'Toko Offline / Fisik'
+  adminPercentage: number; // e.g. 8.5
+  serviceFeePerOrder: number; // e.g. 1250
+  isActive: boolean;
+  notes?: string;
+}
+
 export interface StoreAccount {
   id: string;
   storeName: string;
@@ -83,6 +93,7 @@ export interface StoreAccount {
     serviceFeePerOrder: number; // e.g. 1250
     returnMechanism: 'estimate' | 'detail';
     estimateReturnPercentage: number; // e.g. 5
+    channelFees?: ChannelFeeConfig[];
   };
 }
 
@@ -159,6 +170,8 @@ export interface BallInventory {
   ballType: string; // nama stok / kode / nama ball / seri
   category?: FashionCategory; // Kategori fashion (Thrift, Baju Baru, Hijab, Distro, dll.)
   unitType?: InventoryUnitType; // Ball karung, Lusin, Seri, Satuan, dll.
+  sizes?: string[]; // Pilihan ukuran e.g. ['S', 'M', 'L', 'XL']
+  sizeBreakdown?: { [size: string]: number }; // e.g. { S: 50, M: 100, L: 100, XL: 50 }
   modalPrice: number;
   pcsCount: number; // isi pcs total
   shippingCost: number; // ongkir
@@ -200,6 +213,9 @@ export interface SalesRecord {
   bundlingPcs?: number; // Pcs total dari bundling (misal 1 paket isi 3 pcs)
   bundlingPackages?: number; // Jumlah paket bundling
   bundlingOmzet?: number; // Omzet dari bundling
+  selectedSizes?: string[]; // Ukuran produk yang terjual: ['S', 'M', 'L', 'XL']
+  sizeBreakdown?: { [size: string]: number };
+  sizeNotes?: string;
   hostIds?: string[];
   hostNames?: string[];
   adminIds?: string[]; // ID admin toko / kasir
@@ -256,12 +272,37 @@ export interface CashflowRecord {
     | 'makan_minum' 
     | 'listrik_wifi' 
     | 'sewa_tempat' 
+    | 'konsumsi_pribadi' // Pengeluaran Konsumsi Pribadi (Prive Pemilik)
     | 'lainnya';
   employeeId?: string; // ID pegawai jika kategori gaji_pegawai
   employeeName?: string; // Nama pegawai jika kategori gaji_pegawai
   periodMonth?: string; // Periode bulan gaji (misal: "2026-09" atau "September 2026")
   paymentType?: 'gaji_insentif' | 'kasbon'; // Opsi pembayaran gaji & insentif vs kasbon
   proofImageUrl?: string; // Foto bukti transfer / struk pembayaran gaji (base64)
+  personalBudgetCategory?: PersonalBudgetCategory; // Optional: kategori pos pribadi ('sehari_hari', 'utang', dll)
+  createdAt: string;
+}
+
+// ARUS KEUANGAN PRIBADI
+export type PersonalBudgetCategory = 'sehari_hari' | 'utang' | 'tabungan' | 'investasi_toko';
+
+export interface PersonalBudgetAllocation {
+  totalIncome: number; // Uang pribadi masuk misal Rp 1.000.000
+  sehariHariPercent: number; // misal 50%
+  utangPercent: number; // misal 20%
+  tabunganPercent: number; // misal 15%
+  investasiTokoPercent: number; // misal 15%
+  updatedAt?: string;
+}
+
+export interface PersonalExpenseRecord {
+  id: string;
+  storeId: string;
+  date: string;
+  category: PersonalBudgetCategory;
+  amount: number;
+  description: string;
+  sourceCashflowId?: string; // Jika otomatis disinkronkan dari kas konsumsi pribadi
   createdAt: string;
 }
 
@@ -280,20 +321,21 @@ export interface CurrentUser {
 export type ViewState = 
   | 'login'
   | 'dashboard'
-  | 'role_management'   // Tahap 2
-  | 'modal_stok'        // Tahap 3
-  | 'steam_sortir'      // Menu Khusus Role Steam & Sortir
-  | 'admin_shopee'      // Tahap 4: Admin Marketplace & Layanan
-  | 'kehadiran'         // Tahap 5
-  | 'penjualan'         // Tahap 6
-  | 'statistik'         // Menu Baru: Statistik Penjualan & Host Live
-  | 'return'            // Tahap 7
-  | 'iklan_koin'        // Tahap 8
-  | 'gaji'              // Tahap 9
-  | 'laba_rugi'         // Tahap 10
-  | 'cashflow'          // Tahap 11
-  | 'laba_bersih'       // Tahap 12
-  | 'index_performa';   // Tahap 13
+  | 'role_management'   // Persiapan: Manajemen Pegawai & Role
+  | 'modal_stok'        // Persiapan: Modal & Stok (HPP)
+  | 'steam_sortir'      // Persiapan: Sortir, QC dan Finishing
+  | 'admin_shopee'      // Persiapan: Biaya Admin Marketplace
+  | 'iklan_koin'        // Persiapan: Saldo Biaya Iklan & Koin Live
+  | 'kehadiran'         // Penjualan: Presensi & Kehadiran Shift
+  | 'penjualan'         // Penjualan: Data Penjualan (Live & Non-Live)
+  | 'statistik'         // Penjualan: Statistik & Analisis Penjualan
+  | 'return'            // Penjualan: Data Return & Paket Return
+  | 'laba_rugi'         // Penjualan: Laporan & Laba Rugi Sesi
+  | 'index_performa'    // Penjualan: Index Performa & Efektivitas AI
+  | 'gaji'              // Keuangan: Slip Gaji & Insentif
+  | 'cashflow'          // Keuangan: Cashflow & Arus Kas
+  | 'laba_bersih'       // Keuangan: Laporan Laba Bersih Toko
+  | 'keuangan_pribadi'; // Keuangan: Cashflow & Keuangan Pribadi
 
 export interface SteamSortirRecord {
   id: string;

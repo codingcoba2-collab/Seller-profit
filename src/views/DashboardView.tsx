@@ -15,18 +15,18 @@ import {
   Wallet,
   Calculator,
   Award,
-  Sparkles,
   Smartphone,
-  ChevronRight,
   Lock,
   Scissors,
   BarChart3,
-  Activity,
   Cloud,
   RefreshCw,
   Palette,
   ShoppingBag,
-  Tag
+  Tag,
+  Layers,
+  CircleDollarSign,
+  UserCheck
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 
@@ -37,13 +37,15 @@ interface DashboardViewProps {
   onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+type MenuCategory = 'persiapan' | 'penjualan' | 'keuangan';
+
 interface MenuItem {
   tab: ViewState;
   title: string;
   subtitle: string;
+  category: MenuCategory;
   icon: React.ComponentType<{ className?: string }>;
   iconColor: string;
-  badgeColor?: string;
   badgeText?: string;
   allowedRoles: UserRole[];
   allEmployeesCanView?: boolean;
@@ -61,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const hppInfo = StorageService.calculateHPP(currentUser.storeId);
   const salesList = StorageService.getSales(currentUser.storeId);
 
+  const [selectedCategory, setSelectedCategory] = useState<'all' | MenuCategory>('all');
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -87,137 +90,207 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Clean Menu Modules without stage numbers
+  // Menu items grouped strictly into 3 categories requested by user:
+  // 1. Persiapan
+  // 2. Penjualan
+  // 3. Keuangan
   const menuItems: MenuItem[] = [
+    // --- KATEGORI 1: PERSIAPAN ---
     {
       tab: 'role_management',
-      title: 'Manajemen Pegawai & Role',
-      subtitle: 'Akun Tim, Gaji & Skema Insentif Bundling/Satuan',
+      category: 'persiapan',
+      title: 'Manajemen Pegawai & Stok',
+      subtitle: 'Akun tim, role, gaji & skema insentif bundling/satuan',
       icon: Users,
       iconColor: 'text-[#25F4EE]',
-      badgeText: 'Tim & Akses',
+      badgeText: 'Tim & Role',
       allowedRoles: ['owner'],
     },
     {
       tab: 'modal_stok',
-      title: 'Modal & Stok Fashion (HPP)',
-      subtitle: 'Input Ball/Grosir, Ongkir & HPP Otomatis',
+      category: 'persiapan',
+      title: 'Modal & Stok (HPP)',
+      subtitle: 'Input ball/grosir, ukuran S-XL, ongkir & HPP otomatis',
       icon: Package,
       iconColor: 'text-emerald-400',
-      badgeText: 'Modal Stok',
+      badgeText: 'HPP & Stok',
       allowedRoles: ['owner'],
     },
     {
       tab: 'steam_sortir',
-      title: 'Sortir, QC & Finishing',
-      subtitle: 'Pencatatan Pcs, Reject & Jasa Sortir',
+      category: 'persiapan',
+      title: 'Sortir, QC dan Finishing',
+      subtitle: 'Pencatatan pcs layak jual, reject & upah pengerjaan',
       icon: Scissors,
       iconColor: 'text-teal-400',
-      badgeText: 'Produksi',
+      badgeText: 'Sortir & QC',
       allowedRoles: ['owner', 'sortir', 'steam'],
     },
     {
       tab: 'admin_shopee',
-      title: 'Biaya Admin Marketplace & Layanan',
-      subtitle: 'Persentase Admin Platform & Biaya per Order',
+      category: 'persiapan',
+      title: 'Biaya Admin Marketplace',
+      subtitle: 'Pengaturan biaya admin per channel: TikTok, Shopee, Offline',
       icon: Settings,
       iconColor: 'text-sky-400',
-      badgeText: 'Biaya Platform',
+      badgeText: 'Biaya Channel',
       allowedRoles: ['owner'],
     },
     {
+      tab: 'iklan_koin',
+      category: 'persiapan',
+      title: 'Saldo Biaya Iklan & Koin Live',
+      subtitle: 'Topup deposit, pemakaian promosi & sisa saldo koin',
+      icon: Coins,
+      iconColor: 'text-amber-400',
+      badgeText: 'Iklan & Promo',
+      allowedRoles: ['owner'],
+    },
+
+    // --- KATEGORI 2: PENJUALAN ---
+    {
       tab: 'kehadiran',
+      category: 'penjualan',
       title: 'Presensi & Kehadiran Shift',
-      subtitle: 'Absensi Shift & Jam Kerja Karyawan',
+      subtitle: 'Absensi shift, jam kerja host, admin toko & staf',
       icon: Clock,
       iconColor: 'text-blue-400',
-      badgeText: 'Presensi',
+      badgeText: 'Presensi Tim',
       allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
       allEmployeesCanView: true,
     },
     {
       tab: 'penjualan',
+      category: 'penjualan',
       title: 'Data Penjualan (Live & Non-Live)',
-      subtitle: 'Input Satuan/Bundling, Marketplace & Toko',
+      subtitle: 'Input transaksi, channel penjualan & pilihan ukuran S-XL',
       icon: TrendingUp,
       iconColor: 'text-[#FE2C55]',
-      badgeText: 'Penjualan',
+      badgeText: 'Input Order',
       allowedRoles: ['owner', 'admin_toko'],
     },
     {
       tab: 'statistik',
+      category: 'penjualan',
       title: 'Statistik & Analisis Penjualan',
-      subtitle: 'Tren 7-30 Hari, Peringkat Top Host & Analisis',
+      subtitle: 'Tren omzet, perbandingan channel & performa top host',
       icon: BarChart3,
       iconColor: 'text-[#25F4EE]',
-      badgeText: 'Visual Analytics',
+      badgeText: 'Analisis Tren',
       allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
       allEmployeesCanView: true,
     },
     {
       tab: 'return',
-      title: 'Data Retur / Paket Return',
-      subtitle: 'Catatan & Estimasi Pengurangan Paket Retur',
+      category: 'penjualan',
+      title: 'Data Return & Paket Return',
+      subtitle: 'Pencatatan paket retur barang, alasan & pengembalian',
       icon: RotateCcw,
       iconColor: 'text-rose-400',
-      badgeText: 'Retur',
+      badgeText: 'Retur Paket',
       allowedRoles: ['owner', 'admin_toko'],
     },
     {
-      tab: 'iklan_koin',
-      title: 'Saldo Biaya Iklan & Koin Live',
-      subtitle: 'Topup, Pemakaian & Sisa Saldo Marketing',
-      icon: Coins,
-      iconColor: 'text-amber-400',
-      badgeText: 'Marketing',
-      allowedRoles: ['owner'],
-    },
-    {
-      tab: 'gaji',
-      title: 'Slip Gaji & Insentif Tim',
-      subtitle: 'Rekap Gaji Pokok, Shift, Satuan & Bundling',
-      icon: Receipt,
-      iconColor: 'text-cyan-400',
-      badgeText: 'Payroll',
-      allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
-      allEmployeesCanView: true,
-    },
-    {
       tab: 'laba_rugi',
-      title: 'Laporan Laba & Rugi Sesi',
-      subtitle: 'Evaluasi Margin & Profit Bersih Tiap Sesi',
+      category: 'penjualan',
+      title: 'Laporan & Laba Rugi Sesi',
+      subtitle: 'Evaluasi margin profit sesi live, HPP terjual & komisi',
       icon: PieChart,
       iconColor: 'text-violet-400',
-      badgeText: 'Analisis Sesi',
-      allowedRoles: ['owner'],
-    },
-    {
-      tab: 'cashflow',
-      title: 'Cashflow & Arus Kas',
-      subtitle: 'Pencatatan Penarikan Saldo & Pengeluaran Kas',
-      icon: Wallet,
-      iconColor: 'text-emerald-400',
-      badgeText: 'Arus Kas',
-      allowedRoles: ['owner'],
-    },
-    {
-      tab: 'laba_bersih',
-      title: 'Laporan Laba Bersih Toko',
-      subtitle: 'Rekapitulasi Profit Akhir Setelah Beban',
-      icon: Calculator,
-      iconColor: 'text-[#25F4EE]',
-      badgeText: 'Laba Akhir',
+      badgeText: 'Laba per Sesi',
       allowedRoles: ['owner'],
     },
     {
       tab: 'index_performa',
-      title: 'Indeks Performa & Efektivitas AI',
-      subtitle: 'Penilaian Kinerja Pegawai dengan Kecerdasan AI',
+      category: 'penjualan',
+      title: 'Index Performa & Efektivitas AI',
+      subtitle: 'Evaluasi kinerja host, admin & tim dengan asistensi AI',
       icon: Award,
       iconColor: 'text-amber-400',
-      badgeText: 'AI Insights',
+      badgeText: 'Evaluasi AI',
       allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
       allEmployeesCanView: true,
+    },
+
+    // --- KATEGORI 3: KEUANGAN ---
+    {
+      tab: 'gaji',
+      category: 'keuangan',
+      title: 'Slip Gaji & Insentif',
+      subtitle: 'Kalkulasi gaji pokok, shift, insentif pcs/paket & kasbon',
+      icon: Receipt,
+      iconColor: 'text-cyan-400',
+      badgeText: 'Payroll Tim',
+      allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+      allEmployeesCanView: true,
+    },
+    {
+      tab: 'cashflow',
+      category: 'keuangan',
+      title: 'Cashflow & Arus Kas Toko',
+      subtitle: 'Pencatatan tarik saldo, operasional & konsumsi pribadi',
+      icon: Wallet,
+      iconColor: 'text-emerald-400',
+      badgeText: 'Arus Kas Toko',
+      allowedRoles: ['owner'],
+    },
+    {
+      tab: 'laba_bersih',
+      category: 'keuangan',
+      title: 'Laporan Laba Bersih Toko',
+      subtitle: 'Rekapitulasi profit akhir setelah beban operasional & gaji',
+      icon: Calculator,
+      iconColor: 'text-[#25F4EE]',
+      badgeText: 'Laba Bersih',
+      allowedRoles: ['owner'],
+    },
+    {
+      tab: 'keuangan_pribadi',
+      category: 'keuangan',
+      title: 'Cashflow & Keuangan Pribadi',
+      subtitle: 'Alokasi uang pribadi: sehari-hari, utang, tabungan & investasi',
+      icon: UserCheck,
+      iconColor: 'text-purple-400',
+      badgeText: 'Uang Pribadi',
+      allowedRoles: ['owner'],
+    },
+  ];
+
+  const categoriesMeta: {
+    key: MenuCategory;
+    number: number;
+    title: string;
+    description: string;
+    badgeBg: string;
+    badgeText: string;
+    borderAccent: string;
+  }[] = [
+    {
+      key: 'persiapan',
+      number: 1,
+      title: 'Persiapan',
+      description: 'Manajemen pegawai & stok, modal & stok (HPP), sortir, QC & finishing, biaya admin channel marketplace, dan saldo iklan',
+      badgeBg: 'bg-emerald-500/15',
+      badgeText: 'text-emerald-400',
+      borderAccent: 'border-emerald-500/30',
+    },
+    {
+      key: 'penjualan',
+      number: 2,
+      title: 'Penjualan',
+      description: 'Presensi kehadiran shift, data penjualan live & non-live (S-XL), statistik penjualan, paket retur, laba rugi sesi & index AI',
+      badgeBg: 'bg-[#FE2C55]/15',
+      badgeText: 'text-[#FE2C55]',
+      borderAccent: 'border-[#FE2C55]/30',
+    },
+    {
+      key: 'keuangan',
+      number: 3,
+      title: 'Keuangan',
+      description: 'Slip gaji & insentif, cashflow arus kas toko (konsumsi pribadi), laba bersih toko, dan cashflow keuangan pribadi',
+      badgeBg: 'bg-[#25F4EE]/15',
+      badgeText: 'text-[#25F4EE]',
+      borderAccent: 'border-[#25F4EE]/30',
     },
   ];
 
@@ -227,6 +300,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (item.allEmployeesCanView) return true;
     return currentUser.roles.some(r => item.allowedRoles.includes(r));
   };
+
+  const filteredCategories = selectedCategory === 'all' 
+    ? categoriesMeta 
+    : categoriesMeta.filter(c => c.key === selectedCategory);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
@@ -243,7 +320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>{store?.storeName || 'Fashion Store Official'}</span>
             </div>
 
-            {/* Requirement 1: Greeting + Theme and Cloud icons adjacent to Halo Owner */}
+            {/* Greeting + Theme and Cloud quick actions */}
             <div className="flex flex-wrap items-center gap-3 pt-0.5">
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
                 <span>Halo, {currentUser.name}</span>
@@ -251,7 +328,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Theme & Cloud Quick Action Pills */}
               <div className="flex items-center gap-2">
-                {/* Cloud Sync Button */}
                 <button
                   id="btn-halo-cloud-sync"
                   type="button"
@@ -265,7 +341,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
                 </button>
 
-                {/* Theme Palette Switcher */}
                 <button
                   id="btn-halo-theme-switcher"
                   type="button"
@@ -274,13 +349,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   title="Pilih Tema Warna Aplikasi"
                 >
                   <Palette className="w-3.5 h-3.5 text-[#25F4EE]" />
-                  <span className="text-[11px]">Tema Warna</span>
+                  <span className="text-[11px]">Tema</span>
                 </button>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-zinc-400 max-w-xl leading-relaxed">
-              Sistem manajemen toko fashion, live streaming, multi-channel marketplace &amp; offline, HPP otomatis, serta penggajian host &amp; staf terintegrasi.
+              Dashboard operasional toko fashion, live streaming, multi-channel marketplace &amp; offline, HPP otomatis, serta pengelolaan arus kas pribadi dan bisnis.
             </p>
           </div>
 
@@ -294,7 +369,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
 
-        {/* Live Key Metrics Grid (Requirement 2: Rata-rata HPP is placed right next to Omzet Hari Ini) */}
+        {/* Live Key Metrics Grid */}
         <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* 1. Sisa Stok Layak Jual */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
@@ -352,7 +427,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* 5. Rata-rata HPP Toko (Req 2: right next to Omzet Hari Ini) */}
+          {/* 5. Rata-rata HPP Toko */}
           <div className="bg-[#0b0c10] border border-white/10 p-3.5 rounded-2xl">
             <div className="text-[11px] text-zinc-400 font-semibold flex items-center justify-between">
               <span>Rata-rata HPP</span>
@@ -368,75 +443,188 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Main Integrated Modules Grid - Kotak-kotak kecil (Compact Square Grid) */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#25F4EE]" />
-            <span>Pusat Modul &amp; Menu Toko</span>
-          </h3>
-          <span className="text-[11px] font-bold text-zinc-300 bg-[#161823] px-3 py-1 rounded-full border border-white/10">
-            {menuItems.length} Modul
-          </span>
+      {/* CATEGORY NAV TABS (Requirement 1: Satukan beberapa menu ke dalam kategori agar dashboard tidak terlalu banyak menu) */}
+      <div className="space-y-4 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+          <div>
+            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#25F4EE]" />
+              <span>Kategori Menu Dashboard</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Pilih kategori atau lihat seluruh modul yang terorganisasi rapi.
+            </p>
+          </div>
+
+          {/* Category Quick Filter Pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              id="filter-cat-all"
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                selectedCategory === 'all'
+                  ? 'bg-white text-zinc-900 border-white shadow-md'
+                  : 'bg-[#161823] hover:bg-[#1f2232] text-zinc-300 border-white/10'
+              }`}
+            >
+              <span>Semua Menu</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                selectedCategory === 'all' ? 'bg-zinc-200 text-zinc-800' : 'bg-white/10 text-zinc-300'
+              }`}>
+                {menuItems.length}
+              </span>
+            </button>
+
+            <button
+              id="filter-cat-persiapan"
+              type="button"
+              onClick={() => setSelectedCategory('persiapan')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                selectedCategory === 'persiapan'
+                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                  : 'bg-[#161823] hover:bg-[#1f2232] text-emerald-400 border-white/10'
+              }`}
+            >
+              <span>1. Persiapan</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                selectedCategory === 'persiapan' ? 'bg-emerald-900 text-emerald-100' : 'bg-emerald-500/20 text-emerald-300'
+              }`}>
+                {menuItems.filter(m => m.category === 'persiapan').length}
+              </span>
+            </button>
+
+            <button
+              id="filter-cat-penjualan"
+              type="button"
+              onClick={() => setSelectedCategory('penjualan')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                selectedCategory === 'penjualan'
+                  ? 'bg-[#FE2C55] text-white border-[#FE2C55] shadow-md shadow-[#FE2C55]/20'
+                  : 'bg-[#161823] hover:bg-[#1f2232] text-[#FE2C55] border-white/10'
+              }`}
+            >
+              <span>2. Penjualan</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                selectedCategory === 'penjualan' ? 'bg-black/40 text-white' : 'bg-[#FE2C55]/20 text-[#FE2C55]'
+              }`}>
+                {menuItems.filter(m => m.category === 'penjualan').length}
+              </span>
+            </button>
+
+            <button
+              id="filter-cat-keuangan"
+              type="button"
+              onClick={() => setSelectedCategory('keuangan')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                selectedCategory === 'keuangan'
+                  ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-md shadow-[#25F4EE]/20'
+                  : 'bg-[#161823] hover:bg-[#1f2232] text-[#25F4EE] border-white/10'
+              }`}
+            >
+              <span>3. Keuangan</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                selectedCategory === 'keuangan' ? 'bg-teal-950 text-teal-100' : 'bg-[#25F4EE]/20 text-[#25F4EE]'
+              }`}>
+                {menuItems.filter(m => m.category === 'keuangan').length}
+              </span>
+            </button>
+          </div>
         </div>
 
-        {/* Kotak-kotak kecil grid: 2 cols on mobile, 3 on tablet, 4 on md, 6 on lg/xl */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
-          {menuItems.map((item) => {
-            const accessible = canAccess(item);
-            const Icon = item.icon;
+        {/* CATEGORIZED SECTIONS */}
+        <div className="space-y-6">
+          {filteredCategories.map(cat => {
+            const catItems = menuItems.filter(m => m.category === cat.key);
 
             return (
-              <button
-                key={item.tab}
-                id={`menu-card-${item.tab}`}
-                type="button"
-                onClick={() => {
-                  if (accessible) {
-                    onNavigate(item.tab);
-                  } else {
-                    onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
-                  }
-                }}
-                className={`text-center p-3.5 sm:p-4 rounded-2xl transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-between gap-2.5 group border cursor-pointer min-h-[135px] sm:min-h-[145px] ${
-                  accessible
-                    ? 'bg-[#161823] hover:bg-[#1f2232] border-white/10 hover:border-[#25F4EE]/50 shadow-md hover:shadow-lg hover:shadow-[#25F4EE]/10 active:scale-95'
-                    : 'bg-[#12141c]/60 border-white/5 opacity-50 cursor-not-allowed'
-                }`}
+              <div
+                key={cat.key}
+                id={`section-category-${cat.key}`}
+                className="bg-[#12141d] rounded-2xl p-4 sm:p-5 border border-white/5 space-y-4"
               >
-                {/* Top Badge or Lock */}
-                <div className="w-full flex items-center justify-between">
-                  {item.badgeText ? (
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border truncate max-w-[85%] ${
-                        accessible
-                          ? 'bg-white/5 text-zinc-300 border-white/10'
-                          : 'bg-zinc-800 text-zinc-500 border-zinc-700'
-                      }`}
-                    >
-                      {item.badgeText}
+                {/* Category Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black border ${cat.badgeBg} ${cat.badgeText} ${cat.borderAccent}`}>
+                      {cat.number}
                     </span>
-                  ) : <span />}
+                    <div>
+                      <h4 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                        <span>Kategori {cat.number}: {cat.title}</span>
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 line-clamp-1">
+                        {cat.description}
+                      </p>
+                    </div>
+                  </div>
 
-                  {!accessible && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
+                  <span className="text-[11px] text-zinc-400 font-semibold self-start sm:self-auto bg-[#161823] px-2.5 py-1 rounded-lg border border-white/10">
+                    {catItems.length} Menu
+                  </span>
                 </div>
 
-                {/* Centered Icon */}
-                <div
-                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 group-hover:scale-110 group-hover:border-[#25F4EE]/40 transition-transform shadow-inner ${
-                    accessible ? item.iconColor : 'text-zinc-500'
-                  }`}
-                >
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
+                {/* Items Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
+                  {catItems.map((item) => {
+                    const accessible = canAccess(item);
+                    const Icon = item.icon;
 
-                {/* Title */}
-                <div className="w-full">
-                  <h4 className="text-xs sm:text-xs font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-snug line-clamp-2">
-                    {item.title}
-                  </h4>
+                    return (
+                      <button
+                        key={item.tab}
+                        id={`menu-card-${item.tab}`}
+                        type="button"
+                        onClick={() => {
+                          if (accessible) {
+                            onNavigate(item.tab);
+                          } else {
+                            onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
+                          }
+                        }}
+                        className={`text-center p-3.5 sm:p-4 rounded-2xl transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-between gap-2.5 group border cursor-pointer min-h-[140px] sm:min-h-[148px] ${
+                          accessible
+                            ? 'bg-[#161823] hover:bg-[#1c1f2e] border-white/10 hover:border-[#25F4EE]/50 shadow-md hover:shadow-lg hover:shadow-[#25F4EE]/10 active:scale-95'
+                            : 'bg-[#12141c]/60 border-white/5 opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        {/* Top Badge or Lock */}
+                        <div className="w-full flex items-center justify-between">
+                          {item.badgeText ? (
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border truncate max-w-[85%] ${
+                                accessible
+                                  ? 'bg-white/5 text-zinc-300 border-white/10'
+                                  : 'bg-zinc-800 text-zinc-500 border-zinc-700'
+                              }`}
+                            >
+                              {item.badgeText}
+                            </span>
+                          ) : <span />}
+
+                          {!accessible && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
+                        </div>
+
+                        {/* Centered Icon */}
+                        <div
+                          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-[#0b0c10] border border-white/10 group-hover:scale-110 group-hover:border-[#25F4EE]/40 transition-transform shadow-inner ${
+                            accessible ? item.iconColor : 'text-zinc-500'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </div>
+
+                        {/* Title & Subtitle */}
+                        <div className="w-full">
+                          <h5 className="text-xs font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-snug line-clamp-2">
+                            {item.title}
+                          </h5>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

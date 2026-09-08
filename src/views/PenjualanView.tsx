@@ -99,6 +99,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [nonLiveAdsUsed, setNonLiveAdsUsed] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('transfer');
 
+  // FORM STATES: Size tracking (S, M, L, XL, dll.)
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(['S', 'M', 'L', 'XL']);
+  const [sizeBreakdown, setSizeBreakdown] = useState<{ [size: string]: number }>({ S: 10, M: 15, L: 15, XL: 10 });
+  const [sizeNotes, setSizeNotes] = useState<string>('');
+
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const todayStr = getTodayString();
 
@@ -152,6 +157,30 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     }
   };
 
+  const toggleSize = (size: string) => {
+    if (selectedSizes.includes(size)) {
+      if (selectedSizes.length <= 1) return;
+      setSelectedSizes(selectedSizes.filter(s => s !== size));
+      const next = { ...sizeBreakdown };
+      delete next[size];
+      setSizeBreakdown(next);
+    } else {
+      setSelectedSizes([...selectedSizes, size]);
+      setSizeBreakdown({ ...sizeBreakdown, [size]: 0 });
+    }
+  };
+
+  const distributeSizesEvenly = () => {
+    if (selectedSizes.length === 0 || pcsSold <= 0) return;
+    const countPerSize = Math.floor(pcsSold / selectedSizes.length);
+    const remainder = pcsSold % selectedSizes.length;
+    const next: { [size: string]: number } = {};
+    selectedSizes.forEach((sz, idx) => {
+      next[sz] = countPerSize + (idx === 0 ? remainder : 0);
+    });
+    setSizeBreakdown(next);
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setDate(getTodayString());
@@ -169,6 +198,9 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setAdsUsed(100000);
     setNonLiveAdsUsed(0);
     setNotes('');
+    setSelectedSizes(['S', 'M', 'L', 'XL']);
+    setSizeBreakdown({ S: 10, M: 15, L: 15, XL: 10 });
+    setSizeNotes('');
     setPaymentMethod('transfer');
     setLiveChannel('tiktok_live');
     setNonLiveChannel('shopee_reguler');
@@ -197,6 +229,9 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setBundlingPcs(sale.bundlingPcs || 0);
     setBundlingPackages(sale.bundlingPackages || 0);
     setNotes(sale.notes || '');
+    setSelectedSizes(sale.selectedSizes || ['S', 'M', 'L', 'XL']);
+    setSizeBreakdown(sale.sizeBreakdown || {});
+    setSizeNotes(sale.sizeNotes || '');
 
     const isNonLive = sale.salesType === 'non_live';
 
@@ -336,6 +371,9 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       omzet,
       pcsSold,
       packagesSold,
+      selectedSizes,
+      sizeBreakdown,
+      sizeNotes,
       hoursWorked,
       coinUsed,
       adsUsed,
@@ -388,6 +426,9 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       omzet,
       pcsSold,
       packagesSold,
+      selectedSizes,
+      sizeBreakdown,
+      sizeNotes,
       adsUsed: nonLiveAdsUsed,
       coinUsed: 0,
       paymentMethod,
@@ -918,7 +959,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                             )}
                           </td>
 
-                          {/* Pcs / Paket */}
+                          {/* Pcs / Paket & Size */}
                           <td className="px-4 py-3.5 text-right font-semibold">
                             <div className="text-white font-black">
                               {formatNumber(sale.pcsSold)} <span className="text-[10px] text-zinc-400">pcs</span>
@@ -926,6 +967,15 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                             <div className="text-[10px] text-zinc-400">
                               {formatNumber(sale.packagesSold)} paket
                             </div>
+                            {sale.selectedSizes && sale.selectedSizes.length > 0 && (
+                              <div className="flex flex-wrap justify-end gap-1 mt-1">
+                                {sale.selectedSizes.map(sz => (
+                                  <span key={sz} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
+                                    {sz}{sale.sizeBreakdown?.[sz] !== undefined ? `: ${sale.sizeBreakdown[sz]}` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
 
                           {/* Biaya Iklan / Koin */}
@@ -1358,6 +1408,88 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
 
+            {/* Varian Ukuran & Breakdown Size Terjual Live */}
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <span className="text-[#25F4EE]">🏷️</span>
+                    <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Pilih varian ukuran yang laku terjual pada sesi Live ini &amp; alokasikan jumlah pcs per size
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={distributeSizesEvenly}
+                    className="text-[11px] font-bold text-[#25F4EE] hover:underline bg-[#25F4EE]/10 px-2.5 py-1 rounded-lg border border-[#25F4EE]/30 cursor-pointer"
+                  >
+                    ⚡ Bagi Rata Sesuai {pcsSold} Pcs
+                  </button>
+                </div>
+              </div>
+
+              {/* Size Tag Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
+                  const isChecked = selectedSizes.includes(sz);
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => toggleSize(sz)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                        isChecked
+                          ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Numeric breakdown per size */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                {selectedSizes.map(sz => (
+                  <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-[#25F4EE]">Size {sz}</span>
+                      <span className="text-zinc-400">pcs</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={sizeBreakdown[sz] ?? 0}
+                      onChange={e => setSizeBreakdown({
+                        ...sizeBreakdown,
+                        [sz]: Math.max(0, parseInt(e.target.value) || 0)
+                      })}
+                      className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-[#25F4EE]"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Total allocation indicator */}
+              <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+                <span>
+                  Total size teralokasi:{' '}
+                  <strong className="text-white">
+                    {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                  </strong>
+                </span>
+                <span>
+                  Target total pcs live:{' '}
+                  <strong className="text-[#25F4EE]">{pcsSold} pcs</strong>
+                </span>
+              </div>
+            </div>
+
             {/* Catatan Sesi */}
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -1640,6 +1772,88 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
 
+            {/* Varian Ukuran & Breakdown Size Terjual Non-Live */}
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <span className="text-emerald-400">🏷️</span>
+                    <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Pilih ukuran produk pesanan non-live / marketplace &amp; masukkan rincian pcs per size
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={distributeSizesEvenly}
+                    className="text-[11px] font-bold text-emerald-400 hover:underline bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30 cursor-pointer"
+                  >
+                    ⚡ Bagi Rata Sesuai {pcsSold} Pcs
+                  </button>
+                </div>
+              </div>
+
+              {/* Size Tag Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
+                  const isChecked = selectedSizes.includes(sz);
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => toggleSize(sz)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                        isChecked
+                          ? 'bg-emerald-400 text-zinc-950 border-emerald-400 shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Numeric breakdown per size */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                {selectedSizes.map(sz => (
+                  <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-emerald-400">Size {sz}</span>
+                      <span className="text-zinc-400">pcs</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={sizeBreakdown[sz] ?? 0}
+                      onChange={e => setSizeBreakdown({
+                        ...sizeBreakdown,
+                        [sz]: Math.max(0, parseInt(e.target.value) || 0)
+                      })}
+                      className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-emerald-400"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Total allocation indicator */}
+              <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+                <span>
+                  Total size teralokasi:{' '}
+                  <strong className="text-white">
+                    {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                  </strong>
+                </span>
+                <span>
+                  Target total pcs terjual:{' '}
+                  <strong className="text-emerald-400">{pcsSold} pcs</strong>
+                </span>
+              </div>
+            </div>
+
             {/* Catatan / No Invoice */}
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -1734,6 +1948,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <span className="text-zinc-400">Jumlah Paket / Order:</span>
                   <span className="font-bold text-white">{formatNumber(viewingDetailSale.packagesSold)} paket</span>
                 </div>
+                {viewingDetailSale.selectedSizes && viewingDetailSale.selectedSizes.length > 0 && (
+                  <div className="py-2.5 border-b border-white/5 space-y-2">
+                    <span className="text-zinc-400 block font-medium">Distribusi Ukuran / Size Terjual:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingDetailSale.selectedSizes.map(sz => (
+                        <span key={sz} className="px-2.5 py-1 rounded-xl text-xs font-black bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                          Size {sz}: {viewingDetailSale.sizeBreakdown?.[sz] ?? 0} pcs
+                        </span>
+                      ))}
+                    </div>
+                    {viewingDetailSale.sizeNotes && (
+                      <p className="text-[11px] text-zinc-400 italic">
+                        Catatan size: {viewingDetailSale.sizeNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {viewingDetailSale.salesType === 'live' && (
                   <div className="flex justify-between py-2 border-b border-white/5">
                     <span className="text-zinc-400">Format Penjualan:</span>

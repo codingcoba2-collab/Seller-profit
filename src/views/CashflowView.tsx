@@ -35,6 +35,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   listrik_wifi: 'Listrik, Air & Internet WiFi',
   sewa_tempat: 'Sewa Tempat / Ruko Live',
   gaji_pegawai: 'Gaji Pegawai / Karyawan',
+  konsumsi_pribadi: 'Konsumsi Pribadi (Prive Owner)',
   lainnya: 'Operasional Lainnya',
   penarikan_shopee: 'Penarikan Saldo Marketplace',
 };
@@ -61,6 +62,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [type, setType] = useState<'inflow' | 'outflow'>('outflow');
   const [amount, setAmount] = useState<number>(150000);
   const [category, setCategory] = useState<CashflowRecord['category']>('packing');
+  const [personalBudgetCategory, setPersonalBudgetCategory] = useState<'sehari_hari' | 'utang' | 'tabungan' | 'investasi_toko'>('sehari_hari');
   const [description, setDescription] = useState('Beli lakban, plastik packing polymailer & bubble wrap');
   
   // Gaji Pegawai specific states
@@ -95,6 +97,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setType('outflow');
     setAmount(150000);
     setCategory('packing');
+    setPersonalBudgetCategory('sehari_hari');
     setPaymentType('gaji_insentif');
     setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
     if (employees.length > 0) {
@@ -115,6 +118,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setType(item.type);
     setAmount(item.amount);
     setCategory(item.category);
+    setPersonalBudgetCategory(item.personalBudgetCategory || 'sehari_hari');
     setPaymentType(item.paymentType || (item.description?.toLowerCase().includes('kasbon') ? 'kasbon' : 'gaji_insentif'));
     setDescription(item.description || '');
     setEmployeeId(item.employeeId || (employees[0]?.id || ''));
@@ -138,7 +142,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
         setDescription(`${prefix} - ${selectedEmp.name} (Periode ${periodMonth})`);
       }
-    } else if (newCat === 'packing' && (description.includes('Gaji') || description.includes('Kasbon'))) {
+    } else if (newCat === 'konsumsi_pribadi') {
+      setDescription('Prive / Pengeluaran konsumsi pribadi owner');
+    } else if (newCat === 'packing' && (description.includes('Gaji') || description.includes('Kasbon') || description.includes('Prive'))) {
       setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
     }
   };
@@ -200,14 +206,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       employeeId: (type === 'outflow' && category === 'gaji_pegawai') ? employeeId : undefined,
       employeeName: (type === 'outflow' && category === 'gaji_pegawai') ? employeeName : undefined,
       periodMonth: (type === 'outflow' && category === 'gaji_pegawai') ? periodMonth : undefined,
+      personalBudgetCategory: (type === 'outflow' && category === 'konsumsi_pribadi') ? personalBudgetCategory : undefined,
       proofImageUrl: (type === 'outflow' && proofImageUrl) ? proofImageUrl : undefined,
       createdAt: editingItem ? editingItem.createdAt : new Date().toISOString(),
     };
 
     if (editingItem) {
-      const all = StorageService.getCashflow(currentUser.storeId);
-      const updated = all.map(c => c.id === editingItem.id ? newRecord : c);
-      localStorage.setItem('shopee_lr_cashflow', JSON.stringify(updated));
+      StorageService.updateCashflow(newRecord);
       onNotify('Perubahan data cashflow berhasil disimpan!', 'success');
       setEditingItem(null);
     } else {
@@ -363,6 +368,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   >
                     <option value="gaji_pegawai">💼 Gaji Pegawai / Karyawan</option>
+                    <option value="konsumsi_pribadi">👤 Konsumsi Pribadi (Prive Owner)</option>
                     <option value="packing">📦 Bahan Packing (Lakban, Plastik, Bubble Wrap)</option>
                     <option value="makan_minum">🍱 Konsumsi / Makan &amp; Minum Tim</option>
                     <option value="listrik_wifi">⚡ Listrik, Air &amp; Internet WiFi</option>
@@ -372,6 +378,54 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 </div>
               )}
             </div>
+
+            {/* OPSI KHUSUS KONSUMSI PRIBADI */}
+            {type === 'outflow' && category === 'konsumsi_pribadi' && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-4">
+                <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
+                  <UserCheck className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs font-black text-purple-400 uppercase tracking-wider">
+                    Alokasi Anggaran Keuangan Pribadi Owner
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Pengeluaran prive ini otomatis tercatat dan tersinkronisasi ke menu <strong className="text-white">Cashflow &amp; Keuangan Pribadi</strong>.
+                </p>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-2">
+                    Pilih Pos Alokasi Pengeluaran Pribadi <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { key: 'sehari_hari', label: 'Sehari-hari', desc: 'Makan, belanja rutin' },
+                      { key: 'utang', label: 'Bayar Utang', desc: 'Cicilan & pinjaman' },
+                      { key: 'tabungan', label: 'Tabungan', desc: 'Dana darurat & simpanan' },
+                      { key: 'investasi_toko', label: 'Investasi', desc: 'Pengembangan & modal' },
+                    ].map(alloc => (
+                      <button
+                        key={alloc.key}
+                        type="button"
+                        onClick={() => setPersonalBudgetCategory(alloc.key as any)}
+                        className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1 ${
+                          personalBudgetCategory === alloc.key
+                            ? 'bg-purple-500/20 border-purple-400 text-white shadow-md'
+                            : 'bg-[#161823] border-white/10 text-zinc-400 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white">{alloc.label}</span>
+                          {personalBudgetCategory === alloc.key && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-zinc-400">{alloc.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* OPSI KHUSUS GAJI PEGAWAI */}
             {type === 'outflow' && category === 'gaji_pegawai' && (

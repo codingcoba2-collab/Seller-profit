@@ -23,6 +23,7 @@ import { CashflowView } from './views/CashflowView';
 import { LabaBersihView } from './views/LabaBersihView';
 import { IndexPerformaView } from './views/IndexPerformaView';
 import { StatistikView } from './views/StatistikView';
+import { PersonalFinanceView } from './views/PersonalFinanceView';
 
 interface ToastState {
   id: number;
@@ -248,6 +249,14 @@ export default function App() {
           <LabaBersihView
             currentUser={currentUser}
             onBackToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'keuangan_pribadi' && (
+          <PersonalFinanceView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('dashboard')}
+            onNotify={handleNotify}
           />
         )}
 

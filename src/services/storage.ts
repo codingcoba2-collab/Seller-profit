@@ -8,7 +8,11 @@ import {
   AdsCoinDeposit, 
   CashflowRecord,
   CurrentUser,
-  SteamSortirRecord
+  SteamSortirRecord,
+  ChannelFeeConfig,
+  PersonalBudgetAllocation,
+  PersonalExpenseRecord,
+  PersonalBudgetCategory
 } from '../types';
 import { 
   db, 
@@ -35,7 +39,18 @@ const STORAGE_KEYS = {
   ADS_COINS: 'shopee_lr_adscoins',
   CASHFLOW: 'shopee_lr_cashflow',
   STEAM_SORTIR: 'shopee_lr_steamsortir',
+  PERSONAL_BUDGET: 'seller_profit_personal_budget',
+  PERSONAL_EXPENSES: 'seller_profit_personal_expenses',
 };
+
+export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
+  { id: 'ch-shopee', channel: 'shopee', name: 'Shopee (Live & Reguler)', adminPercentage: 8.5, serviceFeePerOrder: 1250, isActive: true },
+  { id: 'ch-tiktok', channel: 'tiktok', name: 'TikTok Shop & Live', adminPercentage: 7.5, serviceFeePerOrder: 2000, isActive: true },
+  { id: 'ch-tokopedia', channel: 'tokopedia', name: 'Tokopedia', adminPercentage: 6.5, serviceFeePerOrder: 1000, isActive: true },
+  { id: 'ch-offline', channel: 'offline', name: 'Toko Offline / Toko Fisik', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
+  { id: 'ch-whatsapp', channel: 'whatsapp', name: 'WhatsApp / Chat Order', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
+  { id: 'ch-lainnya', channel: 'lainnya', name: 'Marketplace Lainnya (Lazada, dll)', adminPercentage: 6.0, serviceFeePerOrder: 1000, isActive: true },
+];
 
 // Default initial dummy data for realistic store demonstration
 const DEFAULT_STORE: StoreAccount = {
@@ -50,6 +65,7 @@ const DEFAULT_STORE: StoreAccount = {
     serviceFeePerOrder: 1250,
     returnMechanism: 'detail',
     estimateReturnPercentage: 3.0,
+    channelFees: DEFAULT_CHANNEL_FEES,
   }
 };
 
@@ -693,6 +709,18 @@ export class StorageService {
     }
   }
 
+  static getChannelFees(storeId: string): ChannelFeeConfig[] {
+    const store = this.getStoreById(storeId);
+    if (store?.settings?.channelFees && store.settings.channelFees.length > 0) {
+      return store.settings.channelFees;
+    }
+    return DEFAULT_CHANNEL_FEES;
+  }
+
+  static saveChannelFees(storeId: string, channelFees: ChannelFeeConfig[]) {
+    this.updateStoreSettings(storeId, { channelFees });
+  }
+
   // CURRENT USER
   static getCurrentUser(): CurrentUser | null {
     const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -944,15 +972,210 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
     this.syncToCloud('cashflow', c.id, c);
     this.notifyListeners('cashflow');
+
+    // Otomatis sinkronkan jika pengeluaran konsumsi pribadi
+    if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
+      const pExp: PersonalExpenseRecord = {
+        id: `pexp-cf-${c.id}`,
+        storeId: c.storeId,
+        date: c.date,
+        category: c.personalBudgetCategory || 'sehari_hari',
+        amount: c.amount,
+        description: `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`,
+        sourceCashflowId: c.id,
+        createdAt: c.createdAt || new Date().toISOString(),
+      };
+      this.addPersonalExpense(pExp);
+    }
+  }
+
+  static updateCashflow(c: CashflowRecord) {
+    const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+    let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+    const idx = all.findIndex(item => item.id === c.id);
+    if (idx !== -1) {
+      all[idx] = c;
+      localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+      this.syncToCloud('cashflow', c.id, c);
+      this.notifyListeners('cashflow');
+
+      // Update sinkronisasi pengeluaran pribadi
+      const pList = this.getPersonalExpenses(c.storeId);
+      const matched = pList.find(p => p.sourceCashflowId === c.id || p.id === `pexp-cf-${c.id}`);
+      if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
+        if (matched) {
+          matched.amount = c.amount;
+          matched.date = c.date;
+          matched.description = `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`;
+          matched.category = c.personalBudgetCategory || matched.category || 'sehari_hari';
+          this.updatePersonalExpense(matched);
+        } else {
+          this.addPersonalExpense({
+            id: `pexp-cf-${c.id}`,
+            storeId: c.storeId,
+            date: c.date,
+            category: c.personalBudgetCategory || 'sehari_hari',
+            amount: c.amount,
+            description: `[Dari Kas Toko] ${c.description || 'Konsumsi Pribadi'}`,
+            sourceCashflowId: c.id,
+            createdAt: c.createdAt || new Date().toISOString(),
+          });
+        }
+      } else if (matched) {
+        this.deletePersonalExpense(matched.id);
+      }
+    }
   }
 
   static deleteCashflow(id: string) {
     const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
     let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+    const target = all.find(c => c.id === id);
     all = all.filter(c => c.id !== id);
     localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
     this.deleteFromCloud('cashflow', id);
     this.notifyListeners('cashflow');
+
+    // Hapus sinkronisasi pengeluaran pribadi jika ada
+    if (target) {
+      const pList = this.getPersonalExpenses(target.storeId);
+      const matched = pList.find(p => p.sourceCashflowId === id || p.id === `pexp-cf-${id}`);
+      if (matched) {
+        this.deletePersonalExpense(matched.id);
+      }
+    }
+  }
+
+  // PERSONAL FINANCE & CASHFLOW (Arus Keuangan Pribadi)
+  static getPersonalBudgetAllocation(storeId: string): PersonalBudgetAllocation {
+    const raw = localStorage.getItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        // fallback to default
+      }
+    }
+    return {
+      totalIncome: 1000000, // Default 1.000.000 sesuai contoh user
+      sehariHariPercent: 50,
+      utangPercent: 20,
+      tabunganPercent: 15,
+      investasiTokoPercent: 15,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  static savePersonalBudgetAllocation(storeId: string, allocation: PersonalBudgetAllocation) {
+    localStorage.setItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`, JSON.stringify(allocation));
+    this.syncToCloud('personal_budget', storeId, { ...allocation, storeId });
+    this.notifyListeners('personal_budget');
+  }
+
+  static getPersonalExpenses(storeId: string): PersonalExpenseRecord[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
+    return all.filter(e => e.storeId === storeId);
+  }
+
+  static savePersonalExpenses(list: PersonalExpenseRecord[]) {
+    localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(list));
+    list.forEach(item => this.syncToCloud('personal_expenses', item.id, item));
+    this.notifyListeners('personal_expenses');
+  }
+
+  static addPersonalExpense(item: PersonalExpenseRecord) {
+    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
+    all.unshift(item);
+    this.savePersonalExpenses(all);
+  }
+
+  static updatePersonalExpense(item: PersonalExpenseRecord) {
+    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
+    const idx = all.findIndex(e => e.id === item.id);
+    if (idx !== -1) {
+      all[idx] = item;
+      this.savePersonalExpenses(all);
+    }
+  }
+
+  static deletePersonalExpense(id: string) {
+    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
+    all = all.filter(e => e.id !== id);
+    this.savePersonalExpenses(all);
+    this.deleteFromCloud('personal_expenses', id);
+  }
+
+  static calculatePersonalFinance(storeId: string, filterDateFn?: (date: string) => boolean) {
+    const allocation = this.getPersonalBudgetAllocation(storeId);
+    let expenses = this.getPersonalExpenses(storeId);
+    if (filterDateFn) {
+      expenses = expenses.filter(e => filterDateFn(e.date));
+    }
+
+    const totalIncome = allocation.totalIncome || 0;
+
+    // Alokasi Saldo per Pos
+    const alokasiSehariHari = Math.round((allocation.sehariHariPercent / 100) * totalIncome);
+    const alokasiUtang = Math.round((allocation.utangPercent / 100) * totalIncome);
+    const alokasiTabungan = Math.round((allocation.tabunganPercent / 100) * totalIncome);
+    const alokasiInvestasi = Math.round((allocation.investasiTokoPercent / 100) * totalIncome);
+
+    // Pengeluaran per Pos (ditotalkan otomatis saat ada pengeluaran di bagian cashflow & arus kas untuk pengeluaran pribadi)
+    const expSehariHari = expenses
+      .filter(e => e.category === 'sehari_hari')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const expUtang = expenses
+      .filter(e => e.category === 'utang')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const expTabungan = expenses
+      .filter(e => e.category === 'tabungan')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const expInvestasi = expenses
+      .filter(e => e.category === 'investasi_toko')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    const totalExpense = expSehariHari + expUtang + expTabungan + expInvestasi;
+
+    return {
+      allocation,
+      totalIncome,
+      totalExpense,
+      totalRemaining: totalIncome - totalExpense,
+      summary: {
+        sehari_hari: {
+          name: 'Sehari-hari',
+          percent: allocation.sehariHariPercent,
+          allocation: alokasiSehariHari,
+          expense: expSehariHari,
+          remaining: alokasiSehariHari - expSehariHari,
+        },
+        utang: {
+          name: 'Utang / Kewajiban',
+          percent: allocation.utangPercent,
+          allocation: alokasiUtang,
+          expense: expUtang,
+          remaining: alokasiUtang - expUtang,
+        },
+        tabungan: {
+          name: 'Tabungan Pribadi',
+          percent: allocation.tabunganPercent,
+          allocation: alokasiTabungan,
+          expense: expTabungan,
+          remaining: alokasiTabungan - expTabungan,
+        },
+        investasi_toko: {
+          name: 'Investasi & Pengembangan Toko',
+          percent: allocation.investasiTokoPercent,
+          allocation: alokasiInvestasi,
+          expense: expInvestasi,
+          remaining: alokasiInvestasi - expInvestasi,
+        },
+      }
+    };
   }
 
   // STEAM & SORTIR RECORDS

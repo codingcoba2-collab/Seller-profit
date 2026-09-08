@@ -64,6 +64,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [returnMechanism, setReturnMechanism] = useState<'estimate' | 'detail'>('detail');
   const [estimateReturnPercentage, setEstimateReturnPercentage] = useState<number>(3.0);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(['S', 'M', 'L', 'XL']);
+  const [sizeBreakdown, setSizeBreakdown] = useState<{ [size: string]: number }>({ S: 75, M: 75, L: 75, XL: 75 });
 
   const stockInfo = StorageService.calculateStock(currentUser.storeId);
   const hppInfo = StorageService.calculateHPP(currentUser.storeId);
@@ -100,6 +102,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     setSteamCost(150000);
     setSortirCost(100000);
     setNotes('');
+    setSelectedSizes(['S', 'M', 'L', 'XL']);
+    setSizeBreakdown({ S: 75, M: 75, L: 75, XL: 75 });
   };
 
   const handleStartEdit = (ball: BallInventory) => {
@@ -116,11 +120,38 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     setNotes(ball.notes || '');
     setReturnMechanism(ball.returnMechanism || 'detail');
     setEstimateReturnPercentage(ball.estimateReturnPercentage || 3.0);
+    setSelectedSizes(ball.sizes || ['S', 'M', 'L', 'XL']);
+    setSizeBreakdown(ball.sizeBreakdown || {});
     setSubTab('input');
   };
 
   const handleCancelEdit = () => {
     resetForm();
+  };
+
+  const toggleSize = (size: string) => {
+    if (selectedSizes.includes(size)) {
+      if (selectedSizes.length <= 1) return;
+      setSelectedSizes(selectedSizes.filter(s => s !== size));
+      const nextBreakdown = { ...sizeBreakdown };
+      delete nextBreakdown[size];
+      setSizeBreakdown(nextBreakdown);
+    } else {
+      const nextSizes = [...selectedSizes, size];
+      setSelectedSizes(nextSizes);
+      setSizeBreakdown({ ...sizeBreakdown, [size]: 0 });
+    }
+  };
+
+  const distributeSizesEvenly = () => {
+    if (selectedSizes.length === 0 || pcsCount <= 0) return;
+    const countPerSize = Math.floor(pcsCount / selectedSizes.length);
+    const remainder = pcsCount % selectedSizes.length;
+    const next: { [size: string]: number } = {};
+    selectedSizes.forEach((sz, idx) => {
+      next[sz] = countPerSize + (idx === 0 ? remainder : 0);
+    });
+    setSizeBreakdown(next);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -141,6 +172,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       ballType,
       category,
       unitType,
+      sizes: selectedSizes,
+      sizeBreakdown,
       modalPrice,
       pcsCount,
       shippingCost,
@@ -342,6 +375,88 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                   onChange={e => setPcsCount(Number(e.target.value))}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                 />
+              </div>
+            </div>
+
+            {/* Varian Ukuran & Breakdown Size (S, M, L, XL, dll.) */}
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <span className="text-[#25F4EE]">🏷️</span>
+                    <span>Varian Ukuran / Size &amp; Distribusi Stok</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Pilih ukuran (S, M, L, XL, dll.) dan tentukan rincian isi pcs per size
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={distributeSizesEvenly}
+                    className="text-[11px] font-bold text-[#25F4EE] hover:underline bg-[#25F4EE]/10 px-2.5 py-1 rounded-lg border border-[#25F4EE]/30 cursor-pointer"
+                  >
+                    ⚡ Bagi Rata Otomatis
+                  </button>
+                </div>
+              </div>
+
+              {/* Size Tag Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
+                  const isChecked = selectedSizes.includes(sz);
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => toggleSize(sz)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                        isChecked
+                          ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Numeric breakdown per size */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                {selectedSizes.map(sz => (
+                  <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-[#25F4EE]">Size {sz}</span>
+                      <span className="text-zinc-400">pcs</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={sizeBreakdown[sz] ?? 0}
+                      onChange={e => setSizeBreakdown({
+                        ...sizeBreakdown,
+                        [sz]: Math.max(0, parseInt(e.target.value) || 0)
+                      })}
+                      className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-[#25F4EE]"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Total allocation indicator */}
+              <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+                <span>
+                  Total terdistribusi:{' '}
+                  <strong className="text-white">
+                    {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                  </strong>
+                </span>
+                <span>
+                  Target total:{' '}
+                  <strong className="text-[#25F4EE]">{pcsCount} pcs</strong>
+                </span>
               </div>
             </div>
 
@@ -561,7 +676,16 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                         </td>
 
                         <td className="px-4 py-3.5 text-right font-bold text-white">
-                          {formatNumber(item.pcsCount)} pcs
+                          <div>{formatNumber(item.pcsCount)} pcs</div>
+                          {item.sizes && item.sizes.length > 0 && (
+                            <div className="flex flex-wrap justify-end gap-1 mt-1">
+                              {item.sizes.map(sz => (
+                                <span key={sz} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
+                                  {sz}{item.sizeBreakdown?.[sz] !== undefined ? `: ${item.sizeBreakdown[sz]}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
 
                         <td className="px-4 py-3.5 text-right">
