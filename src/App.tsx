@@ -39,6 +39,7 @@ import { PersonalFinanceView } from './views/PersonalFinanceView';
 import { TopupSaldoHubView } from './views/TopupSaldoHubView';
 import { TopupSaldoInputView } from './views/TopupSaldoInputView';
 import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
+import { RockMusicPlayer } from './components/RockMusicPlayer';
 
 interface ToastState {
   id: number;
@@ -479,6 +480,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Rock Music Instrumental Player Widget */}
+      <RockMusicPlayer onNotify={handleNotify} />
 
       {/* PWA Install Guide Modal */}
       <InstallGuideModal

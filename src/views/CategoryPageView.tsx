@@ -1,7 +1,7 @@
 import React from 'react';
 import { CurrentUser } from '../types';
 import { CATEGORIES, RoutePath, isRouteAllowed } from '../services/navigation';
-import { Lock } from 'lucide-react';
+import { Lock, ArrowLeft } from 'lucide-react';
 import { MarqueeText } from '../components/MarqueeText';
 
 interface CategoryPageViewProps {
@@ -22,7 +22,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header & Category Tabs */}
+      {/* Top Header without category switcher tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <div className="flex items-center gap-3">
           <div
@@ -45,27 +45,19 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
           </div>
         </div>
 
-        {/* Category Switcher Tabs */}
-        <div className="flex items-center gap-1 self-start sm:self-auto bg-[#0b0c10] p-1 rounded-xl border border-white/10 overflow-x-auto no-scrollbar">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.key}
-              type="button"
-              id={`btn-switch-to-category-${cat.key}`}
-              onClick={() => onNavigate(cat.path)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                cat.key === categoryKey
-                  ? 'bg-white text-zinc-950 shadow-sm font-black'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <span>{cat.title}</span>
-            </button>
-          ))}
-        </div>
+        {/* Back to Dashboard Button */}
+        <button
+          type="button"
+          id="btn-sub-menu-back-to-dashboard"
+          onClick={() => onNavigate('/dashboard')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95 self-start sm:self-auto shrink-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Kembali ke Beranda</span>
+        </button>
       </div>
 
-      {/* Sub-menu Feature Cards Grid: 2 ke samping, sisanya ke bawah */}
+      {/* Sub-menu Feature Cards Grid: 2 ke samping pada layar mobile */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {currentCategory.items.map((item) => {
           const accessible = isRouteAllowed(item.path, currentUser);
