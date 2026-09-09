@@ -434,8 +434,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Toast Container */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      {/* Floating Toast Container (z-[10000] per Arc'teryx Toast Layer) */}
+      <div className="fixed bottom-6 right-6 z-[10000] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}

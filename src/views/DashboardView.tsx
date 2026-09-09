@@ -77,8 +77,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 sm:py-5 space-y-4 sm:space-y-5 text-white font-sans">
-      {/* 1. Top Quick Status Pill Bar (Seperti di Screenshot) */}
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-5 sm:py-6 space-y-5 sm:space-y-6 text-white font-sans">
+      {/* 1. Top Quick Status Pill Bar */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 select-none">
         {/* Nama Toko Pill */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-zinc-200 border border-white/10 shrink-0 shadow-xs">

@@ -43,20 +43,20 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#25F4EE]/15 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
+            <div className="w-9 h-9 rounded-xl bg-[#B2B2B2]/20 border border-[#0000EE]/40 flex items-center justify-center text-[#B2B2B2]">
               <Palette className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-black text-white">
-                Pengaturan Tema &amp; Warna
+                Pengaturan Tema &amp; Desain
               </h3>
               <p className="text-xs text-zinc-400">
-                Sesuaikan nuansa visual toko fashion &amp; kenyamanan mata
+                Sistem Desain Arc&apos;teryx Alpine &amp; Palet Visual Toko
               </p>
             </div>
           </div>
@@ -126,7 +126,9 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
                     onClick={() => handleSelectPalette(key)}
                     className={`p-4 rounded-2xl border text-left transition relative cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-white/10 border-white/40 shadow-xl ring-2 ring-[#25F4EE]/50'
+                        ? key === 'arcteryx'
+                          ? 'bg-white/10 border-[#0000EE] shadow-xl ring-2 ring-[#0000EE]/50'
+                          : 'bg-white/10 border-white/40 shadow-xl ring-2 ring-[#25F4EE]/50'
                         : 'bg-white/5 border-white/10 hover:bg-white/10'
                     }`}
                   >
@@ -145,8 +147,17 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
                           className="w-4 h-4 rounded-full shadow-xs border border-white/20"
                           style={{ backgroundColor: palette.previewColors[2] }}
                         />
+                        {key === 'arcteryx' && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#0000EE] bg-[#0000EE]/10 px-1.5 py-0.5 border border-[#0000EE]/30 ml-1">
+                            SPEC
+                          </span>
+                        )}
                         {isSelected && (
-                          <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-[#25F4EE] bg-[#25F4EE]/10 px-2 py-0.5 rounded-full border border-[#25F4EE]/30">
+                          <span className={`ml-auto inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            key === 'arcteryx'
+                              ? 'text-[#0000EE] bg-[#0000EE]/10 border-[#0000EE]/40'
+                              : 'text-[#25F4EE] bg-[#25F4EE]/10 border-[#25F4EE]/30'
+                          }`}>
                             <Check className="w-3 h-3" />
                             <span>Aktif</span>
                           </span>

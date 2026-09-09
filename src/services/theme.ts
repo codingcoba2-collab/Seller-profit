@@ -19,6 +19,21 @@ export interface ThemeDefinition {
 }
 
 export const THEME_PALETTES: Record<ThemePalette, ThemeDefinition> = {
+  arcteryx: {
+    id: 'arcteryx',
+    name: "Arc'teryx Technical Alpine",
+    description: 'Minimalisme teknikal presisi, sudut tegas 0px, kontras tinggi Canvas & Surface-Alt, Hairline #0000EE',
+    primaryColor: '#B2B2B2',
+    accentColor: '#0000EE',
+    bgDark: '#1A1A1A',
+    cardDark: '#1A1A1A',
+    bgLight: '#FFFFFF',
+    cardLight: '#FFFFFF',
+    badgeBg: 'bg-[#B2B2B2]/20',
+    badgeText: 'text-[#222222]',
+    primaryGradient: 'from-[#B2B2B2] to-[#888888]',
+    previewColors: ['#B2B2B2', '#FFFFFF', '#0000EE'],
+  },
   neon: {
     id: 'neon',
     name: 'TikTok Neon & Cyber',
@@ -112,8 +127,8 @@ export const THEME_PALETTES: Record<ThemePalette, ThemeDefinition> = {
 };
 
 export const DEFAULT_THEME: ThemeConfig = {
-  mode: 'dark',
-  palette: 'neon',
+  mode: 'light',
+  palette: 'arcteryx',
 };
 
 type ThemeChangeListener = (theme: ThemeConfig) => void;
@@ -159,27 +174,57 @@ export class ThemeService {
 
   static applyToDOM(theme?: ThemeConfig) {
     const active = theme || this.getTheme();
-    const def = THEME_PALETTES[active.palette] || THEME_PALETTES.neon;
+    const def = THEME_PALETTES[active.palette] || THEME_PALETTES.arcteryx;
 
     const root = document.documentElement;
     root.setAttribute('data-theme-palette', active.palette);
     root.setAttribute('data-theme-mode', active.mode);
 
     const isLight = active.mode === 'light';
-    const bgMain = isLight ? def.bgLight : def.bgDark;
-    const bgCard = isLight ? def.cardLight : def.cardDark;
-    const textMain = isLight ? '#0f172a' : '#f4f4f6';
-    const textMuted = isLight ? '#475569' : '#9ca3af';
-    const borderColor = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)';
+    const isArcteryx = active.palette === 'arcteryx';
 
+    let bgMain = isLight ? def.bgLight : def.bgDark;
+    let bgCard = isLight ? def.cardLight : def.cardDark;
+    let textMain = isLight ? '#0f172a' : '#f4f4f6';
+    let textMuted = isLight ? '#475569' : '#9ca3af';
+    let borderColor = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.1)';
+
+    if (isArcteryx) {
+      // Arc'teryx Design Tokens
+      if (isLight) {
+        bgMain = '#FFFFFF'; // Canvas
+        bgCard = '#FFFFFF';
+        textMain = '#000000'; // Ink
+        textMuted = '#666666'; // Neutral 2
+        borderColor = '#0000EE'; // Hairline functional blue line
+      } else {
+        bgMain = '#1A1A1A'; // Surface Alt
+        bgCard = '#1A1A1A';
+        textMain = '#FFFFFF';
+        textMuted = '#B2B2B2';
+        borderColor = '#0000EE';
+      }
+    }
+
+    // Standard CSS Variables
     root.style.setProperty('--primary-color', def.primaryColor);
     root.style.setProperty('--secondary-color', def.accentColor);
-    root.style.setProperty('--accent-color', def.primaryColor);
+    root.style.setProperty('--accent-color', isArcteryx ? '#0000EE' : def.primaryColor);
     root.style.setProperty('--bg-main', bgMain);
     root.style.setProperty('--bg-card', bgCard);
     root.style.setProperty('--text-main', textMain);
     root.style.setProperty('--text-muted', textMuted);
     root.style.setProperty('--border-color', borderColor);
+
+    // Arc'teryx Specific Semantic Tokens
+    root.style.setProperty('--color-primary', '#B2B2B2');
+    root.style.setProperty('--color-canvas', '#FFFFFF');
+    root.style.setProperty('--color-surface-alt', '#1A1A1A');
+    root.style.setProperty('--color-ink', '#000000');
+    root.style.setProperty('--color-on-primary', '#222222');
+    root.style.setProperty('--color-hairline', '#0000EE');
+    root.style.setProperty('--color-neutral-1', '#333333');
+    root.style.setProperty('--color-neutral-2', '#666666');
 
     if (isLight) {
       root.classList.remove('dark');

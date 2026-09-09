@@ -199,7 +199,7 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
       <div className="relative w-full max-w-2xl bg-[#161823] border border-white/15 rounded-3xl p-6 shadow-2xl text-white max-h-[90vh] flex flex-col">
         {/* Close */}
         <button

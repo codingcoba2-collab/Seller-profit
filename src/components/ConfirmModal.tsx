@@ -88,7 +88,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div 
         id="dialog-confirmation-card"
         className="relative w-full max-w-md bg-[#161823] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl text-white space-y-4"

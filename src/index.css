@@ -1,18 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --primary-color: #25F4EE;
-  --secondary-color: #FE2C55;
-  --accent-color: #00F2FE;
-  --bg-main: #0b0c10;
-  --bg-card: #161823;
-  --bg-card-secondary: #0e1017;
-  --text-main: #f4f4f6;
-  --text-muted: #9ca3af;
-  --border-color: rgba(255, 255, 255, 0.1);
+  --primary-color: #B2B2B2;
+  --secondary-color: #0000EE;
+  --accent-color: #0000EE;
+  --bg-main: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-secondary: #1A1A1A;
+  --text-main: #000000;
+  --text-muted: #666666;
+  --border-color: #0000EE;
+
+  /* Arc'teryx Alpine Design Tokens */
+  --color-primary: #B2B2B2;
+  --color-canvas: #FFFFFF;
+  --color-surface-alt: #1A1A1A;
+  --color-ink: #000000;
+  --color-on-primary: #222222;
+  --color-hairline: #0000EE;
+  --color-neutral-1: #333333;
+  --color-neutral-2: #666666;
 }
 
-/* Neon Cyber Palette (Default) */
+/* Arc'teryx Technical Alpine Palette (Default) */
+[data-theme-palette="arcteryx"] {
+  --primary-color: #B2B2B2;
+  --secondary-color: #0000EE;
+  --accent-color: #0000EE;
+  --bg-main: #1A1A1A;
+  --bg-card: #1A1A1A;
+  --bg-card-secondary: #111111;
+  --text-main: #FFFFFF;
+  --text-muted: #B2B2B2;
+  --border-color: #0000EE;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] {
+  --bg-main: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-secondary: #F5F5F5;
+  --primary-color: #B2B2B2;
+  --secondary-color: #0000EE;
+  --accent-color: #0000EE;
+  --text-main: #000000;
+  --text-muted: #666666;
+  --border-color: #0000EE;
+}
+
+/* Neon Cyber Palette */
 [data-theme-palette="neon"] {
   --primary-color: #25F4EE;
   --secondary-color: #FE2C55;
@@ -284,3 +319,170 @@ body {
   animation: marquee 12s linear infinite;
   will-change: transform;
 }
+
+/* ==========================================================================
+   ARC'TERYX TECHNICAL ALPINE DESIGN SYSTEM SPECIFICATION
+   ========================================================================== */
+
+/* 1. Sharp Rectilinear Geometry: 0px Border Radius Everywhere */
+[data-theme-palette="arcteryx"],
+[data-theme-palette="arcteryx"] * {
+  border-radius: 0px !important;
+}
+
+/* 2. Flat Depth & Elevation: No Drop Shadows, No Blurs, Pure Color-Blocking */
+[data-theme-palette="arcteryx"] *,
+[data-theme-palette="arcteryx"] .shadow-xs,
+[data-theme-palette="arcteryx"] .shadow-sm,
+[data-theme-palette="arcteryx"] .shadow-md,
+[data-theme-palette="arcteryx"] .shadow-lg,
+[data-theme-palette="arcteryx"] .shadow-xl,
+[data-theme-palette="arcteryx"] .shadow-2xl,
+[data-theme-palette="arcteryx"] .tiktok-card-hover,
+[data-theme-palette="arcteryx"] .tiktok-glow-pink,
+[data-theme-palette="arcteryx"] .tiktok-glow-cyan {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 3. Typography Rules: Helvetica Now Display & Arial (400 & 700 weights only) */
+[data-theme-palette="arcteryx"] {
+  font-family: "Helvetica Now Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif !important;
+  letter-spacing: normal !important;
+}
+
+[data-theme-palette="arcteryx"] h1,
+[data-theme-palette="arcteryx"] h2,
+[data-theme-palette="arcteryx"] h3,
+[data-theme-palette="arcteryx"] h4 {
+  font-family: "Helvetica Now Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif !important;
+}
+
+/* Display XL (32px 400) */
+[data-theme-palette="arcteryx"] .text-2xl,
+[data-theme-palette="arcteryx"] .text-3xl {
+  font-size: 32px !important;
+  font-weight: 400 !important;
+  line-height: 1.25 !important;
+}
+
+/* Display SM (28px 400) */
+[data-theme-palette="arcteryx"] .text-xl {
+  font-size: 28px !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+}
+
+/* Body MD (16px 400, line-height 24px) */
+[data-theme-palette="arcteryx"] p,
+[data-theme-palette="arcteryx"] .text-sm,
+[data-theme-palette="arcteryx"] .text-base {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+}
+
+/* Buttons: Arial 13px 400 normal */
+[data-theme-palette="arcteryx"] button,
+[data-theme-palette="arcteryx"] input[type="button"],
+[data-theme-palette="arcteryx"] input[type="submit"] {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 13px !important;
+  min-height: 30px !important;
+  transition: opacity 0.15s ease, text-decoration 0.15s ease, background-color 0.15s ease !important;
+}
+
+/* Focus States: 2px solid outline */
+[data-theme-palette="arcteryx"] button:focus-visible,
+[data-theme-palette="arcteryx"] input:focus-visible,
+[data-theme-palette="arcteryx"] select:focus-visible,
+[data-theme-palette="arcteryx"] textarea:focus-visible,
+[data-theme-palette="arcteryx"] a:focus-visible {
+  outline: #000000 solid 2px !important;
+  outline-offset: 1px !important;
+}
+
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] button:focus-visible,
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] input:focus-visible,
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] select:focus-visible,
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] textarea:focus-visible,
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] a:focus-visible {
+  outline: #0000EE solid 2px !important;
+  outline-offset: 1px !important;
+}
+
+/* Button Hover State */
+[data-theme-palette="arcteryx"] button:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+/* 4. Color Blocking: Canvas & Surface-Alt Banding */
+[data-theme-mode="light"][data-theme-palette="arcteryx"] {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .bg-\[\#161823\] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: #000000 !important;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .bg-\[\#0b0c10\] {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .text-white {
+  color: #000000 !important;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .text-zinc-200,
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .text-zinc-300 {
+  color: #1A1A1A !important;
+}
+
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .text-zinc-400,
+[data-theme-mode="light"][data-theme-palette="arcteryx"] .text-zinc-500 {
+  color: #666666 !important;
+}
+
+/* Dark mode Arc'teryx banding */
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] {
+  background-color: #1A1A1A !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] .bg-\[\#161823\],
+[data-theme-mode="dark"][data-theme-palette="arcteryx"] .bg-\[\#0b0c10\] {
+  background-color: #1A1A1A !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 5. Hairline Functional Accent Dividers & Lines (#0000EE) */
+[data-theme-palette="arcteryx"] .arcteryx-hairline,
+[data-theme-palette="arcteryx"] .border-hairline {
+  border-color: #0000EE !important;
+}
+
+[data-theme-palette="arcteryx"] .text-primary-accent {
+  color: #B2B2B2 !important;
+}
+
+[data-theme-palette="arcteryx"] .bg-primary-accent {
+  background-color: #B2B2B2 !important;
+  color: #222222 !important;
+}
+
+/* 6. Z-Index Hierarchy per Arc'teryx Spec */
+/* Base: 1-2 | Modal: 9990-9999 | Toast: 10000 */
+[data-theme-palette="arcteryx"] .z-modal {
+  z-index: 9990 !important;
+}
+
+[data-theme-palette="arcteryx"] .z-toast {
+  z-index: 10000 !important;
+}
+

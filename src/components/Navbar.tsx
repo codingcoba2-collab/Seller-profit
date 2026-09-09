@@ -43,11 +43,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header 
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 24px), 24px)' }}
-        className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)' }}
+        className="sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-md border-b border-white/10 shadow-lg text-white min-h-[78px] flex flex-col justify-center"
       >
-        {/* Main navigation header (Lowered to clear iPhone notch completely) */}
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+        {/* Main navigation header (78px height per Arc'teryx spec) */}
+        <div className="max-w-7xl w-full mx-auto px-4 md:px-10 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             {!isHome ? (
               <button

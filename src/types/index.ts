@@ -137,7 +137,7 @@ export type PaymentMethod = 'transfer' | 'qris' | 'cash' | 'cod' | 'marketplace_
 
 export type ThemeMode = 'dark' | 'light';
 
-export type ThemePalette = 'neon' | 'emerald' | 'violet' | 'coral' | 'ocean' | 'minimalist';
+export type ThemePalette = 'arcteryx' | 'neon' | 'emerald' | 'violet' | 'coral' | 'ocean' | 'minimalist';
 
 export interface ThemeConfig {
   mode: ThemeMode;

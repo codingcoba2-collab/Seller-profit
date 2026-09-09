@@ -78,7 +78,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-md bg-[#161823] border border-white/10 rounded-3xl p-6 shadow-2xl text-white">
         {/* Close Button */}
         <button
