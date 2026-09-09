@@ -1,96 +1,111 @@
 import React, { useRef, useState, useEffect } from 'react';
 
 interface MarqueeTextProps {
-  text: string;
+  text?: string;
+  children?: React.ReactNode;
   className?: string;
-  speed?: number; // duration in seconds
-  as?: 'span' | 'div' | 'h3' | 'h4' | 'p';
-  alwaysAnimate?: boolean;
+  containerClassName?: string;
+  /** Force marquee always active, or only when overflowing (default: 'auto') */
+  mode?: 'auto' | 'always' | 'hover';
+  /** Animation speed in pixels per second (default: 35) */
+  speed?: number;
+  /** Add subtle fade out masks at left and right edges (default: true) */
+  fadeEdges?: boolean;
 }
 
+/**
+ * Komponen Tulisan Berjalan (Marquee Text)
+ * Otomatis mendeteksi jika tulisan terpotong / overflow, dan menjalankan teks
+ * secara mulus sehingga seluruh kalimat selalu terbaca utuh tanpa terpotong.
+ */
 export const MarqueeText: React.FC<MarqueeTextProps> = ({
   text,
+  children,
   className = '',
-  speed = 12,
-  as = 'div',
-  alwaysAnimate = false,
+  containerClassName = '',
+  mode = 'auto',
+  speed = 35,
+  fadeEdges = true,
 }) => {
-  const containerRef = useRef<HTMLElement>(null);
-  const measurerRef = useRef<HTMLSpanElement>(null);
-  const [isOverflowing, setIsOverflowing] = useState(alwaysAnimate);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [duration, setDuration] = useState(12);
+
+  const content = text ?? children;
 
   useEffect(() => {
-    if (alwaysAnimate) {
-      setIsOverflowing(true);
-      return;
-    }
-
     const checkOverflow = () => {
-      if (containerRef.current && measurerRef.current) {
-        // Measure unconstrained text width against container client width
-        const textWidth = measurerRef.current.getBoundingClientRect().width;
-        const containerWidth = containerRef.current.clientWidth;
-        const overflow = textWidth > containerWidth + 2;
-        setIsOverflowing(overflow);
+      if (!containerRef.current || !textRef.current) return;
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+
+      if (textWidth > containerWidth + 2) {
+        setIsOverflowing(true);
+        // Hitung durasi agar kecepatan membaca konstan (speed px/detik)
+        const travelDistance = textWidth + containerWidth * 0.4;
+        const calculatedDuration = Math.max(6, Math.round(travelDistance / speed));
+        setDuration(calculatedDuration);
+      } else {
+        setIsOverflowing(false);
       }
     };
 
     checkOverflow();
 
-    // Re-check after layout & font paint
-    const timer = setTimeout(checkOverflow, 120);
+    const resizeObserver = new ResizeObserver(() => {
+      checkOverflow();
+    });
 
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
-      resizeObserver = new ResizeObserver(() => {
-        checkOverflow();
-      });
+    if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
-    } else {
-      window.addEventListener('resize', checkOverflow);
     }
 
     return () => {
-      clearTimeout(timer);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      } else {
-        window.removeEventListener('resize', checkOverflow);
-      }
+      resizeObserver.disconnect();
     };
-  }, [text, alwaysAnimate]);
+  }, [content, speed]);
 
-  const Tag = as as any;
+  const shouldAnimate = mode === 'always' || (mode === 'auto' && isOverflowing);
+  const hoverAnimate = mode === 'hover' && isOverflowing;
 
   return (
-    <Tag
+    <div
       ref={containerRef}
-      className={`overflow-hidden relative select-none ${className}`}
-      title={text}
+      className={`relative overflow-hidden w-full max-w-full ${containerClassName}`}
+      style={{
+        maskImage: fadeEdges && isOverflowing
+          ? 'linear-gradient(to right, transparent 0%, black 6px, black calc(100% - 10px), transparent 100%)'
+          : undefined,
+        WebkitMaskImage: fadeEdges && isOverflowing
+          ? 'linear-gradient(to right, transparent 0%, black 6px, black calc(100% - 10px), transparent 100%)'
+          : undefined,
+      }}
+      title={typeof content === 'string' ? content : undefined}
     >
-      {/* Invisible off-screen unconstrained span to accurately measure text width across all browsers (including iOS Safari) */}
-      {!alwaysAnimate && (
-        <span
-          ref={measurerRef}
-          aria-hidden="true"
-          className="absolute -top-9999px left-0 invisible whitespace-nowrap pointer-events-none"
-          style={{ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden', whiteSpace: 'nowrap' }}
-        >
-          {text}
+      <div
+        className={`whitespace-nowrap inline-flex items-center ${
+          shouldAnimate ? 'animate-marquee-smooth' : hoverAnimate ? 'group-hover:animate-marquee-smooth' : ''
+        }`}
+        style={
+          shouldAnimate || hoverAnimate
+            ? {
+                animationDuration: `${duration}s`,
+              }
+            : undefined
+        }
+      >
+        <span ref={textRef} className={`inline-block ${className}`}>
+          {content}
         </span>
-      )}
 
-      {isOverflowing ? (
-        <span
-          className="inline-flex whitespace-nowrap animate-marquee hover:[animation-play-state:paused]"
-          style={{ animationDuration: `${speed}s` }}
-        >
-          <span className="pr-8 inline-block">{text}</span>
-          <span className="pr-8 inline-block">{text}</span>
-        </span>
-      ) : (
-        <span className="block truncate">{text}</span>
-      )}
-    </Tag>
+        {/* Duplicate text spacer for continuous smooth looping marquee */}
+        {(shouldAnimate || hoverAnimate) && (
+          <span className={`inline-block pl-8 ${className}`} aria-hidden="true">
+            {content}
+          </span>
+        )}
+      </div>
+    </div>
   );
 };

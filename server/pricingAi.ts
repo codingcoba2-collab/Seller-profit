@@ -216,10 +216,39 @@ export async function processAiCalculateBundle(
       coinCost = 0;
     }
 
+    const extractedHostSalary = extractIndoValue(lowerQ, [
+      /(?:gaji|bayar|upah)\s*(?:pokok)?\s*host\s*(?:sebesar|seharga|sebanyak|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i,
+      /host\s*(?:live)?\s*(?:minta|butuh|gaji|dikasih|diberi)?\s*(?:gaji|sebesar|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i,
+    ]);
+    if (extractedHostSalary !== null) hostSalary = extractedHostSalary;
+
+    const extractedAdminSalary = extractIndoValue(lowerQ, [
+      /(?:gaji|bayar|upah)\s*(?:pokok)?\s*admin\s*(?:sebesar|seharga|sebanyak|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i,
+      /admin\s*(?:toko|chat)?\s*(?:minta|butuh|gaji|dikasih|diberi)?\s*(?:gaji|sebesar|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i,
+    ]);
+    if (extractedAdminSalary !== null) adminSalary = extractedAdminSalary;
+
     if (lowerQ.includes('tanpa host') || lowerQ.includes('ga ada host') || lowerQ.includes('jual sendiri')) {
       hostSalary = 0;
       hostIncentivePerPackage = 0;
     }
+
+    if (lowerQ.includes('tanpa admin') || lowerQ.includes('ga ada admin') || lowerQ.includes('handle sendiri')) {
+      adminSalary = 0;
+      adminIncentivePerPackage = 0;
+    }
+  }
+
+  // Detect which bundle scenario the user is asking about
+  let focusPackageId = 'bundling_2pcs';
+  if (lowerQ.includes('1 pcs') || lowerQ.includes('satuan') || lowerQ.includes('eceran') || lowerQ.includes('single')) {
+    focusPackageId = 'bundling_1pcs';
+  } else if (lowerQ.includes('3 pcs') || lowerQ.includes('bundling 3') || lowerQ.includes('paket 3')) {
+    focusPackageId = 'bundling_3pcs';
+  } else if (lowerQ.includes('5 pcs') || lowerQ.includes('bundling 5') || lowerQ.includes('grosir') || lowerQ.includes('reseller')) {
+    focusPackageId = 'bundling_5pcs';
+  } else {
+    focusPackageId = 'bundling_2pcs';
   }
 
   const totalFixedBurden = targetProfit + adsCost + coinCost + hostSalary + adminSalary;
@@ -331,6 +360,7 @@ BERIKAN OUTPUT DALAM JSON MURNI:
             analyzedQuery: cleanedUserQuery,
             channelType: parsed.channelType || detectedChannel,
             channelLabel: parsed.channelLabel || channelLabels[detectedChannel],
+            focusPackageId,
             directAnswer: parsed.directAnswer,
             costStructure: parsed.costStructure || {
               hppPerPcs,
@@ -468,6 +498,7 @@ BERIKAN OUTPUT DALAM JSON MURNI:
       analyzedQuery: cleanedUserQuery,
       channelType: detectedChannel,
       channelLabel: channelLabels[detectedChannel],
+      focusPackageId,
       directAnswer: fallbackDirectAnswer,
       costStructure: {
         hppPerPcs,

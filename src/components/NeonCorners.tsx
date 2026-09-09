@@ -1,330 +1,290 @@
 import React, { useId } from 'react';
 
-export type NeonFlexVariant = 
-  | 'side-left' 
-  | 'side-right' 
-  | 'corner-top-left' 
-  | 'corner-top-right' 
-  | 'corner-bottom-right'
-  | 'dual-accent'
+export type NeonOppositeVariant = 
+  | 'opposite-tl-br' // Lengkung di Ujung Kiri-Atas & Kanan-Bawah (Bersebrangan)
+  | 'opposite-tr-bl' // Lengkung di Ujung Kanan-Atas & Kiri-Bawah (Bersebrangan)
+  | 'side-left'      // Backward compat fallback -> will map to opposite-tl-br
+  | 'side-right'     // Backward compat fallback -> will map to opposite-tr-bl
+  | 'corner-top-left'
+  | 'corner-top-right'
   | 'auto';
 
-export type NeonFlexColor = 'cyan' | 'magenta' | 'emerald' | 'amber' | 'gradient';
+export type NeonFlexColor = 'cyan' | 'magenta' | 'emerald' | 'amber' | 'dual' | 'gradient';
 
 interface NeonCornersProps {
-  /** Optional legacy flag */
+  /** Optional legacy flags */
   cyanTop?: boolean;
-  /** Optional legacy flag */
   magentaBottom?: boolean;
-  /** Position variant: side or end/corner */
-  variant?: NeonFlexVariant;
-  /** Neon color theme */
+  /** Variasi posisi lengkungan: opposite-tl-br (Kiri Atas & Kanan Bawah) atau opposite-tr-bl (Kanan Atas & Kiri Bawah) */
+  variant?: NeonOppositeVariant | string;
+  /** Warna neon: cyan, magenta, emerald, amber, dual (cyan + magenta) */
   color?: NeonFlexColor;
   /** Custom extra styling */
   className?: string;
-  /** Cable thickness: normal (3.5px) or thin (2.5px) */
-  thickness?: 'normal' | 'thin';
+  /** Ketebalan kabel neon lengkung */
+  size?: 'sm' | 'md' | 'lg';
 }
 
-const COLOR_MAP: Record<NeonFlexColor, {
-  hex: string;
-  glow: string;
-  shadow: string;
-  border: string;
-  bgGradient: string;
-}> = {
+const COLOR_MAP: Record<string, { hex: string; glow: string; strokeGlow: string }> = {
   cyan: {
     hex: '#25F4EE',
-    glow: 'rgba(37, 244, 238, 0.85)',
-    shadow: '0 0 4px #fff, 0 0 10px #25F4EE, 0 0 20px rgba(37, 244, 238, 0.65)',
-    border: 'border-[#25F4EE]',
-    bgGradient: 'from-[#25F4EE] to-[#00C2FF]',
+    glow: 'rgba(37, 244, 238, 0.9)',
+    strokeGlow: 'drop-shadow(0 0 7px #25F4EE) drop-shadow(0 0 14px rgba(37, 244, 238, 0.7))',
   },
   magenta: {
     hex: '#FE2C55',
-    glow: 'rgba(254, 44, 85, 0.85)',
-    shadow: '0 0 4px #fff, 0 0 10px #FE2C55, 0 0 20px rgba(254, 44, 85, 0.65)',
-    border: 'border-[#FE2C55]',
-    bgGradient: 'from-[#FE2C55] to-[#FF007A]',
+    glow: 'rgba(254, 44, 85, 0.9)',
+    strokeGlow: 'drop-shadow(0 0 7px #FE2C55) drop-shadow(0 0 14px rgba(254, 44, 85, 0.7))',
   },
   emerald: {
     hex: '#10B981',
-    glow: 'rgba(16, 185, 129, 0.85)',
-    shadow: '0 0 4px #fff, 0 0 10px #10B981, 0 0 20px rgba(16, 185, 129, 0.65)',
-    border: 'border-[#10B981]',
-    bgGradient: 'from-[#10B981] to-[#059669]',
+    glow: 'rgba(16, 185, 129, 0.9)',
+    strokeGlow: 'drop-shadow(0 0 7px #10B981) drop-shadow(0 0 14px rgba(16, 185, 129, 0.7))',
   },
   amber: {
     hex: '#F59E0B',
-    glow: 'rgba(245, 158, 11, 0.85)',
-    shadow: '0 0 4px #fff, 0 0 10px #F59E0B, 0 0 20px rgba(245, 158, 11, 0.65)',
-    border: 'border-[#F59E0B]',
-    bgGradient: 'from-[#F59E0B] to-[#D97706]',
+    glow: 'rgba(245, 158, 11, 0.9)',
+    strokeGlow: 'drop-shadow(0 0 7px #F59E0B) drop-shadow(0 0 14px rgba(245, 158, 11, 0.7))',
   },
-  gradient: {
-    hex: '#25F4EE',
-    glow: 'rgba(37, 244, 238, 0.85)',
-    shadow: '0 0 4px #fff, 0 0 12px #25F4EE, 0 0 20px rgba(254, 44, 85, 0.6)',
-    border: 'border-[#25F4EE]',
-    bgGradient: 'from-[#25F4EE] via-[#A855F7] to-[#FE2C55]',
-  }
 };
 
 /**
- * Komponen Kabel Neon Fleksibel (LED Neon Flex Wire/Tube)
- * Memberikan aksen lampu selang neon variasi di samping atau di ujung sudut menu
+ * Komponen Lengkungan Kabel Neon Bersebrangan (Opposite Curved Neon Tube)
+ * Memasang aksen lengkungan kabel neon fleksibel HANYA di ujung-ujung sudut yang bersebrangan
+ * (seperti model sisa saldo di dashboard):
+ * - Variasi 1: Ujung Kiri-Atas (Top-Left) & Kanan-Bawah (Bottom-Right)
+ * - Variasi 2: Ujung Kanan-Atas (Top-Right) & Kiri-Bawah (Bottom-Left)
  */
 export const NeonCorners: React.FC<NeonCornersProps> = ({
   cyanTop = true,
   magentaBottom = true,
-  variant,
+  variant = 'auto',
   color,
   className = '',
-  thickness = 'normal',
+  size = 'md',
 }) => {
   const uniqueId = useId().replace(/[:]/g, '');
 
-  // Tentukan varian otomatis jika belum ditentukan
-  let resolvedVariant: NeonFlexVariant = variant || 'auto';
-  let resolvedColor: NeonFlexColor = color || (cyanTop && magentaBottom ? 'gradient' : cyanTop ? 'cyan' : 'magenta');
+  // 1. Tentukan varian pasangan ujung bersebrangan
+  let resolvedVariant: 'tl-br' | 'tr-bl' = 'tl-br';
 
-  if (resolvedVariant === 'auto') {
-    // Jika ada cyanTop tapi bukan magentaBottom -> ujung atas / corner-top-left
-    if (cyanTop && !magentaBottom) {
-      resolvedVariant = 'corner-top-left';
-      resolvedColor = 'cyan';
-    } else if (!cyanTop && magentaBottom) {
-      // Jika magentaBottom saja -> kabel samping kiri magenta
-      resolvedVariant = 'side-left';
-      resolvedColor = 'magenta';
+  if (variant === 'opposite-tr-bl' || variant === 'side-right' || variant === 'corner-top-right') {
+    resolvedVariant = 'tr-bl';
+  } else if (variant === 'opposite-tl-br' || variant === 'side-left' || variant === 'corner-top-left') {
+    resolvedVariant = 'tl-br';
+  } else {
+    // Default 'auto': Jika hanya magentaBottom -> tr-bl, selain itu tl-br
+    if (!cyanTop && magentaBottom) {
+      resolvedVariant = 'tr-bl';
     } else {
-      // Default: kabel samping fleksibel elegan
-      resolvedVariant = 'side-left';
+      resolvedVariant = 'tl-br';
     }
   }
 
-  const activeTheme = COLOR_MAP[resolvedColor] || COLOR_MAP.cyan;
-  const tubeWidthClass = thickness === 'thin' ? 'w-[3px]' : 'w-[3.5px]';
+  // 2. Tentukan skema warna sudut 1 dan sudut 2 yang bersebrangan
+  let theme1 = COLOR_MAP.cyan;
+  let theme2 = COLOR_MAP.magenta;
 
-  // 1. Variasi Kabel Neon di Samping Kiri (Vertical Flexible Neon Strip)
-  if (resolvedVariant === 'side-left') {
-    return (
-      <div 
-        className={`pointer-events-none absolute left-0 top-3 bottom-3 ${tubeWidthClass} z-10 transition-all duration-300 ${className}`}
-        aria-hidden="true"
-      >
-        {/* Diffuse Outer Ambient Glow */}
-        <div 
-          className="absolute inset-0 rounded-full blur-[4px] opacity-70 group-hover:opacity-100 group-hover:blur-[6px] transition-all duration-300"
-          style={{ backgroundColor: activeTheme.hex }}
-        />
-        {/* Core Flexible Silicone Neon Tube */}
-        <div 
-          className={`absolute inset-0 rounded-full bg-gradient-to-b ${activeTheme.bgGradient}`}
-          style={{ boxShadow: activeTheme.shadow }}
-        />
-        {/* High-Intensity Inner Light Core */}
-        <div className="absolute left-[0.5px] right-[0.5px] top-1 bottom-1 rounded-full bg-white/80 blur-[0.3px]" />
-      </div>
-    );
+  if (color === 'cyan') {
+    theme1 = COLOR_MAP.cyan;
+    theme2 = COLOR_MAP.cyan;
+  } else if (color === 'magenta') {
+    theme1 = COLOR_MAP.magenta;
+    theme2 = COLOR_MAP.magenta;
+  } else if (color === 'emerald') {
+    theme1 = COLOR_MAP.emerald;
+    theme2 = COLOR_MAP.emerald;
+  } else if (color === 'amber') {
+    theme1 = COLOR_MAP.amber;
+    theme2 = COLOR_MAP.amber;
+  } else {
+    // Dual TikTok theme (Cyan + Magenta)
+    if (cyanTop && !magentaBottom) {
+      theme1 = COLOR_MAP.cyan;
+      theme2 = COLOR_MAP.cyan;
+    } else if (!cyanTop && magentaBottom) {
+      theme1 = COLOR_MAP.magenta;
+      theme2 = COLOR_MAP.magenta;
+    } else {
+      theme1 = COLOR_MAP.cyan;
+      theme2 = COLOR_MAP.magenta;
+    }
   }
 
-  // 2. Variasi Kabel Neon di Samping Kanan (Vertical Flexible Neon Strip)
-  if (resolvedVariant === 'side-right') {
-    return (
-      <div 
-        className={`pointer-events-none absolute right-0 top-3 bottom-3 ${tubeWidthClass} z-10 transition-all duration-300 ${className}`}
-        aria-hidden="true"
-      >
-        <div 
-          className="absolute inset-0 rounded-full blur-[4px] opacity-70 group-hover:opacity-100 group-hover:blur-[6px] transition-all duration-300"
-          style={{ backgroundColor: activeTheme.hex }}
-        />
-        <div 
-          className={`absolute inset-0 rounded-full bg-gradient-to-b ${activeTheme.bgGradient}`}
-          style={{ boxShadow: activeTheme.shadow }}
-        />
-        <div className="absolute left-[0.5px] right-[0.5px] top-1 bottom-1 rounded-full bg-white/80 blur-[0.3px]" />
-      </div>
-    );
-  }
+  const svgDimension = size === 'sm' ? 28 : size === 'lg' ? 40 : 34;
 
-  // 3. Variasi Kabel Neon Lekukan Ujung Atas-Kiri (Bent Flexible Neon Cable Corner)
-  if (resolvedVariant === 'corner-top-left') {
-    return (
-      <div className={`pointer-events-none absolute -top-px -left-px z-10 overflow-visible ${className}`} aria-hidden="true">
-        <svg 
-          className="w-10 h-10 overflow-visible transition-all duration-300 group-hover:scale-105" 
-          viewBox="0 0 36 36" 
-          fill="none"
-        >
-          <defs>
-            <filter id={`neon-flex-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="2.5" result="blur1" />
-              <feGaussianBlur stdDeviation="5" result="blur2" />
-              <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          {/* Outer Ambient Glow Tube */}
-          <path
-            d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
-            stroke={activeTheme.hex}
-            strokeWidth="5"
-            strokeLinecap="round"
-            opacity="0.6"
-            filter={`url(#neon-flex-${uniqueId})`}
-          />
-          {/* Main Neon Flex Tube */}
-          <path
-            d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
-            stroke={activeTheme.hex}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-          />
-          {/* Intense White Core Filament */}
-          <path
-            d="M 26 3.5 L 14 3.5 C 8.8 3.5 4.5 7.8 4.5 13 L 4.5 26"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            opacity="0.9"
-          />
-        </svg>
-      </div>
-    );
-  }
-
-  // 4. Variasi Kabel Neon Lekukan Ujung Atas-Kanan
-  if (resolvedVariant === 'corner-top-right') {
-    return (
-      <div className={`pointer-events-none absolute -top-px -right-px z-10 overflow-visible ${className}`} aria-hidden="true">
-        <svg 
-          className="w-10 h-10 overflow-visible transition-all duration-300 group-hover:scale-105" 
-          viewBox="0 0 36 36" 
-          fill="none"
-        >
-          <defs>
-            <filter id={`neon-flex-tr-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="2.5" result="blur1" />
-              <feGaussianBlur stdDeviation="5" result="blur2" />
-              <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M 8 3.5 L 22 3.5 C 27.8 3.5 32.5 8.2 32.5 14 L 32.5 28"
-            stroke={activeTheme.hex}
-            strokeWidth="5"
-            strokeLinecap="round"
-            opacity="0.6"
-            filter={`url(#neon-flex-tr-${uniqueId})`}
-          />
-          <path
-            d="M 8 3.5 L 22 3.5 C 27.8 3.5 32.5 8.2 32.5 14 L 32.5 28"
-            stroke={activeTheme.hex}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M 10 3.5 L 22 3.5 C 27.2 3.5 31.5 7.8 31.5 13 L 31.5 26"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            opacity="0.9"
-          />
-        </svg>
-      </div>
-    );
-  }
-
-  // 5. Variasi Kabel Neon Lekukan Ujung Bawah-Kanan
-  if (resolvedVariant === 'corner-bottom-right') {
-    return (
-      <div className={`pointer-events-none absolute -bottom-px -right-px z-10 overflow-visible ${className}`} aria-hidden="true">
-        <svg 
-          className="w-10 h-10 overflow-visible transition-all duration-300 group-hover:scale-105" 
-          viewBox="0 0 36 36" 
-          fill="none"
-        >
-          <defs>
-            <filter id={`neon-flex-br-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="2.5" result="blur1" />
-              <feGaussianBlur stdDeviation="5" result="blur2" />
-              <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M 8 32.5 L 22 32.5 C 27.8 32.5 32.5 27.8 32.5 22 L 32.5 8"
-            stroke={activeTheme.hex}
-            strokeWidth="5"
-            strokeLinecap="round"
-            opacity="0.6"
-            filter={`url(#neon-flex-br-${uniqueId})`}
-          />
-          <path
-            d="M 8 32.5 L 22 32.5 C 27.8 32.5 32.5 27.8 32.5 22 L 32.5 8"
-            stroke={activeTheme.hex}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M 10 32.5 L 22 32.5 C 27.2 32.5 31.5 28.2 31.5 23 L 31.5 10"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            opacity="0.9"
-          />
-        </svg>
-      </div>
-    );
-  }
-
-  // 6. Variasi Dual Accent (Lekukan Ujung Atas Cyan + Kabel Samping Magenta)
   return (
-    <>
-      {/* Bent flex at top-left corner */}
-      <div className="pointer-events-none absolute -top-px -left-px z-10 overflow-visible" aria-hidden="true">
-        <svg className="w-8 h-8 overflow-visible" viewBox="0 0 32 32" fill="none">
-          <path
-            d="M 24 3 L 12 3 C 7 3 3 7 3 12 L 3 24"
-            stroke="#25F4EE"
-            strokeWidth="3"
-            strokeLinecap="round"
-            style={{ filter: 'drop-shadow(0 0 6px rgba(37, 244, 238, 0.85))' }}
-          />
-          <path
-            d="M 22 3 L 12 3 C 7.5 3 4 6.5 4 11 L 4 22"
-            stroke="#ffffff"
-            strokeWidth="1"
-            strokeLinecap="round"
-            opacity="0.85"
-          />
-        </svg>
-      </div>
+    <div className={`pointer-events-none absolute inset-0 z-10 overflow-visible ${className}`} aria-hidden="true">
+      {/* SVG Defs Filter untuk pendaran cahaya neon silikon alami */}
+      <svg className="absolute w-0 h-0 overflow-hidden" aria-hidden="true">
+        <defs>
+          <filter id={`neon-glow-a-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur2" />
+            <feMerge>
+              <feMergeNode in="blur2" />
+              <feMergeNode in="blur1" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id={`neon-glow-b-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur2" />
+            <feMerge>
+              <feMergeNode in="blur2" />
+              <feMergeNode in="blur1" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
 
-      {/* Side bottom neon cable accent */}
-      <div 
-        className="pointer-events-none absolute right-0 bottom-3 h-10 w-[3px] rounded-full z-10"
-        style={{
-          backgroundColor: '#FE2C55',
-          boxShadow: '0 0 4px #fff, 0 0 8px #FE2C55, 0 0 16px rgba(254, 44, 85, 0.7)'
-        }}
-        aria-hidden="true"
-      />
-    </>
+      {/* VARIAN 1: LENGKUNG DI UJUNG KIRI-ATAS & KANAN-BAWAH (BERSEBRANGAN) */}
+      {resolvedVariant === 'tl-br' && (
+        <>
+          {/* Lengkung Ujung Kiri-Atas (Top-Left Arc) */}
+          <div className="absolute -top-[1.5px] -left-[1.5px] overflow-visible">
+            <svg
+              width={svgDimension}
+              height={svgDimension}
+              viewBox="0 0 34 34"
+              fill="none"
+              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+            >
+              {/* Outer Diffuse Neon Tube Glow */}
+              <path
+                d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
+                stroke={theme1.hex}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                opacity="0.6"
+                filter={`url(#neon-glow-a-${uniqueId})`}
+              />
+              {/* Main Saturated Flexible Neon Tube */}
+              <path
+                d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
+                stroke={theme1.hex}
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+              {/* High-Luminance White Core Filament */}
+              <path
+                d="M 26 3.5 L 14 3.5 C 8.8 3.5 4.5 7.8 4.5 13 L 4.5 26"
+                stroke="#FFFFFF"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
+            </svg>
+          </div>
+
+          {/* Lengkung Ujung Kanan-Bawah (Bottom-Right Arc - Bersebrangan) */}
+          <div className="absolute -bottom-[1.5px] -right-[1.5px] overflow-visible">
+            <svg
+              width={svgDimension}
+              height={svgDimension}
+              viewBox="0 0 34 34"
+              fill="none"
+              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+            >
+              <path
+                d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
+                stroke={theme2.hex}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                opacity="0.6"
+                filter={`url(#neon-glow-b-${uniqueId})`}
+              />
+              <path
+                d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
+                stroke={theme2.hex}
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 8 30.5 L 20 30.5 C 25.2 30.5 29.5 26.2 29.5 21 L 29.5 8"
+                stroke="#FFFFFF"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
+            </svg>
+          </div>
+        </>
+      )}
+
+      {/* VARIAN 2: LENGKUNG DI UJUNG KANAN-ATAS & KIRI-BAWAH (BERSEBRANGAN) */}
+      {resolvedVariant === 'tr-bl' && (
+        <>
+          {/* Lengkung Ujung Kanan-Atas (Top-Right Arc) */}
+          <div className="absolute -top-[1.5px] -right-[1.5px] overflow-visible">
+            <svg
+              width={svgDimension}
+              height={svgDimension}
+              viewBox="0 0 34 34"
+              fill="none"
+              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+            >
+              <path
+                d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
+                stroke={theme1.hex}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                opacity="0.6"
+                filter={`url(#neon-glow-a-${uniqueId})`}
+              />
+              <path
+                d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
+                stroke={theme1.hex}
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 8 3.5 L 20 3.5 C 25.2 3.5 29.5 7.8 29.5 13 L 29.5 26"
+                stroke="#FFFFFF"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
+            </svg>
+          </div>
+
+          {/* Lengkung Ujung Kiri-Bawah (Bottom-Left Arc - Bersebrangan) */}
+          <div className="absolute -bottom-[1.5px] -left-[1.5px] overflow-visible">
+            <svg
+              width={svgDimension}
+              height={svgDimension}
+              viewBox="0 0 34 34"
+              fill="none"
+              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+            >
+              <path
+                d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
+                stroke={theme2.hex}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                opacity="0.6"
+                filter={`url(#neon-glow-b-${uniqueId})`}
+              />
+              <path
+                d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
+                stroke={theme2.hex}
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 26 30.5 L 14 30.5 C 8.8 30.5 4.5 26.2 4.5 21 L 4.5 8"
+                stroke="#FFFFFF"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
+            </svg>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
 export const NeonFlexCable = NeonCorners;
-

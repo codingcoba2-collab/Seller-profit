@@ -42,6 +42,8 @@ import {
   Copy,
   Check
 } from 'lucide-react';
+import { MarqueeText } from '../components/MarqueeText';
+import { NeonCorners } from '../components/NeonCorners';
 
 interface KalkulasiPaketViewProps {
   currentUser: CurrentUser;
@@ -53,6 +55,7 @@ interface AiResponseData {
   analyzedQuery?: string;
   channelType?: string;
   channelLabel?: string;
+  focusPackageId?: string;
   directAnswer: string;
   costStructure?: {
     hppPerPcs?: number;
@@ -207,6 +210,82 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
       }
     }
   };
+
+  // State untuk skenario aktif yang ditampilkan di tab Rincian Rumus
+  const [rincianSelectedScenarioId, setRincianSelectedScenarioId] = useState<string>('bundling_2pcs');
+
+  // Skenario bundling yang menjadi fokus utama pertanyaan user
+  const focusScenario = useMemo(() => {
+    if (!aiResult || !aiResult.scenarios || aiResult.scenarios.length === 0) return null;
+    if (aiResult.focusPackageId) {
+      const found = aiResult.scenarios.find(s => s.id === aiResult.focusPackageId);
+      if (found) return found;
+    }
+    return aiResult.scenarios[0];
+  }, [aiResult]);
+
+  // Skenario yang sedang dipilih di tab Rincian (default ke focusScenario)
+  const activeRincianScenario = useMemo(() => {
+    if (!aiResult || !aiResult.scenarios || aiResult.scenarios.length === 0) return null;
+    const found = aiResult.scenarios.find(s => s.id === rincianSelectedScenarioId);
+    return found || focusScenario || aiResult.scenarios[0];
+  }, [aiResult, rincianSelectedScenarioId, focusScenario]);
+
+  // Parameter biaya akuntansi yang disinkronkan secara presisi dengan analisis AI
+  const rincianParams = useMemo(() => {
+    const cs = aiResult?.costStructure;
+    const ep = aiResult?.extractedParams;
+    const isDm = aiResult?.channelType === 'dm_sosmed';
+
+    const hpp = cs?.hppPerPcs ?? customHpp;
+    const profit = cs?.targetProfitNominal ?? ep?.targetProfit ?? (targetProfit || 500000);
+    const ads = cs?.adsCost ?? adsCost;
+    const coin = isDm ? 0 : (cs?.coinCost ?? coinCost);
+    const host = isDm ? 0 : (cs?.hostSalary ?? hostSalary);
+    const admin = cs?.adminSalary ?? (isDm ? (cs?.adminSalary ?? (adminSalary || 50000)) : adminSalary);
+    const adminPct = cs?.adminPercentage ?? (isDm ? 0 : adminPercentage);
+    const service = cs?.serviceFee ?? (isDm ? 0 : serviceFeePerOrder);
+    const packing = cs?.packingCost ?? packingCost;
+    const returPct = cs?.returnPercentage ?? (isDm ? 0 : returnPercentage);
+    const hostInc = isDm ? 0 : hostIncentivePerPackage;
+    const adminInc = isDm ? 0 : adminIncentivePerPackage;
+    const opCost = operationalCost || 0;
+
+    const totalBurden = ep?.totalFixedBurden ?? (profit + ads + coin + host + admin + opCost);
+
+    return {
+      hpp,
+      profit,
+      ads,
+      coin,
+      host,
+      admin,
+      adminPct,
+      service,
+      packing,
+      returPct,
+      hostInc,
+      adminInc,
+      opCost,
+      totalBurden,
+      isDm,
+    };
+  }, [
+    aiResult,
+    customHpp,
+    targetProfit,
+    adsCost,
+    coinCost,
+    hostSalary,
+    adminSalary,
+    adminPercentage,
+    serviceFeePerOrder,
+    packingCost,
+    returnPercentage,
+    hostIncentivePerPackage,
+    adminIncentivePerPackage,
+    operationalCost,
+  ]);
 
   // Perform Calculation for Interactive Mode
   const calculationResult: BundleCalcResult = useMemo(() => {
@@ -363,10 +442,38 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
 
       const resJson = await response.json();
       if (resJson?.data) {
-        setAiResult(resJson.data);
+        const d = resJson.data;
+        // Sinkronisasi state lokal dengan data parameter AI agar Rincian dan Input 100% konsisten
+        if (d.extractedParams) {
+          const ep = d.extractedParams;
+          if (typeof ep.targetProfit === 'number' && ep.targetProfit > 0) {
+            setTargetProfit(ep.targetProfit);
+            setTargetProfitType('nominal');
+          }
+          if (typeof ep.adsCost === 'number') setAdsCost(ep.adsCost);
+          if (typeof ep.coinCost === 'number') setCoinCost(ep.coinCost);
+          if (typeof ep.hostSalary === 'number') setHostSalary(ep.hostSalary);
+          if (typeof ep.adminSalary === 'number') setAdminSalary(ep.adminSalary);
+          if (typeof ep.hppPerPcs === 'number' && ep.hppPerPcs > 0) setCustomHpp(ep.hppPerPcs);
+          if (typeof ep.adminPercentage === 'number') setAdminPercentage(ep.adminPercentage);
+          if (typeof ep.serviceFeePerOrder === 'number') setServiceFeePerOrder(ep.serviceFeePerOrder);
+        } else if (d.costStructure) {
+          const cs = d.costStructure;
+          if (typeof cs.targetProfitNominal === 'number' && cs.targetProfitNominal > 0) {
+            setTargetProfit(cs.targetProfitNominal);
+            setTargetProfitType('nominal');
+          }
+          if (typeof cs.adsCost === 'number') setAdsCost(cs.adsCost);
+          if (typeof cs.coinCost === 'number') setCoinCost(cs.coinCost);
+          if (typeof cs.hostSalary === 'number') setHostSalary(cs.hostSalary);
+          if (typeof cs.adminSalary === 'number') setAdminSalary(cs.adminSalary);
+          if (typeof cs.hppPerPcs === 'number' && cs.hppPerPcs > 0) setCustomHpp(cs.hppPerPcs);
+        }
+
+        setAiResult(d);
         setAiSubTab('jawaban');
         if (onNotify) {
-          onNotify(`Rekomendasi harga ${resJson.data.channelLabel || ''} berhasil dihitung.`, 'success');
+          onNotify(`Rekomendasi harga ${d.channelLabel || ''} berhasil dihitung.`, 'success');
         }
         return;
       }
@@ -719,19 +826,20 @@ Alamat Lengkap:`;
         {/* ========================================================================= */}
         {mainMode === 'ai' && (
           <div className="space-y-4">
-            {/* SUB-MENU CARDS: Rapi, Terstruktur, Format Kartu Sub Menu (Bukan Tab Geser) */}
+            {/* SUB-MENU CARDS: Rapi, Terstruktur, Format Kartu Sub Menu dengan Lengkung Neon Bersebrangan */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
               {/* Sub-menu 1: Input Pertanyaan */}
               <div
                 id="menu-card-ai-input"
                 onClick={() => setAiSubTab('input')}
-                className={`group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
                   aiSubTab === 'input'
                     ? 'bg-[#181C28] border-emerald-500 shadow-lg ring-1 ring-emerald-500/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <NeonCorners variant="opposite-tl-br" color={aiSubTab === 'input' ? 'emerald' : 'dual'} size="sm" />
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       aiSubTab === 'input'
@@ -741,17 +849,17 @@ Alamat Lengkap:`;
                   >
                     <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <MarqueeText
+                      text="Menu Input Pertanyaan"
+                      className={`text-xs sm:text-sm font-black transition-colors ${
                         aiSubTab === 'input' ? 'text-emerald-300' : 'text-white group-hover:text-emerald-300'
                       }`}
-                    >
-                      Menu Input Pertanyaan
-                    </h3>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                      Ketik target laba & iklan
-                    </p>
+                    />
+                    <MarqueeText
+                      text="Ketik target laba, modal HPP & iklan"
+                      className="text-[10px] sm:text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -766,13 +874,14 @@ Alamat Lengkap:`;
               <div
                 id="menu-card-ai-jawaban"
                 onClick={() => setAiSubTab('jawaban')}
-                className={`group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
                   aiSubTab === 'jawaban'
                     ? 'bg-[#181C28] border-emerald-500 shadow-lg ring-1 ring-emerald-500/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <NeonCorners variant="opposite-tr-bl" color={aiSubTab === 'jawaban' ? 'cyan' : 'dual'} size="sm" />
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       aiSubTab === 'jawaban'
@@ -782,22 +891,22 @@ Alamat Lengkap:`;
                   >
                     <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h3
-                        className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MarqueeText
+                        text="Saran & Rekomendasi"
+                        className={`text-xs sm:text-sm font-black transition-colors ${
                           aiSubTab === 'jawaban' ? 'text-emerald-300' : 'text-white group-hover:text-emerald-300'
                         }`}
-                      >
-                        Saran & Rekomendasi
-                      </h3>
+                      />
                       {aiResult && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                      Hasil target harga & paket
-                    </p>
+                    <MarqueeText
+                      text="Hasil target harga & paket terjual"
+                      className="text-[10px] sm:text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -812,13 +921,14 @@ Alamat Lengkap:`;
               <div
                 id="menu-card-ai-rincian"
                 onClick={() => setAiSubTab('rincian')}
-                className={`group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
                   aiSubTab === 'rincian'
                     ? 'bg-[#181C28] border-cyan-500 shadow-lg ring-1 ring-cyan-500/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <NeonCorners variant="opposite-tl-br" color={aiSubTab === 'rincian' ? 'cyan' : 'dual'} size="sm" />
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       aiSubTab === 'rincian'
@@ -828,17 +938,17 @@ Alamat Lengkap:`;
                   >
                     <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <MarqueeText
+                      text="Rincian Rumus Akuntansi"
+                      className={`text-xs sm:text-sm font-black transition-colors ${
                         aiSubTab === 'rincian' ? 'text-cyan-300' : 'text-white group-hover:text-cyan-300'
                       }`}
-                    >
-                      Rincian Rumus
-                    </h3>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                      Formula margin & BEP
-                    </p>
+                    />
+                    <MarqueeText
+                      text="Formula margin & kuota BEP toko"
+                      className="text-[10px] sm:text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -853,13 +963,14 @@ Alamat Lengkap:`;
               <div
                 id="menu-card-ai-tips"
                 onClick={() => setAiSubTab('tips')}
-                className={`group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer ${
                   aiSubTab === 'tips'
                     ? 'bg-[#181C28] border-amber-500 shadow-lg ring-1 ring-amber-500/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <NeonCorners variant="opposite-tr-bl" color={aiSubTab === 'tips' ? 'amber' : 'dual'} size="sm" />
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       aiSubTab === 'tips'
@@ -869,17 +980,17 @@ Alamat Lengkap:`;
                   >
                     <Award className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <MarqueeText
+                      text="Tips Live & Closing"
+                      className={`text-xs sm:text-sm font-black transition-colors ${
                         aiSubTab === 'tips' ? 'text-amber-300' : 'text-white group-hover:text-amber-300'
                       }`}
-                    >
-                      Tips Live & Closing
-                    </h3>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
-                      Strategi upselling & host
-                    </p>
+                    />
+                    <MarqueeText
+                      text="Strategi upselling & host live"
+                      className="text-[10px] sm:text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -1209,8 +1320,9 @@ Alamat Lengkap:`;
                       </div>
                     </div>
 
-                    {/* Primary Highlight Answer Box */}
-                    <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-[#14161F] to-[#14161F] border border-emerald-500/40 shadow-xl space-y-4">
+                    {/* Primary Highlight Answer Box dengan Neon Lengkung Bersebrangan */}
+                    <div className="relative overflow-hidden p-5 sm:p-6 rounded-2xl bg-[#14161F] border border-emerald-500/40 shadow-xl space-y-4">
+                      <NeonCorners variant="opposite-tl-br" color="emerald" size="md" />
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -1240,135 +1352,238 @@ Alamat Lengkap:`;
                         {aiResult.directAnswer}
                       </div>
 
-                      {/* Extracted Metrics Bar (Channel-Sensitive) */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                        <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">
-                            {aiResult.channelType === 'dm_sosmed' ? 'Total Beban DM' : 'Total Beban Harian'}
+                      {/* 4 KOTAK METRIK UTAMA: Sesuai Persis dengan Pertanyaan User */}
+                      {focusScenario && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                          {/* Kotak 1: Rekomendasi Harga Jual Paket */}
+                          <div className="relative overflow-hidden p-4 rounded-2xl bg-[#121520] border border-cyan-500/40 shadow-md space-y-1.5">
+                            <NeonCorners variant="opposite-tl-br" color="cyan" size="sm" />
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Rekomendasi Harga
+                              </span>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                {focusScenario.name}
+                              </span>
+                            </div>
+                            <div className="text-xl sm:text-2xl font-black text-[#25F4EE] tracking-tight">
+                              {formatRupiah(focusScenario.recommendedPrice)}
+                            </div>
+                            <MarqueeText
+                              text={`Margin Bersih: ${formatRupiah(focusScenario.marginPerPackage)}/paket (${focusScenario.marginPercentage}%)`}
+                              className="text-[11px] text-zinc-400"
+                            />
+                          </div>
+
+                          {/* Kotak 2: Target Kuota Terjual (Berapa Paket Terjual) */}
+                          <div className="relative overflow-hidden p-4 rounded-2xl bg-[#121520] border border-emerald-500/40 shadow-md space-y-1.5">
+                            <NeonCorners variant="opposite-tr-bl" color="emerald" size="sm" />
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Target Terjual
+                              </span>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                Wajib Capai
+                              </span>
+                            </div>
+                            <div className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                              {formatNumber(focusScenario.minPackagesNeeded)} <span className="text-xs font-bold text-zinc-300">Paket</span>
+                            </div>
+                            <MarqueeText
+                              text={`Total Volume: ${focusScenario.totalPcsNeeded} Pcs baju per hari`}
+                              className="text-[11px] text-zinc-400"
+                            />
+                          </div>
+
+                          {/* Kotak 3: Target Laba Bersih Toko */}
+                          <div className="relative overflow-hidden p-4 rounded-2xl bg-[#121520] border border-amber-500/40 shadow-md space-y-1.5">
+                            <NeonCorners variant="opposite-tl-br" color="amber" size="sm" />
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Target Laba Bersih
+                              </span>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                Laba Toko
+                              </span>
+                            </div>
+                            <div className="text-xl sm:text-2xl font-black text-amber-400 tracking-tight">
+                              {formatRupiah(
+                                aiResult.costStructure?.targetProfitNominal ??
+                                aiResult.extractedParams?.targetProfit ??
+                                (targetProfit || 500000)
+                              )}
+                            </div>
+                            <MarqueeText
+                              text="Laba bersih murni masuk kas setelah semua beban lunas"
+                              className="text-[11px] text-zinc-400"
+                            />
+                          </div>
+
+                          {/* Kotak 4: Titik Impas (BEP Beban Toko) */}
+                          <div className="relative overflow-hidden p-4 rounded-2xl bg-[#121520] border border-rose-500/40 shadow-md space-y-1.5">
+                            <NeonCorners variant="opposite-tr-bl" color="magenta" size="sm" />
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Titik Impas (BEP)
+                              </span>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                Batas Aman
+                              </span>
+                            </div>
+                            <div className="text-xl sm:text-2xl font-black text-rose-400 tracking-tight">
+                              {focusScenario.bepPackagesNeeded} <span className="text-xs font-bold text-zinc-300">Paket</span>
+                            </div>
+                            <MarqueeText
+                              text={`Lunas beban harian ${formatRupiah(aiResult.extractedParams?.totalFixedBurden ?? (targetProfit + adsCost + coinCost + hostSalary + adminSalary))}`}
+                              className="text-[11px] text-zinc-400"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Detail Ringkasan Beban & Parameter yang Dianalisis */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-white/5 text-xs">
+                        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 min-w-0">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Modal HPP</span>
+                          <span className="font-bold text-white mt-0.5 block truncate">
+                            {formatRupiah(aiResult.costStructure?.hppPerPcs ?? customHpp)} / pcs
                           </span>
-                          <span className="text-sm font-black text-white mt-0.5 block">
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 min-w-0">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Iklan & Promosi</span>
+                          <span className="font-bold text-amber-400 mt-0.5 block truncate">
                             {formatRupiah(
-                              aiResult.extractedParams?.totalFixedBurden ||
-                              (aiResult.channelType === 'dm_sosmed'
-                                ? ((aiResult.costStructure?.targetProfitNominal ?? (targetProfit || 500000)) + (aiResult.costStructure?.adsCost ?? (adsCost || 30000)) + (aiResult.costStructure?.adminSalary ?? (adminSalary || 50000)))
-                                : (targetProfit + adsCost + coinCost + hostSalary + adminSalary))
+                              (aiResult.costStructure?.adsCost ?? adsCost) +
+                              (aiResult.costStructure?.coinCost ?? (aiResult.channelType === 'dm_sosmed' ? 0 : coinCost))
                             )}
                           </span>
                         </div>
-
-                        <div className="p-3 rounded-xl bg-black/40 border border-white/5">
+                        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 min-w-0">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase block">
-                            {aiResult.channelType === 'dm_sosmed' ? 'Biaya Iklan Sosmed' : 'Biaya Iklan + Koin'}
+                            {aiResult.channelType === 'dm_sosmed' ? 'Admin Chat / CS' : 'Host & Admin'}
                           </span>
-                          <span className="text-sm font-black text-amber-400 mt-0.5 block">
-                            {formatRupiah(
-                              aiResult.channelType === 'dm_sosmed'
-                                ? (aiResult.costStructure?.adsCost ?? (adsCost || 30000))
-                                : (adsCost + coinCost)
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">
-                            {aiResult.channelType === 'dm_sosmed' ? 'Admin Chat DM / CS' : 'Gaji Host & Admin'}
-                          </span>
-                          <span className="text-sm font-black text-cyan-400 mt-0.5 block">
+                          <span className="font-bold text-cyan-400 mt-0.5 block truncate">
                             {formatRupiah(
                               aiResult.channelType === 'dm_sosmed'
                                 ? (aiResult.costStructure?.adminSalary ?? (adminSalary || 50000))
-                                : (hostSalary + adminSalary)
+                                : ((aiResult.costStructure?.hostSalary ?? hostSalary) + (aiResult.costStructure?.adminSalary ?? adminSalary))
                             )}
                           </span>
                         </div>
-
-                        <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Target Laba Bersih</span>
-                          <span className="text-sm font-black text-emerald-400 mt-0.5 block">
+                        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 min-w-0">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Total Beban Harian</span>
+                          <span className="font-bold text-emerald-400 mt-0.5 block truncate">
                             {formatRupiah(
-                              aiResult.channelType === 'dm_sosmed'
-                                ? (aiResult.costStructure?.targetProfitNominal ?? (targetProfit || 500000))
-                                : (targetProfitType === 'nominal' ? targetProfit : (targetProfit || 500000))
+                              aiResult.extractedParams?.totalFixedBurden ||
+                              ((aiResult.costStructure?.targetProfitNominal ?? targetProfit) +
+                               (aiResult.costStructure?.adsCost ?? adsCost) +
+                               (aiResult.costStructure?.coinCost ?? (aiResult.channelType === 'dm_sosmed' ? 0 : coinCost)) +
+                               (aiResult.channelType === 'dm_sosmed' ? 0 : (aiResult.costStructure?.hostSalary ?? hostSalary)) +
+                               (aiResult.costStructure?.adminSalary ?? adminSalary))
                             )}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 4 Tier Bundling Cards */}
+                    {/* 4 Tier Bundling Cards dengan Neon Lengkung Bersebrangan & Marquee */}
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                           <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                          Pilihan Skenario Paket Bundling:
+                          Pilihan Skenario Paket Bundling Lengkap:
                         </h3>
-                        <span className="text-xs text-zinc-500">Klik kartu untuk menggunakan di mode input</span>
+                        <span className="text-xs text-zinc-500">Klik kartu untuk menguji langsung di Mode Input</span>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {(aiResult?.scenarios || []).map((sc) => (
-                          <div
-                            key={sc.id}
-                            onClick={() => {
-                              setMainMode('input');
-                              setPcsPerPackage(sc.pcsPerPackage);
-                              setBundlePriceInput(sc.recommendedPrice);
-                              setInputSubTab('hasil');
-                              if (onNotify) onNotify(`Parameter ${sc.name} diterapkan ke Mode Input.`, 'info');
-                            }}
-                            className="p-5 rounded-2xl bg-[#14161F] border border-white/10 hover:border-emerald-500/50 transition-all cursor-pointer shadow-lg hover:bg-[#181a24] group active:scale-[0.99] flex flex-col justify-between gap-4"
-                          >
-                            <div className="space-y-2.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
-                                  {sc.badge}
-                                </span>
-                                <span className="text-xs text-zinc-400 font-semibold">
-                                  {sc.pcsPerPackage} Pcs / Paket
-                                </span>
+                        {(aiResult?.scenarios || []).map((sc, scIdx) => {
+                          const isFocus = focusScenario?.id === sc.id;
+                          const neonVariant = scIdx % 2 === 0 ? 'opposite-tl-br' : 'opposite-tr-bl';
+
+                          return (
+                            <div
+                              key={sc.id}
+                              onClick={() => {
+                                setMainMode('input');
+                                setPcsPerPackage(sc.pcsPerPackage);
+                                setBundlePriceInput(sc.recommendedPrice);
+                                setInputSubTab('hasil');
+                                if (onNotify) onNotify(`Parameter ${sc.name} diterapkan ke Mode Input.`, 'info');
+                              }}
+                              className={`relative overflow-hidden p-5 rounded-2xl transition-all cursor-pointer shadow-lg group active:scale-[0.99] flex flex-col justify-between gap-4 border ${
+                                isFocus
+                                  ? 'bg-[#161B28] border-emerald-500/80 shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                                  : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-emerald-500/40'
+                              }`}
+                            >
+                              <NeonCorners
+                                variant={neonVariant}
+                                color={isFocus ? 'emerald' : 'dual'}
+                                size="sm"
+                              />
+
+                              <div className="space-y-2.5 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider shrink-0">
+                                      {sc.badge}
+                                    </span>
+                                    {isFocus && (
+                                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse shrink-0">
+                                        🎯 Fokus Pertanyaan
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-zinc-400 font-semibold shrink-0">
+                                    {sc.pcsPerPackage} Pcs / Paket
+                                  </span>
+                                </div>
+
+                                <div className="min-w-0 overflow-hidden">
+                                  <MarqueeText
+                                    text={sc.name}
+                                    className="text-base font-black text-white group-hover:text-emerald-300 transition-colors"
+                                  />
+                                  <MarqueeText
+                                    text={sc.summary}
+                                    className="text-xs text-zinc-400 mt-1"
+                                  />
+                                </div>
                               </div>
 
-                              <div>
-                                <h4 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
-                                  {sc.name}
-                                </h4>
-                                <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
-                                  {sc.summary}
-                                </p>
+                              {/* Main Metrics for this bundle */}
+                              <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-white/5">
+                                <div className="p-3 rounded-xl bg-black/40 border border-white/5 min-w-0">
+                                  <span className="text-[10px] font-bold text-zinc-500 uppercase block">Rekomendasi Harga</span>
+                                  <span className="text-base font-black text-[#25F4EE] block mt-0.5 truncate">
+                                    {formatRupiah(sc.recommendedPrice)}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-400 mt-0.5 block truncate">
+                                    Margin: {formatRupiah(sc.marginPerPackage)} ({sc.marginPercentage}%)
+                                  </span>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-black/40 border border-white/5 min-w-0">
+                                  <span className="text-[10px] font-bold text-zinc-500 uppercase block">Min. Target Terjual</span>
+                                  <span className="text-base font-black text-emerald-400 block mt-0.5 truncate">
+                                    {formatNumber(sc.minPackagesNeeded)} Paket
+                                  </span>
+                                  <span className="text-[10px] text-zinc-400 mt-0.5 block truncate">
+                                    BEP Beban: {sc.bepPackagesNeeded} Paket
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between text-xs pt-1 text-zinc-400">
+                                <span>Total Omzet: <strong className="text-white">{formatRupiah(sc.totalOmzetKotor)}</strong></span>
+                                <span className="font-bold text-emerald-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                                  Simulasi di Input →
+                                </span>
                               </div>
                             </div>
-
-                            {/* Main Metrics for this bundle */}
-                            <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-white/5">
-                              <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase block">Rekomendasi Harga</span>
-                                <span className="text-base font-black text-[#25F4EE] block mt-0.5">
-                                  {formatRupiah(sc.recommendedPrice)}
-                                </span>
-                                <span className="text-[10px] text-zinc-400 mt-0.5 block">
-                                  Margin: {formatRupiah(sc.marginPerPackage)} ({sc.marginPercentage}%)
-                                </span>
-                              </div>
-
-                              <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase block">Min. Target Terjual</span>
-                                <span className="text-base font-black text-emerald-400 block mt-0.5">
-                                  {formatNumber(sc.minPackagesNeeded)} Paket
-                                </span>
-                                <span className="text-[10px] text-zinc-400 mt-0.5 block">
-                                  BEP Beban: {sc.bepPackagesNeeded} Paket
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs pt-1 text-zinc-400">
-                              <span>Total Omzet: <strong className="text-white">{formatRupiah(sc.totalOmzetKotor)}</strong></span>
-                              <span className="font-bold text-emerald-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                                Simulasi di Input →
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1475,82 +1690,232 @@ Alamat Lengkap:`;
               </div>
             )}
 
-            {/* AI SUB-TAB 3: RINCIAN RUMUS AKUNTANSI */}
+            {/* AI SUB-TAB 3: RINCIAN RUMUS AKUNTANSI PERSIS DENGAN JAWABAN AI */}
             {aiSubTab === 'rincian' && (
-              <div className="p-6 rounded-2xl bg-[#14161F] border border-white/10 space-y-6">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-cyan-400" />
+              <div className="relative overflow-hidden p-6 rounded-2xl bg-[#14161F] border border-cyan-500/30 space-y-6 shadow-xl">
+                <NeonCorners variant="opposite-tl-br" color="cyan" size="md" />
+
+                <div className="flex items-center justify-between border-b border-white/10 pb-4 flex-wrap gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
                     <div>
                       <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
                         Rincian Logika & Rumus Akuntansi Toko
                       </h3>
                       <p className="text-xs text-zinc-400">
-                        Dasar perhitungan matematika murni yang diterapkan oleh AI dan sistem kasir
+                        Perhitungan matematika persis yang disinkronkan dengan jawaban AI
                       </p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => setAiSubTab('jawaban')}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors cursor-pointer"
                   >
                     ← Kembali ke Jawaban
                   </button>
                 </div>
 
+                {/* Skenario Selector Tab di dalam Rincian */}
+                {aiResult?.scenarios && aiResult.scenarios.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
+                      Pilih Paket Bundling untuk Dilihat Rincian Rumusnya:
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      {aiResult.scenarios.map((sc) => {
+                        const isSelected = activeRincianScenario?.id === sc.id;
+                        return (
+                          <button
+                            key={sc.id}
+                            onClick={() => setRincianSelectedScenarioId(sc.id)}
+                            className={`text-xs px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 border ${
+                              isSelected
+                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-md ring-1 ring-cyan-500/30'
+                                : 'bg-black/40 text-zinc-400 hover:text-white border-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            <span>{sc.name}</span>
+                            <span className="text-[10px] text-zinc-400 font-mono">({formatRupiah(sc.recommendedPrice)})</span>
+                            {sc.id === focusScenario?.id && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4 text-xs sm:text-sm">
-                  {/* Step 1 */}
-                  <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
+                  {/* Step 1: Beban Harian Wajib Ditutup */}
+                  <div className="relative overflow-hidden p-4 rounded-xl bg-black/40 border border-white/5 space-y-2.5">
+                    <NeonCorners variant="opposite-tl-br" color="cyan" size="sm" />
                     <div className="flex items-center gap-2 font-bold text-cyan-400 uppercase tracking-wider text-xs">
                       <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-xs">1</span>
-                      <span>Total Beban Harian yang Wajib Ditutup (Fixed Burden)</span>
+                      <MarqueeText text="Total Beban Harian Toko yang Wajib Ditutup (Fixed Burden)" className="font-bold text-cyan-400 uppercase tracking-wider text-xs" />
                     </div>
-                    <p className="text-zinc-300 leading-relaxed pl-8">
-                      {aiResult?.formulaExplanation?.step1 || 
-                        `Total Beban = Target Laba + Biaya Iklan + Biaya Koin + Gaji Pokok Host + Gaji Pokok Admin + Biaya Operasional Toko.`}
+                    <p className="text-zinc-300 leading-relaxed pl-8 text-xs">
+                      Total beban tetap harian adalah penjumlahan seluruh biaya operasional, pemasaran, tenaga kerja, dan target laba bersih toko.
                     </p>
-                    <div className="ml-8 p-3 rounded-lg bg-black/60 font-mono text-xs text-zinc-300 space-y-1">
-                      <div>Target Laba: {targetProfitType === 'nominal' ? formatRupiah(targetProfit) : `${targetProfitPercent}% dari Omzet`}</div>
-                      <div>Biaya Iklan: {formatRupiah(adsCost)} | Biaya Koin: {formatRupiah(coinCost)}</div>
-                      <div>Gaji Pokok Host: {formatRupiah(hostSalary)} | Gaji Pokok Admin: {formatRupiah(adminSalary)}</div>
-                      <div className="font-bold text-white border-t border-white/10 pt-1">
-                        = Total Beban Tetap Harian: {formatRupiah(adsCost + coinCost + hostSalary + adminSalary + operationalCost + (targetProfitType === 'nominal' ? targetProfit : 0))}
+                    <div className="ml-8 p-3 rounded-lg bg-black/60 font-mono text-xs text-zinc-300 space-y-1.5 border border-white/5">
+                      <div className="flex justify-between">
+                        <span>• Target Laba Bersih Toko:</span>
+                        <span className="text-emerald-400 font-bold">{formatRupiah(rincianParams.profit)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>• Biaya Iklan Harian:</span>
+                        <span className="text-amber-400 font-bold">{formatRupiah(rincianParams.ads)}</span>
+                      </div>
+                      {!rincianParams.isDm && (
+                        <div className="flex justify-between">
+                          <span>• Biaya Koin Promosi:</span>
+                          <span className="text-amber-400 font-bold">{formatRupiah(rincianParams.coin)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span>• Gaji Tenaga Kerja ({rincianParams.isDm ? 'Admin CS' : 'Host + Admin'}):</span>
+                        <span className="text-cyan-400 font-bold">{formatRupiah(rincianParams.host + rincianParams.admin)}</span>
+                      </div>
+                      {rincianParams.opCost > 0 && (
+                        <div className="flex justify-between">
+                          <span>• Biaya Operasional Lainnya:</span>
+                          <span className="text-zinc-300 font-bold">{formatRupiah(rincianParams.opCost)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-white border-t border-white/10 pt-1.5 text-sm">
+                        <span>= Total Beban Wajib Ditutup Harian:</span>
+                        <span className="text-[#25F4EE]">{formatRupiah(rincianParams.totalBurden)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Step 2 */}
-                  <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-cyan-400 uppercase tracking-wider text-xs">
-                      <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-xs">2</span>
-                      <span>Perhitungan Margin Bersih per Paket (Unit Net Contribution)</span>
-                    </div>
-                    <p className="text-zinc-300 leading-relaxed pl-8">
-                      {aiResult?.formulaExplanation?.step2 || 
-                        `Margin Bersih = Harga Jual - Modal HPP - Admin Marketplace (${adminPercentage}%) - Biaya Layanan (${formatRupiah(serviceFeePerOrder)}) - Biaya Packing (${formatRupiah(packingCost)}) - Cadangan Retur (${returnPercentage}%) - Insentif Host & Admin.`}
-                    </p>
-                    <div className="ml-8 p-3 rounded-lg bg-black/60 font-mono text-xs text-zinc-300 space-y-1">
-                      <div>Harga Bundling: P</div>
-                      <div>Potongan Persentase = (Admin {adminPercentage}% + Retur {returnPercentage}%) × P</div>
-                      <div>Biaya Langsung per Paket = (Isi Pcs × HPP) + Layanan + Packing + Insentif Host + Insentif Admin</div>
-                      <div className="font-bold text-white border-t border-white/10 pt-1">
-                        Margin Bersih = P × (1 - {adminPercentage/100 + returnPercentage/100}) - Biaya Langsung
+                  {/* Step 2: Margin Bersih per Paket Terpilih */}
+                  {activeRincianScenario && (
+                    <div className="relative overflow-hidden p-4 rounded-xl bg-black/40 border border-white/5 space-y-2.5">
+                      <NeonCorners variant="opposite-tr-bl" color="emerald" size="sm" />
+                      <div className="flex items-center gap-2 font-bold text-emerald-400 uppercase tracking-wider text-xs">
+                        <span className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-300 text-xs">2</span>
+                        <MarqueeText
+                          text={`Margin Bersih per Paket: ${activeRincianScenario.name} (${formatRupiah(activeRincianScenario.recommendedPrice)})`}
+                          className="font-bold text-emerald-400 uppercase tracking-wider text-xs"
+                        />
+                      </div>
+                      <p className="text-zinc-300 leading-relaxed pl-8 text-xs">
+                        Margin bersih per paket adalah harga jual dikurangi modal HPP bahan ({activeRincianScenario.pcsPerPackage} pcs), potongan marketplace/layanan, biaya packing, cadangan retur, dan komisi.
+                      </p>
+                      <div className="ml-8 p-3 rounded-lg bg-black/60 font-mono text-xs text-zinc-300 space-y-1.5 border border-white/5">
+                        <div className="flex justify-between">
+                          <span>• Harga Jual Paket:</span>
+                          <span className="text-white font-bold">{formatRupiah(activeRincianScenario.recommendedPrice)}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-400">
+                          <span>• Modal HPP ({activeRincianScenario.pcsPerPackage} pcs × {formatRupiah(rincianParams.hpp)}):</span>
+                          <span>- {formatRupiah(activeRincianScenario.pcsPerPackage * rincianParams.hpp)}</span>
+                        </div>
+                        {rincianParams.adminPct > 0 && (
+                          <div className="flex justify-between text-rose-400">
+                            <span>• Admin Marketplace ({rincianParams.adminPct}%):</span>
+                            <span>- {formatRupiah(Math.round(activeRincianScenario.recommendedPrice * (rincianParams.adminPct / 100)))}</span>
+                          </div>
+                        )}
+                        {rincianParams.service > 0 && (
+                          <div className="flex justify-between text-rose-400">
+                            <span>• Biaya Layanan Transaksi:</span>
+                            <span>- {formatRupiah(rincianParams.service)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-rose-400">
+                          <span>• Biaya Packing ({rincianParams.packing > 0 ? formatRupiah(rincianParams.packing) : 'Standar Toko'}):</span>
+                          <span>- {formatRupiah(rincianParams.packing)}</span>
+                        </div>
+                        {rincianParams.returPct > 0 && (
+                          <div className="flex justify-between text-rose-400">
+                            <span>• Cadangan Proteksi Retur ({rincianParams.returPct}%):</span>
+                            <span>- {formatRupiah(Math.round(activeRincianScenario.recommendedPrice * (rincianParams.returPct / 100)))}</span>
+                          </div>
+                        )}
+                        {(rincianParams.hostInc + rincianParams.adminInc) > 0 && (
+                          <div className="flex justify-between text-rose-400">
+                            <span>• Insentif Host & Admin:</span>
+                            <span>- {formatRupiah(rincianParams.hostInc + rincianParams.adminInc)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-white border-t border-white/10 pt-1.5 text-sm">
+                          <span>= Margin Bersih per Paket:</span>
+                          <span className="text-emerald-400">
+                            {formatRupiah(activeRincianScenario.marginPerPackage)} ({activeRincianScenario.marginPercentage}%)
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Step 3 */}
-                  <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-cyan-400 uppercase tracking-wider text-xs">
-                      <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-xs">3</span>
-                      <span>Titik Impas (BEP) dan Target Minimum Paket Terjual</span>
+                  {/* Step 3: Target Kuota Terjual & Titik Impas (BEP) */}
+                  {activeRincianScenario && (
+                    <div className="relative overflow-hidden p-4 rounded-xl bg-black/40 border border-white/5 space-y-2.5">
+                      <NeonCorners variant="opposite-tl-br" color="cyan" size="sm" />
+                      <div className="flex items-center gap-2 font-bold text-cyan-400 uppercase tracking-wider text-xs">
+                        <span className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-xs">3</span>
+                        <MarqueeText
+                          text={`Target Kuota & Titik Impas (BEP) untuk ${activeRincianScenario.name}`}
+                          className="font-bold text-cyan-400 uppercase tracking-wider text-xs"
+                        />
+                      </div>
+                      <p className="text-zinc-300 leading-relaxed pl-8 text-xs">
+                        Jumlah paket yang wajib laku dihitung dengan membagi total beban dengan margin bersih per paket.
+                      </p>
+                      <div className="ml-8 p-3 rounded-lg bg-black/60 font-mono text-xs text-zinc-300 space-y-2 border border-white/5">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                          <div>
+                            <span className="font-bold text-emerald-400 block">Target Minimum Terjual:</span>
+                            <span className="text-[10px] text-zinc-400">
+                              {formatRupiah(rincianParams.totalBurden)} ÷ {formatRupiah(activeRincianScenario.marginPerPackage)}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-emerald-400 block">
+                              {formatNumber(activeRincianScenario.minPackagesNeeded)} Paket
+                            </span>
+                            <span className="text-[10px] text-zinc-400">
+                              (Setara {activeRincianScenario.totalPcsNeeded} Pcs baju)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                          <div>
+                            <span className="font-bold text-rose-400 block">Titik Impas (BEP Beban Toko):</span>
+                            <span className="text-[10px] text-zinc-400">
+                              Beban Operasional & Iklan lunas (tanpa laba)
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-rose-400 block">
+                              {activeRincianScenario.bepPackagesNeeded} Paket
+                            </span>
+                            <span className="text-[10px] text-zinc-400">
+                              (Batas aman tidak merugi)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <div>
+                            <span className="font-bold text-cyan-300 block">Total Omzet Kotor Tercipta:</span>
+                            <span className="text-[10px] text-zinc-400">
+                              {activeRincianScenario.minPackagesNeeded} Paket × {formatRupiah(activeRincianScenario.recommendedPrice)}
+                            </span>
+                          </div>
+                          <div className="text-right font-black text-white text-base">
+                            {formatRupiah(activeRincianScenario.totalOmzetKotor)}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-zinc-300 leading-relaxed pl-8">
-                      {aiResult?.formulaExplanation?.step3 || 
-                        `Minimum Paket Terjual = Total Beban Harian / Margin Bersih per Paket. BEP Paket = Beban Tetap Operasional / Margin Bersih per Paket.`}
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1607,19 +1972,20 @@ Alamat Lengkap:`;
         {/* ========================================================================= */}
         {mainMode === 'input' && (
           <div className="space-y-4">
-            {/* SUB-MENU CARDS: Rapi, Terstruktur, Format Kartu Sub Menu (Bukan Tab Geser) */}
+            {/* SUB-MENU CARDS: Rapi, Terstruktur, Format Kartu Sub Menu dengan Lengkung Neon Bersebrangan */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
               {/* Sub-menu 1: Input Parameter */}
               <div
                 id="menu-card-input-form"
                 onClick={() => setInputSubTab('form')}
-                className={`group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
                   inputSubTab === 'form'
                     ? 'bg-[#181C28] border-[#25F4EE] shadow-lg ring-1 ring-[#25F4EE]/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <NeonCorners variant="opposite-tl-br" color={inputSubTab === 'form' ? 'cyan' : 'dual'} size="sm" />
+                <div className="flex items-center gap-3 min-w-0">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       inputSubTab === 'form'
@@ -1629,17 +1995,17 @@ Alamat Lengkap:`;
                   >
                     <Sliders className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <MarqueeText
+                      text="Menu Input Parameter"
+                      className={`text-xs sm:text-sm font-black transition-colors ${
                         inputSubTab === 'form' ? 'text-[#25F4EE]' : 'text-white group-hover:text-[#25F4EE]'
                       }`}
-                    >
-                      Menu Input Parameter
-                    </h3>
-                    <p className="text-[11px] text-zinc-400 truncate">
-                      Atur modal, biaya & target laba
-                    </p>
+                    />
+                    <MarqueeText
+                      text="Atur modal, biaya & target laba"
+                      className="text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -1654,13 +2020,14 @@ Alamat Lengkap:`;
               <div
                 id="menu-card-input-hasil"
                 onClick={() => setInputSubTab('hasil')}
-                className={`group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
                   inputSubTab === 'hasil'
                     ? 'bg-[#181C28] border-[#25F4EE] shadow-lg ring-1 ring-[#25F4EE]/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <NeonCorners variant="opposite-tr-bl" color={inputSubTab === 'hasil' ? 'cyan' : 'dual'} size="sm" />
+                <div className="flex items-center gap-3 min-w-0">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       inputSubTab === 'hasil'
@@ -1670,20 +2037,20 @@ Alamat Lengkap:`;
                   >
                     <Target className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h3
-                        className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MarqueeText
+                        text="Saran & Rekomendasi"
+                        className={`text-xs sm:text-sm font-black transition-colors ${
                           inputSubTab === 'hasil' ? 'text-[#25F4EE]' : 'text-white group-hover:text-[#25F4EE]'
                         }`}
-                      >
-                        Saran & Rekomendasi
-                      </h3>
+                      />
                       <span className="w-2 h-2 rounded-full bg-[#25F4EE] animate-pulse shrink-0" />
                     </div>
-                    <p className="text-[11px] text-zinc-400 truncate">
-                      Target kuota & harga bundling
-                    </p>
+                    <MarqueeText
+                      text="Target kuota & harga bundling"
+                      className="text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
@@ -1698,13 +2065,14 @@ Alamat Lengkap:`;
               <div
                 id="menu-card-input-rincian"
                 onClick={() => setInputSubTab('rincian')}
-                className={`group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
+                className={`relative overflow-hidden group p-3.5 sm:p-4 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-3 border cursor-pointer ${
                   inputSubTab === 'rincian'
                     ? 'bg-[#181C28] border-emerald-500 shadow-lg ring-1 ring-emerald-500/30'
                     : 'bg-[#14161F] hover:bg-[#181a24] border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <NeonCorners variant="opposite-tl-br" color={inputSubTab === 'rincian' ? 'emerald' : 'dual'} size="sm" />
+                <div className="flex items-center gap-3 min-w-0">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       inputSubTab === 'rincian'
@@ -1714,17 +2082,17 @@ Alamat Lengkap:`;
                   >
                     <FileText className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className={`text-xs sm:text-sm font-black transition-colors truncate ${
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <MarqueeText
+                      text="Rincian Simulasi Keuangan"
+                      className={`text-xs sm:text-sm font-black transition-colors ${
                         inputSubTab === 'rincian' ? 'text-emerald-300' : 'text-white group-hover:text-emerald-300'
                       }`}
-                    >
-                      Rincian Simulasi Keuangan
-                    </h3>
-                    <p className="text-[11px] text-zinc-400 truncate">
-                      Buku kas harian & margin bersih
-                    </p>
+                    />
+                    <MarqueeText
+                      text="Buku kas harian & margin bersih"
+                      className="text-[11px] text-zinc-400"
+                    />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] pt-2 border-t border-white/5 text-zinc-400">
