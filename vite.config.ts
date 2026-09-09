@@ -15,7 +15,7 @@ export default defineConfig(() => {
         manifest: {
           id: '/',
           name: 'Seller Profit',
-          short_name: 'Seller Profit',
+          short_name: 'Seller Center',
           description: 'Aplikasi akuntansi dan manajemen data penjualan Marketplace terpadu: modal stok, HPP, kehadiran, gaji & insentif per role, penjualan host, return, iklan & koin, serta laporan laba rugi dan cashflow.',
           theme_color: '#0b0c10',
           background_color: '#0b0c10',
