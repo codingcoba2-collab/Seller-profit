@@ -40,6 +40,7 @@ export type RoutePath =
   | '/penjualan/retur'
   | '/penjualan/laba-rugi'
   | '/penjualan/performa'
+  | '/penjualan/kalkulasi-paket'
   // Kategori Keuangan
   | '/keuangan'
   | '/keuangan/gaji'
@@ -210,6 +211,16 @@ export const CATEGORIES: CategoryDefinition[] = [
         allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
+      {
+        path: '/penjualan/kalkulasi-paket',
+        title: 'Kalkulasi Harga & Paket Terjual',
+        subtitle: 'Simulasi bundling, target laba harian, iklan & koin berbasis AI',
+        badgeText: 'AI Bundling',
+        icon: Calculator,
+        iconColor: 'text-emerald-400',
+        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
+      },
     ],
   },
   {
@@ -321,6 +332,12 @@ export function normalizePath(path: string): RoutePath {
     case '/penjualan/performa':
     case '/penjualan/index-performa':
       return '/penjualan/performa';
+    case '/penjualan/kalkulasi-paket':
+    case '/penjualan/kalkulasi':
+    case '/penjualan/bundling':
+    case '/kalkulasi-paket':
+    case '/kalkulasi':
+      return '/penjualan/kalkulasi-paket';
 
     // Keuangan
     case '/keuangan':
@@ -359,6 +376,7 @@ export function viewStateToPath(view: ViewState): RoutePath {
     case 'return': return '/penjualan/retur';
     case 'laba_rugi': return '/penjualan/laba-rugi';
     case 'index_performa': return '/penjualan/performa';
+    case 'kalkulasi_paket': return '/penjualan/kalkulasi-paket';
     case 'gaji': return '/keuangan/gaji';
     case 'cashflow': return '/keuangan/cashflow';
     case 'laba_bersih': return '/keuangan/laba-bersih';
@@ -392,7 +410,7 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   }
 
   // Penjualan
-  if (route === '/penjualan/kehadiran' || route === '/penjualan/statistik' || route === '/penjualan/performa') {
+  if (route === '/penjualan/kehadiran' || route === '/penjualan/statistik' || route === '/penjualan/performa' || route === '/penjualan/kalkulasi-paket') {
     return true;
   }
 
@@ -436,6 +454,7 @@ export function getPageTitle(route: RoutePath): string {
     case '/penjualan/retur': return 'Data Retur & Paket Return';
     case '/penjualan/laba-rugi': return 'Laporan & Laba Rugi Sesi';
     case '/penjualan/performa': return 'Index Performa & Efektivitas AI';
+    case '/penjualan/kalkulasi-paket': return 'Kalkulasi Harga & Paket Terjual';
     case '/keuangan': return 'Keuangan';
     case '/keuangan/gaji': return 'Slip Gaji & Insentif';
     case '/keuangan/cashflow': return 'Cashflow & Arus Kas Toko';

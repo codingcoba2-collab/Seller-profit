@@ -15,7 +15,8 @@ import {
   Palette,
   ShoppingBag,
   Sparkles,
-  Flame
+  Flame,
+  Calculator
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { MarqueeText } from '../components/MarqueeText';
@@ -305,6 +306,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Terpakai: {formatRupiah(adsCoinInfo.totalCoinUsed)}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Quick AI Feature Banner: Kalkulasi Harga & Paket Terjual */}
+      <div 
+        id="banner-kalkulasi-paket-ai"
+        onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
+        className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#161823] to-[#161823] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+            <Calculator className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors">
+                Kalkulasi Harga & Paket Terjual
+              </h4>
+              <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <Sparkles className="w-3 h-3" />
+                Fitur AI Baru
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5 max-w-xl">
+              Tanya AI: berapa harga bundling dan minimum paket terjual jika iklan 60k & koin 30k untuk untung 1 jt/hari? Lengkap dengan mode input interaktif.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition-transform self-start sm:self-auto shrink-0 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/30">
+          <span>Buka Kalkulator AI</span>
+          <span>→</span>
         </div>
       </div>
 

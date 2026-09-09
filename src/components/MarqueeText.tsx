@@ -81,13 +81,13 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
       )}
 
       {isOverflowing ? (
-        <div
+        <span
           className="inline-flex whitespace-nowrap animate-marquee hover:[animation-play-state:paused]"
           style={{ animationDuration: `${speed}s` }}
         >
           <span className="pr-8 inline-block">{text}</span>
           <span className="pr-8 inline-block">{text}</span>
-        </div>
+        </span>
       ) : (
         <span className="block truncate">{text}</span>
       )}

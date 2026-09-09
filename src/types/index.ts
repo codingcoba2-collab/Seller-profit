@@ -93,6 +93,7 @@ export interface StoreAccount {
     serviceFeePerOrder: number; // e.g. 1250
     returnMechanism: 'estimate' | 'detail';
     estimateReturnPercentage: number; // e.g. 5
+    averagePackingCost?: number; // e.g. 1500
     channelFees?: ChannelFeeConfig[];
   };
 }
@@ -341,7 +342,8 @@ export type ViewState =
   | 'gaji'              // Keuangan: Slip Gaji & Insentif
   | 'cashflow'          // Keuangan: Cashflow & Arus Kas
   | 'laba_bersih'       // Keuangan: Laporan Laba Bersih Toko
-  | 'keuangan_pribadi'; // Keuangan: Cashflow & Keuangan Pribadi
+  | 'keuangan_pribadi' // Keuangan: Cashflow & Keuangan Pribadi
+  | 'kalkulasi_paket'; // Penjualan / AI: Kalkulasi Harga & Paket Terjual
 
 export interface SteamSortirRecord {
   id: string;

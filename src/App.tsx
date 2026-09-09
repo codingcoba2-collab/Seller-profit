@@ -34,6 +34,7 @@ import { LabaBersihView } from './views/LabaBersihView';
 import { IndexPerformaView } from './views/IndexPerformaView';
 import { StatistikView } from './views/StatistikView';
 import { PersonalFinanceView } from './views/PersonalFinanceView';
+import { KalkulasiPaketView } from './views/KalkulasiPaketView';
 
 // Top Up Saldo Specialized Views
 import { TopupSaldoHubView } from './views/TopupSaldoHubView';
@@ -398,6 +399,14 @@ export default function App() {
           <IndexPerformaView
             currentUser={currentUser}
             onBackToDashboard={() => handleNavigate('/penjualan')}
+          />
+        )}
+
+        {currentRoute === '/penjualan/kalkulasi-paket' && (
+          <KalkulasiPaketView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/penjualan')}
+            onNotify={handleNotify}
           />
         )}
 
