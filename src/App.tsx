@@ -40,7 +40,6 @@ import { KalkulasiPaketView } from './views/KalkulasiPaketView';
 import { TopupSaldoHubView } from './views/TopupSaldoHubView';
 import { TopupSaldoInputView } from './views/TopupSaldoInputView';
 import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
-import { RockMusicPlayer } from './components/RockMusicPlayer';
 
 interface ToastState {
   id: number;
@@ -205,7 +204,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col font-sans selection:bg-[#FE2C55] selection:text-white relative">
+    <div className="min-h-screen bg-futuristic-cyber text-[#f4f4f6] flex flex-col font-sans selection:bg-[#FE2C55] selection:text-white relative overflow-x-hidden">
+      {/* Ambient Futuristic Background Glows */}
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[#25F4EE]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[#FE2C55]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+
       {/* Page Navigation Transition Screen with App Logo (~1s) */}
       {isNavigating && (
         <div className="fixed inset-0 z-[99999] bg-[#0b0c10] flex flex-col items-center justify-center transition-all animate-fadeIn select-none cursor-wait">
@@ -489,9 +492,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-
-      {/* Rock Music Instrumental Player Widget */}
-      <RockMusicPlayer onNotify={handleNotify} />
 
       {/* PWA Install Guide Modal */}
       <InstallGuideModal

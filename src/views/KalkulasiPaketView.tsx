@@ -46,6 +46,7 @@ interface KalkulasiPaketViewProps {
 }
 
 interface AiResponseData {
+  analyzedQuery?: string;
   directAnswer: string;
   extractedParams?: {
     targetProfit?: number;
@@ -134,6 +135,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
   const [aiQuestion, setAiQuestion] = useState<string>(
     'Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling yang dijual agar keuntungan bisa mencapai 1 jt/hari dan berapa minimum paket terjual?'
   );
+  const [activeQuestionQueried, setActiveQuestionQueried] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<AiResponseData | null>(null);
@@ -146,7 +148,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
   }, [autoAverageHpp]);
 
   // Load employee rates automatically from store
-  const handleLoadEmployeeDefaults = () => {
+  const handleLoadEmployeeDefaults = (notify = true) => {
     const employees = StorageService.getEmployees(currentUser.storeId);
     let foundHost = false;
     let foundAdmin = false;
@@ -173,11 +175,11 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
       }
     }
 
-    if (onNotify) {
+    if (notify && onNotify) {
       if (foundHost || foundAdmin) {
         onNotify('Berhasil menerapkan tarif gaji & insentif dari data karyawan toko.', 'success');
       } else {
-        onNotify('Tidak ditemukan data host/admin toko, nilai standar diterapkan.', 'info');
+        onNotify('Aturan standar live 1 Host & 1 Admin aktif diterapkan.', 'info');
       }
     }
   };
@@ -282,14 +284,20 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
 
   // Handle Asking AI
   const handleAskAi = async (customPrompt?: string) => {
-    const textToAsk = (customPrompt || aiQuestion).trim();
+    const textToAsk = (customPrompt !== undefined ? customPrompt : aiQuestion).trim();
     if (!textToAsk) {
       if (onNotify) onNotify('Silakan ketik pertanyaan atau keluhan Anda terlebih dahulu.', 'error');
       return;
     }
 
+    if (customPrompt !== undefined) {
+      setAiQuestion(customPrompt);
+    }
+    setActiveQuestionQueried(textToAsk);
+
     setIsAiLoading(true);
     setAiError(null);
+    setAiResult(null); // Clear previous result immediately so UI indicates fresh analysis
 
     try {
       const response = await fetch('/api/ai/calculate-bundle', {
@@ -375,8 +383,72 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
       const sc1 = calcScenario('bundling_1pcs', 'Satuan (Single 1 Pcs)', 'Penjualan Satuan Normal', 1, 1.80, 12000, 'Pilihan bagi pembeli yang baru pertama kali coba berbelanja di toko Anda.');
       const sc5 = calcScenario('bundling_5pcs', 'Bundling Jumbo / Grosir (Isi 5 Pcs)', 'Volume Cepat Habis', 5, 1.45, 22000, 'Paling efektif untuk cuci gudang / menghabiskan sisa persediaan stok.');
 
+      // Tailored diagnosis based on the exact user question
+      const lowerQ = textToAsk.toLowerCase();
+      let tailoredDiagnosis = '';
+      let adviceItems: string[] = [];
+
+      if (lowerQ.includes('boncos') || lowerQ.includes('rugi') || lowerQ.includes('bakar')) {
+        tailoredDiagnosis = `Diagnosis Keluhan Iklan Boncos: Menghadapi beban iklan Rp ${adsCost.toLocaleString('id-ID')} dan koin Rp ${coinCost.toLocaleString('id-ID')} bersama gaji 1 host (Rp ${hostSalary.toLocaleString('id-ID')}) & 1 admin (Rp ${adminSalary.toLocaleString('id-ID')}) dengan total beban Rp ${totalBurden.toLocaleString('id-ID')}, hentikan jual eceran tipis. Pasang Bundling 2 Pcs di harga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket) atau Bundling 3 Pcs Rp ${sc3.recommendedPrice.toLocaleString('id-ID')} (hanya butuh ${sc3.minPackagesNeeded} paket) untuk langsung menutup beban di sesi live ini! Titik impas (BEP) Anda hanya ${sc2.bepPackagesNeeded} paket terjual.`;
+        adviceItems = [
+          `Matikan campaign iklan berbiaya tinggi yang menghasilkan ROAS di bawah 2.5x, fokuskan ke etalase bundling 2 pcs.`,
+          `Sebar koin Rp ${coinCost.toLocaleString('id-ID')} hanya saat penonton mencapai puncak agar konversi checkout langsung naik.`,
+          `Cukup capai ${sc2.bepPackagesNeeded} paket bundling 2 pcs untuk BEP, paket berikutnya murni menjadi laba bersih Anda.`,
+          `Gunakan gimmick 'Beli 2 Lebih Hemat Ongkir' agar penonton terdorong ambil paket ganda.`
+        ];
+      } else if (lowerQ.includes('sepi') || lowerQ.includes('anjlok') || lowerQ.includes('turun') || lowerQ.includes('penonton') || lowerQ.includes('view')) {
+        tailoredDiagnosis = `Diagnosis Trafik/Penjualan Sepi: Saat trafik sesi live sedang turun, memaksa jual satuan akan membuat biaya iklan dan gaji host/admin merugi. Terapkan strategi 'Price Anchoring': tampilkan satuan seharga Rp ${sc1.recommendedPrice.toLocaleString('id-ID')}, namun tawarkan Paket Bundling 2 Pcs di Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket). Penonton akan merasa bundling jauh lebih murah dan segera checkout.`;
+        adviceItems = [
+          `Buat flash sale 15 menit pertama dengan Bundling 2 Pcs untuk memicu interaksi awal algoritma marketplace.`,
+          `Tingkatkan ritme host berbicara dan gunakan visualisasi produk berpasangan (mix & match).`,
+          `Hanya butuh ${sc3.minPackagesNeeded} paket jika host berhasil mengarahkan penonton ke Bundling 3 Pcs.`,
+          `Berikan bonus souvenir kecil/voucher koin khusus penonton yang checkout dalam 5 menit pertama.`
+        ];
+      } else if (lowerQ.includes('retur') || lowerQ.includes('tolak') || lowerQ.includes('cod')) {
+        tailoredDiagnosis = `Diagnosis Proteksi Retur COD: Dengan estimasi retur ${returnPercentage}%, paket bundling meminimalisir persentase ongkir yang hangus dibanding menjual satuan. Rekomendasi aman: Tetapkan harga Bundling 2 Pcs di Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket) untuk mengamankan margin bersih per paket dan target laba harian Rp ${targetProfit.toLocaleString('id-ID')}.`;
+        adviceItems = [
+          `Pastikan admin toko melakukan konfirmasi alamat dan pesanan COD lewat chat sebelum barang dipacking.`,
+          `Alokasikan cadangan retur ${returnPercentage}% ke dalam harga bundling sehingga modal toko tetap aman saat ada retur.`,
+          `Gunakan packing berkualitas tinggi untuk meminimalisir kerusakan barang saat perjalanan bolak-balik COD.`,
+          `Arahkan pembeli COD ke metode pembayaran digital non-tunai dengan iming-iming diskon koin tambahan.`
+        ];
+      } else if (lowerQ.includes('host') || lowerQ.includes('gaji') || lowerQ.includes('admin') || lowerQ.includes('karyawan')) {
+        tailoredDiagnosis = `Diagnosis Beban Tenaga Kerja (Host & Admin): Standar sesi live mengasumsikan 1 Host (gaji pokok Rp ${hostSalary.toLocaleString('id-ID')}) dan 1 Admin Toko (gaji pokok Rp ${adminSalary.toLocaleString('id-ID')}). Untuk melunasi seluruh gaji dan biaya tetap, host cukup menjual minimal ${sc2.bepPackagesNeeded} paket Bundling 2 Pcs seharga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')}. Untuk mencapai target laba Rp ${targetProfit.toLocaleString('id-ID')}, targetkan penjualan ${sc2.minPackagesNeeded} paket per sesi.`;
+        adviceItems = [
+          `Berikan insentif Rp ${hostIncentivePerPackage.toLocaleString('id-ID')}/paket ke host dan Rp ${adminIncentivePerPackage.toLocaleString('id-ID')}/paket ke admin agar keduanya berkolaborasi aktif.`,
+          `Jadikan kuota ${sc2.bepPackagesNeeded} paket sebagai target minimal sebelum sesi live berakhir.`,
+          `Gunakan etalase Bundling 3 Pcs (target ${sc3.minPackagesNeeded} paket) untuk host yang mahir upselling.`,
+          `Evaluasi performa host live mingguan berdasarkan rasio paket bundling terjual dibanding produk satuan.`
+        ];
+      } else if (lowerQ.includes('jam') || lowerQ.includes('waktu') || lowerQ.includes('durasi') || lowerQ.includes('kapan')) {
+        tailoredDiagnosis = `Strategi Jadwal Live & Bundling: Waktu live streaming paling efektif untuk produk fashion/lifestyle adalah sesi Siang (12:00 - 14:00 WIB) dan sesi Malam (19:30 - 22:30 WIB). Selama durasi sesi 2.5 - 3.5 jam ini, targetkan host menjual ${sc2.minPackagesNeeded} paket Bundling 2 Pcs seharga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} (rata-rata 8-10 paket per jam) untuk mencapai target laba bersih Rp ${targetProfit.toLocaleString('id-ID')}/hari.`;
+        adviceItems = [
+          `Fokuskan pembagian koin di menit ke-20 sampai ke-45 saat penonton mulai membanjiri room live.`,
+          `Pin etalase Bundling 2 Pcs di keranjang nomor 1 dan 2 sebagai produk anchor utama.`,
+          `Lakukan pergantian host jika durasi live melebihi 3 jam agar energi dan performa presentasi tetap maksimal.`,
+          `Percepat respon admin di kolom komentar untuk menjawab pertanyaan ukuran dan warna baju.`
+        ];
+      } else if (lowerQ.includes('satuan') || lowerQ.includes('eceran') || lowerQ.includes('paket') || lowerQ.includes('banding')) {
+        tailoredDiagnosis = `Analisis Komparasi Satuan vs Bundling: Menjual 1 pcs satuan seharga Rp ${sc1.recommendedPrice.toLocaleString('id-ID')} menyerap biaya admin dan packing yang relatif besar per item. Sebaliknya, Paket Bundling 2 Pcs seharga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} hanya butuh ${sc2.minPackagesNeeded} paket untuk menutup beban harian Rp ${totalBurden.toLocaleString('id-ID')}, menghemat biaya packing hingga 50% dan mempercepat perputaran modal HPP toko Anda.`;
+        adviceItems = [
+          `Gunakan produk satuan hanya sebagai pemancing harga awal (teaser), bukan produk promosi utama.`,
+          `Bundling 2 & 3 pcs adalah etalase paling menguntungkan bagi toko dan paling disukai pembeli.`,
+          `Titik impas (BEP) Bundling 2 Pcs tercapai pada penjualan ${sc2.bepPackagesNeeded} paket saja.`,
+          `Berikan variasi pilihan warna dalam 1 paket bundling agar pembeli lebih tertarik membeli lebih banyak.`
+        ];
+      } else {
+        tailoredDiagnosis = `Rekomendasi Analisis Skenario "${textToAsk}": Dengan memperhitungkan biaya iklan Rp ${adsCost.toLocaleString('id-ID')}, koin Rp ${coinCost.toLocaleString('id-ID')}, serta kehadiran 1 Host (Rp ${hostSalary.toLocaleString('id-ID')}) dan 1 Admin Toko (Rp ${adminSalary.toLocaleString('id-ID')}) dengan total beban harian Rp ${totalBurden.toLocaleString('id-ID')}, Anda disarankan memprioritaskan Paket Bundling 2 Pcs seharga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket/hari) atau Bundling 3 Pcs seharga Rp ${sc3.recommendedPrice.toLocaleString('id-ID')} (target ${sc3.minPackagesNeeded} paket/hari). Titik impas (BEP) beban toko Anda adalah ${sc2.bepPackagesNeeded} paket.`;
+        adviceItems = [
+          `Fokuskan host live mempromosikan Bundling 2 & 3 pcs sebagai etalase utama keranjang kuning.`,
+          `Sebar koin pada peak traffic (menit ke-20 sampai ke-45) saat penonton ramai agar memicu tombol checkout.`,
+          `Titik impas (BEP) beban toko Anda adalah ${sc2.bepPackagesNeeded} paket bundling 2 pcs; lewati titik ini untuk mengamankan 100% laba bersih.`,
+          `Terapkan skema insentif host per paket bundling terjual agar host lebih agresif melakukan upselling.`
+        ];
+      }
+
       setAiResult({
-        directAnswer: `Untuk menutup beban iklan Rp ${adsCost.toLocaleString('id-ID')}, koin Rp ${coinCost.toLocaleString('id-ID')}, serta target laba Rp ${targetProfit.toLocaleString('id-ID')}/hari (total beban Rp ${totalBurden.toLocaleString('id-ID')}), Anda disarankan menjual Paket Bundling 2 Pcs seharga Rp ${sc2.recommendedPrice.toLocaleString('id-ID')} dengan target kuota ${sc2.minPackagesNeeded} paket/hari, atau Bundling 3 Pcs Rp ${sc3.recommendedPrice.toLocaleString('id-ID')} dengan target ${sc3.minPackagesNeeded} paket/hari. Titik impas (BEP) Anda adalah ${sc2.bepPackagesNeeded} paket.`,
+        analyzedQuery: textToAsk,
+        directAnswer: tailoredDiagnosis,
         extractedParams: {
           targetProfit,
           targetProfitPercent,
@@ -393,12 +465,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
           step2: `Margin Bersih per Paket = Harga Jual - Modal HPP - Admin Marketplace (${adminPercentage}%) - Biaya Layanan (Rp ${serviceFeePerOrder.toLocaleString('id-ID')}) - Packing (Rp ${packingCost.toLocaleString('id-ID')}) - Cadangan Retur (${returnPercentage}%) - Insentif.`,
           step3: `Minimum Kuota Penjualan = Total Beban Harian dibagi Margin Bersih per Paket.`
         },
-        strategicAdvice: [
-          `Fokuskan host live mempromosikan Bundling 2 & 3 pcs sebagai etalase utama keranjang kuning.`,
-          `Sebar koin pada peak traffic (menit ke-20 sampai ke-45) saat penonton ramai agar memicu tombol checkout.`,
-          `Titik impas (BEP) beban toko Anda adalah ${sc2.bepPackagesNeeded} paket bundling 2 pcs; lewati titik ini untuk mengamankan 100% laba bersih.`,
-          `Terapkan skema insentif host per paket bundling terjual agar host lebih agresif melakukan upselling.`
-        ]
+        strategicAdvice: adviceItems
       });
       setAiSubTab('jawaban');
       if (onNotify) {
@@ -409,8 +476,9 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
     }
   };
 
-  // Run initial AI analysis on mount if no result
+  // Run initial AI analysis on mount and synchronize employee defaults
   useEffect(() => {
+    handleLoadEmployeeDefaults(false);
     if (!aiResult && !isAiLoading) {
       handleAskAi(aiQuestion);
     }
@@ -860,6 +928,65 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
 
                 {!isAiLoading && aiResult && (
                   <>
+                    {/* Active Question Banner & Quick Question Switcher */}
+                    <div className="p-4 rounded-2xl bg-[#14161F] border border-white/10 space-y-3 shadow-lg">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                            <MessageSquare className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] uppercase font-black text-zinc-400">Pertanyaan Dianalisis:</span>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                                1 Host + 1 Admin Bertugas
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                Realtime AI
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm font-semibold text-white mt-1 break-words leading-relaxed">
+                              "{aiResult.analyzedQuery || activeQuestionQueried || aiQuestion}"
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setAiSubTab('input')}
+                          className="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white border border-white/10 transition-colors flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer"
+                        >
+                          <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Ketik Pertanyaan Baru</span>
+                        </button>
+                      </div>
+
+                      {/* Quick Question Switcher Chips */}
+                      <div className="pt-2 border-t border-white/5 space-y-1.5">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                          Ganti Pertanyaan Cepat (Jawaban Langsung Berubah):
+                        </span>
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                          {[
+                            { label: '🔥 Iklan Boncos', q: 'Iklan boncos 100k penjualan sepi, gimana cara bundling biar tetap untung 500rb?' },
+                            { label: '📦 Retur COD 8%', q: 'Retur pembeli tinggi sampai 8%, berapa harga bundling 2 & 3 pcs yang aman?' },
+                            { label: '👥 Gaji Host & Admin', q: 'Beban gaji host 100k dan admin 80k per live, berapa paket bundling minimum harus laku?' },
+                            { label: '⏰ Jam Live Terbaik', q: 'Bagusan live jam berapa dan berapa durasi live streaming yang ideal?' },
+                            { label: '⚖️ Satuan vs Bundling', q: 'Apakah lebih untung jual pakaian satuan atau paket bundling isi 2 dan 3 pcs?' },
+                          ].map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleAskAi(item.q)}
+                              className="px-2.5 py-1.5 rounded-lg bg-black/50 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 text-zinc-300 hover:text-emerald-300 shrink-0 transition-all font-medium text-xs cursor-pointer flex items-center gap-1"
+                            >
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Primary Highlight Answer Box */}
                     <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-[#14161F] to-[#14161F] border border-emerald-500/40 shadow-xl space-y-4">
                       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1417,55 +1544,103 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                     </div>
                   </div>
 
-                  {/* 3. Beban Gaji Host & Admin Toko + Insentif */}
-                  <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-4">
-                    <span className="text-xs font-black uppercase tracking-wider text-[#25F4EE] flex items-center gap-1.5">
-                      <Users className="w-4 h-4" />
-                      Beban Tenaga Kerja Live Streaming (Host & Admin)
-                    </span>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Host Live */}
-                      <div className="space-y-3 p-3 rounded-lg bg-black/40 border border-white/5">
-                        <span className="text-xs font-bold text-white block">Host Live Streaming</span>
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-zinc-400">Gaji Pokok / Shift Harian (Rp)</label>
-                          <CommaNumberInput
-                            value={hostSalary}
-                            onChange={(val) => setHostSalary(val)}
-                            className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs font-bold"
-                          />
+                  {/* 3. Beban Tenaga Kerja Sesi Live (Standar: 1 Host + 1 Admin Bertugas) */}
+                  <div className="p-4 rounded-xl bg-black/40 border border-[#25F4EE]/30 space-y-3.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                          <Users className="w-4 h-4" />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-zinc-400">Insentif per Paket Terjual (Rp)</label>
-                          <CommaNumberInput
-                            value={hostIncentivePerPackage}
-                            onChange={(val) => setHostIncentivePerPackage(val)}
-                            className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs font-bold"
-                          />
+                        <div>
+                          <span className="text-xs font-black uppercase tracking-wider text-white block">
+                            Beban Tenaga Kerja Live Streaming (1 Host + 1 Admin)
+                          </span>
+                          <span className="text-[11px] text-zinc-400">
+                            Kalkulasi otomatis mengasumsikan 1 Host Live dan 1 Admin Toko bertugas sesuai aturan baku toko.
+                          </span>
                         </div>
                       </div>
 
-                      {/* Admin Toko */}
-                      <div className="space-y-3 p-3 rounded-lg bg-black/40 border border-white/5">
-                        <span className="text-xs font-bold text-white block">Admin Toko / Kasir</span>
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-zinc-400">Gaji Pokok Harian (Rp)</label>
-                          <CommaNumberInput
-                            value={adminSalary}
-                            onChange={(val) => setAdminSalary(val)}
-                            className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs font-bold"
-                          />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          Aturan Baku Toko
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleLoadEmployeeDefaults(true)}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white border border-white/10 transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                          title="Sinkronkan kembali dengan data karyawan toko"
+                        >
+                          <RefreshCw className="w-3 h-3 text-[#25F4EE]" />
+                          <span>Sinkron Aturan Toko</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* Host Live Card */}
+                      <div className="space-y-2.5 p-3 rounded-xl bg-black/60 border border-white/10">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-[#25F4EE]" />
+                            Host Live Streaming (1 Orang)
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-medium">Shift Live</span>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] text-zinc-400">Insentif per Paket Terjual (Rp)</label>
-                          <CommaNumberInput
-                            value={adminIncentivePerPackage}
-                            onChange={(val) => setAdminIncentivePerPackage(val)}
-                            className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs font-bold"
-                          />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-zinc-400 font-semibold block">Gaji Pokok / Sesi</label>
+                            <CommaNumberInput
+                              value={hostSalary}
+                              onChange={(val) => setHostSalary(val)}
+                              className="w-full p-2 rounded-lg bg-black/70 border border-white/15 text-white text-xs font-bold focus:border-[#25F4EE]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-zinc-400 font-semibold block">Insentif / Paket</label>
+                            <CommaNumberInput
+                              value={hostIncentivePerPackage}
+                              onChange={(val) => setHostIncentivePerPackage(val)}
+                              className="w-full p-2 rounded-lg bg-black/70 border border-white/15 text-white text-xs font-bold focus:border-[#25F4EE]"
+                            />
+                          </div>
                         </div>
                       </div>
+
+                      {/* Admin Toko Card */}
+                      <div className="space-y-2.5 p-3 rounded-xl bg-black/60 border border-white/10">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            Admin Toko / Kasir (1 Orang)
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-medium">Shift Live</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-zinc-400 font-semibold block">Gaji Pokok / Sesi</label>
+                            <CommaNumberInput
+                              value={adminSalary}
+                              onChange={(val) => setAdminSalary(val)}
+                              className="w-full p-2 rounded-lg bg-black/70 border border-white/15 text-white text-xs font-bold focus:border-emerald-400"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-zinc-400 font-semibold block">Insentif / Paket</label>
+                            <CommaNumberInput
+                              value={adminIncentivePerPackage}
+                              onChange={(val) => setAdminIncentivePerPackage(val)}
+                              className="w-full p-2 rounded-lg bg-black/70 border border-white/15 text-white text-xs font-bold focus:border-emerald-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1.5 text-zinc-400 bg-white/[0.02] p-2.5 rounded-lg border border-white/5 flex-wrap gap-2">
+                      <span>Total Gaji Pokok Sesi: <strong className="text-white font-bold">{formatRupiah(hostSalary + adminSalary)}</strong></span>
+                      <span>Total Beban Insentif: <strong className="text-[#25F4EE] font-bold">{formatRupiah(hostIncentivePerPackage + adminIncentivePerPackage)}/paket</strong></span>
                     </div>
                   </div>
 

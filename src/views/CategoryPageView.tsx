@@ -3,6 +3,7 @@ import { CurrentUser } from '../types';
 import { CATEGORIES, RoutePath, isRouteAllowed } from '../services/navigation';
 import { Lock, ArrowLeft } from 'lucide-react';
 import { MarqueeText } from '../components/MarqueeText';
+import { NeonCorners } from '../components/NeonCorners';
 
 interface CategoryPageViewProps {
   categoryKey: 'persiapan' | 'penjualan' | 'keuangan';
@@ -23,8 +24,9 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header without category switcher tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3">
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 shadow-lg overflow-hidden">
+        <NeonCorners cyanTop={true} magentaBottom={true} />
+        <div className="flex items-center gap-3 relative z-10">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${currentCategory.iconColor} shrink-0`}
           >
@@ -74,14 +76,15 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
                 }
               }}
-              className={`group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border cursor-pointer ${
+              className={`relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border cursor-pointer overflow-hidden ${
                 accessible
-                  ? 'bg-[#161823] hover:bg-[#1c1f2e] border-white/10 hover:border-[#25F4EE]/40 shadow-sm hover:shadow-md active:scale-[0.99]'
+                  ? 'bg-[#121520] hover:bg-[#181c2b] border-white/10 hover:border-[#25F4EE]/40 shadow-sm hover:shadow-md active:scale-[0.99]'
                   : 'bg-[#12141c]/70 border-white/5 opacity-50 cursor-not-allowed'
               }`}
             >
+              {accessible && <NeonCorners cyanTop={true} magentaBottom={true} />}
               {/* Left: Icon & Text */}
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 relative z-10">
                 <div
                   className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 ${
                     accessible ? item.iconColor : 'text-zinc-500'

@@ -183,6 +183,26 @@ export const InstallGuideModal: React.FC<InstallGuideModalProps> = ({ isOpen, on
               )}
             </div>
 
+            {/* Preview of App Icon on Phone Screen */}
+            <div className="mt-3.5 p-3 rounded-2xl bg-slate-900 text-white flex items-center gap-3 border border-slate-800">
+              <img 
+                src="/apple-touch-icon.png" 
+                alt="Logo Seller Center" 
+                className="w-12 h-12 rounded-xl shadow-md border border-white/20 object-cover shrink-0" 
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-white">Seller Center</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                    Ikon Home Screen
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">
+                  Tersedia untuk iOS Safari & Android Chrome dengan logo Seller Center resmi.
+                </p>
+              </div>
+            </div>
+
             <div className="mt-5">
               <button
                 type="button"

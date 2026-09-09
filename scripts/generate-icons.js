@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
-const inputLogoPath = path.resolve('src/assets/images/app_icon_logo_1788362419961.jpg');
+const inputLogoPath = path.resolve('src/assets/images/seller_center_logo_1788971192030.jpg');
 const publicDir = path.resolve('public');
 
 if (!fs.existsSync(publicDir)) {

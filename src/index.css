@@ -486,3 +486,111 @@ body {
   z-index: 10000 !important;
 }
 
+/* ==========================================================================
+   FUTURISTIC CYBERNETIC THEME & NEON CORNER BOX SYSTEM
+   ========================================================================== */
+
+/* 1. Futuristic Cyber Background with Grid & Ambient Nebula */
+.bg-futuristic-cyber {
+  background-color: #07090e;
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(37, 244, 238, 0.09) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(254, 44, 85, 0.08) 0%, transparent 50%),
+    linear-gradient(to right, rgba(37, 244, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 244, 238, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-attachment: fixed;
+}
+
+/* Global body in dark mode with neon palette */
+[data-theme-mode="dark"][data-theme-palette="neon"] body,
+body[data-theme-palette="neon"],
+body:not([data-theme-mode="light"]) {
+  background-color: #07090e;
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(37, 244, 238, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(254, 44, 85, 0.07) 0%, transparent 50%),
+    linear-gradient(to right, rgba(37, 244, 238, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 244, 238, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+  background-attachment: fixed;
+}
+
+/* 2. Neon Corner Box Utility (Ujung-ujung kotak menu ber-efek neon menyala) */
+.neon-corner-box {
+  position: relative;
+  background-color: #121520 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neon-corner-box:hover {
+  border-color: rgba(37, 244, 238, 0.4) !important;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.7), 0 0 20px rgba(37, 244, 238, 0.18) !important;
+}
+
+/* Neon corner brackets */
+.neon-corner-box::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 14px;
+  height: 14px;
+  border-top: 2.5px solid #25F4EE;
+  border-left: 2.5px solid #25F4EE;
+  border-top-left-radius: 1rem;
+  filter: drop-shadow(0 0 6px rgba(37, 244, 238, 0.9));
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.25s ease;
+}
+
+.neon-corner-box::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2.5px solid #FE2C55;
+  border-right: 2.5px solid #FE2C55;
+  border-bottom-right-radius: 1rem;
+  filter: drop-shadow(0 0 6px rgba(254, 44, 85, 0.9));
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.25s ease;
+}
+
+.neon-corner-box:hover::before {
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 0 10px #25F4EE);
+}
+
+.neon-corner-box:hover::after {
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 0 10px #FE2C55);
+}
+
+/* 3. Text & Button Ultra-Crisp Legibility Enforcer */
+/* Memastikan tulisan & tombol selalu terbaca tajam dan tidak tertutup */
+.neon-corner-box h1,
+.neon-corner-box h2,
+.neon-corner-box h3,
+.neon-corner-box h4,
+.neon-corner-box h5,
+.neon-corner-box strong {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.neon-glow-cyan {
+  box-shadow: 0 0 15px rgba(37, 244, 238, 0.35);
+}
+
+.neon-glow-magenta {
+  box-shadow: 0 0 15px rgba(254, 44, 85, 0.35);
+}
+
+

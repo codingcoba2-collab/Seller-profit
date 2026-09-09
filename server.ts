@@ -26,16 +26,16 @@ async function startServer() {
   }
 
   // Resilient JSON generator with automatic fallback across fast models with per-call timeout
-  async function generateJsonWithAi(prompt: string, temperature = 0.2) {
+  async function generateJsonWithAi(prompt: string, temperature = 0.7) {
     const aiClient = getAI();
-    // Prioritized model fallback list (gemini-3.8-flash is fastest & reliable, fallback to gemini-flash-latest and gemini-3.1-flash-lite)
+    // Prioritized model fallback list
     const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
     let lastError: any = null;
 
     for (const model of candidateModels) {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout calling model ${model} after 12000ms`)), 12000)
+          setTimeout(() => reject(new Error(`Timeout calling model ${model} after 8000ms`)), 8000)
         );
 
         const response: any = await Promise.race([
@@ -231,7 +231,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
         return null;
       }
 
-      // Safe defaults
+      // Safe defaults - kalkulasi live selalu mengasumsikan 1 Host Live dan 1 Admin Toko aktif bertugas
       let targetProfit = Math.max(0, Number(parameters?.targetProfit ?? 1000000) || 1000000);
       let targetProfitPercent = Math.max(1, Math.min(90, Number(parameters?.targetProfitPercent ?? 20) || 20));
       const targetProfitType = parameters?.targetProfitType === 'percentage' ? 'percentage' : 'nominal';
@@ -240,12 +240,12 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       let coinCost = Math.max(0, Number(parameters?.coinCost ?? 30000) || 0);
       let operationalCost = Math.max(0, Number(parameters?.operationalCost ?? 0) || 0);
 
-      // Host & Admin live streaming salaries & incentives
-      let hostSalary = Math.max(0, Number(parameters?.hostSalary ?? 0) || 0);
-      const hostIncentivePerPackage = Math.max(0, Number(parameters?.hostIncentivePerPackage ?? 0) || 0);
-      const hostIncentivePerPcs = Math.max(0, Number(parameters?.hostIncentivePerPcs ?? 0) || 0);
-      let adminSalary = Math.max(0, Number(parameters?.adminSalary ?? 0) || 0);
-      const adminIncentivePerPackage = Math.max(0, Number(parameters?.adminIncentivePerPackage ?? 0) || 0);
+      // Host & Admin live streaming salaries & incentives (selalu ada host dan admin saat sesi kalkulasi live)
+      let hostSalary = Number(parameters?.hostSalary) > 0 ? Number(parameters.hostSalary) : 100000;
+      const hostIncentivePerPackage = Number(parameters?.hostIncentivePerPackage) >= 0 ? Number(parameters.hostIncentivePerPackage) : 2000;
+      const hostIncentivePerPcs = Number(parameters?.hostIncentivePerPcs) >= 0 ? Number(parameters.hostIncentivePerPcs) : 0;
+      let adminSalary = Number(parameters?.adminSalary) > 0 ? Number(parameters.adminSalary) : 80000;
+      const adminIncentivePerPackage = Number(parameters?.adminIncentivePerPackage) >= 0 ? Number(parameters.adminIncentivePerPackage) : 1000;
 
       let hppPerPcs = Math.max(1000, Number(parameters?.hppPerPcs ?? (storeContext?.hppAverage || 20000)) || 20000);
       const adminPercentage = Math.max(0, Math.min(50, Number(parameters?.adminPercentage ?? (storeContext?.adminPromoPercentage || 8.5)) || 8.5));
@@ -298,7 +298,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
         if (extractedHost !== null && extractedHost > 0) hostSalary = extractedHost;
       }
 
-      // Total daily fixed overhead
+      // Total daily fixed overhead (mengikutsertakan Host & Admin bertugas)
       const totalFixedOverhead = adsCost + coinCost + operationalCost + hostSalary + adminSalary;
       const totalFixedBurden = totalFixedOverhead + targetProfit;
 
@@ -362,39 +362,55 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       let tailoredAdvice: string[] = [];
 
       if (lowerQ.includes('boncos') || lowerQ.includes('rugi') || lowerQ.includes('bakar')) {
-        tailoredComplaintDiagnosis = `Solusi Masalah Iklan Boncos: Beban iklan Rp ${adsCost.toLocaleString('id-ID')} dan koin Rp ${coinCost.toLocaleString('id-ID')} akan langsung menutup jika Anda beralih menjual Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket) atau Bundling 3 Pcs Rp ${p3.toLocaleString('id-ID')} (cukup ${sc3.minPackagesNeeded} paket/hari). Titik impas (BEP) operasional Anda hanya butuh ${sc2.bepPackagesNeeded} paket terjual!`;
+        tailoredComplaintDiagnosis = `Solusi Masalah Iklan Boncos: Beban iklan Rp ${adsCost.toLocaleString('id-ID')} dan koin Rp ${coinCost.toLocaleString('id-ID')} bersama gaji host (Rp ${hostSalary.toLocaleString('id-ID')}) & admin (Rp ${adminSalary.toLocaleString('id-ID')}) akan langsung menutup jika Anda beralih menjual Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')} (target ${sc2.minPackagesNeeded} paket) atau Bundling 3 Pcs Rp ${p3.toLocaleString('id-ID')} (cukup ${sc3.minPackagesNeeded} paket/hari). Titik impas (BEP) operasional Anda hanya butuh ${sc2.bepPackagesNeeded} paket terjual!`;
         tailoredAdvice = [
-          `Hentikan iklan bidding otomatis di siang hari; nyalakan iklan kata kunci spesifik hanya 15 menit sebelum sesi live dimulai sampai live berakhir.`,
-          `Fokuskan iklan hanya ke 1 etalase utama (Bundling 2 Pcs) sebagai "Hero Product", jangan menyebar budget iklan ke banyak produk satuan.`,
-          `Sebar koin Rp ${coinCost.toLocaleString('id-ID')} dalam bentuk 3 sesi "hujan koin" bernominal kecil saat penonton live ramai (peak hours) untuk memicu retensi penonton dan interaksi tap layar.`,
+          `Hentikan iklan bidding otomatis di luar jam live; nyalakan iklan kata kunci spesifik hanya 15 menit sebelum sesi live dimulai sampai sesi berakhir.`,
+          `Fokuskan iklan hanya ke 1 etalase utama (Bundling 2 Pcs) sebagai "Hero Product", jangan menyebar budget iklan ke produk satuan yang minim margin.`,
+          `Sebar koin Rp ${coinCost.toLocaleString('id-ID')} dalam bentuk 3 sesi "hujan koin" bernominal kecil saat penonton live ramai untuk memicu retensi penonton dan interaksi tap layar.`,
           `Pastikan host live selalu mengarahkan penonton: "Checkout sekarang mumpung voucher koin aktif di etalase 1!"`
         ];
-      } else if (lowerQ.includes('sepi') || lowerQ.includes('anjlok') || lowerQ.includes('turun') || lowerQ.includes('sedikit')) {
-        tailoredComplaintDiagnosis = `Solusi Penjualan Live Sepi: Jangan menurunkan harga satuan karena akan merusak margin. Alihkan strategi ke Bundling 2 Pcs Rp ${p2.toLocaleString('id-ID')} (cukup laku ${sc2.minPackagesNeeded} paket/hari) dan Bundling 3 Pcs Rp ${p3.toLocaleString('id-ID')} (${sc3.minPackagesNeeded} paket/hari) dengan memberikan value gratis voucher ongkir atau hadiah aksesoris kecil.`;
+      } else if (lowerQ.includes('sepi') || lowerQ.includes('anjlok') || lowerQ.includes('turun') || lowerQ.includes('sedikit') || lowerQ.includes('penonton') || lowerQ.includes('view')) {
+        tailoredComplaintDiagnosis = `Solusi Live Sepi & Penonton Rendah: Menurunkan harga satuan adalah kesalahan fatal karena memotong margin. Solusinya, gunakan paket Bundling 2 Pcs Rp ${p2.toLocaleString('id-ID')} (cukup laku ${sc2.minPackagesNeeded} paket/hari) dan Bundling 3 Pcs Rp ${p3.toLocaleString('id-ID')} (${sc3.minPackagesNeeded} paket/hari) dengan memberikan value gratis voucher ongkir atau bonus pouch/aksesoris kecil.`;
         tailoredAdvice = [
-          `Gunakan teknik "Trigger Etalase Kaget": Buat bundling 2 pcs dengan diskon waktu terbatas (hanya 5 menit) untuk memicu kepanikan belanja (FOMO).`,
-          `Tingkatkan interaksi di 10 menit pertama live dengan menyapa penonton dan meminta tap-tap layar sebelum mulai spill harga bundling.`,
-          `Terapkan etalase anchor: Tampilkan produk 1 pcs seharga Rp ${p1.toLocaleString('id-ID')} agar bundling 2 pcs seharga Rp ${p2.toLocaleString('id-ID')} terlihat jauh lebih hemat dan menguntungkan bagi pembeli.`,
+          `Gunakan teknik "Trigger Etalase Kaget": Buat bundling 2 pcs dengan diskon waktu terbatas (hanya 5 menit pertama) untuk memicu kepanikan belanja (FOMO).`,
+          `Tingkatkan interaksi di 10 menit awal live dengan menyapa penonton dan meminta tap-tap layar sebelum mulai spill harga bundling.`,
+          `Terapkan etalase anchor: Tampilkan produk 1 pcs seharga Rp ${p1.toLocaleString('id-ID')} agar bundling 2 pcs seharga Rp ${p2.toLocaleString('id-ID')} terlihat jauh lebih hemat bagi pembeli.`,
           `Atur jadwal live streaming rutin di jam prime-time (12.00-14.00 WIB atau 19.30-22.30 WIB).`
         ];
-      } else if (lowerQ.includes('retur') || lowerQ.includes('tolak') || lowerQ.includes('kembali')) {
-        tailoredComplaintDiagnosis = `Solusi Mengatasi Retur: Dengan asumsi cadangan retur ${returnPercentage}%, Anda disarankan menetapkan harga Bundling 2 Pcs di Rp ${p2.toLocaleString('id-ID')} (kuota ${sc2.minPackagesNeeded} paket) untuk menyerap potensi ongkir pengembalian tanpa menggerus target laba Rp ${targetProfit.toLocaleString('id-ID')}/hari.`;
+      } else if (lowerQ.includes('retur') || lowerQ.includes('tolak') || lowerQ.includes('kembali') || lowerQ.includes('rts') || lowerQ.includes('cod')) {
+        tailoredComplaintDiagnosis = `Solusi Mengatasi Retur & Paket Ditolak: Dengan asumsi cadangan retur ${returnPercentage}%, Anda disarankan menetapkan harga Bundling 2 Pcs di Rp ${p2.toLocaleString('id-ID')} (kuota ${sc2.minPackagesNeeded} paket) untuk menyerap potensi ongkir pengembalian tanpa menggerus target laba bersih Rp ${targetProfit.toLocaleString('id-ID')}/hari.`;
         tailoredAdvice = [
-          `Host wajib memperjelas detail ukuran (lingkar dada, panjang baju) dan kondisi fisik pakaian secara transparan saat live agar pembeli tidak merasa tertipu.`,
+          `Host wajib memperjelas detail ukuran (lingkar dada, panjang baju) dan kondisi fisik pakaian secara transparan saat live agar pembeli tidak merasa kecewa.`,
           `Sertakan kartu ucapan terima kasih dan petunjuk unboxing di dalam paket untuk mencegah komplain sepihak via COD.`,
           `Admin toko wajib langsung konfirmasi via chat marketplace untuk pesanan COD di atas Rp 100.000 guna memastikan pembeli benar-benar siap membayar.`,
-          `Evaluasi jasa ekspedisi yang memiliki tingkat retur tertinggi dan aktifkan opsi penjemputan paket tercepat.`
+          `Evaluasi jasa ekspedisi yang memiliki tingkat retur tertinggi di daerah tujuan tertentu dan aktifkan opsi penjemputan paket tercepat.`
         ];
-      } else if (lowerQ.includes('host') || lowerQ.includes('gaji') || lowerQ.includes('closing')) {
-        tailoredComplaintDiagnosis = `Solusi Kinerja Host & Gaji: Untuk menutup gaji host Rp ${hostSalary.toLocaleString('id-ID')}, admin Rp ${adminSalary.toLocaleString('id-ID')}, dan operasional iklan/koin (total beban Rp ${totalFixedBurden.toLocaleString('id-ID')}), targetkan host menjual ${sc2.minPackagesNeeded} paket Bundling 2 Pcs (Rp ${p2.toLocaleString('id-ID')}) atau cukup ${sc3.minPackagesNeeded} paket Bundling 3 Pcs (Rp ${p3.toLocaleString('id-ID')}) per hari.`;
+      } else if (lowerQ.includes('host') || lowerQ.includes('gaji') || lowerQ.includes('admin') || lowerQ.includes('insentif') || lowerQ.includes('closing')) {
+        tailoredComplaintDiagnosis = `Strategi Beban Gaji Host & Admin: Untuk menutup gaji host (Rp ${hostSalary.toLocaleString('id-ID')}) dan admin (Rp ${adminSalary.toLocaleString('id-ID')}) serta operasional harian (total beban wajib Rp ${totalFixedBurden.toLocaleString('id-ID')}), targetkan host menjual ${sc2.minPackagesNeeded} paket Bundling 2 Pcs (Rp ${p2.toLocaleString('id-ID')}) atau cukup ${sc3.minPackagesNeeded} paket Bundling 3 Pcs (Rp ${p3.toLocaleString('id-ID')}) per hari.`;
         tailoredAdvice = [
-          `Beri host target bertahap: "Target 1 = ${sc2.bepPackagesNeeded} paket bundling untuk tutup operasional harian, Target 2 = ${sc2.minPackagesNeeded} paket untuk bonus insentif".`,
+          `Beri host target bertahap: "Target 1 = ${sc2.bepPackagesNeeded} paket bundling untuk tutup gaji & operasional harian, Target 2 = ${sc2.minPackagesNeeded} paket untuk bonus insentif".`,
           `Sediakan script closing standar untuk host: Ajarkan teknik membandingkan paket satuan vs bundling ("Kalau beli 1 pcs rugi ongkir kak, ambil paket hemat 2 pcs langsung gratis packing dan koin!").`,
           `Terapkan komisi bertingkat (tier) jika host berhasil menjual lebih dari ${sc2.minPackagesNeeded} paket bundling dalam satu sesi live.`,
           `Admin live streaming harus aktif mem-pin komentar keranjang dan membantu host menjawab pertanyaan ukuran penonton.`
         ];
+      } else if (lowerQ.includes('jam') || lowerQ.includes('waktu') || lowerQ.includes('jadwal') || lowerQ.includes('kapan') || lowerQ.includes('durasi')) {
+        tailoredComplaintDiagnosis = `Rekomendasi Waktu & Durasi Live Streaming: Untuk mencapai target laba Rp ${targetProfit.toLocaleString('id-ID')}/hari, jalankan minimal 1 sesi live selama 3-4 jam di jam prime-time (12.00-14.00 WIB atau 19.30-22.30 WIB). Jual paket Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')} dengan target rata-rata ${Math.ceil(sc2.minPackagesNeeded / 3.5)} paket per jam live.`;
+        tailoredAdvice = [
+          `Puncak traffic live shopping fashion terjadi di jam 19.30 - 21.30 WIB (setelah jam kerja) dan jam 12.15 - 13.15 WIB (istirahat makan siang).`,
+          `Bagi sesi live menjadi 3 fase: 30 menit pertama (building viewers & tap screen), 90 menit tengah (flash sale bundling & promo koin), 30 menit akhir (rekap keranjang & closing buyer).`,
+          `Jangan live di bawah 2 jam karena algoritma marketplace membutuhkan waktu 30-40 menit untuk mengaliri penonton ke room live Anda.`,
+          `Pastikan admin toko standby penuh selama jam live untuk membalas chat dan memproses checkout secepat mungkin.`
+        ];
+      } else if (lowerQ.includes('satuan') || lowerQ.includes('1 pcs') || lowerQ.includes('banding') || lowerQ.includes('pilih')) {
+        tailoredComplaintDiagnosis = `Perbandingan Bundling vs Satuan: Menjual satuan 1 pcs seharga Rp ${p1.toLocaleString('id-ID')} membutuhkan ${sc1.minPackagesNeeded} pesanan terpisah untuk mencapai target, dengan beban biaya layanan marketplace Rp ${serviceFeePerOrder.toLocaleString('id-ID')} dan packing Rp ${packingCost.toLocaleString('id-ID')} yang terpotong per setiap pcs! Sedangkan dengan Bundling 2 Pcs Rp ${p2.toLocaleString('id-ID')}, Anda hanya butuh ${sc2.minPackagesNeeded} paket, menghemat 50% biaya packing dan tenaga packing admin.`;
+        tailoredAdvice = [
+          `Jadikan produk satuan 1 pcs (Rp ${p1.toLocaleString('id-ID')}) sebagai "Anchor Price" semata, bukan produk yang didorong untuk dibeli.`,
+          `Latih host untuk selalu berkata: "Kak, harga satuan Rp ${p1.toLocaleString('id-ID')}, tapi ambil 2 pcs cuma Rp ${p2.toLocaleString('id-ID')} hemat banyak banget!"`,
+          `Bundling 2 pcs langsung meloloskan pembeli dari ambang batas minimal gratis ongkir marketplace.`,
+          `Perputaran stok persediaan (inventory turnover) menjadi 2x lebih cepat jika fokus pada paket bundling.`
+        ];
       } else {
-        tailoredComplaintDiagnosis = `Untuk menutup biaya iklan Rp ${adsCost.toLocaleString('id-ID')}, koin Rp ${coinCost.toLocaleString('id-ID')}, operasional & gaji${hostSalary + adminSalary > 0 ? ` (Rp ${(hostSalary + adminSalary).toLocaleString('id-ID')})` : ''} dengan target keuntungan Rp ${targetProfit.toLocaleString('id-ID')}/hari (total beban Rp ${totalFixedBurden.toLocaleString('id-ID')}), Anda disarankan menjual paket Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')} dengan target ${sc2.minPackagesNeeded} paket/hari, atau Bundling 3 Pcs seharga Rp ${p3.toLocaleString('id-ID')} dengan target hanya ${sc3.minPackagesNeeded} paket/hari. Titik impas (BEP) Anda adalah ${sc2.bepPackagesNeeded} paket.`;
+        tailoredComplaintDiagnosis = `Analisis Finansial & Harga: Berdasarkan pertanyaan "${cleanedUserQuery}", dengan biaya iklan Rp ${adsCost.toLocaleString('id-ID')}, koin Rp ${coinCost.toLocaleString('id-ID')}, serta beban kerja 1 Host (Rp ${hostSalary.toLocaleString('id-ID')}) dan 1 Admin (Rp ${adminSalary.toLocaleString('id-ID')}) dengan target laba Rp ${targetProfit.toLocaleString('id-ID')}/hari (total beban wajib Rp ${totalFixedBurden.toLocaleString('id-ID')}), Anda direkomendasikan menjual paket Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')} dengan target kuota ${sc2.minPackagesNeeded} paket/hari, atau Bundling 3 Pcs seharga Rp ${p3.toLocaleString('id-ID')} dengan target ${sc3.minPackagesNeeded} paket/hari. Titik impas (BEP) toko Anda adalah ${sc2.bepPackagesNeeded} paket.`;
         tailoredAdvice = [
           `Fokuskan host live mempromosikan Bundling 2 & 3 pcs sebagai "Menu Utama" etalase, karena efisiensi biaya layanan dan packing jauh lebih hemat dibanding menjual satuan.`,
           `Alokasikan koin Rp ${coinCost.toLocaleString('id-ID')} saat traffic penonton berada di puncaknya (biasanya menit ke-20 sampai ke-45 per sesi) untuk menstimulasi checkout cepat.`,
@@ -404,6 +420,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       }
 
       const fallbackData = {
+        analyzedQuery: cleanedUserQuery,
         directAnswer: tailoredComplaintDiagnosis,
         extractedParams: {
           targetProfit,
@@ -496,6 +513,7 @@ Berikan format JSON murni TANPA markdown:
               : fallbackData.strategicAdvice;
 
             const finalData = {
+              analyzedQuery: cleanedUserQuery,
               directAnswer: parsed.directAnswer || fallbackData.directAnswer,
               extractedParams,
               scenarios: [finalSc2, finalSc3, finalSc1, finalSc5],

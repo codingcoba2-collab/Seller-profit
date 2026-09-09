@@ -36,18 +36,18 @@ export const THEME_PALETTES: Record<ThemePalette, ThemeDefinition> = {
   },
   neon: {
     id: 'neon',
-    name: 'TikTok Neon & Cyber',
-    description: 'Dynamic Cyan & Crimson untuk Live Commerce modern',
+    name: 'Futuristik Neon Cyber',
+    description: 'Background futuristik cyber & aksen efek neon menyala di sudut menu, teks tetap super tajam',
     primaryColor: '#25F4EE',
     accentColor: '#FE2C55',
-    bgDark: '#0b0c10',
-    cardDark: '#161823',
+    bgDark: '#07090e',
+    cardDark: '#121520',
     bgLight: '#f4f6fb',
     cardLight: '#ffffff',
     badgeBg: 'bg-[#25F4EE]/15',
     badgeText: 'text-[#25F4EE]',
     primaryGradient: 'from-[#25F4EE] to-[#FE2C55]',
-    previewColors: ['#25F4EE', '#FE2C55', '#161823'],
+    previewColors: ['#25F4EE', '#FE2C55', '#121520'],
   },
   emerald: {
     id: 'emerald',
@@ -127,8 +127,8 @@ export const THEME_PALETTES: Record<ThemePalette, ThemeDefinition> = {
 };
 
 export const DEFAULT_THEME: ThemeConfig = {
-  mode: 'light',
-  palette: 'arcteryx',
+  mode: 'dark',
+  palette: 'neon',
 };
 
 type ThemeChangeListener = (theme: ThemeConfig) => void;

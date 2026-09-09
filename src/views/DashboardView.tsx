@@ -21,6 +21,7 @@ import {
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { RunningTextBanner } from '../components/RunningTextBanner';
+import { NeonCorners } from '../components/NeonCorners';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -192,9 +193,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-omzet-hari-ini"
           onClick={() => onNavigate('/penjualan/live')}
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group"
+          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-1">
+          <NeonCorners cyanTop={false} magentaBottom={true} />
+          <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Omzet Hari Ini
             </span>
@@ -202,7 +204,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div>
+          <div className="relative z-10">
             <div className="text-lg sm:text-xl font-black text-[#FE2C55] tracking-tight truncate">
               {formatRupiah(todayOmzet)}
             </div>
@@ -216,9 +218,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-hpp"
           onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group"
+          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-1">
+          <NeonCorners cyanTop={true} magentaBottom={false} />
+          <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               HPP
             </span>
@@ -226,7 +229,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Layers className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div>
+          <div className="relative z-10">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatRupiah(hppInfo.weightedAverageHpp)}
             </div>
@@ -240,9 +243,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-stok"
           onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group"
+          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-1">
+          <NeonCorners cyanTop={true} magentaBottom={true} />
+          <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Stok Barang
             </span>
@@ -250,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Package className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div>
+          <div className="relative z-10">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs</span>
             </div>
@@ -264,9 +268,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-saldo-iklan"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group"
+          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-1">
+          <NeonCorners cyanTop={true} magentaBottom={false} />
+          <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Saldo Iklan
             </span>
@@ -274,7 +279,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Megaphone className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div>
+          <div className="relative z-10">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatRupiah(adsCoinInfo.remainingAds)}
             </div>
@@ -288,9 +293,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-saldo-koin"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1"
+          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-1">
+          <NeonCorners cyanTop={false} magentaBottom={true} />
+          <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Saldo Koin
             </span>
@@ -298,7 +304,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Coins className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div>
+          <div className="relative z-10">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatRupiah(adsCoinInfo.remainingCoin)}
             </div>
@@ -313,8 +319,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div 
         id="banner-kalkulasi-paket-ai"
         onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
-        className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#161823] to-[#161823] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99]"
+        className="relative p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#121520] to-[#121520] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] overflow-hidden"
       >
+        <NeonCorners cyanTop={true} magentaBottom={true} />
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
             <Calculator className="w-5 h-5" />
@@ -355,9 +362,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 key={cat.key}
                 id={`card-main-menu-${cat.key}`}
                 onClick={() => onNavigate(cat.path)}
-                className={`group p-4 sm:p-4.5 rounded-2xl border bg-[#161823] hover:bg-[#1c1f2e] transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-3.5 ${cat.hoverBorder} ${cat.borderAccent}`}
+                className={`relative group p-4 sm:p-4.5 rounded-2xl border bg-[#121520] hover:bg-[#181c2b] transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-3.5 overflow-hidden ${cat.hoverBorder} ${cat.borderAccent}`}
               >
-                <div className="flex items-center gap-3">
+                <NeonCorners cyanTop={true} magentaBottom={true} />
+                <div className="flex items-center gap-3 relative z-10">
                   <div
                     className={`w-11 h-11 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${cat.iconColor} shrink-0 shadow-inner group-hover:scale-105 transition-transform`}
                   >
