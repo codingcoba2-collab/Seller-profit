@@ -25,7 +25,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header without category switcher tabs */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 shadow-lg overflow-hidden">
-        <NeonCorners cyanTop={true} magentaBottom={true} />
+        <NeonCorners variant="side-left" color="cyan" />
         <div className="flex items-center gap-3 relative z-10">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${currentCategory.iconColor} shrink-0`}
@@ -82,7 +82,12 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   : 'bg-[#12141c]/70 border-white/5 opacity-50 cursor-not-allowed'
               }`}
             >
-              {accessible && <NeonCorners cyanTop={true} magentaBottom={true} />}
+              {accessible && (
+                <NeonCorners 
+                  variant="side-left" 
+                  color={item.iconColor?.includes('FE2C55') ? 'magenta' : item.iconColor?.includes('emerald') ? 'emerald' : item.iconColor?.includes('amber') ? 'amber' : 'cyan'} 
+                />
+              )}
               {/* Left: Icon & Text */}
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 relative z-10">
                 <div

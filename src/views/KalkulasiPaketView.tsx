@@ -36,7 +36,11 @@ import {
   FileText,
   BookOpen,
   Award,
-  AlertCircle
+  AlertCircle,
+  MessageCircle,
+  Radio,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface KalkulasiPaketViewProps {
@@ -47,7 +51,21 @@ interface KalkulasiPaketViewProps {
 
 interface AiResponseData {
   analyzedQuery?: string;
+  channelType?: string;
+  channelLabel?: string;
   directAnswer: string;
+  costStructure?: {
+    hppPerPcs?: number;
+    adsCost?: number;
+    coinCost?: number;
+    hostSalary?: number;
+    adminSalary?: number;
+    adminMarketplacePercent?: number;
+    serviceFeePerOrder?: number;
+    packingCost?: number;
+    targetProfitNominal?: number;
+    targetProfitDescription?: string;
+  };
   extractedParams?: {
     targetProfit?: number;
     targetProfitPercent?: number;
@@ -57,6 +75,8 @@ interface AiResponseData {
     adminSalary?: number;
     totalFixedBurden?: number;
     hppPerPcs?: number;
+    adminPercentage?: number;
+    serviceFeePerOrder?: number;
   };
   scenarios: BundleScenario[];
   formulaExplanation?: {
@@ -65,6 +85,8 @@ interface AiResponseData {
     step3: string;
   };
   strategicAdvice?: string[];
+  suggestedFollowUps?: string[];
+  closingScript?: string;
 }
 
 export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
@@ -132,6 +154,8 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
   const [targetPackagesInput, setTargetPackagesInput] = useState<number>(30);
 
   // AI Prompt State
+  const [selectedChannel, setSelectedChannel] = useState<'auto' | 'dm_sosmed' | 'live_streaming' | 'marketplace_reguler'>('auto');
+  const [copiedScript, setCopiedScript] = useState<boolean>(false);
   const [aiQuestion, setAiQuestion] = useState<string>(
     'Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling yang dijual agar keuntungan bisa mencapai 1 jt/hari dan berapa minimum paket terjual?'
   );
@@ -282,13 +306,15 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
     returnPercentage,
   ]);
 
-  // Handle Asking AI
-  const handleAskAi = async (customPrompt?: string) => {
+  // Handle Asking AI with full multi-channel support
+  const handleAskAi = async (customPrompt?: string, forcedChannel?: 'auto' | 'dm_sosmed' | 'live_streaming' | 'marketplace_reguler') => {
     const textToAsk = (customPrompt !== undefined ? customPrompt : aiQuestion).trim();
     if (!textToAsk) {
       if (onNotify) onNotify('Silakan ketik pertanyaan atau keluhan Anda terlebih dahulu.', 'error');
       return;
     }
+
+    const channelToUse = forcedChannel || selectedChannel;
 
     if (customPrompt !== undefined) {
       setAiQuestion(customPrompt);
@@ -305,6 +331,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userQuery: textToAsk,
+          channel: channelToUse,
           storeContext: {
             storeName: store?.storeName || 'Seller Profit Fashion',
             hppAverage: customHpp,
@@ -339,7 +366,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
         setAiResult(resJson.data);
         setAiSubTab('jawaban');
         if (onNotify) {
-          onNotify('Rekomendasi harga & kuota bundling berhasil dihitung.', 'success');
+          onNotify(`Rekomendasi harga ${resJson.data.channelLabel || ''} berhasil dihitung.`, 'success');
         }
         return;
       }
@@ -347,7 +374,130 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
       throw new Error(resJson?.error || 'Gagal menerima data kalkulasi');
     } catch (err: any) {
       console.warn('Network or AI service timeout, utilizing robust local calculation engine:', err);
-      // Guaranteed robust local calculation fallback so the user NEVER encounters a blank or error screen!
+      // Multi-channel local calculation fallback
+      const lowerQ = textToAsk.toLowerCase();
+      const isDm = channelToUse === 'dm_sosmed' ||
+        lowerQ.includes('dm') ||
+        lowerQ.includes('instagram') ||
+        lowerQ.includes('ig') ||
+        lowerQ.includes('wa') ||
+        lowerQ.includes('whatsapp') ||
+        lowerQ.includes('chat') ||
+        lowerQ.includes('sosmed') ||
+        lowerQ.includes('pesan langsung') ||
+        lowerQ.includes('direct');
+
+      if (isDm) {
+        // DM selling: 0% admin marketplace, 0 service fee, 0 coin, 0 host live!
+        const dmAdminSalary = adminSalary > 0 ? adminSalary : 50000;
+        const dmAdsCost = adsCost > 0 ? adsCost : 30000;
+        const dmTotalOverhead = dmAdminSalary + dmAdsCost + operationalCost;
+        const dmTargetProfit = targetProfit > 0 ? targetProfit : 500000;
+        const dmTotalBurden = dmTotalOverhead + dmTargetProfit;
+
+        const calcDmScenario = (id: string, name: string, badge: string, pcs: number, factor: number, add: number, freeOngkirSubsidi: number, sum: string) => {
+          const totalHpp = pcs * customHpp;
+          const rawPrice = Math.round(((totalHpp * factor) + add) / 1000) * 1000;
+          const packing = packingCost * (pcs > 1 ? 1.2 : 1);
+          const variable = totalHpp + packing + freeOngkirSubsidi;
+          const price = Math.max(Math.ceil((variable + 15000) / 1000) * 1000, rawPrice);
+          const margin = Math.max(2000, price - variable);
+          const minPkgs = Math.max(1, Math.ceil(dmTotalBurden / margin));
+          const bep = dmTotalOverhead > 0 ? Math.max(1, Math.ceil(dmTotalOverhead / margin)) : 0;
+          return {
+            id,
+            name,
+            badge,
+            pcsPerPackage: pcs,
+            recommendedPrice: price,
+            marginPerPackage: Math.round(margin),
+            marginPercentage: Number(((margin / price) * 100).toFixed(1)),
+            minPackagesNeeded: minPkgs,
+            totalPcsNeeded: minPkgs * pcs,
+            bepPackagesNeeded: bep,
+            totalOmzetKotor: minPkgs * price,
+            summary: sum,
+          };
+        };
+
+        const dmSc1 = calcDmScenario('bundling_1pcs', 'Satuan DM (1 Pcs)', 'Harga Normal / Teaser', 1, 2.0, 15000, 0, 'Harga satuan normal untuk customer DM baru, ongkos kirim ditanggung pembeli sepenuhnya.');
+        const dmSc2 = calcDmScenario('bundling_2pcs', 'Paket Hemat DM (2 Pcs)', 'Paling Laris di DM (Free Ongkir)', 2, 1.75, 18000, 10000, 'Best Seller transaksi chat DM: gratis subsidi ongkir Rp 10.000 memicu closing instan tanpa tawar-menawar!');
+        const dmSc3 = calcDmScenario('bundling_3pcs', 'Paket Borong Fashion (3 Pcs)', 'Margin Profit Tertinggi', 3, 1.65, 20000, 15000, 'Sangat efektif ditawarkan saat customer minta diskon ("Tambah 1 pcs lagi langsung dapat potongan spesial").');
+        const dmSc5 = calcDmScenario('bundling_5pcs', 'Paket Reseller / Sahabat (5 Pcs)', 'Volume Grosir DM', 5, 1.50, 25000, 20000, 'Pilihan bagi langganan atau reseller yang ingin membeli serian warna atau cuci ball persediaan.');
+
+        let dmDirectAnswer = '';
+        if (lowerQ.includes('script') || lowerQ.includes('balas') || lowerQ.includes('closing') || lowerQ.includes('chat')) {
+          dmDirectAnswer = `Strategi Script Fast-Closing DM Instagram & WhatsApp: Untuk modal HPP Rp ${customHpp.toLocaleString('id-ID')}/pcs, pasang harga satuan di Rp ${dmSc1.recommendedPrice.toLocaleString('id-ID')} (+ongkir), namun langsung tawarkan Paket Hemat 2 Pcs Rp ${dmSc2.recommendedPrice.toLocaleString('id-ID')} dengan 'GRATIS SUBSIDI ONGKIR 10RB'. Karena tanpa potongan admin marketplace (${adminPercentage}%), margin bersih per paket 2 pcs mencapai Rp ${dmSc2.marginPerPackage.toLocaleString('id-ID')} (${dmSc2.marginPercentage}%), dan Anda hanya butuh closing ${dmSc2.minPackagesNeeded} paket/hari untuk untung bersih Rp ${dmTargetProfit.toLocaleString('id-ID')}!`;
+        } else if (lowerQ.includes('diskon') || lowerQ.includes('tawar') || lowerQ.includes('nego') || lowerQ.includes('murah')) {
+          dmDirectAnswer = `Trik Menghadapi Customer Nego Diskon di DM: Jangan pernah menurunkan harga satuan Rp ${dmSc1.recommendedPrice.toLocaleString('id-ID')}. Alihkan dengan jurus upselling: "Kalau ambil 1 pcs kena ongkir kak, mending ambil Paket Hemat 2 Pcs Rp ${dmSc2.recommendedPrice.toLocaleString('id-ID')} langsung kami gratiskan ongkir 10rb!". Dengan strategi ini, Anda tetap mengantongi laba bersih Rp ${dmSc2.marginPerPackage.toLocaleString('id-ID')} per chat dan perputaran modal HPP 2x lebih cepat.`;
+        } else {
+          dmDirectAnswer = `Kalkulasi Harga Jual DM Instagram & WhatsApp: Di channel DM, Anda bebas dari potongan admin marketplace (${adminPercentage}%) ataupun biaya koin live streaming. Dengan modal HPP Rp ${customHpp.toLocaleString('id-ID')}/pcs dan target laba bersih Rp ${dmTargetProfit.toLocaleString('id-ID')}/hari (beban harian Rp ${dmTotalBurden.toLocaleString('id-ID')}), harga ideal di DM adalah Rp ${dmSc1.recommendedPrice.toLocaleString('id-ID')} (satuan) dan Rp ${dmSc2.recommendedPrice.toLocaleString('id-ID')} (Paket 2 Pcs Hemat Ongkir). Anda cukup closing ${dmSc2.minPackagesNeeded} paket per hari untuk mencapai target laba bersih! Titik impas (BEP) beban harian hanya ${dmSc2.bepPackagesNeeded} paket.`;
+        }
+
+        const dmClosingScript = `Halo kak! Untuk baju ini harga satuan Rp ${dmSc1.recommendedPrice.toLocaleString('id-ID')} (belum termasuk ongkir). Tapi KHUSUS ORDER HARI INI kami ada PROMO BUNDLING HEMAT:
+✨ Ambil 2 Pcs hanya Rp ${dmSc2.recommendedPrice.toLocaleString('id-ID')} + GRATIS SUBSIDI ONGKIR 10RB!
+✨ Boleh mix model & warna bebas!
+Kakak mau keep warna apa saja sebelum slot pengiriman hari ini penuh? Silakan balas dengan Format Order ya kak:
+Nama:
+No HP:
+Alamat Lengkap:`;
+
+        const dmAdvice = [
+          'Balas pesan DM dalam waktu kurang dari 3 menit pertama saat calon pembeli masih aktif memegang smartphone.',
+          'Gunakan teknik "Choice Architecture": Berikan pilihan opsi Paket 2 pcs vs 3 pcs, jangan beri pilihan "Beli atau Tidak".',
+          'Karena transfer langsung via BCA/Mandiri/QRIS (0% admin fee), alihkan keuntungan tanpa potongan itu sebagai daya pikat Subsidi Ongkir.',
+          'Kirim format order dan foto real picture resolusi tinggi dengan pencahayaan natural agar customer tidak ragu transfer.'
+        ];
+
+        setAiResult({
+          analyzedQuery: textToAsk,
+          channelType: 'dm_sosmed',
+          channelLabel: 'DM Instagram / WhatsApp (Direct Order)',
+          directAnswer: dmDirectAnswer,
+          costStructure: {
+            hppPerPcs: customHpp,
+            adsCost: dmAdsCost,
+            coinCost: 0,
+            hostSalary: 0,
+            adminSalary: dmAdminSalary,
+            adminMarketplacePercent: 0,
+            serviceFeePerOrder: 0,
+            packingCost,
+            targetProfitNominal: dmTargetProfit,
+            targetProfitDescription: `Target Laba Rp ${dmTargetProfit.toLocaleString('id-ID')}`
+          },
+          extractedParams: {
+            targetProfit: dmTargetProfit,
+            targetProfitPercent,
+            adsCost: dmAdsCost,
+            coinCost: 0,
+            hostSalary: 0,
+            adminSalary: dmAdminSalary,
+            totalFixedBurden: dmTotalBurden,
+            hppPerPcs: customHpp,
+            adminPercentage: 0,
+            serviceFeePerOrder: 0
+          },
+          scenarios: [dmSc2, dmSc3, dmSc1, dmSc5],
+          formulaExplanation: {
+            step1: `Total Beban Harian DM = Target Laba (Rp ${dmTargetProfit.toLocaleString('id-ID')}) + Iklan IG/Sosmed (Rp ${dmAdsCost.toLocaleString('id-ID')}) + Gaji CS Admin (Rp ${dmAdminSalary.toLocaleString('id-ID')}) = Rp ${dmTotalBurden.toLocaleString('id-ID')}. (Tanpa Gaji Host & Koin).`,
+            step2: `Margin Bersih per Paket DM = Harga Jual - Modal HPP - Biaya Packing - Subsidi Ongkir. (Hemat 100% potongan fee admin marketplace!).`,
+            step3: `Target Closing DM = Total Beban Harian dibagi Margin Bersih per Paket. BEP Beban Toko = Beban Pokok dibagi Margin Bersih.`
+          },
+          strategicAdvice: dmAdvice,
+          suggestedFollowUps: [
+            'Bagaimana cara follow up customer DM yang sudah tanya tapi belum transfer?',
+            'Berapa budget iklan Instagram Ads yang ideal untuk mendatangkan chat DM?',
+            'Bagaimana cara membuat format order otomatis di WhatsApp Business?'
+          ],
+          closingScript: dmClosingScript
+        });
+        setAiSubTab('jawaban');
+        if (onNotify) onNotify('Kalkulasi harga DM siap ditampilkan.', 'success');
+        return;
+      }
+
+      // Live Streaming / General Marketplace Fallback
       const totalOverhead = adsCost + coinCost + operationalCost + hostSalary + adminSalary;
       const totalBurden = totalOverhead + targetProfit;
       
@@ -383,8 +533,6 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
       const sc1 = calcScenario('bundling_1pcs', 'Satuan (Single 1 Pcs)', 'Penjualan Satuan Normal', 1, 1.80, 12000, 'Pilihan bagi pembeli yang baru pertama kali coba berbelanja di toko Anda.');
       const sc5 = calcScenario('bundling_5pcs', 'Bundling Jumbo / Grosir (Isi 5 Pcs)', 'Volume Cepat Habis', 5, 1.45, 22000, 'Paling efektif untuk cuci gudang / menghabiskan sisa persediaan stok.');
 
-      // Tailored diagnosis based on the exact user question
-      const lowerQ = textToAsk.toLowerCase();
       let tailoredDiagnosis = '';
       let adviceItems: string[] = [];
 
@@ -448,6 +596,8 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
 
       setAiResult({
         analyzedQuery: textToAsk,
+        channelType: 'live_streaming',
+        channelLabel: 'Shopee & TikTok Live Streaming',
         directAnswer: tailoredDiagnosis,
         extractedParams: {
           targetProfit,
@@ -771,6 +921,46 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                     </button>
                   </div>
 
+                  {/* Channel Selector Bar */}
+                  <div className="p-2 rounded-xl bg-black/40 border border-white/10 space-y-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block px-1">
+                      Pilih Channel Penjualan (Memengaruhi Rumus & Biaya):
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: 'auto', label: '⚡ Deteksi Otomatis', desc: 'Sesuai kata kunci pertanyaan' },
+                        { id: 'dm_sosmed', label: '💬 DM Instagram / WA', desc: '0% Admin Marketplace, Tanpa Host' },
+                        { id: 'live_streaming', label: '🎥 Shopee & TikTok Live', desc: 'Ada Host Live, Koin, Admin' },
+                        { id: 'marketplace_reguler', label: '🛒 Marketplace Katalog', desc: 'Potongan Admin, Iklan Search' },
+                      ].map((ch) => (
+                        <button
+                          key={ch.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedChannel(ch.id as any);
+                            if (ch.id === 'dm_sosmed') {
+                              setAiQuestion('Kalkulasi harga jual baju di DM Instagram modal 25rb biar untung 500rb/hari dan berapa paket terjual?');
+                            } else if (ch.id === 'live_streaming') {
+                              setAiQuestion('Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling 2 pcs yang dijual agar keuntungan mencapai 1 jt/hari?');
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                            selectedChannel === ch.id
+                              ? 'bg-emerald-500/20 border-emerald-500 text-white shadow-md ring-1 ring-emerald-500/30'
+                              : 'bg-black/30 border-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                          }`}
+                        >
+                          <span className={`text-xs font-black block truncate ${selectedChannel === ch.id ? 'text-emerald-300' : 'text-zinc-300'}`}>
+                            {ch.label}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 block truncate mt-0.5">
+                            {ch.desc}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Clean Textarea with Dedicated Action Bar Below (Tidak Menumpuk/Berantakan) */}
                   <div className="rounded-2xl bg-black/60 border border-white/15 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all overflow-hidden">
                     <textarea
@@ -784,7 +974,11 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                         }
                       }}
                       rows={3}
-                      placeholder="Contoh: Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling 2 pcs yang dijual agar keuntungan mencapai 1 jt/hari dan berapa minimum paket terjual?"
+                      placeholder={
+                        selectedChannel === 'dm_sosmed'
+                          ? "Contoh: Berapa harga jual baju di DM Instagram modal 25rb biar untung 500rb/hari dan buatkan script balas DM fast closing?"
+                          : "Contoh: Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling 2 pcs yang dijual agar keuntungan mencapai 1 jt/hari dan berapa minimum paket terjual?"
+                      }
                       className="w-full p-4 bg-transparent text-white placeholder-zinc-500 text-sm focus:outline-none resize-none leading-relaxed block"
                     />
 
@@ -822,28 +1016,42 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Preset Quick Chips - Pertanyaan & Keluhan Populer Seller */}
+                  {/* Preset Quick Chips - Pertanyaan & Keluhan Populer Seller (DM & Live) */}
                   <div className="space-y-2 pt-1 border-t border-white/5">
-                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                      Contoh Pertanyaan & Keluhan Populer:
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                        Contoh Pertanyaan Populer:
+                      </span>
+                      <span className="text-[10px] text-zinc-500">Klik untuk langsung tanyakan ke AI</span>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
-                        'Iklan 60k koin 30k target laba 1 jt/hari berapa harga bundling 2 pcs dan kuota terjual?',
-                        'Iklan boncos 100k penjualan sepi, gimana cara bundling biar tetap untung 500rb?',
-                        'Retur pembeli tinggi sampai 8%, berapa harga bundling 2 & 3 pcs yang aman?',
-                        'Host live minta gaji 100k, berapa paket bundling yang harus terjual per sesi?',
+                        { tag: '💬 DM', ch: 'dm_sosmed' as const, q: 'Kalkulasi harga jual baju di DM Instagram modal 25rb biar untung 500rb/hari dan berapa paket terjual?' },
+                        { tag: '💬 DM', ch: 'dm_sosmed' as const, q: 'Script balas DM Instagram agar customer langsung transfer beli bundling 2 pcs hemat ongkir?' },
+                        { tag: '💬 DM', ch: 'dm_sosmed' as const, q: 'Customer di DM minta diskon, gimana cara upselling bundling hemat ongkir biar tetap untung?' },
+                        { tag: '🎥 Live', ch: 'live_streaming' as const, q: 'Iklan 60k koin 30k target laba 1 jt/hari berapa harga bundling 2 pcs dan kuota terjual?' },
+                        { tag: '🎥 Live', ch: 'live_streaming' as const, q: 'Iklan boncos 100k penjualan sepi, gimana cara bundling biar tetap untung 500rb?' },
+                        { tag: '🎥 Live', ch: 'live_streaming' as const, q: 'Host live minta gaji 100k, berapa paket bundling yang harus terjual per sesi?' },
                       ].map((preset, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => {
-                            setAiQuestion(preset);
-                            handleAskAi(preset);
+                            setSelectedChannel(preset.ch);
+                            setAiQuestion(preset.q);
+                            handleAskAi(preset.q, preset.ch);
                           }}
-                          className="text-left text-xs px-3 py-2 rounded-xl bg-black/40 hover:bg-emerald-500/10 text-zinc-300 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 transition-all cursor-pointer truncate"
+                          className="text-left text-xs p-2.5 rounded-xl bg-black/40 hover:bg-emerald-500/10 text-zinc-300 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 transition-all cursor-pointer flex items-start gap-2 group"
                         >
-                          "{preset}"
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                            preset.tag.includes('DM') ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            {preset.tag}
+                          </span>
+                          <span className="line-clamp-2 leading-snug group-hover:text-white">
+                            "{preset.q}"
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -938,9 +1146,18 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[10px] uppercase font-black text-zinc-400">Pertanyaan Dianalisis:</span>
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
-                                1 Host + 1 Admin Bertugas
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                                {aiResult.channelLabel || (aiResult.channelType === 'dm_sosmed' ? '💬 DM Instagram / WA (Direct)' : '🎥 Shopee & TikTok Live')}
                               </span>
+                              {aiResult.channelType === 'dm_sosmed' ? (
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                  0% Admin Marketplace
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                                  1 Host + 1 Admin Bertugas
+                                </span>
+                              )}
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                                 Realtime AI
                               </span>
@@ -964,20 +1181,25 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                       {/* Quick Question Switcher Chips */}
                       <div className="pt-2 border-t border-white/5 space-y-1.5">
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                          Ganti Pertanyaan Cepat (Jawaban Langsung Berubah):
+                          Ganti Pertanyaan Cepat (Jawaban Langsung Berubah Sesuai Channel):
                         </span>
                         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
                           {[
-                            { label: '🔥 Iklan Boncos', q: 'Iklan boncos 100k penjualan sepi, gimana cara bundling biar tetap untung 500rb?' },
-                            { label: '📦 Retur COD 8%', q: 'Retur pembeli tinggi sampai 8%, berapa harga bundling 2 & 3 pcs yang aman?' },
-                            { label: '👥 Gaji Host & Admin', q: 'Beban gaji host 100k dan admin 80k per live, berapa paket bundling minimum harus laku?' },
-                            { label: '⏰ Jam Live Terbaik', q: 'Bagusan live jam berapa dan berapa durasi live streaming yang ideal?' },
-                            { label: '⚖️ Satuan vs Bundling', q: 'Apakah lebih untung jual pakaian satuan atau paket bundling isi 2 dan 3 pcs?' },
+                            { label: '💬 DM Modal 25rb', ch: 'dm_sosmed' as const, q: 'Kalkulasi harga jual baju di DM Instagram modal 25rb biar untung 500rb/hari dan berapa paket terjual?' },
+                            { label: '💬 Script Fast Closing DM', ch: 'dm_sosmed' as const, q: 'Script balas DM Instagram agar customer langsung transfer beli bundling 2 pcs hemat ongkir?' },
+                            { label: '💬 Customer Nego DM', ch: 'dm_sosmed' as const, q: 'Customer di DM minta diskon, gimana cara upselling bundling hemat ongkir biar tetap untung?' },
+                            { label: '🔥 Iklan Boncos Live', ch: 'live_streaming' as const, q: 'Iklan boncos 100k penjualan sepi, gimana cara bundling biar tetap untung 500rb?' },
+                            { label: '📦 Retur COD 8%', ch: 'live_streaming' as const, q: 'Retur pembeli tinggi sampai 8%, berapa harga bundling 2 & 3 pcs yang aman?' },
+                            { label: '👥 Gaji Host Live', ch: 'live_streaming' as const, q: 'Beban gaji host 100k dan admin 80k per live, berapa paket bundling minimum harus laku?' },
                           ].map((item, idx) => (
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => handleAskAi(item.q)}
+                              onClick={() => {
+                                setSelectedChannel(item.ch);
+                                setAiQuestion(item.q);
+                                handleAskAi(item.q, item.ch);
+                              }}
                               className="px-2.5 py-1.5 rounded-lg bg-black/50 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 text-zinc-300 hover:text-emerald-300 shrink-0 transition-all font-medium text-xs cursor-pointer flex items-center gap-1"
                             >
                               <span>{item.label}</span>
@@ -995,7 +1217,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                             <Sparkles className="w-4 h-4" />
                           </div>
                           <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                            Rekomendasi Utama AI
+                            Rekomendasi Utama AI ({aiResult.channelLabel || 'Kalkulasi Cerdas'})
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1014,34 +1236,60 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="p-4 rounded-xl bg-black/50 border border-emerald-500/20 text-sm sm:text-base font-medium text-emerald-100 leading-relaxed">
+                      <div className="p-4 rounded-xl bg-black/50 border border-emerald-500/20 text-sm sm:text-base font-medium text-emerald-100 leading-relaxed whitespace-pre-line">
                         {aiResult.directAnswer}
                       </div>
 
-                      {/* Extracted Metrics Bar */}
+                      {/* Extracted Metrics Bar (Channel-Sensitive) */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                         <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Total Beban Harian</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">
+                            {aiResult.channelType === 'dm_sosmed' ? 'Total Beban DM' : 'Total Beban Harian'}
+                          </span>
                           <span className="text-sm font-black text-white mt-0.5 block">
-                            {formatRupiah(aiResult.extractedParams?.totalFixedBurden || (targetProfit + adsCost + coinCost + hostSalary + adminSalary))}
+                            {formatRupiah(
+                              aiResult.extractedParams?.totalFixedBurden ||
+                              (aiResult.channelType === 'dm_sosmed'
+                                ? ((aiResult.costStructure?.targetProfitNominal ?? (targetProfit || 500000)) + (aiResult.costStructure?.adsCost ?? (adsCost || 30000)) + (aiResult.costStructure?.adminSalary ?? (adminSalary || 50000)))
+                                : (targetProfit + adsCost + coinCost + hostSalary + adminSalary))
+                            )}
                           </span>
                         </div>
+
                         <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Biaya Iklan + Koin</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">
+                            {aiResult.channelType === 'dm_sosmed' ? 'Biaya Iklan Sosmed' : 'Biaya Iklan + Koin'}
+                          </span>
                           <span className="text-sm font-black text-amber-400 mt-0.5 block">
-                            {formatRupiah(adsCost + coinCost)}
+                            {formatRupiah(
+                              aiResult.channelType === 'dm_sosmed'
+                                ? (aiResult.costStructure?.adsCost ?? (adsCost || 30000))
+                                : (adsCost + coinCost)
+                            )}
                           </span>
                         </div>
+
                         <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">Gaji Host & Admin</span>
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase block">
+                            {aiResult.channelType === 'dm_sosmed' ? 'Admin Chat DM / CS' : 'Gaji Host & Admin'}
+                          </span>
                           <span className="text-sm font-black text-cyan-400 mt-0.5 block">
-                            {formatRupiah(hostSalary + adminSalary)}
+                            {formatRupiah(
+                              aiResult.channelType === 'dm_sosmed'
+                                ? (aiResult.costStructure?.adminSalary ?? (adminSalary || 50000))
+                                : (hostSalary + adminSalary)
+                            )}
                           </span>
                         </div>
+
                         <div className="p-3 rounded-xl bg-black/40 border border-white/5">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase block">Target Laba Bersih</span>
                           <span className="text-sm font-black text-emerald-400 mt-0.5 block">
-                            {targetProfitType === 'nominal' ? formatRupiah(targetProfit) : `${targetProfitPercent}% Omzet`}
+                            {formatRupiah(
+                              aiResult.channelType === 'dm_sosmed'
+                                ? (aiResult.costStructure?.targetProfitNominal ?? (targetProfit || 500000))
+                                : (targetProfitType === 'nominal' ? targetProfit : (targetProfit || 500000))
+                            )}
                           </span>
                         </div>
                       </div>
@@ -1123,6 +1371,87 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                         ))}
                       </div>
                     </div>
+
+                    {/* Script Closing Chat DM / Live Selling */}
+                    {(aiResult.closingScript || aiResult.channelType === 'dm_sosmed') && (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-cyan-950/40 via-[#14161F] to-[#14161F] border border-cyan-500/30 space-y-3 shadow-lg">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                              <MessageCircle className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-black uppercase tracking-wider text-cyan-300 block">
+                                {aiResult.channelType === 'dm_sosmed' ? 'Script Balas Chat DM & Fast Closing' : 'Script Closing & Call-To-Action'}
+                              </span>
+                              <span className="text-[10px] text-zinc-400">
+                                {aiResult.channelType === 'dm_sosmed' ? 'Tinggal salin dan kirim ke calon pembeli di DM Instagram / WhatsApp' : 'Gunakan saat host live mempromosikan bundling di keranjang'}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const scriptText = aiResult.closingScript || 
+                                `Halo Kak! Beli 1 pcs Rp 49.000, tapi khusus hari ini ada Promo Bundling 2 pcs cuma Rp 79.000 (Hemat Rp 19.000 + Subsidi Ongkir!). Mau saya keep warna apa Kak sebelum promonya habis hari ini?`;
+                              navigator.clipboard.writeText(scriptText);
+                              setCopiedScript(true);
+                              setTimeout(() => setCopiedScript(false), 2500);
+                              if (onNotify) onNotify('Script balas chat berhasil disalin ke clipboard!', 'success');
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                          >
+                            {copiedScript ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-300">Tersalin!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Salin Script</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-black/60 border border-cyan-500/20 text-xs sm:text-sm text-cyan-100 font-mono whitespace-pre-line leading-relaxed">
+                          {aiResult.closingScript ||
+                            `Halo Kak! Beli 1 pcs Rp 49.000, tapi khusus hari ini ada Promo Bundling 2 pcs cuma Rp 79.000 (Hemat Rp 19.000 + Subsidi Ongkir!). Mau saya keep warna apa Kak sebelum promonya habis hari ini?`}
+                        </div>
+
+                        {aiResult.channelType === 'dm_sosmed' && (
+                          <div className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                            <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                            <span>Tips Praktis: Balas calon pembeli dalam kurun waktu &lt; 5 menit saat minat beli masih hangat.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Suggested Follow-Ups */}
+                    {aiResult.suggestedFollowUps && aiResult.suggestedFollowUps.length > 0 && (
+                      <div className="p-4 rounded-2xl bg-[#14161F] border border-white/10 space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                          Pertanyaan Lanjutan Terkait:
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {aiResult.suggestedFollowUps.map((fu, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setAiQuestion(fu);
+                                handleAskAi(fu);
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-xl bg-black/40 hover:bg-emerald-500/10 text-zinc-300 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 transition-colors text-left cursor-pointer"
+                            >
+                              "{fu}"
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Quick navigation to other subtabs */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/10">

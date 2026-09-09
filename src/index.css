@@ -516,7 +516,7 @@ body:not([data-theme-mode="light"]) {
   background-attachment: fixed;
 }
 
-/* 2. Neon Corner Box Utility (Ujung-ujung kotak menu ber-efek neon menyala) */
+/* 2. Neon Flex Cable Utility (Kabel neon fleksibel silikon di samping & ujung menu) */
 .neon-corner-box {
   position: relative;
   background-color: #121520 !important;
@@ -529,49 +529,47 @@ body:not([data-theme-mode="light"]) {
   box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.7), 0 0 20px rgba(37, 244, 238, 0.18) !important;
 }
 
-/* Neon corner brackets */
+/* Flexible silicone neon cable along left side */
 .neon-corner-box::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3.5px;
+  border-radius: 9999px;
+  background: linear-gradient(to bottom, #25F4EE, #00C2FF);
+  box-shadow: 0 0 4px #ffffff, 0 0 10px #25F4EE, 0 0 18px rgba(37, 244, 238, 0.7);
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.25s ease;
+}
+
+/* Accent flexible neon tube tip at top-left edge */
+.neon-corner-box::after {
   content: '';
   position: absolute;
   top: -1px;
   left: -1px;
   width: 14px;
   height: 14px;
-  border-top: 2.5px solid #25F4EE;
-  border-left: 2.5px solid #25F4EE;
+  border-top: 3px solid #25F4EE;
+  border-left: 3px solid #25F4EE;
   border-top-left-radius: 1rem;
-  filter: drop-shadow(0 0 6px rgba(37, 244, 238, 0.9));
-  pointer-events: none;
-  z-index: 5;
-  transition: all 0.25s ease;
-}
-
-.neon-corner-box::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 14px;
-  height: 14px;
-  border-bottom: 2.5px solid #FE2C55;
-  border-right: 2.5px solid #FE2C55;
-  border-bottom-right-radius: 1rem;
-  filter: drop-shadow(0 0 6px rgba(254, 44, 85, 0.9));
+  filter: drop-shadow(0 0 8px rgba(37, 244, 238, 0.95));
   pointer-events: none;
   z-index: 5;
   transition: all 0.25s ease;
 }
 
 .neon-corner-box:hover::before {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 0 10px #25F4EE);
+  box-shadow: 0 0 6px #ffffff, 0 0 14px #25F4EE, 0 0 24px rgba(37, 244, 238, 0.9);
 }
 
 .neon-corner-box:hover::after {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 0 10px #FE2C55);
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 0 12px #25F4EE);
 }
 
 /* 3. Text & Button Ultra-Crisp Legibility Enforcer */

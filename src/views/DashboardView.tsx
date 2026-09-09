@@ -189,13 +189,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           Layout: 2 kolom pada mobile (grid-cols-2), responsif 3-5 kolom pada layar besar
       */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-        {/* Card 1: Omzet Hari Ini */}
+        {/* Card 1: Omzet Hari Ini - Variasi Kabel Samping Magenta */}
         <div 
           id="card-stat-omzet-hari-ini"
           onClick={() => onNavigate('/penjualan/live')}
           className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <NeonCorners cyanTop={false} magentaBottom={true} />
+          <NeonCorners variant="side-left" color="magenta" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Omzet Hari Ini
@@ -214,13 +214,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 2: HPP */}
+        {/* Card 2: HPP - Variasi Kabel Samping Cyan */}
         <div 
           id="card-stat-hpp"
           onClick={() => onNavigate('/persiapan/modal-stok')}
           className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <NeonCorners cyanTop={true} magentaBottom={false} />
+          <NeonCorners variant="side-left" color="cyan" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               HPP
@@ -239,13 +239,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Sisa Stok (Sisa Stok Barang) */}
+        {/* Card 3: Sisa Stok - Variasi Kabel Samping Emerald */}
         <div 
           id="card-stat-sisa-stok"
           onClick={() => onNavigate('/persiapan/modal-stok')}
           className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <NeonCorners cyanTop={true} magentaBottom={true} />
+          <NeonCorners variant="side-left" color="emerald" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Stok Barang
@@ -264,13 +264,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Sisa Saldo Iklan */}
+        {/* Card 4: Sisa Saldo Iklan - Variasi Kabel Ujung Atas Cyan */}
         <div 
           id="card-stat-sisa-saldo-iklan"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
           className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
-          <NeonCorners cyanTop={true} magentaBottom={false} />
+          <NeonCorners variant="corner-top-left" color="cyan" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Saldo Iklan
@@ -289,13 +289,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 5: Sisa Saldo Koin */}
+        {/* Card 5: Sisa Saldo Koin - Variasi Kabel Samping Amber */}
         <div 
           id="card-stat-sisa-saldo-koin"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
           className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
         >
-          <NeonCorners cyanTop={false} magentaBottom={true} />
+          <NeonCorners variant="side-left" color="amber" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
               Sisa Saldo Koin
@@ -321,7 +321,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
         className="relative p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#121520] to-[#121520] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] overflow-hidden"
       >
-        <NeonCorners cyanTop={true} magentaBottom={true} />
+        <NeonCorners variant="side-left" color="emerald" />
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
             <Calculator className="w-5 h-5" />
@@ -364,7 +364,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => onNavigate(cat.path)}
                 className={`relative group p-4 sm:p-4.5 rounded-2xl border bg-[#121520] hover:bg-[#181c2b] transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-3.5 overflow-hidden ${cat.hoverBorder} ${cat.borderAccent}`}
               >
-                <NeonCorners cyanTop={true} magentaBottom={true} />
+                <NeonCorners 
+                  variant={cat.key === 'persiapan' ? 'corner-top-left' : 'side-left'} 
+                  color={cat.key === 'persiapan' ? 'cyan' : cat.key === 'penjualan' ? 'magenta' : 'emerald'} 
+                />
                 <div className="flex items-center gap-3 relative z-10">
                   <div
                     className={`w-11 h-11 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${cat.iconColor} shrink-0 shadow-inner group-hover:scale-105 transition-transform`}
