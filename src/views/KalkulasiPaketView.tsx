@@ -867,7 +867,7 @@ export const KalkulasiPaketView: React.FC<KalkulasiPaketViewProps> = ({
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {aiResult.scenarios.map((sc) => (
+                        {(aiResult?.scenarios || []).map((sc) => (
                           <div
                             key={sc.id}
                             onClick={() => {

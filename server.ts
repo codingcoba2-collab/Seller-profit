@@ -29,23 +29,30 @@ async function startServer() {
     return genAI;
   }
 
-  // Resilient JSON generator with automatic fallback across model aliases for 503/high-demand
+  // Resilient JSON generator with automatic fallback across fast models with per-call timeout
   async function generateJsonWithAi(prompt: string, temperature = 0.2) {
     const aiClient = getAI();
-    // Prioritized model fallback list (gemini-3.8-flash, gemini-3.1-flash-lite, gemini-flash-latest)
-    const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    // Prioritized model fallback list (gemini-3.1-flash-lite is fastest and highly responsive, fallback to gemini-3.6-flash and gemini-3.7-flash)
+    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.7-flash'];
     let lastError: any = null;
 
     for (const model of candidateModels) {
       try {
-        const response = await aiClient.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            temperature,
-          },
-        });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout calling model ${model} after 25000ms`)), 25000)
+        );
+
+        const response: any = await Promise.race([
+          aiClient.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              temperature,
+            },
+          }),
+          timeoutPromise,
+        ]);
 
         const rawText = response.text?.trim() || '{}';
         let cleanedText = rawText;
@@ -62,9 +69,14 @@ async function startServer() {
       } catch (err: any) {
         lastError = err;
         const msg = err?.message || String(err);
-        const isTemporaryBusy = msg.includes('503') || msg.includes('high demand') || msg.includes('UNAVAILABLE') || msg.includes('RESOURCE_EXHAUSTED');
+        const isTemporaryBusy =
+          msg.includes('503') ||
+          msg.includes('high demand') ||
+          msg.includes('UNAVAILABLE') ||
+          msg.includes('RESOURCE_EXHAUSTED') ||
+          msg.includes('Timeout');
         if (isTemporaryBusy) {
-          console.info(`Model ${model} is experiencing temporary high demand (503). Retrying with alternate model...`);
+          console.info(`Model ${model} unavailable or timed out: ${msg}. Retrying with alternate model...`);
           continue;
         }
         console.info(`Model ${model} call encountered error:`, msg);
@@ -216,7 +228,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       const adminSalary = Number(parameters?.adminSalary ?? 0);
       const adminIncentivePerPackage = Number(parameters?.adminIncentivePerPackage ?? 0);
 
-      const hppPerPcs = Number(parameters?.hppPerPcs ?? (storeContext?.hppAverage || 20000));
+      let hppPerPcs = Number(parameters?.hppPerPcs ?? (storeContext?.hppAverage || 20000));
       const adminPercentage = Number(parameters?.adminPercentage ?? (storeContext?.adminPromoPercentage || 8.5));
       const serviceFeePerOrder = Number(parameters?.serviceFeePerOrder ?? (storeContext?.serviceFeePerOrder || 1250));
       const returnPercentage = Number(parameters?.returnPercentage ?? (storeContext?.estimateReturnPercentage || 3.0));
@@ -226,8 +238,8 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       if (typeof userQuery === 'string' && userQuery.trim().length > 0) {
         const lowerQ = userQuery.toLowerCase();
         
-        // Iklan e.g. "iklan 60k", "iklan 60.000", "iklan 80rb"
-        const adsMatch = lowerQ.match(/iklan\s*(?:sebesar|seharga|sebanyak|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
+        // Iklan e.g. "iklan 60k", "iklan 60.000", "iklan 80rb", "biaya iklan 100rb"
+        const adsMatch = lowerQ.match(/(?:iklan|ads|biaya iklan)\s*(?:sebesar|seharga|sebanyak|rp|saya)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
         if (adsMatch) {
           const num = parseFloat(adsMatch[1].replace(',', '.'));
           const unit = adsMatch[2]?.toLowerCase();
@@ -238,7 +250,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
         }
 
         // Koin e.g. "koin 30k", "koin 30.000", "koin 50rb"
-        const coinMatch = lowerQ.match(/koin\s*(?:sebesar|seharga|sebanyak|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
+        const coinMatch = lowerQ.match(/(?:koin|coin|voucher)\s*(?:sebesar|seharga|sebanyak|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
         if (coinMatch) {
           const num = parseFloat(coinMatch[1].replace(',', '.'));
           const unit = coinMatch[2]?.toLowerCase();
@@ -248,12 +260,22 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
           else coinCost = num;
         }
 
-        // Target Laba e.g. "keuntungan 1 jt", "untung 1jt", "laba 1.5 jt", "profit 25%"
+        // HPP / Modal e.g. "modal 25k", "modal 20.000", "hpp 20rb"
+        const hppMatch = lowerQ.match(/(?:modal|hpp)\s*(?:sebesar|seharga|per\s*pcs)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu)?/i);
+        if (hppMatch) {
+          const num = parseFloat(hppMatch[1].replace(',', '.'));
+          const unit = hppMatch[2]?.toLowerCase();
+          if (unit === 'k' || unit === 'rb' || unit === 'ribu') hppPerPcs = num * 1000;
+          else if (num < 1000) hppPerPcs = num * 1000;
+          else hppPerPcs = num;
+        }
+
+        // Target Laba e.g. "keuntungan 1 jt", "untung 1jt", "laba 1.5 jt", "profit 25%", "target laba 2 jt"
         const percentMatch = lowerQ.match(/(?:laba|untung|keuntungan|profit|margin)\s*(?:mencapai|sebesar|minimal)?\s*(\d+(?:[.,]\d+)?)\s*%/i);
         if (percentMatch) {
           targetProfitPercent = parseFloat(percentMatch[1].replace(',', '.'));
         } else {
-          const labaMatch = lowerQ.match(/(?:laba|untung|keuntungan|profit)\s*(?:mencapai|sebesar|minimal|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
+          const labaMatch = lowerQ.match(/(?:laba|untung|keuntungan|profit|biar untung|agar untung|target untung)\s*(?:mencapai|sebesar|minimal|rp)?\s*(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?/i);
           if (labaMatch) {
             const num = parseFloat(labaMatch[1].replace(',', '.'));
             const unit = labaMatch[2]?.toLowerCase();
@@ -269,126 +291,7 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       const totalFixedOverhead = adsCost + coinCost + operationalCost + hostSalary + adminSalary;
       const totalFixedBurden = totalFixedOverhead + targetProfit;
 
-      const apiKeyAvailable = Boolean(process.env.GEMINI_API_KEY);
-
-      if (apiKeyAvailable) {
-        try {
-          const aiClient = getAI();
-          const prompt = `Anda adalah CFO & Pakar Strategi Bisnis E-Commerce & Live Streaming Fashion (Shopee Live, TikTok Shop, Thrift, Distro).
-
-PERTANYAAN USER:
-"${userQuery || 'Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling yang dijual agar keuntungan bisa mencapai 1 jt/hari dan berapa minimum paket terjual?'}"
-
-DATA FINANSIAL & PARAMETER OPERASIONAL TOKO:
-- Nama Toko: ${storeContext?.storeName || 'Fashion Live Store'}
-- Tipe Target Laba: ${targetProfitType === 'percentage' ? `Persentase (${targetProfitPercent}% dari Omzet)` : `Nominal (Rp ${targetProfit.toLocaleString('id-ID')}/hari)`}
-- Biaya Iklan Harian: Rp ${adsCost.toLocaleString('id-ID')}
-- Biaya Koin / Voucher Diskon Harian: Rp ${coinCost.toLocaleString('id-ID')}
-- Biaya Operasional Tetap Toko: Rp ${operationalCost.toLocaleString('id-ID')}
-- Beban Gaji Pokok Host Live: Rp ${hostSalary.toLocaleString('id-ID')}/hari
-- Beban Gaji Pokok Admin Toko: Rp ${adminSalary.toLocaleString('id-ID')}/hari
-- Insentif Host Live per Paket: Rp ${hostIncentivePerPackage.toLocaleString('id-ID')}
-- Insentif Admin Toko per Paket: Rp ${adminIncentivePerPackage.toLocaleString('id-ID')}
-- Modal HPP Rata-rata per Pcs: Rp ${hppPerPcs.toLocaleString('id-ID')}
-- Potongan Admin Promo Marketplace: ${adminPercentage}%
-- Biaya Layanan per Pesanan: Rp ${serviceFeePerOrder.toLocaleString('id-ID')} / paket
-- Biaya Packing (Plastik/Lakban): Rp ${packingCost.toLocaleString('id-ID')} / paket
-- Cadangan Estimasi Retur: ${returnPercentage}%
-
-ATURAN PERHITUNGAN AKUNTANSI TOKO:
-1. Beban Tetap Harian (Fixed Overhead) = Iklan + Koin + Ops + Gaji Pokok Host + Gaji Pokok Admin = Rp ${totalFixedOverhead.toLocaleString('id-ID')}.
-2. Biaya Variabel per Paket = (Pcs * HPP) + Biaya Layanan + Biaya Packing + Insentif Host + Insentif Admin.
-3. Margin Bersih per Paket = Harga Bundling - (Admin Marketplace % * Harga) - (Retur % * Harga) - Biaya Variabel.
-4. Minimum Paket Terjual untuk Target Laba Nominal = (Beban Tetap Harian + Target Laba) / Margin Bersih per Paket (dibulatkan ke atas).
-5. Titik Impas (BEP) Paket Operasional = Beban Tetap Harian / Margin Bersih per Paket.
-
-Harap berikan respons JSON murni TANPA pembungkus markdown (tanpa \`\`\`json) dengan struktur berikut:
-{
-  "directAnswer": string (jawaban ringkas, lugas, dan profesional menjawab pertanyaan user dengan angka konkret),
-  "extractedParams": {
-    "targetProfit": number,
-    "targetProfitPercent": number,
-    "adsCost": number,
-    "coinCost": number,
-    "hostSalary": number,
-    "adminSalary": number,
-    "totalFixedBurden": number,
-    "hppPerPcs": number
-  },
-  "scenarios": [
-    {
-      "id": "bundling_2pcs",
-      "name": "Bundling Hemat (Isi 2 Pcs)",
-      "badge": "Paling Direkomendasikan",
-      "pcsPerPackage": 2,
-      "recommendedPrice": number,
-      "marginPerPackage": number,
-      "marginPercentage": number,
-      "minPackagesNeeded": number,
-      "totalPcsNeeded": number,
-      "bepPackagesNeeded": number,
-      "totalOmzetKotor": number,
-      "summary": string
-    },
-    {
-      "id": "bundling_3pcs",
-      "name": "Bundling Best Seller (Isi 3 Pcs)",
-      "badge": "Margin Tinggi",
-      "pcsPerPackage": 3,
-      "recommendedPrice": number,
-      "marginPerPackage": number,
-      "marginPercentage": number,
-      "minPackagesNeeded": number,
-      "totalPcsNeeded": number,
-      "bepPackagesNeeded": number,
-      "totalOmzetKotor": number,
-      "summary": string
-    },
-    {
-      "id": "bundling_1pcs",
-      "name": "Satuan (Single 1 Pcs)",
-      "badge": "Penjualan Satuan",
-      "pcsPerPackage": 1,
-      "recommendedPrice": number,
-      "marginPerPackage": number,
-      "marginPercentage": number,
-      "minPackagesNeeded": number,
-      "totalPcsNeeded": number,
-      "bepPackagesNeeded": number,
-      "totalOmzetKotor": number,
-      "summary": string
-    },
-    {
-      "id": "bundling_5pcs",
-      "name": "Bundling Jumbo / Flash Sale (Isi 5 Pcs)",
-      "badge": "Cepat Habiskan Stok",
-      "pcsPerPackage": 5,
-      "recommendedPrice": number,
-      "marginPerPackage": number,
-      "marginPercentage": number,
-      "minPackagesNeeded": number,
-      "totalPcsNeeded": number,
-      "bepPackagesNeeded": number,
-      "totalOmzetKotor": number,
-      "summary": string
-    }
-  ],
-  "formulaExplanation": {
-    "step1": string (penjelasan total beban harian yang harus ditutup),
-    "step2": string (penjelasan cara menghitung margin bersih per paket termasuk gaji dan insentif),
-    "step3": string (penjelasan cara menghitung minimum paket terjual dan titik impas)
-  },
-  "strategicAdvice": string[] (3-4 tips terapan untuk Host Live & Admin Toko, teknik promo bundling, timing koin, dan efisiensi tenaga kerja)
-}`;
-
-          const parsed = await generateJsonWithAi(prompt, 0.2);
-          return res.json({ success: true, data: parsed, isAiGenerated: true });
-        } catch (apiErr: any) {
-          console.info('Gemini models unavailable or experiencing spikes, serving precision financial engine:', apiErr?.message || apiErr);
-        }
-      }
-
-      // Exact Financial Engine Fallback
+      // Exact Financial Engine Definitions
       function computeScenario(id: string, name: string, badge: string, pcs: number, price: number, summary: string) {
         const totalHpp = pcs * hppPerPcs;
         const adminFee = Math.round((adminPercentage / 100) * price);
@@ -460,6 +363,89 @@ Harap berikan respons JSON murni TANPA pembungkus markdown (tanpa \`\`\`json) de
           `Terapkan skema insentif per paket terjual untuk memacu host live lebih agresif melakukan upselling dari paket satuan menjadi paket bundling.`
         ]
       };
+
+      const apiKeyAvailable = Boolean(process.env.GEMINI_API_KEY);
+
+      if (apiKeyAvailable) {
+        try {
+          const prompt = `Anda adalah CFO & Pakar Strategi Bisnis E-Commerce & Live Streaming Fashion (Shopee Live, TikTok Shop, Thrift, Distro).
+
+PERTANYAAN / KELUHAN SELLER:
+"${userQuery || 'Jika dalam satu hari iklan 60k dan koin 30k berapa harga bundling yang dijual agar keuntungan bisa mencapai 1 jt/hari dan berapa minimum paket terjual?'}"
+
+DATA FINANSIAL & OPERASIONAL TOKO:
+- Beban Tetap Harian: Rp ${totalFixedOverhead.toLocaleString('id-ID')} (Iklan: Rp ${adsCost.toLocaleString('id-ID')}, Koin: Rp ${coinCost.toLocaleString('id-ID')}, Gaji Pokok Host: Rp ${hostSalary.toLocaleString('id-ID')}, Gaji Admin: Rp ${adminSalary.toLocaleString('id-ID')})
+- Target Laba Harian: Rp ${targetProfit.toLocaleString('id-ID')}
+- Total Beban Wajib Ditutup: Rp ${totalFixedBurden.toLocaleString('id-ID')}
+- Modal HPP Rata-rata per Pcs: Rp ${hppPerPcs.toLocaleString('id-ID')}
+- Potongan Admin Marketplace: ${adminPercentage}% | Layanan: Rp ${serviceFeePerOrder.toLocaleString('id-ID')} | Packing: Rp ${packingCost.toLocaleString('id-ID')} | Retur: ${returnPercentage}%
+
+SIMULASI HARGA REKOMENDASI:
+- Bundling 2 pcs: Harga Rp ${p2.toLocaleString('id-ID')} (Margin Bersih Rp ${sc2.marginPerPackage.toLocaleString('id-ID')}/paket, Butuh ${sc2.minPackagesNeeded} paket/hari untuk capai target laba, BEP ${sc2.bepPackagesNeeded} paket)
+- Bundling 3 pcs: Harga Rp ${p3.toLocaleString('id-ID')} (Margin Bersih Rp ${sc3.marginPerPackage.toLocaleString('id-ID')}/paket, Butuh ${sc3.minPackagesNeeded} paket/hari untuk capai target laba, BEP ${sc3.bepPackagesNeeded} paket)
+- Satuan 1 pcs: Harga Rp ${p1.toLocaleString('id-ID')} (Margin Bersih Rp ${sc1.marginPerPackage.toLocaleString('id-ID')}/paket, Butuh ${sc1.minPackagesNeeded} paket/hari)
+- Bundling 5 pcs: Harga Rp ${p5.toLocaleString('id-ID')} (Margin Bersih Rp ${sc5.marginPerPackage.toLocaleString('id-ID')}/paket, Butuh ${sc5.minPackagesNeeded} paket/hari)
+
+TUGAS ANDA:
+Jawab pertanyaan/keluhan seller dengan lugas, ramah, dan profesional. Sebutkan langsung berapa harga jual bundling 2 & 3 pcs yang disarankan serta kuota paket yang harus terjual per hari agar target tercapai.
+
+Berikan format JSON murni TANPA markdown:
+{
+  "directAnswer": string (jawaban 2-3 kalimat lugas dan taktis menyebutkan harga jual bundling 2 & 3 pcs dan target kuota paket yang harus terjual),
+  "recommendedPrice2pcs": number (harga bundling 2 pcs, misal ${p2}),
+  "recommendedPrice3pcs": number (harga bundling 3 pcs, misal ${p3}),
+  "recommendedPrice1pcs": number (harga satuan 1 pcs, misal ${p1}),
+  "recommendedPrice5pcs": number (harga bundling 5 pcs, misal ${p5}),
+  "strategicAdvice": string[] (3-4 tips taktis terapan untuk host live dan admin toko agar target ini tercapai)
+}`;
+
+          const parsed = await generateJsonWithAi(prompt, 0.2);
+          if (parsed && typeof parsed === 'object') {
+            const price2 = Number(parsed.recommendedPrice2pcs) > 0 ? Number(parsed.recommendedPrice2pcs) : p2;
+            const price3 = Number(parsed.recommendedPrice3pcs) > 0 ? Number(parsed.recommendedPrice3pcs) : p3;
+            const price1 = Number(parsed.recommendedPrice1pcs) > 0 ? Number(parsed.recommendedPrice1pcs) : p1;
+            const price5 = Number(parsed.recommendedPrice5pcs) > 0 ? Number(parsed.recommendedPrice5pcs) : p5;
+
+            const finalSc2 = computeScenario('bundling_2pcs', 'Bundling Hemat (Isi 2 Pcs)', 'Paling Populer & Seimbang', 2, price2, 'Sangat direkomendasikan saat sesi live streaming, menghemat ongkir pelanggan dan mempercepat perputaran barang.');
+            const finalSc3 = computeScenario('bundling_3pcs', 'Bundling Best Seller (Isi 3 Pcs)', 'Rekomendasi Margin Profit', 3, price3, 'Margin profit per transaksi tinggi, hanya membutuhkan lebih sedikit pesanan untuk mencapai target laba.');
+            const finalSc1 = computeScenario('bundling_1pcs', 'Satuan (Single 1 Pcs)', 'Penjualan Satuan Normal', 1, price1, 'Pilihan bagi pembeli yang baru pertama kali coba berbelanja di toko Anda.');
+            const finalSc5 = computeScenario('bundling_5pcs', 'Bundling Jumbo / Grosir (Isi 5 Pcs)', 'Volume Cepat Habis', 5, price5, 'Paling efektif untuk cuci gudang / menghabiskan sisa ball persediaan stok.');
+
+            const extractedParams = {
+              targetProfit,
+              targetProfitPercent,
+              adsCost,
+              coinCost,
+              hostSalary,
+              adminSalary,
+              totalFixedBurden,
+              hppPerPcs,
+            };
+
+            const formulaExplanation = {
+              step1: `Total Beban Harian yang Wajib Ditutup = Target Laba (Rp ${targetProfit.toLocaleString('id-ID')}) + Biaya Iklan (Rp ${adsCost.toLocaleString('id-ID')}) + Biaya Koin (Rp ${coinCost.toLocaleString('id-ID')}) + Gaji Pokok Host (Rp ${hostSalary.toLocaleString('id-ID')}) + Gaji Pokok Admin (Rp ${adminSalary.toLocaleString('id-ID')}) = Rp ${totalFixedBurden.toLocaleString('id-ID')}/hari.`,
+              step2: `Margin Bersih per Paket dihitung dari Harga Jual dikurangi Modal HPP, Admin Marketplace ${adminPercentage}%, Biaya Layanan Rp ${serviceFeePerOrder.toLocaleString('id-ID')}, Biaya Packing Rp ${packingCost.toLocaleString('id-ID')}, Cadangan Retur ${returnPercentage}%, serta Insentif Host & Admin.`,
+              step3: `Minimum Paket Terjual = Total Beban (Rp ${totalFixedBurden.toLocaleString('id-ID')}) dibagi Margin Bersih per Paket.`
+            };
+
+            const strategicAdvice = Array.isArray(parsed.strategicAdvice) && parsed.strategicAdvice.length > 0
+              ? parsed.strategicAdvice
+              : fallbackData.strategicAdvice;
+
+            const finalData = {
+              directAnswer: parsed.directAnswer || fallbackData.directAnswer,
+              extractedParams,
+              scenarios: [finalSc2, finalSc3, finalSc1, finalSc5],
+              formulaExplanation,
+              strategicAdvice,
+            };
+
+            return res.json({ success: true, data: finalData, isAiGenerated: true });
+          }
+        } catch (apiErr: any) {
+          console.info('Gemini models unavailable or experiencing spikes, serving precision financial engine:', apiErr?.message || apiErr);
+        }
+      }
 
       return res.json({ success: true, data: fallbackData, isAiGenerated: false });
     } catch (error: any) {
