@@ -398,7 +398,7 @@ BERIKAN OUTPUT DALAM JSON MURNI:
         };
       }
     } catch (apiErr: any) {
-      console.warn('Gemini model call failed or timeout, generating dynamic tailored calculation:', apiErr?.message || apiErr);
+      console.info('[AI Engine] Seamlessly switching to dynamic tailored calculation.');
     }
   }
 
@@ -449,7 +449,8 @@ BERIKAN OUTPUT DALAM JSON MURNI:
       buildHeuristicScenario('bundling_5pcs', 'Paket Mini Grosir / Reseller DM (5 Pcs)', 'Volume Cepat Habis', 5, 1.35, 0, 'Cocok untuk penawaran reseller, sahabat arisan, atau cuci sisa stok ball.'),
     ];
 
-    fallbackDirectAnswer = `Penjualan via DM Instagram & WhatsApp memiliki keunggulan tanpa potongan biaya admin marketplace (0%) dan tanpa beban host live. Dengan modal HPP Rp ${hppPerPcs.toLocaleString('id-ID')}, Anda disarankan mematok harga satuan Rp ${p1.toLocaleString('id-ID')}, dan fokus menawarkan Paket Hemat 2 Pcs Rp ${p2.toLocaleString('id-ID')}. Anda hanya butuh menjual ${fallbackScenarios[0].minPackagesNeeded} paket per hari untuk mengantongi keuntungan bersih Rp ${targetProfit.toLocaleString('id-ID')}.`;
+    const targetScenario = fallbackScenarios.find(s => s.id === focusPackageId) || fallbackScenarios[0];
+    fallbackDirectAnswer = `Penjualan via DM Instagram & WhatsApp memiliki keunggulan tanpa potongan biaya admin marketplace (0%) dan tanpa beban host live. Dengan modal HPP Rp ${hppPerPcs.toLocaleString('id-ID')}, Anda disarankan menjual ${targetScenario.name} seharga Rp ${targetScenario.recommendedPrice.toLocaleString('id-ID')} (margin bersih Rp ${targetScenario.marginPerPackage.toLocaleString('id-ID')}/paket). Anda hanya butuh menjual ${targetScenario.minPackagesNeeded} paket per hari untuk mengantongi keuntungan bersih Rp ${targetProfit.toLocaleString('id-ID')}, dengan titik impas BEP di ${targetScenario.bepPackagesNeeded} paket.`;
 
     fallbackAdvice = [
       'Gunakan format auto-reply atau quick reply keyboard di Instagram DM / WhatsApp Business agar calon pembeli langsung mendapat detail ukuran, stok, dan nomor rekening.',
@@ -475,7 +476,8 @@ BERIKAN OUTPUT DALAM JSON MURNI:
       buildHeuristicScenario('bundling_5pcs', 'Bundling Jumbo / Grosir (Isi 5 Pcs)', 'Volume Cepat Habis', 5, 1.4, 25000, 'Paling efektif untuk cuci gudang / menghabiskan sisa ball persediaan stok.'),
     ];
 
-    fallbackDirectAnswer = `Kalkulasi Live Streaming: Dengan total beban harian Rp ${totalFixedBurden.toLocaleString('id-ID')} (termasuk Iklan Rp ${adsCost.toLocaleString('id-ID')}, Koin Rp ${coinCost.toLocaleString('id-ID')}, Host Rp ${hostSalary.toLocaleString('id-ID')}, Admin Rp ${adminSalary.toLocaleString('id-ID')}) serta HPP Rp ${hppPerPcs.toLocaleString('id-ID')}, Anda disarankan fokus mempromosikan Bundling 2 Pcs seharga Rp ${p2.toLocaleString('id-ID')}. Anda membutuhkan penjualan sekitar ${fallbackScenarios[0].minPackagesNeeded} paket/hari untuk menutup seluruh beban dan mengamankan target laba.`;
+    const targetScenario = fallbackScenarios.find(s => s.id === focusPackageId) || fallbackScenarios[0];
+    fallbackDirectAnswer = `Kalkulasi ${channelLabels[detectedChannel] || 'Live Streaming'}: Dengan total beban harian Rp ${totalFixedBurden.toLocaleString('id-ID')} (Target Laba: Rp ${targetProfit.toLocaleString('id-ID')}, Iklan: Rp ${adsCost.toLocaleString('id-ID')}, Koin: Rp ${coinCost.toLocaleString('id-ID')}, Gaji: Rp ${(hostSalary + adminSalary).toLocaleString('id-ID')}) serta HPP Rp ${hppPerPcs.toLocaleString('id-ID')}/pcs, Anda disarankan menjual ${targetScenario.name} seharga Rp ${targetScenario.recommendedPrice.toLocaleString('id-ID')} (margin bersih Rp ${targetScenario.marginPerPackage.toLocaleString('id-ID')}/paket). Anda wajib menjual minimal ${targetScenario.minPackagesNeeded} paket/hari (${targetScenario.totalPcsNeeded} pcs baju) untuk mencapai target laba Anda, dengan titik impas BEP beban toko di ${targetScenario.bepPackagesNeeded} paket agar tidak merugi.`;
 
     fallbackAdvice = [
       'Fokuskan host mempromosikan Bundling 2 & 3 pcs sebagai menu utama etalase untuk menekan rasio biaya packing dan potongan layanan per resi.',

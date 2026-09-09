@@ -33,17 +33,26 @@ async function startServer() {
     return genAI;
   }
 
+  // Cooldown cache to track model rate limits (429) and high-demand spikes (503)
+  const modelCooldowns = new Map<string, number>();
+
   // Resilient JSON generator with automatic fallback across fast models with adequate per-call timeout
   async function generateJsonWithAi(prompt: string, systemInstruction?: string, temperature = 0.4) {
     const aiClient = getAI();
     // Prioritized model fallback list as specified in gemini-api skill
     const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+    const now = Date.now();
     let lastError: any = null;
 
     for (const model of candidateModels) {
+      const cooldownUntil = modelCooldowns.get(model) || 0;
+      if (now < cooldownUntil) {
+        continue;
+      }
+
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout calling model ${model} after 25000ms`)), 25000)
+          setTimeout(() => reject(new Error(`Timeout calling model ${model} after 20000ms`)), 20000)
         );
 
         const response: any = await Promise.race([
@@ -73,11 +82,24 @@ async function startServer() {
         return JSON.parse(cleanedText);
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${model} encounter: ${err?.message || err}. Trying next candidate model...`);
+        const errMsg = err?.message || String(err);
+        const isQuota = errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED');
+        const isDemand = errMsg.includes('503') || errMsg.includes('high demand') || errMsg.includes('UNAVAILABLE');
+
+        let cooldownDuration = 15000;
+        if (isQuota) {
+          const matchDelay = errMsg.match(/retry in (\d+(?:\.\d+)?)s/i);
+          cooldownDuration = matchDelay ? Math.ceil(parseFloat(matchDelay[1]) * 1000) : 30000;
+        } else if (isDemand) {
+          cooldownDuration = 10000;
+        }
+
+        modelCooldowns.set(model, Date.now() + cooldownDuration);
+        console.info(`[AI Service] Model ${model} temporarily unavailable (${isQuota ? '429 Quota' : isDemand ? '503 High Demand' : 'rate-limited'}). Next retry in ${Math.round(cooldownDuration / 1000)}s.`);
         continue;
       }
     }
-    throw lastError || new Error('All AI models currently unavailable');
+    throw lastError || new Error('All AI models currently in rate-limit cooldown or unavailable');
   }
 
   // Health check
@@ -210,18 +232,30 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
       );
       return res.json(result);
     } catch (error: any) {
-      console.error('Error in /api/ai/calculate-bundle:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Gagal memproses kalkulasi harga AI: ' + (error?.message || error)
-      });
+      console.info('[AI Service] Process bundle completed with fallback calculation.');
+      try {
+        // Run fallback calculation directly without AI
+        const fallbackResult = await processAiCalculateBundle(
+          { ...req.body, userQuery: '' },
+          async () => null
+        );
+        return res.json(fallbackResult);
+      } catch (fbErr: any) {
+        return res.status(500).json({
+          success: false,
+          error: 'Gagal memproses kalkulasi harga: ' + (fbErr?.message || fbErr)
+        });
+      }
     }
   });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
