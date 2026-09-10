@@ -60,8 +60,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
+  // Active announcements by Owner for Live Info ticker
+  const activeAnnouncements = StorageService.getActiveAnnouncements(currentUser.storeId);
+  const announcementMessages = activeAnnouncements.map(
+    (a) => `📢 [PENGUMUMAN OWNER - ${a.priority.toUpperCase()}]: ${a.title} - ${a.content}`
+  );
+
   // Running text ticker items
   const runningMessages = [
+    ...announcementMessages,
     `🔥 Omzet Hari Ini: ${formatRupiah(todayOmzet)} (${formatNumber(todayPcs)} pcs / ${formatNumber(todayPackages)} paket)`,
     `📊 HPP Rata-rata: ${formatRupiah(hppInfo.weightedAverageHpp)} /pcs`,
     `📦 Sisa Stok Tersedia: ${formatNumber(stockInfo.remainingStock)} pcs (Terjual: ${formatNumber(stockInfo.totalPcsSold)} pcs)`,

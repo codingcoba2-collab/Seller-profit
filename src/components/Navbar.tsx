@@ -9,7 +9,8 @@ import {
   LogOut, 
   Settings, 
   DownloadCloud, 
-  Palette 
+  Palette,
+  User
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -22,6 +23,7 @@ interface NavbarProps {
   onNavigate: (route: RoutePath) => void;
   onLogout: () => void;
   onOpenInstallGuide: () => void;
+  onOpenProfile: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -31,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onLogout,
   onOpenInstallGuide,
+  onOpenProfile,
   onNotify,
 }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -82,22 +85,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Info & Actions */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 pl-3 border-l border-white/10">
-              <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-white leading-tight">
-                  {currentUser.name}
+            {/* User Profile Button in Top Bar (User Request) */}
+            <button
+              id="btn-open-user-profile"
+              onClick={onOpenProfile}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-[#25F4EE]/30 hover:border-[#25F4EE]/70 transition cursor-pointer active:scale-95 group shadow-xs"
+              title="Buka Pengaturan Profil Pengguna (Foto, WhatsApp, Bio)"
+            >
+              <div className="w-8 h-8 rounded-xl overflow-hidden border border-[#25F4EE]/50 bg-[#1e2235] flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(37,244,238,0.2)]">
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-[#25F4EE] group-hover:scale-110 transition" />
+                )}
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="text-xs font-bold text-white group-hover:text-[#25F4EE] transition leading-tight flex items-center gap-1">
+                  <span>{currentUser.name}</span>
                 </div>
-                <div className="flex items-center justify-end gap-1 mt-0.5">
-                  {currentUser.roles.map((r) => (
-                    <span
-                      key={r}
-                      className="inline-block px-1.5 py-0.2 rounded text-[10px] font-bold bg-white/10 text-zinc-300 border border-white/10"
-                    >
-                      {roleLabels[r] || r}
-                    </span>
-                  ))}
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                    {currentUser.isOwner ? 'OWNER' : roleLabels[currentUser.roles[0]] || currentUser.roles[0]}
+                  </span>
                 </div>
               </div>
+            </button>
+
+            <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
 
               {/* Theme Selector Button */}
               <button

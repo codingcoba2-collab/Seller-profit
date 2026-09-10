@@ -235,8 +235,29 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           </div>
         </div>
 
+        {/* Audio Status & Interactive Sound Trigger Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleTriggerAudio();
+          }}
+          className={`px-4 py-2 rounded-2xl border text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-lg flex items-center gap-2 cursor-pointer ${
+            isAudioActive
+              ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_20px_rgba(37,244,238,0.4)] animate-pulse'
+              : 'bg-[#FE2C55]/20 border-[#FE2C55] text-white hover:bg-[#FE2C55]/30 shadow-[0_0_25px_rgba(254,44,85,0.5)] animate-bounce'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-[#25F4EE]" />
+          <span>
+            {isAudioActive
+              ? '⚡ SUARA TIME TRAVELLING AKTIF'
+              : '🔊 KETUK UNTUK SUARA TIME TRAVEL'}
+          </span>
+        </button>
+
         {/* Status Prompt */}
-        <div className="text-[11px] font-mono text-zinc-400 animate-pulse">
+        <div className="text-[11px] font-mono text-zinc-400">
           &gt; Inisialisasi modul buku besar &amp; realtime marketplace...
         </div>
       </div>

@@ -60,6 +60,10 @@ export interface Employee {
   roles: UserRole[]; // Can have multiple roles (rangkap role)
   salaryType: SalaryType; // per jam or per hari
   salaryRate: number; // nominal gaji per jam atau per hari
+  // Profile enhancements
+  avatarUrl?: string;
+  whatsapp?: string;
+  bio?: string;
   // For double roles, incentive config per role
   incentiveConfigs: {
     [key in UserRole]?: IncentiveConfig;
@@ -318,6 +322,21 @@ export interface CurrentUser {
   roles: UserRole[];
   employeeProfile?: Employee;
   isGuest?: boolean;
+  avatarUrl?: string;
+  whatsapp?: string;
+  bio?: string;
+}
+
+export interface StoreAnnouncement {
+  id: string;
+  storeId: string;
+  title: string;
+  content: string;
+  authorName: string;
+  priority: 'normal' | 'penting' | 'urgent';
+  isActive: boolean;
+  date: string;
+  createdAt: string;
 }
 
 export type ViewState = 
@@ -345,7 +364,8 @@ export type ViewState =
   | 'laba_bersih'       // Keuangan: Laporan Laba Bersih Toko
   | 'keuangan_pribadi' // Keuangan: Cashflow & Keuangan Pribadi
   | 'kalkulasi_paket'  // Penjualan / AI: Kalkulasi Harga & Paket Terjual
-  | 'live_chat';       // Informasi: Live Chat Tim Real-Time
+  | 'live_chat'        // Informasi: Live Chat Tim Real-Time
+  | 'pengumuman';      // Informasi: Pengumuman Penting Owner (Live Info)
 
 export interface ChatMessage {
   id: string;

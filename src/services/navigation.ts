@@ -19,7 +19,8 @@ import {
   PlusCircle,
   History,
   MessageSquare,
-  MessageCircle
+  MessageCircle,
+  Megaphone
 } from 'lucide-react';
 
 export type RoutePath =
@@ -51,6 +52,7 @@ export type RoutePath =
   | '/keuangan/pribadi'
   // Kategori Informasi
   | '/informasi'
+  | '/informasi/pengumuman'
   | '/informasi/live-chat';
 
 export interface BreadcrumbItem {
@@ -294,6 +296,16 @@ export const CATEGORIES: CategoryDefinition[] = [
     badgeText: 'text-[#25F4EE]',
     items: [
       {
+        path: '/informasi/pengumuman',
+        title: 'Pengumuman Toko (Live Info)',
+        subtitle: 'Input dan broadcast pengumuman penting owner ke running text Live Info & tim toko',
+        badgeText: 'Live Info',
+        icon: Megaphone,
+        iconColor: 'text-[#FE2C55]',
+        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
+      },
+      {
         path: '/informasi/live-chat',
         title: 'Live Chat Real-Time',
         subtitle: 'Live chat & saluran informasi koordinasi khusus Owner toko',
@@ -388,6 +400,9 @@ export function normalizePath(path: string): RoutePath {
     // Informasi
     case '/informasi':
       return '/informasi';
+    case '/informasi/pengumuman':
+    case '/pengumuman':
+      return '/informasi/pengumuman';
     case '/informasi/live-chat':
     case '/informasi/chat':
     case '/live-chat':
@@ -424,6 +439,7 @@ export function viewStateToPath(view: ViewState): RoutePath {
     case 'laba_bersih': return '/keuangan/laba-bersih';
     case 'keuangan_pribadi': return '/keuangan/pribadi';
     case 'live_chat': return '/informasi/live-chat';
+    case 'pengumuman': return '/informasi/pengumuman';
     default: return '/dashboard';
   }
 }
@@ -513,6 +529,7 @@ export function getPageTitle(route: RoutePath): string {
     case '/keuangan/laba-bersih': return 'Laporan Laba Bersih Toko';
     case '/keuangan/pribadi': return 'Cashflow & Keuangan Pribadi';
     case '/informasi': return 'Informasi';
+    case '/informasi/pengumuman': return 'Pengumuman Toko (Live Info)';
     case '/informasi/live-chat': return 'Live Chat Real-Time';
     default: return 'Seller Profit';
   }

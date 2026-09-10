@@ -13,7 +13,8 @@ import {
   PersonalBudgetAllocation,
   PersonalExpenseRecord,
   PersonalBudgetCategory,
-  ChatMessage
+  ChatMessage,
+  StoreAnnouncement
 } from '../types';
 import { 
   db, 
@@ -43,6 +44,8 @@ const STORAGE_KEYS = {
   PERSONAL_BUDGET: 'seller_profit_personal_budget',
   PERSONAL_EXPENSES: 'seller_profit_personal_expenses',
   CHAT_MESSAGES: 'seller_profit_chat_messages',
+  ANNOUNCEMENTS: 'seller_profit_announcements',
+  USER_PROFILES: 'seller_profit_user_profiles',
 };
 
 export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
@@ -735,6 +738,120 @@ export class StorageService {
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
+  }
+
+  static updateUserProfile(updates: Partial<CurrentUser>): CurrentUser | null {
+    const current = this.getCurrentUser();
+    if (!current) return null;
+    const updatedUser: CurrentUser = { ...current, ...updates };
+    this.setCurrentUser(updatedUser);
+
+    try {
+      // If this user is an employee, update in employees list
+      if (!current.isOwner) {
+        const employees = this.getEmployees(current.storeId);
+        const empIdx = employees.findIndex(e => e.id === current.id || e.username === current.username);
+        if (empIdx !== -1) {
+          employees[empIdx] = {
+            ...employees[empIdx],
+            name: updates.name || employees[empIdx].name,
+            avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : employees[empIdx].avatarUrl,
+            whatsapp: updates.whatsapp !== undefined ? updates.whatsapp : employees[empIdx].whatsapp,
+            bio: updates.bio !== undefined ? updates.bio : employees[empIdx].bio,
+          };
+          this.saveEmployees(employees);
+        }
+      } else {
+        // If owner, persist owner profile in user profiles cache & sync
+        const rawProfiles = localStorage.getItem(STORAGE_KEYS.USER_PROFILES);
+        const profiles = rawProfiles ? JSON.parse(rawProfiles) : {};
+        profiles[current.id] = { ...profiles[current.id], ...updates };
+        localStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(profiles));
+        this.syncToCloud('stores', current.storeId, {
+          ...this.getStoreById(current.storeId),
+          ownerProfile: updates,
+        });
+      }
+    } catch (err) {
+      console.warn('Update user profile notice:', err);
+    }
+
+    this.notifyListeners('user_profile');
+    return updatedUser;
+  }
+
+  // ANNOUNCEMENTS (Pengumuman Toko / Live Info)
+  static getAnnouncements(storeId: string): StoreAnnouncement[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+      if (!raw) {
+        const defaultList: StoreAnnouncement[] = [
+          {
+            id: 'ann-default-1',
+            storeId,
+            title: 'Target Live Malam Ini: 50 Paket',
+            content: 'Host dan admin toko mohon standby 15 menit sebelum live streaming. Fokus bundling hemat thrift & diskon voucher live.',
+            authorName: 'Owner Toko',
+            priority: 'urgent',
+            isActive: true,
+            date: new Date().toISOString().slice(0, 10),
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'ann-default-2',
+            storeId,
+            title: 'Standar QC & Finishing Steam Sortir',
+            content: 'Mohon tim sortir memastikan tidak ada kancing lepas atau noda bandel pada pakaian sebelum masuk sesi display live.',
+            authorName: 'Owner Toko',
+            priority: 'penting',
+            isActive: true,
+            date: new Date().toISOString().slice(0, 10),
+            createdAt: new Date().toISOString(),
+          }
+        ];
+        localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(defaultList));
+        return defaultList;
+      }
+      const all: StoreAnnouncement[] = JSON.parse(raw);
+      return all.filter(a => a.storeId === storeId);
+    } catch {
+      return [];
+    }
+  }
+
+  static saveAnnouncements(announcements: StoreAnnouncement[]) {
+    const storeId = this.getCurrentUser()?.storeId;
+    const raw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+    let all: StoreAnnouncement[] = raw ? JSON.parse(raw) : [];
+    if (storeId) {
+      all = all.filter(a => a.storeId !== storeId).concat(announcements);
+    } else {
+      all = announcements;
+    }
+    localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(all));
+    announcements.forEach(a => this.syncToCloud('announcements', a.id, a));
+    this.notifyListeners('announcements');
+  }
+
+  static addOrUpdateAnnouncement(item: StoreAnnouncement) {
+    const list = this.getAnnouncements(item.storeId);
+    const idx = list.findIndex(a => a.id === item.id);
+    if (idx !== -1) {
+      list[idx] = item;
+    } else {
+      list.unshift(item);
+    }
+    this.saveAnnouncements(list);
+  }
+
+  static deleteAnnouncement(id: string, storeId: string) {
+    const list = this.getAnnouncements(storeId).filter(a => a.id !== id);
+    this.saveAnnouncements(list);
+    this.deleteFromCloud('announcements', id);
+  }
+
+  static getActiveAnnouncements(storeId: string): StoreAnnouncement[] {
+    return this.getAnnouncements(storeId).filter(a => a.isActive);
   }
 
   // EMPLOYEES

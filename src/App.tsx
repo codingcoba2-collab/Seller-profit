@@ -43,6 +43,9 @@ import { TopupSaldoHubView } from './views/TopupSaldoHubView';
 import { TopupSaldoInputView } from './views/TopupSaldoInputView';
 import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
 import { LiveChatView } from './views/LiveChatView';
+import { PengumumanView } from './views/PengumumanView';
+import { ProfileModal } from './components/ProfileModal';
+import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
 
 interface ToastState {
   id: number;
@@ -55,6 +58,7 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState<RoutePath>('/dashboard');
   const [topupEditId, setTopupEditId] = useState<string | null>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -288,6 +292,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         onOpenInstallGuide={() => setShowInstallGuide(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
         onNotify={handleNotify}
       />
 
@@ -536,6 +541,14 @@ export default function App() {
         )}
 
         {/* 6. Halaman Fitur: INFORMASI */}
+        {currentRoute === '/informasi/pengumuman' && (
+          <PengumumanView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
         {currentRoute === '/informasi/live-chat' && (
           <LiveChatView
             currentUser={currentUser}
@@ -544,6 +557,25 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* iPhone Style Floating Assistive Navigation Shortcuts */}
+      <FloatingAssistiveNav
+        currentRoute={currentRoute}
+        currentUser={currentUser}
+        onNavigate={handleNavigate}
+        onOpenProfile={() => setShowProfileModal(true)}
+      />
+
+      {/* User Profile Modal (Foto, WhatsApp, Bio) */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        currentUser={currentUser}
+        onProfileUpdated={(updatedUser) => {
+          setCurrentUser(updatedUser);
+        }}
+        onNotify={handleNotify}
+      />
 
       {/* Floating Toast Container (z-[10000] per Arc'teryx Toast Layer) */}
       <div className="fixed bottom-6 right-6 z-[10000] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
