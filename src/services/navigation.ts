@@ -17,7 +17,9 @@ import {
   Calculator,
   UserCheck,
   PlusCircle,
-  History
+  History,
+  MessageSquare,
+  MessageCircle
 } from 'lucide-react';
 
 export type RoutePath =
@@ -46,7 +48,10 @@ export type RoutePath =
   | '/keuangan/gaji'
   | '/keuangan/cashflow'
   | '/keuangan/laba-bersih'
-  | '/keuangan/pribadi';
+  | '/keuangan/pribadi'
+  // Kategori Informasi
+  | '/informasi'
+  | '/informasi/live-chat';
 
 export interface BreadcrumbItem {
   label: string;
@@ -66,7 +71,7 @@ export interface NavigationItem {
 }
 
 export interface CategoryDefinition {
-  key: 'persiapan' | 'penjualan' | 'keuangan';
+  key: 'persiapan' | 'penjualan' | 'keuangan' | 'informasi';
   path: RoutePath;
   title: string;
   description: string;
@@ -275,6 +280,31 @@ export const CATEGORIES: CategoryDefinition[] = [
       },
     ],
   },
+  {
+    key: 'informasi',
+    path: '/informasi',
+    title: 'Informasi',
+    description: 'Pusat koordinasi real-time tim toko, live chat interaktif, dan panduan operasional marketplace.',
+    icon: MessageSquare,
+    iconColor: 'text-[#25F4EE]',
+    gradientBg: 'from-[#25F4EE]/15 via-[#25F4EE]/5 to-transparent',
+    borderAccent: 'border-[#25F4EE]/30',
+    hoverBorder: 'hover:border-[#25F4EE]/60',
+    badgeBg: 'bg-[#25F4EE]/15',
+    badgeText: 'text-[#25F4EE]',
+    items: [
+      {
+        path: '/informasi/live-chat',
+        title: 'Live Chat Real-Time',
+        subtitle: 'Koordinasi real-time antara owner, host live, admin toko & tim staf',
+        badgeText: 'Live Chat',
+        icon: MessageCircle,
+        iconColor: 'text-[#25F4EE]',
+        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
+      },
+    ],
+  },
 ];
 
 // Normalize incoming path string (handles query params, aliases, trailing slashes)
@@ -356,6 +386,15 @@ export function normalizePath(path: string): RoutePath {
     case '/keuangan/keuangan-pribadi':
       return '/keuangan/pribadi';
 
+    // Informasi
+    case '/informasi':
+      return '/informasi';
+    case '/informasi/live-chat':
+    case '/informasi/chat':
+    case '/live-chat':
+    case '/chat':
+      return '/informasi/live-chat';
+
     default:
       return '/dashboard';
   }
@@ -365,6 +404,10 @@ export function normalizePath(path: string): RoutePath {
 export function viewStateToPath(view: ViewState): RoutePath {
   switch (view) {
     case 'dashboard': return '/dashboard';
+    case 'category_persiapan': return '/persiapan';
+    case 'category_penjualan': return '/penjualan';
+    case 'category_keuangan': return '/keuangan';
+    case 'category_informasi': return '/informasi';
     case 'role_management': return '/persiapan/manajemen-pegawai';
     case 'modal_stok': return '/persiapan/modal-stok';
     case 'steam_sortir': return '/persiapan/sortir-qc';
@@ -381,6 +424,7 @@ export function viewStateToPath(view: ViewState): RoutePath {
     case 'cashflow': return '/keuangan/cashflow';
     case 'laba_bersih': return '/keuangan/laba-bersih';
     case 'keuangan_pribadi': return '/keuangan/pribadi';
+    case 'live_chat': return '/informasi/live-chat';
     default: return '/dashboard';
   }
 }
@@ -389,8 +433,13 @@ export function viewStateToPath(view: ViewState): RoutePath {
 export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   if (user.isOwner) return true;
 
-  // Dashboard & category hubs are viewable by any authenticated user
-  if (route === '/dashboard' || route === '/persiapan' || route === '/penjualan' || route === '/keuangan') {
+  // Dashboard, category hubs, & live chat are viewable by any authenticated user
+  if (route === '/dashboard' || 
+      route === '/persiapan' || 
+      route === '/penjualan' || 
+      route === '/keuangan' || 
+      route === '/informasi' || 
+      route === '/informasi/live-chat') {
     return true;
   }
 
@@ -460,6 +509,8 @@ export function getPageTitle(route: RoutePath): string {
     case '/keuangan/cashflow': return 'Cashflow & Arus Kas Toko';
     case '/keuangan/laba-bersih': return 'Laporan Laba Bersih Toko';
     case '/keuangan/pribadi': return 'Cashflow & Keuangan Pribadi';
+    case '/informasi': return 'Informasi';
+    case '/informasi/live-chat': return 'Live Chat Real-Time';
     default: return 'Seller Profit';
   }
 }
@@ -469,7 +520,7 @@ export function getParentRoute(route: RoutePath): { path: RoutePath; label: stri
   if (route === '/dashboard') return null;
 
   // Top level categories go back to /dashboard
-  if (route === '/persiapan' || route === '/penjualan' || route === '/keuangan') {
+  if (route === '/persiapan' || route === '/penjualan' || route === '/keuangan' || route === '/informasi') {
     return { path: '/dashboard', label: 'Beranda' };
   }
 
@@ -491,6 +542,11 @@ export function getParentRoute(route: RoutePath): { path: RoutePath; label: stri
   // Keuangan features go back to /keuangan
   if (route.startsWith('/keuangan')) {
     return { path: '/keuangan', label: 'Keuangan' };
+  }
+
+  // Informasi features go back to /informasi
+  if (route.startsWith('/informasi')) {
+    return { path: '/informasi', label: 'Informasi' };
   }
 
   return { path: '/dashboard', label: 'Beranda' };

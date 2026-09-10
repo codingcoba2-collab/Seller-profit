@@ -42,6 +42,7 @@ import { KalkulasiPaketView } from './views/KalkulasiPaketView';
 import { TopupSaldoHubView } from './views/TopupSaldoHubView';
 import { TopupSaldoInputView } from './views/TopupSaldoInputView';
 import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
+import { LiveChatView } from './views/LiveChatView';
 
 interface ToastState {
   id: number;
@@ -380,6 +381,15 @@ export default function App() {
           />
         )}
 
+        {currentRoute === '/informasi' && (
+          <CategoryPageView
+            categoryKey="informasi"
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
         {/* 3. Halaman Fitur: PERSIAPAN */}
         {currentRoute === '/persiapan/manajemen-pegawai' && (
           <RoleManagementView
@@ -521,6 +531,15 @@ export default function App() {
           <PersonalFinanceView
             currentUser={currentUser}
             onBackToDashboard={() => handleNavigate('/keuangan')}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {/* 6. Halaman Fitur: INFORMASI */}
+        {currentRoute === '/informasi/live-chat' && (
+          <LiveChatView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
             onNotify={handleNotify}
           />
         )}

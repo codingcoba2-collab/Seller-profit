@@ -288,6 +288,7 @@ class SoundFxService {
 
   /**
    * Sound effect like entering a time machine / quantum warp drive when opening app
+   * Full 4.2-second progression matching the 4.5-second loading screen
    */
   public playTimeMachineWarp() {
     if (this.isMuted) return;
@@ -295,28 +296,31 @@ class SoundFxService {
     try {
       const ctx = this.getContext();
       if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
       const now = ctx.currentTime;
-      const duration = 2.4; // 2.4 seconds rich warp sequence
+      const duration = 4.2; // Full 4.2 seconds cinematic time travel warp sequence
 
-      // 1. Deep Sub-Bass Riser (Quantum Reactor Charging)
+      // 1. Deep Sub-Bass Riser (Quantum Reactor Core Charging)
       const subOsc = ctx.createOscillator();
       const subGain = ctx.createGain();
       subOsc.type = 'sawtooth';
-      subOsc.frequency.setValueAtTime(45, now);
-      subOsc.frequency.exponentialRampToValueAtTime(380, now + duration * 0.85);
-      subOsc.frequency.exponentialRampToValueAtTime(120, now + duration);
+      subOsc.frequency.setValueAtTime(36, now);
+      subOsc.frequency.exponentialRampToValueAtTime(360, now + duration * 0.72);
+      subOsc.frequency.exponentialRampToValueAtTime(70, now + duration);
 
       subGain.gain.setValueAtTime(0.001, now);
-      subGain.gain.linearRampToValueAtTime(0.22, now + 0.4);
-      subGain.gain.linearRampToValueAtTime(0.28, now + duration * 0.7);
+      subGain.gain.linearRampToValueAtTime(0.35, now + 0.4);
+      subGain.gain.linearRampToValueAtTime(0.38, now + duration * 0.7);
       subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       const subFilter = ctx.createBiquadFilter();
       subFilter.type = 'lowpass';
-      subFilter.frequency.setValueAtTime(90, now);
-      subFilter.frequency.exponentialRampToValueAtTime(1800, now + duration * 0.8);
-      subFilter.frequency.exponentialRampToValueAtTime(250, now + duration);
+      subFilter.frequency.setValueAtTime(70, now);
+      subFilter.frequency.exponentialRampToValueAtTime(2600, now + duration * 0.75);
+      subFilter.frequency.exponentialRampToValueAtTime(160, now + duration);
 
       subOsc.connect(subGain);
       subGain.connect(subFilter);
@@ -326,26 +330,58 @@ class SoundFxService {
       subOsc.stop(now + duration);
       this.loadingNodes.push({ osc: subOsc, gain: subGain });
 
-      // 2. Phased Time-Vortex Sweeper (Portal Opening)
+      // 2. Accelerating Temporal Chronometer Ticks (Time Machine Reverse Pulses)
+      // Rapid clockwork / tachyon pulses accelerating exponentially as you enter the wormhole
+      const tickCount = 26;
+      let tickTime = now + 0.05;
+      let tickInterval = 0.22;
+      for (let i = 0; i < tickCount; i++) {
+        const tickOsc = ctx.createOscillator();
+        const tickGain = ctx.createGain();
+        tickOsc.type = 'square';
+        tickOsc.frequency.setValueAtTime(750 + i * 85, tickTime);
+        tickOsc.frequency.exponentialRampToValueAtTime(2600 + i * 70, tickTime + 0.025);
+
+        tickGain.gain.setValueAtTime(0.09, tickTime);
+        tickGain.gain.exponentialRampToValueAtTime(0.001, tickTime + 0.035);
+
+        const tickFilter = ctx.createBiquadFilter();
+        tickFilter.type = 'bandpass';
+        tickFilter.frequency.setValueAtTime(1300 + i * 80, tickTime);
+        tickFilter.Q.setValueAtTime(4.5, tickTime);
+
+        tickOsc.connect(tickGain);
+        tickGain.connect(tickFilter);
+        tickFilter.connect(ctx.destination);
+
+        tickOsc.start(tickTime);
+        tickOsc.stop(tickTime + 0.04);
+        this.loadingNodes.push({ osc: tickOsc, gain: tickGain });
+
+        tickInterval = Math.max(0.04, tickInterval * 0.91);
+        tickTime += tickInterval;
+      }
+
+      // 3. Phased Time-Vortex Doppler Sweeper (Wormhole Tunnel Expansion)
       const warpOsc = ctx.createOscillator();
       const warpGain = ctx.createGain();
       warpOsc.type = 'sine';
-      warpOsc.frequency.setValueAtTime(220, now);
-      warpOsc.frequency.linearRampToValueAtTime(880, now + 0.9);
-      warpOsc.frequency.linearRampToValueAtTime(440, now + 1.6);
-      warpOsc.frequency.linearRampToValueAtTime(1760, now + duration * 0.9);
+      warpOsc.frequency.setValueAtTime(160, now);
+      warpOsc.frequency.exponentialRampToValueAtTime(1600, now + 1.8);
+      warpOsc.frequency.linearRampToValueAtTime(520, now + 2.7);
+      warpOsc.frequency.exponentialRampToValueAtTime(3200, now + duration * 0.85);
 
-      // LFO Tremolo / Phase distortion for time machine sound
+      // Fast LFO Tremolo / Phase distortion for time machine vortex
       const lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
-      lfo.type = 'sine';
+      lfo.type = 'sawtooth';
       lfo.frequency.setValueAtTime(8, now);
-      lfo.frequency.linearRampToValueAtTime(28, now + duration);
-      lfoGain.gain.setValueAtTime(90, now);
+      lfo.frequency.linearRampToValueAtTime(42, now + duration);
+      lfoGain.gain.setValueAtTime(140, now);
       lfo.connect(warpOsc.frequency);
 
       warpGain.gain.setValueAtTime(0.001, now);
-      warpGain.gain.linearRampToValueAtTime(0.15, now + 0.5);
+      warpGain.gain.linearRampToValueAtTime(0.24, now + 0.6);
       warpGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       warpOsc.connect(warpGain);
@@ -358,32 +394,61 @@ class SoundFxService {
       this.loadingNodes.push({ osc: warpOsc, gain: warpGain });
       this.loadingNodes.push({ osc: lfo, gain: lfoGain });
 
-      // 3. Futuristic High-Energy Warp Pulse Burst at climax (1.6s)
+      // 4. White-Noise Hyperspace Wind Whoosh
+      const bufferSize = Math.floor(ctx.sampleRate * 2.8);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(250, now + 0.4);
+      noiseFilter.frequency.exponentialRampToValueAtTime(3800, now + 2.4);
+      noiseFilter.Q.setValueAtTime(2.2, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.001, now + 0.4);
+      noiseGain.gain.linearRampToValueAtTime(0.18, now + 1.6);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 3.4);
+
+      whiteNoise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+
+      whiteNoise.start(now + 0.4);
+      whiteNoise.stop(now + 3.4);
+
+      // 5. Quantum Hyper-Jump Sonic Flash at Climax (3.4s)
       const chordTimeout = window.setTimeout(() => {
         if (!this.isLoadingAudioActive) return;
         try {
           const pCtx = this.getContext();
           if (!pCtx) return;
           const pNow = pCtx.currentTime;
-          const chordFreqs = [523.25, 659.25, 783.99, 1046.50]; // C Major Sci-Fi Chord
+          // Ethereal Sci-Fi Chime Chord (C, G, C, E, G high)
+          const chordFreqs = [523.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
           chordFreqs.forEach((freq, idx) => {
             const chordOsc = pCtx.createOscillator();
             const chordGain = pCtx.createGain();
             chordOsc.type = 'triangle';
-            chordOsc.frequency.setValueAtTime(freq, pNow + idx * 0.05);
+            chordOsc.frequency.setValueAtTime(freq, pNow + idx * 0.035);
 
-            chordGain.gain.setValueAtTime(0.08, pNow + idx * 0.05);
-            chordGain.gain.exponentialRampToValueAtTime(0.001, pNow + 0.8);
+            chordGain.gain.setValueAtTime(0.12, pNow + idx * 0.035);
+            chordGain.gain.exponentialRampToValueAtTime(0.001, pNow + 0.9);
 
             chordOsc.connect(chordGain);
             chordGain.connect(pCtx.destination);
 
-            chordOsc.start(pNow + idx * 0.05);
-            chordOsc.stop(pNow + 0.85);
+            chordOsc.start(pNow + idx * 0.035);
+            chordOsc.stop(pNow + 0.95);
             this.loadingNodes.push({ osc: chordOsc, gain: chordGain });
           });
         } catch {}
-      }, 1600);
+      }, 3400);
       this.loadingTimeouts.push(chordTimeout);
 
     } catch {
@@ -420,6 +485,7 @@ class SoundFxService {
   /**
    * Synthesized robotic chime and voice greeting in English:
    * "Welcome to Seller Profit, [name]! Please enjoy your sale."
+   * Engineered with dual-layer fallback: Web Audio robot speech formant + SpeechSynthesis with GC protection.
    */
   public playRobotVoiceWelcome(userName: string = 'User') {
     if (this.isMuted) return;
@@ -428,7 +494,7 @@ class SoundFxService {
     const cleanName = (userName || 'User').replace(/^(owner\s*|pegawai\s*)/i, '').trim() || 'User';
     const speechText = `Welcome to Seller Profit, ${cleanName}! Please enjoy your sale.`;
 
-    // Step 1: Robotic synthesizer intro chime (Arpeggiated futuristic harmonics)
+    // Step 1: Robotic synthesizer intro chime & vocoder formant cadence (100% Web Audio, always works!)
     try {
       const ctx = this.getContext();
       if (ctx) {
@@ -436,78 +502,169 @@ class SoundFxService {
           ctx.resume().catch(() => {});
         }
         const now = ctx.currentTime;
-        const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+        // Sci-Fi robot AI boot notes
+        const notes = [392, 523.25, 659.25, 783.99, 1046.50, 1318.51];
         notes.forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.07);
+          osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.06);
 
-          gain.gain.setValueAtTime(0.001, now + i * 0.07);
-          gain.gain.linearRampToValueAtTime(0.12, now + i * 0.07 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
+          gain.gain.setValueAtTime(0.001, now + i * 0.06);
+          gain.gain.linearRampToValueAtTime(0.14, now + i * 0.06 + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.32);
 
           osc.connect(gain);
           gain.connect(ctx.destination);
 
-          osc.start(now + i * 0.07);
-          osc.stop(now + i * 0.07 + 0.38);
+          osc.start(now + i * 0.06);
+          osc.stop(now + i * 0.06 + 0.35);
+        });
+
+        // Add cyber robot vocoder chirp cadence
+        const robotChirps = [740, 880, 660, 990, 820];
+        robotChirps.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now + 0.45 + i * 0.08);
+
+          gain.gain.setValueAtTime(0.04, now + 0.45 + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45 + i * 0.08 + 0.07);
+
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(freq, now + 0.45 + i * 0.08);
+          bp.Q.setValueAtTime(5.0, now);
+
+          osc.connect(gain);
+          gain.connect(bp);
+          bp.connect(ctx.destination);
+
+          osc.start(now + 0.45 + i * 0.08);
+          osc.stop(now + 0.45 + i * 0.08 + 0.08);
         });
       }
     } catch {}
 
-    // Step 2: Speech Synthesis with Robotic modulation parameters
+    // Step 2: Speech Synthesis with Global Utterance Retention to prevent GC audio cutoff
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const speak = () => {
+      const executeSpeech = () => {
         try {
+          window.speechSynthesis.cancel(); // Flush old queue
           window.speechSynthesis.resume();
-          window.speechSynthesis.cancel(); // Stop any previous speech
 
-          const utterance = new SpeechSynthesisUtterance(speechText);
-          utterance.lang = 'en-US';
+          // Wait 60ms tick for browser audio queue to clear cancel state
+          setTimeout(() => {
+            try {
+              window.speechSynthesis.resume();
+              const utterance = new SpeechSynthesisUtterance(speechText);
+              utterance.lang = 'en-US';
 
-          // Select best English or Robotic voice available
-          const voices = window.speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            const robotVoice = voices.find(v => 
-              v.name.toLowerCase().includes('robot') || 
-              v.name.toLowerCase().includes('zarvox') ||
-              v.name.toLowerCase().includes('google us english') ||
-              v.name.toLowerCase().includes('google uk english male') ||
-              v.name.toLowerCase().includes('daniel') ||
-              v.name.toLowerCase().includes('david') ||
-              (v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
-              v.lang.startsWith('en')
-            ) || voices[0];
+              // Select best English or Robotic voice available
+              const voices = window.speechSynthesis.getVoices();
+              if (voices && voices.length > 0) {
+                const robotVoice = voices.find(v => 
+                  v.name.toLowerCase().includes('robot') || 
+                  v.name.toLowerCase().includes('zarvox') ||
+                  v.name.toLowerCase().includes('google us english') ||
+                  v.name.toLowerCase().includes('google uk english male') ||
+                  v.name.toLowerCase().includes('daniel') ||
+                  v.name.toLowerCase().includes('david') ||
+                  (v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
+                  v.lang.startsWith('en')
+                ) || voices[0];
 
-            if (robotVoice) {
-              utterance.voice = robotVoice;
+                if (robotVoice) {
+                  utterance.voice = robotVoice;
+                }
+              }
+
+              utterance.pitch = 0.72; // Metallic robotic pitch
+              utterance.rate = 0.94;  // Deliberate robotic cadence
+              utterance.volume = 1.0;
+
+              // Prevent Chrome/WebKit garbage collection of utterance object
+              (window as any).__sellerRobotUtterance = utterance;
+
+              // Chromium keepalive while speaking
+              const resumeTimer = setInterval(() => {
+                if (window.speechSynthesis.speaking) {
+                  window.speechSynthesis.pause();
+                  window.speechSynthesis.resume();
+                } else {
+                  clearInterval(resumeTimer);
+                }
+              }, 2000);
+
+              utterance.onend = () => {
+                clearInterval(resumeTimer);
+                (window as any).__sellerRobotUtterance = null;
+              };
+              utterance.onerror = () => {
+                clearInterval(resumeTimer);
+                (window as any).__sellerRobotUtterance = null;
+              };
+
+              window.speechSynthesis.speak(utterance);
+            } catch (speakErr) {
+              console.warn('Speech speak err:', speakErr);
             }
-          }
-
-          utterance.pitch = 0.72; // Metallic robotic pitch
-          utterance.rate = 0.92;  // Deliberate robotic cadence
-          utterance.volume = 1.0;
-
-          window.speechSynthesis.speak(utterance);
+          }, 60);
         } catch (err) {
           console.warn('Speech synthesis robot voice note:', err);
         }
       };
 
-      // If voices are already loaded, speak after short chime delay
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        setTimeout(speak, 350);
+      // Ensure voices are ready
+      const currentVoices = window.speechSynthesis.getVoices();
+      if (currentVoices && currentVoices.length > 0) {
+        setTimeout(executeSpeech, 250);
       } else {
-        // Wait for voices to populate
         window.speechSynthesis.onvoiceschanged = () => {
-          setTimeout(speak, 350);
+          setTimeout(executeSpeech, 250);
         };
-        // Fallback timeout in case onvoiceschanged does not fire
-        setTimeout(speak, 500);
+        setTimeout(executeSpeech, 450);
       }
     }
+  }
+
+  /**
+   * Sound effect for real-time live chat incoming/outgoing messages
+   */
+  public playChatNotificationSound(isOutgoing: boolean = false) {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      if (isOutgoing) {
+        // Crisp outgoing transmission blip
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      } else {
+        // High-tech incoming message chime
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(950, now);
+        osc.frequency.setValueAtTime(1420, now + 0.06);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      }
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + (isOutgoing ? 0.1 : 0.18));
+    } catch {}
   }
 
   /**

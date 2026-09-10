@@ -16,12 +16,19 @@ import {
   ShoppingBag,
   Sparkles,
   Flame,
-  Calculator
+  Calculator,
+  Radio,
+  MessageSquare
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { RunningTextBanner } from '../components/RunningTextBanner';
 import { NeonCorners } from '../components/NeonCorners';
+
+// Visual Assets for Dashboard Imagery
+import sellerCenterLogo from '../assets/images/seller_center_logo_1788971192030.jpg';
+import muJerseyImg from '../assets/images/mu_jersey_front_1789001163095.jpg';
+import muModelImg from '../assets/images/sophia_mu_front_1789019777467.jpg';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -128,6 +135,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <span>{formatRupiah(adsCoinInfo.remainingCoin)}</span>
         </div>
 
+        {/* Tema Switcher Pill */}
+        <button
+          type="button"
+          id="btn-dashboard-theme-switcher"
+          onClick={() => setShowThemeModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 text-xs font-bold transition cursor-pointer shrink-0 shadow-xs active:scale-95"
+          title="Pilih Tema Warna Aplikasi"
+        >
+          <Palette className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Tema</span>
+        </button>
+
         {/* Install HP Pill */}
         <button
           type="button"
@@ -140,39 +159,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      {/* 2. Compact Header Intro Card */}
-      <div className="spatial-card rounded-2xl p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-              <span>Halo, {currentUser.name}</span>
-            </h1>
-            <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
-              Dashboard sistem akuntansi Shopee Live, HPP modal ball, gaji shift host, komisi admin, dan laba rugi real-time.
-            </p>
+      {/* Visual Showcase Holographic Banner with Store Images */}
+      <div className="spatial-card rounded-2xl p-4 sm:p-5 border border-[#25F4EE]/30 relative overflow-hidden group shadow-[0_0_25px_rgba(37,244,238,0.12)]">
+        <NeonCorners variant="side-left" color="cyan" />
+        {/* Hologram top laser line */}
+        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#25F4EE] to-transparent opacity-80 animate-pulse absolute top-0 left-0" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-5">
+          {/* Left: Info & Fast Action Badges */}
+          <div className="space-y-3 flex-1 w-full">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/40 shadow-[0_0_12px_rgba(254,44,85,0.3)]">
+                <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
+                STUDIO LIVE SHOPEE
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30">
+                <Radio className="w-3 h-3 animate-pulse text-[#25F4EE]" />
+                ONLINE DISPATCH
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                <span>Seller Profit Cyber Matrix</span>
+                <Sparkles className="w-4 h-4 text-[#25F4EE] animate-pulse" />
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-300 mt-1 max-w-xl leading-relaxed">
+                Pusat kendali operasional live streaming, kalkulasi HPP ball sortir, presensi shift, slip gaji host, dan koordinasi tim real-time.
+              </p>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-2.5 pt-1 flex-wrap">
+              <button
+                type="button"
+                id="btn-beranda-open-live-chat"
+                onClick={() => onNavigate('/informasi/live-chat')}
+                className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-[#25F4EE] to-[#00c8e0] hover:from-[#3ffef8] hover:to-[#25F4EE] text-black transition cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(37,244,238,0.3)] active:scale-95"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Buka Live Chat Tim</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-beranda-open-kalkulator"
+                onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white border border-white/20 transition cursor-pointer flex items-center gap-2 active:scale-95 shadow-xs"
+              >
+                <Calculator className="w-4 h-4 text-[#25F4EE]" />
+                <span>Kalkulasi Paket AI</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              id="btn-dashboard-theme-switcher"
-              type="button"
-              onClick={() => setShowThemeModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 transition cursor-pointer active:scale-95 shadow-xs"
-              title="Pilih Tema Warna Aplikasi"
-            >
-              <Palette className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Tema</span>
-            </button>
+          {/* Right: Rich Visual Image Showcase */}
+          <div className="flex items-center gap-3 shrink-0 self-center">
+            {/* Visual 1: Model Preview */}
+            <div className="relative group/img overflow-hidden rounded-2xl border-2 border-[#25F4EE]/40 shadow-[0_0_20px_rgba(37,244,238,0.25)] w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
+              <img
+                src={muModelImg}
+                alt="Live Host Catalog"
+                className="w-full h-full object-cover object-top group-hover/img:scale-105 transition-transform duration-500"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
+                <span className="text-[10px] font-black tracking-wider text-[#25F4EE] uppercase">Host Catalog</span>
+              </div>
+            </div>
 
-            <button
-              id="btn-dashboard-install-guide"
-              type="button"
-              onClick={onOpenInstallGuide}
-              className="inline-flex items-center gap-1.5 bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 text-[#25F4EE] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#25F4EE]/30 transition active:scale-95 cursor-pointer shadow-xs"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Install di HP</span>
-            </button>
+            {/* Visual 2: Jersey Live Stock */}
+            <div className="relative group/img overflow-hidden rounded-2xl border-2 border-[#FE2C55]/40 shadow-[0_0_20px_rgba(254,44,85,0.25)] w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
+              <img
+                src={muJerseyImg}
+                alt="Product Showcase"
+                className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
+                <span className="text-[10px] font-black tracking-wider text-[#FE2C55] uppercase">Live Stock</span>
+              </div>
+            </div>
+
+            {/* Visual 3: Seller Center Badge (Hidden on small screens) */}
+            <div className="hidden sm:block relative group/img overflow-hidden rounded-2xl border-2 border-white/20 shadow-md w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
+              <img
+                src={sellerCenterLogo}
+                alt="Seller Center"
+                className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
+                <span className="text-[10px] font-black tracking-wider text-zinc-300 uppercase">Center Hub</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -348,12 +428,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 5. MENU UTAMA: HANYA TAMPILKAN 3 KATEGORI UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN) */}
+      {/* 5. MENU UTAMA: TAMPILKAN 4 KATEGORI UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN, INFORMASI) */}
       <div className="space-y-2.5 pt-1">
         <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
           Kategori Menu
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
           {CATEGORIES.map((cat) => {
             const CatIcon = cat.icon;
 
@@ -366,7 +446,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <NeonCorners 
                   variant={cat.key === 'persiapan' ? 'corner-top-left' : 'side-left'} 
-                  color={cat.key === 'persiapan' ? 'cyan' : cat.key === 'penjualan' ? 'magenta' : 'emerald'} 
+                  color={cat.key === 'persiapan' ? 'cyan' : cat.key === 'penjualan' ? 'magenta' : cat.key === 'informasi' ? 'cyan' : 'emerald'} 
                 />
                 <div className="flex items-center gap-3 relative z-10">
                   <div

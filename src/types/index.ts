@@ -326,6 +326,7 @@ export type ViewState =
   | 'category_persiapan'
   | 'category_penjualan'
   | 'category_keuangan'
+  | 'category_informasi'
   | 'role_management'   // Persiapan: Manajemen Pegawai & Role
   | 'modal_stok'        // Persiapan: Modal & Stok (HPP)
   | 'steam_sortir'      // Persiapan: Sortir, QC dan Finishing
@@ -343,7 +344,19 @@ export type ViewState =
   | 'cashflow'          // Keuangan: Cashflow & Arus Kas
   | 'laba_bersih'       // Keuangan: Laporan Laba Bersih Toko
   | 'keuangan_pribadi' // Keuangan: Cashflow & Keuangan Pribadi
-  | 'kalkulasi_paket'; // Penjualan / AI: Kalkulasi Harga & Paket Terjual
+  | 'kalkulasi_paket'  // Penjualan / AI: Kalkulasi Harga & Paket Terjual
+  | 'live_chat';       // Informasi: Live Chat Tim Real-Time
+
+export interface ChatMessage {
+  id: string;
+  storeId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  text: string;
+  timestamp: number;
+  tag?: 'umum' | 'urgent' | 'live' | 'shift';
+}
 
 export interface SteamSortirRecord {
   id: string;

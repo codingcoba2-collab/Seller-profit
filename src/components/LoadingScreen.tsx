@@ -16,42 +16,33 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [progress, setProgress] = useState(12);
   const [isAudioActive, setIsAudioActive] = useState(SoundFx.isAudioRunning());
 
-  // Function to unlock and trigger audio strictly during loading (never duplicate or restart if already playing)
+  // Function to unlock and trigger audio strictly during loading
   const handleTriggerAudio = async () => {
-    if (progress >= 90) return;
-    const running = await SoundFx.unlockAudio();
-    if (!isAudioActive) {
-      setIsAudioActive(running);
-      SoundFx.playTimeMachineWarp();
-      SoundFx.playLoadingScreenSequence();
-    }
+    await SoundFx.unlockAudio();
+    setIsAudioActive(true);
+    SoundFx.playTimeMachineWarp();
   };
 
   // Play loading telemetry audio and increment progress counter automatically
   useEffect(() => {
     let isStillLoading = true;
 
-    // Attempt immediate automatic unlock & playback
-    SoundFx.unlockAudio().then((active) => {
+    // Trigger time machine warp sound immediately
+    const startAudio = async () => {
+      await SoundFx.unlockAudio();
       if (!isStillLoading) return;
-      setIsAudioActive(active);
+      setIsAudioActive(true);
       SoundFx.playTimeMachineWarp();
-      SoundFx.playLoadingScreenSequence();
-    });
+    };
+    startAudio();
 
-    // Listen on window for user gesture to immediately unlock audio if initially paused by browser autoplay policy
+    // Listen on window for user gesture to immediately trigger time travel sound if initial autoplay was restricted
     const onUserInteraction = async () => {
       if (!isStillLoading) return;
-      const active = await SoundFx.unlockAudio();
+      await SoundFx.unlockAudio();
       if (!isStillLoading) return;
-      if (!isAudioActive) {
-        setIsAudioActive(active);
-        SoundFx.playTimeMachineWarp();
-        SoundFx.playLoadingScreenSequence();
-      }
-      window.removeEventListener('pointerdown', onUserInteraction);
-      window.removeEventListener('touchstart', onUserInteraction);
-      window.removeEventListener('keydown', onUserInteraction);
+      setIsAudioActive(true);
+      SoundFx.playTimeMachineWarp();
     };
 
     window.addEventListener('pointerdown', onUserInteraction, { once: true });
@@ -81,7 +72,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       window.removeEventListener('touchstart', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
     };
-  }, [durationMs, isAudioActive]);
+  }, [durationMs]);
 
   return (
     <div 
@@ -135,15 +126,26 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           </p>
 
           {/* Audio Telemetry Indicator (Automated Quantum Sync) */}
-          <div className="flex justify-center pt-1">
-            <div className="px-3 py-1 rounded-full bg-[#25F4EE]/10 border border-[#25F4EE]/40 text-[#25F4EE] text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(37,244,238,0.2)]">
+          <div className="flex flex-col items-center gap-1.5 pt-1">
+            <button
+              type="button"
+              id="btn-trigger-time-warp-sound"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTriggerAudio();
+              }}
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FE2C55]/20 via-[#25F4EE]/25 to-purple-600/20 border border-[#25F4EE]/60 hover:border-[#25F4EE] text-[#25F4EE] hover:text-white text-[11px] font-mono font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(37,244,238,0.35)] active:scale-95 transition cursor-pointer"
+            >
               <span className="flex items-end gap-0.5 h-3">
-                <span className="w-0.5 h-2 bg-[#25F4EE] animate-pulse" />
+                <span className="w-0.5 h-2.5 bg-[#FE2C55] animate-pulse" />
                 <span className="w-0.5 h-3 bg-[#25F4EE] animate-pulse delay-75" />
-                <span className="w-0.5 h-1.5 bg-[#25F4EE] animate-pulse delay-150" />
+                <span className="w-0.5 h-2 bg-purple-400 animate-pulse delay-150" />
               </span>
-              <span>AUDIO QUANTUM TIME-WARP AUTO-ACTIVE</span>
-            </div>
+              <span>🌀 SUARA TIME TRAVELLING (PUTAR ULANG)</span>
+            </button>
+            <span className="text-[10px] text-zinc-500 font-mono">
+              Ketuk di mana saja pada layar untuk mengaktifkan suara
+            </span>
           </div>
         </div>
 

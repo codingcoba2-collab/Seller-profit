@@ -12,7 +12,8 @@ import {
   ChannelFeeConfig,
   PersonalBudgetAllocation,
   PersonalExpenseRecord,
-  PersonalBudgetCategory
+  PersonalBudgetCategory,
+  ChatMessage
 } from '../types';
 import { 
   db, 
@@ -41,6 +42,7 @@ const STORAGE_KEYS = {
   STEAM_SORTIR: 'shopee_lr_steamsortir',
   PERSONAL_BUDGET: 'seller_profit_personal_budget',
   PERSONAL_EXPENSES: 'seller_profit_personal_expenses',
+  CHAT_MESSAGES: 'seller_profit_chat_messages',
 };
 
 export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
@@ -2055,5 +2057,168 @@ export class StorageService {
       remainingAds: totalAdsTopup - totalAdsUsed,
       remainingCoin: totalCoinTopup - totalCoinUsed,
     };
+  }
+
+  // ==========================================
+  // REAL-TIME OPTIMIZED LIVE CHAT TIM TOKO
+  // ==========================================
+  static getChatMessages(storeId: string): ChatMessage[] {
+    try {
+      const data = localStorage.getItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`);
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch {}
+
+    // Initial default greeting to keep chat active and welcoming
+    const initialWelcome: ChatMessage[] = [
+      {
+        id: 'msg-welcome-sys',
+        storeId,
+        senderId: 'system-bot',
+        senderName: 'Seller Robot AI',
+        senderRole: 'Sistem',
+        text: 'Selamat datang di Live Chat Toko! Ruang koordinasi real-time untuk Owner, Host Live, Admin Toko, Steam, & Sortir.',
+        timestamp: Date.now() - 3600000,
+        tag: 'umum',
+      },
+    ];
+    return initialWelcome;
+  }
+
+  static saveChatMessagesLocally(storeId: string, messages: ChatMessage[]): void {
+    try {
+      // Keep strictly maximum 80 messages to keep memory and storage feather-light
+      const capped = messages.slice(-80);
+      localStorage.setItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`, JSON.stringify(capped));
+    } catch {}
+  }
+
+  static async sendChatMessage(
+    storeId: string,
+    messageData: {
+      senderId: string;
+      senderName: string;
+      senderRole: string;
+      text: string;
+      tag?: 'umum' | 'urgent' | 'live' | 'shift';
+    }
+  ): Promise<ChatMessage> {
+    const newMsg: ChatMessage = {
+      id: `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      storeId,
+      senderId: messageData.senderId,
+      senderName: messageData.senderName,
+      senderRole: messageData.senderRole,
+      text: messageData.text.trim(),
+      timestamp: Date.now(),
+      tag: messageData.tag || 'umum',
+    };
+
+    // 1. Optimistic instant local save for 0ms UI latency
+    const current = this.getChatMessages(storeId);
+    const updated = [...current, newMsg].slice(-80);
+    this.saveChatMessagesLocally(storeId, updated);
+
+    // 2. Sync to Firestore in background if available
+    if (db) {
+      try {
+        const chatRef = doc(db, 'stores', storeId, 'chat_messages', newMsg.id);
+        await setDoc(chatRef, newMsg);
+      } catch (err) {
+        console.warn('Firestore chat message sync skipped (running offline/local mode):', err);
+      }
+    }
+
+    return newMsg;
+  }
+
+  static subscribeChatMessages(
+    storeId: string,
+    onMessages: (messages: ChatMessage[]) => void
+  ): () => void {
+    // Return initial local data immediately
+    const initial = this.getChatMessages(storeId);
+    onMessages(initial);
+
+    // Cross-tab broadcast listener via storage event
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === `${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`) {
+        try {
+          if (e.newValue) {
+            onMessages(JSON.parse(e.newValue));
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // If Firestore is available, attach live onSnapshot listener with lean query
+    let firestoreUnsub: (() => void) | null = null;
+    if (db) {
+      try {
+        const colRef = collection(db, 'stores', storeId, 'chat_messages');
+        firestoreUnsub = onSnapshot(
+          colRef,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const remoteMsgs: ChatMessage[] = [];
+              snapshot.forEach((docSnap) => {
+                const data = docSnap.data() as ChatMessage;
+                if (data && data.text) {
+                  remoteMsgs.push(data);
+                }
+              });
+
+              if (remoteMsgs.length > 0) {
+                // Sort by timestamp ascending
+                remoteMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                const capped = remoteMsgs.slice(-80);
+                this.saveChatMessagesLocally(storeId, capped);
+                onMessages(capped);
+              }
+            }
+          },
+          (err) => {
+            console.warn('Firestore chat onSnapshot note:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('Firestore live chat listener fallback to local:', err);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      if (firestoreUnsub) {
+        firestoreUnsub();
+      }
+    };
+  }
+
+  static async clearChatMessages(storeId: string): Promise<void> {
+    const welcome = [
+      {
+        id: 'msg-welcome-sys',
+        storeId,
+        senderId: 'system-bot',
+        senderName: 'Seller Robot AI',
+        senderRole: 'Sistem',
+        text: 'Riwayat obrolan telah dibersihkan oleh Owner.',
+        timestamp: Date.now(),
+        tag: 'umum' as const,
+      },
+    ];
+    this.saveChatMessagesLocally(storeId, welcome);
+
+    if (db) {
+      try {
+        const colRef = collection(db, 'stores', storeId, 'chat_messages');
+        const snap = await getDocs(colRef);
+        snap.forEach(async (d) => {
+          await deleteDoc(d.ref).catch(() => {});
+        });
+      } catch {}
+    }
   }
 }

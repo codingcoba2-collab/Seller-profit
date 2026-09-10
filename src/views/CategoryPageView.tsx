@@ -6,7 +6,7 @@ import { MarqueeText } from '../components/MarqueeText';
 import { NeonCorners } from '../components/NeonCorners';
 
 interface CategoryPageViewProps {
-  categoryKey: 'persiapan' | 'penjualan' | 'keuangan';
+  categoryKey: 'persiapan' | 'penjualan' | 'keuangan' | 'informasi';
   currentUser: CurrentUser;
   onNavigate: (route: RoutePath) => void;
   onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
