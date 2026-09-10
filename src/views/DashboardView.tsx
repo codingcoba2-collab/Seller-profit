@@ -79,9 +79,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-10 py-5 sm:py-6 space-y-5 sm:space-y-6 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-5 text-white font-sans overflow-x-hidden">
       {/* 1. Top Quick Status Pill Bar */}
-      <div className="spatial-menu flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 select-none">
+      <div className="spatial-menu flex flex-wrap items-center gap-2 py-2 px-3 select-none rounded-2xl">
         {/* Nama Toko Pill */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-zinc-200 border border-white/10 shrink-0 shadow-xs">
           <ShoppingBag className="w-3.5 h-3.5 text-[#25F4EE]" />
@@ -133,7 +133,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           type="button"
           id="btn-pill-install-hp"
           onClick={onOpenInstallGuide}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-black transition cursor-pointer shrink-0 shadow-xs hover:bg-[#25F4EE]/20 active:scale-95 ml-auto"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-black transition cursor-pointer shrink-0 shadow-xs hover:bg-[#25F4EE]/20 active:scale-95"
         >
           <Smartphone className="w-3.5 h-3.5" />
           <span>Install HP</span>

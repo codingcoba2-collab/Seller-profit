@@ -1067,68 +1067,32 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       {/* =================================================================== */}
       {/* TOP FLOATING HUD BAR                                                */}
       {/* =================================================================== */}
-      <div className="relative z-30 w-full max-w-5xl mx-auto px-4 pt-4 sm:pt-6 flex items-center justify-between pointer-events-auto">
-        {/* Realism Badge / Meshy Badge */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="relative p-2 sm:p-2.5 rounded-2xl bg-black/60 border border-[#FE2C55]/40 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.25)] flex items-center justify-center">
-            {engineMode === 'meshy' ? (
-              <Box className="w-5 h-5 text-[#25F4EE]" />
-            ) : (
-              <ShieldCheck className="w-5 h-5 text-[#FE2C55]" />
-            )}
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#25F4EE] animate-ping" />
+      <div className="relative z-30 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-5 flex flex-wrap items-center justify-between gap-2.5 pointer-events-auto">
+        {/* Clean App Brand Badge (Removed Meshy text and description as requested) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="relative p-2 sm:p-2.5 rounded-xl bg-black/70 border border-[#FE2C55]/50 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.35)] flex items-center justify-center">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#25F4EE] animate-pulse" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#FE2C55] animate-ping" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
-                {engineMode === 'meshy' ? 'Model 3D Meshy AI' : 'Model 3D Scan Sophia x MU 24/25'}
+              <span className="text-xs sm:text-sm font-black text-white tracking-wider uppercase drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]">
+                Seller Profit
               </span>
-              <span className={`hidden sm:inline-block px-1.5 py-0.5 rounded-md border text-[9px] font-bold ${
-                engineMode === 'meshy' 
-                  ? 'bg-[#25F4EE]/15 border-[#25F4EE]/30 text-[#25F4EE]'
-                  : 'bg-[#FE2C55]/15 border-[#FE2C55]/30 text-[#FE2C55]'
-              }`}>
-                {engineMode === 'meshy' ? 'Meshy AI Active' : 'Fotorealistis 360°'}
+              <span className="px-1.5 py-0.5 rounded-md bg-[#25F4EE]/15 border border-[#25F4EE]/30 text-[#25F4EE] text-[9px] font-mono font-bold">
+                PRO 360°
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-zinc-400">
-              {engineMode === 'meshy'
-                ? `Model: ${activeMeshyModelName || 'Meshy 3D'} • Putar 360° Real-time`
-                : 'Anatomi Asli Sophia • Jersey Manchester United Resmi • Putar 360° Bebas'}
-            </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        {/* Action Controls - Responsive & Wrapped to prevent horizontal overflow */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
           {/* Compass / Angle Indicator */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-zinc-300 text-xs font-mono">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/10 text-zinc-300 text-xs font-mono">
             <Compass className="w-3.5 h-3.5 text-[#25F4EE] animate-spin" style={{ animationDuration: '10s' }} />
             <span>{rotationDeg}°</span>
-            <span className="text-[10px] text-zinc-400">({cardinalText})</span>
           </div>
-
-          {/* Meshy AI 3D Model Manager Button */}
-          <button
-            type="button"
-            onClick={() => {
-              SoundFx.unlockAudio();
-              setIsMeshyModalOpen(true);
-            }}
-            className={`px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
-              engineMode === 'meshy'
-                ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)]'
-                : 'bg-white/10 hover:bg-white/15 border-white/20 text-white'
-            }`}
-            title="Upload / Kelola Model 3D Meshy AI (.glb / .txt)"
-          >
-            <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span className="hidden sm:inline">Model Meshy AI</span>
-            <span className="sm:hidden">Meshy</span>
-            {activeMeshyModelName && (
-              <span className="w-2 h-2 rounded-full bg-[#25F4EE] animate-ping ml-0.5" />
-            )}
-          </button>
 
           {/* Avatar Character Development Studio Button */}
           <button
@@ -1137,13 +1101,12 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setIsStudioModalOpen(true);
             }}
-            className="px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 via-[#C70101]/25 to-[#FE2C55]/25 hover:from-[#FE2C55]/35 hover:to-[#C70101]/35 border border-[#FE2C55]/50 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-[0_0_15px_rgba(254,44,85,0.25)] transition active:scale-95 cursor-pointer"
-            title="Pengaturan Karakter Avatar 3D (Kulit, Rambut, Mata, Jersey & Cloud Sync)"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 via-[#C70101]/25 to-[#FE2C55]/25 hover:from-[#FE2C55]/35 hover:to-[#C70101]/35 border border-[#FE2C55]/50 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-[0_0_15px_rgba(254,44,85,0.25)] transition active:scale-95 cursor-pointer"
+            title="Pengaturan Karakter Avatar 3D (Kulit, Rambut, Mata, Jersey, Model 3D & Cloud Sync)"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
-            <span className="hidden sm:inline">Karakter Avatar</span>
-            <span className="sm:hidden">Studio</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-mono border border-emerald-500/30">
+            <span>Studio 3D</span>
+            <span className="hidden sm:inline-block px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-mono border border-emerald-500/30">
               Cloud
             </span>
           </button>
@@ -1155,15 +1118,15 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setIsAutoSpin(prev => !prev);
             }}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 ${
               isAutoSpin
                 ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)]'
                 : 'bg-white/5 hover:bg-white/10 border-white/15 text-zinc-300'
             }`}
             title="Putar Otomatis 360 Derajat"
           >
-            {isAutoSpin ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isAutoSpin ? 'Stop Spin' : 'Auto 360°'}</span>
+            {isAutoSpin ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-[#25F4EE]" />}
+            <span className="hidden sm:inline">{isAutoSpin ? 'Stop' : 'Auto 360°'}</span>
           </button>
 
           {/* Ganti Outfit Button */}
@@ -1173,12 +1136,11 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setIsOutfitDrawerOpen(true);
             }}
-            className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-md"
             title="Buka Menu Ganti Jersey & Custom Outfit"
           >
             <Shirt className="w-3.5 h-3.5 text-[#FE2C55]" />
-            <span className="hidden sm:inline">Ganti Outfit</span>
-            <span className="sm:hidden">Outfit</span>
+            <span className="hidden sm:inline">Outfit</span>
           </button>
 
           {/* Primary Login Button */}
@@ -1189,9 +1151,9 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               onOpenLoginModal();
             }}
-            className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white text-xs sm:text-sm font-black tracking-wide uppercase flex items-center gap-2 shadow-[0_0_25px_rgba(254,44,85,0.45)] transition active:scale-95 cursor-pointer"
+            className="px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white text-xs sm:text-sm font-black tracking-wide uppercase flex items-center gap-1.5 sm:gap-2 shadow-[0_0_25px_rgba(254,44,85,0.5)] transition active:scale-95 cursor-pointer"
           >
-            <Sparkles className="w-4 h-4 text-white animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse" />
             <span>Masuk / Login</span>
           </button>
         </div>
@@ -1414,23 +1376,11 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
         {/* Active Model & Outfit Tag */}
         <div className="absolute top-4 left-4 z-20 hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/60 border border-white/15 text-xs text-white backdrop-blur-sm">
-          {engineMode === 'meshy' ? (
-            <>
-              <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span className="text-zinc-400">Model 3D:</span>
-              <span className="font-bold text-[#25F4EE]">{activeMeshyModelName || 'Meshy AI 3D'}</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-xs text-zinc-300">GLB/Three.js</span>
-            </>
-          ) : (
-            <>
-              <Sparkle className="w-3.5 h-3.5 text-[#FE2C55]" />
-              <span className="text-zinc-400">Karakter:</span>
-              <span className="font-bold text-white">Sophia (Photorealistic 3D)</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-[#25F4EE] font-semibold">{activeOutfit.name}</span>
-            </>
-          )}
+          <Sparkle className="w-3.5 h-3.5 text-[#FE2C55]" />
+          <span className="text-zinc-400">Karakter 3D:</span>
+          <span className="font-bold text-white">Sophia</span>
+          <span className="text-zinc-500">•</span>
+          <span className="text-[#25F4EE] font-semibold">{activeOutfit.name}</span>
         </div>
 
         {/* 360° Swipe Gesture Hint */}
@@ -1445,117 +1395,101 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       </div>
 
       {/* =================================================================== */}
-      {/* BOTTOM FLOATING BAR                                                 */}
+      {/* BOTTOM FLOATING BAR - RESPONSIVE HOLOGRAPHIC CONTROL DOCK           */}
       {/* =================================================================== */}
-      <div className="relative z-30 w-full max-w-2xl mx-auto px-4 pb-5 flex flex-col items-center gap-2 pointer-events-auto">
-        <div className="spatial-card w-full py-2.5 px-4 rounded-2xl flex items-center justify-between gap-3 text-xs text-zinc-300">
-          <div className="flex items-center gap-2 font-medium text-xs">
-            <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
-            <span className="hidden sm:inline">
-              {engineMode === 'meshy' 
-                ? 'Model Meshy AI 3D Aktif • Putar Bebas 360°'
-                : 'Putaran 360° Halus • Sentuh model untuk sapaan suara'}
+      <div className="relative z-30 w-full max-w-3xl mx-auto px-3 sm:px-4 pb-4 sm:pb-6 flex flex-col items-center gap-2 pointer-events-auto">
+        {/* Centered Status Pill */}
+        <div className="flex items-center justify-center gap-2 px-3.5 py-1 rounded-full bg-black/75 border border-[#25F4EE]/35 text-[11px] text-zinc-300 backdrop-blur-md shadow-md">
+          <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
+          <span className="font-medium text-white">Putar 360° Bebas</span>
+          <span className="text-zinc-500">•</span>
+          <span className="text-zinc-300">Sentuh avatar untuk respon suara</span>
+          <span className="text-zinc-500">•</span>
+          <span className="text-[#25F4EE] font-mono font-bold">{rotationDeg}° ({cardinalText})</span>
+        </div>
+
+        {/* Action Button Dock - Clean wrap, no overflow, touch-friendly min-h-[36px] */}
+        <div className="spatial-card w-full p-2 sm:p-2.5 rounded-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+          {/* Character Studio Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              setIsStudioModalOpen(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 to-[#C70101]/25 hover:from-[#FE2C55]/40 hover:to-[#C70101]/40 border border-[#FE2C55]/50 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-[0_0_12px_rgba(254,44,85,0.3)] min-h-[36px]"
+            title="Buka Pengaturan Karakter Avatar (Kulit, Rambut, Jersey, Studio & Cloud Sync)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
+            <span>Studio 3D</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-mono border border-emerald-500/30">
+              Cloud
             </span>
-            <span className="sm:hidden">{cardinalText}</span>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-2">
-            {/* Model Meshy AI Trigger */}
-            <button
-              type="button"
-              onClick={() => {
-                SoundFx.unlockAudio();
-                setIsMeshyModalOpen(true);
-              }}
-              className={`px-2.5 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0 ${
-                engineMode === 'meshy'
-                  ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE]'
-                  : 'bg-white/5 hover:bg-white/10 border-white/15 text-zinc-200 hover:text-white'
-              }`}
-              title="Kelola & Upload Model Meshy AI 3D (.glb / .txt)"
-            >
-              <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Meshy AI</span>
-            </button>
+          {/* Quick Ganti Baju Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              setIsOutfitDrawerOpen(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-sm min-h-[36px]"
+            title="Ganti Outfit / Upload Gambar Baju Sendiri"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#FE2C55]" />
+            <span>Ganti Baju</span>
+          </button>
 
-            {/* Character Studio Trigger */}
-            <button
-              type="button"
-              onClick={() => {
-                SoundFx.unlockAudio();
-                setIsStudioModalOpen(true);
-              }}
-              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#FE2C55]/20 to-[#C70101]/20 hover:from-[#FE2C55]/30 hover:to-[#C70101]/30 border border-[#FE2C55]/40 text-white text-[11px] font-black flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0 shadow-[0_0_10px_rgba(254,44,85,0.25)]"
-              title="Buka Pengaturan Karakter Avatar (Kulit, Rambut, Jersey, Studio & Cloud Sync)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
-              <span>Studio 3D</span>
-            </button>
+          {/* Sapa Avatar Button */}
+          <button
+            type="button"
+            onClick={(e) => handleStageClick(e as any)}
+            className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/50 text-[#FE2C55] text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition min-h-[36px]"
+            title="Sentuh untuk sapaan dan reaksi suara avatar"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Sapa Avatar</span>
+            {touchCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[#25F4EE] text-zinc-950 text-[9px] font-black">
+                {touchCount}
+              </span>
+            )}
+          </button>
 
-            {/* Hotspots Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                SoundFx.unlockAudio();
-                setShowHotspots(prev => !prev);
-              }}
-              className={`px-2.5 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition active:scale-95 ${
-                showHotspots
-                  ? 'bg-[#FE2C55]/15 border-[#FE2C55]/40 text-[#FE2C55]'
-                  : 'bg-white/5 border-white/10 text-zinc-400'
-              }`}
-              title="Tampilkan / Sembunyikan Titik Fitur Jersey"
-            >
-              <Info className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Hotspot</span>
-            </button>
+          {/* Hotspots Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              setShowHotspots(prev => !prev);
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 cursor-pointer transition active:scale-95 min-h-[36px] ${
+              showHotspots
+                ? 'bg-[#FE2C55]/20 border-[#FE2C55]/50 text-[#FE2C55]'
+                : 'bg-white/5 border-white/15 text-zinc-300 hover:text-white'
+            }`}
+            title="Tampilkan / Sembunyikan Titik Fitur Jersey"
+          >
+            <Info className="w-3.5 h-3.5" />
+            <span>Hotspot</span>
+          </button>
 
-            {/* Quick Ganti Baju Trigger */}
-            <button
-              type="button"
-              onClick={() => {
-                SoundFx.unlockAudio();
-                setIsOutfitDrawerOpen(true);
-              }}
-              className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-200 hover:text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0"
-              title="Ganti Outfit / Upload Gambar Baju Sendiri"
-            >
-              <Upload className="w-3.5 h-3.5 text-[#FE2C55]" />
-              <span>Ganti Baju</span>
-            </button>
-
-            {/* Scroll ke Edukasi & Keuntungan */}
-            <button
-              type="button"
-              onClick={() => {
-                SoundFx.unlockAudio();
-                const el = document.getElementById('edukasi-seller-profit');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-[#FE2C55]/15 hover:from-[#25F4EE]/30 hover:to-[#FE2C55]/30 border border-[#25F4EE]/40 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition shrink-0"
-              title="Pelajari Edukasi, Keuntungan & Kelebihan Aplikasi Seller Profit"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span className="hidden sm:inline">Edukasi &amp; Keuntungan</span>
-              <span className="sm:hidden">Edukasi</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 animate-bounce" />
-            </button>
-
-            {/* Sapa Avatar Button */}
-            <button
-              type="button"
-              onClick={(e) => handleStageClick(e as any)}
-              className="px-3 py-1 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/50 text-[#FE2C55] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Sapa</span>
-              {touchCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[#25F4EE] text-zinc-950 text-[9px] font-black">
-                  {touchCount}
-                </span>
-              )}
-            </button>
-          </div>
+          {/* Scroll ke Edukasi & Keuntungan */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              const el = document.getElementById('edukasi-seller-profit');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-[#FE2C55]/15 hover:from-[#25F4EE]/25 hover:to-[#FE2C55]/25 border border-[#25F4EE]/40 text-white text-xs font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition min-h-[36px]"
+            title="Pelajari Edukasi, Keuntungan & Kelebihan Aplikasi Seller Profit"
+          >
+            <GraduationCap className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Edukasi &amp; Keuntungan</span>
+            <ChevronDown className="w-3 h-3 text-zinc-400 animate-bounce ml-0.5" />
+          </button>
         </div>
       </div>
 
@@ -1799,6 +1733,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         isOpen={isStudioModalOpen}
         onClose={() => setIsStudioModalOpen(false)}
         initialConfig={avatarStudioConfig}
+        onOpenMeshyUpload={() => {
+          setIsStudioModalOpen(false);
+          setIsMeshyModalOpen(true);
+        }}
         onConfigChange={(newCfg) => {
           setAvatarStudioConfig(newCfg);
           setEngineMode(newCfg.engineMode);

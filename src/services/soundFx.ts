@@ -28,7 +28,7 @@ class SoundFxService {
     if (this.isInitialized || typeof window === 'undefined') return;
     this.isInitialized = true;
 
-    // Immediate resume listeners for any user gesture (pointerdown, touchstart, keydown, click)
+    // Immediate resume listeners for any user gesture
     const gestureResume = () => {
       this.unlockAudio();
     };
@@ -36,19 +36,21 @@ class SoundFxService {
     window.addEventListener('touchstart', gestureResume, { capture: true, passive: true });
     window.addEventListener('keydown', gestureResume, { capture: true, passive: true });
 
-    const handleClick = (e: MouseEvent) => {
-      // Resume audio context on any user gesture
+    const handleInteractiveSound = (e: Event) => {
       this.unlockAudio();
 
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
       // Check if clicked element or any parent is a button or clickable interactive element
-      const clickable = target.closest('button, [role="button"], [role="tab"], [role="menuitem"], a, input[type="submit"], input[type="button"], nav *, [data-menu], .menu-item, select, label:has(input), .clickable-sound');
+      const clickable = target.closest(
+        'button, [role="button"], [role="tab"], [role="menuitem"], a, input, select, textarea, label, [tabindex], [data-action], [data-nav], [data-menu], .menu-item, .spatial-card, .spatial-button, [class*="cursor-pointer"], [id*="btn"], [id*="card"], [onclick], .clickable-sound'
+      ) as HTMLElement | null;
+
       if (clickable) {
-        // Debounce slightly to prevent double audio on rapid clicks
+        // Debounce slightly to prevent duplicate audio across pointerdown & click events
         const now = Date.now();
-        if (now - this.lastClickTime > 30) {
+        if (now - this.lastClickTime > 40) {
           this.lastClickTime = now;
           if (clickable.matches('nav *, [role="tab"], [data-menu], .menu-item, [data-nav]')) {
             this.playMenuSound();
@@ -59,7 +61,9 @@ class SoundFxService {
       }
     };
 
-    window.addEventListener('click', handleClick, true);
+    // Use pointerdown for zero-latency tactile response, and click as guaranteed fallback
+    window.addEventListener('pointerdown', handleInteractiveSound, { capture: true, passive: true });
+    window.addEventListener('click', handleInteractiveSound, { capture: true });
   }
 
   /**

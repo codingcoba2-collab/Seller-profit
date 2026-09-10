@@ -32,28 +32,54 @@ import { ProcessingService } from '../services/processingService';
 interface AvatarCustomizerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  config: AvatarStudioConfig;
-  onChangeConfig: (newConfig: AvatarStudioConfig) => void;
+  config?: AvatarStudioConfig;
+  initialConfig?: AvatarStudioConfig;
+  onChangeConfig?: (newConfig: AvatarStudioConfig) => void;
+  onConfigChange?: (newConfig: AvatarStudioConfig) => void;
   onOpenMeshyUpload?: () => void;
 }
 
 export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
   isOpen,
   onClose,
-  config,
+  config: propConfig,
+  initialConfig,
   onChangeConfig,
+  onConfigChange,
   onOpenMeshyUpload,
 }) => {
   const [activeTab, setActiveTab] = useState<'apparel' | 'body' | 'lighting' | 'pose' | 'engine'>('apparel');
   const [isSavingCloud, setIsSavingCloud] = useState(false);
   const [cloudSuccessMsg, setCloudSuccessMsg] = useState<string | null>(null);
 
+  // Guaranteed safe merged config with default values so it never renders blank
+  const [config, setConfig] = useState<AvatarStudioConfig>(() => ({
+    ...DEFAULT_AVATAR_CONFIG,
+    ...AvatarSettingsService.getConfig(),
+    ...(initialConfig || {}),
+    ...(propConfig || {}),
+  }));
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setConfig({
+        ...DEFAULT_AVATAR_CONFIG,
+        ...AvatarSettingsService.getConfig(),
+        ...(initialConfig || {}),
+        ...(propConfig || {}),
+      });
+    }
+  }, [propConfig, initialConfig, isOpen]);
+
   if (!isOpen) return null;
 
   const handleUpdate = (patch: Partial<AvatarStudioConfig>) => {
     SoundFx.playRobotButtonClick();
     const updated = { ...config, ...patch };
-    onChangeConfig(updated);
+    setConfig(updated);
+    if (onChangeConfig) onChangeConfig(updated);
+    if (onConfigChange) onConfigChange(updated);
+    AvatarSettingsService.saveToLocal(updated);
   };
 
   const handleSaveToCloud = async () => {
@@ -81,7 +107,11 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
   const handleResetToDefault = () => {
     if (confirm('Kembalikan semua pengaturan avatar ke konfigurasi resmi default?')) {
       SoundFx.playRobotButtonClick();
-      onChangeConfig({ ...DEFAULT_AVATAR_CONFIG });
+      const def = { ...DEFAULT_AVATAR_CONFIG };
+      setConfig(def);
+      if (onChangeConfig) onChangeConfig(def);
+      if (onConfigChange) onConfigChange(def);
+      AvatarSettingsService.saveToLocal(def);
     }
   };
 
@@ -624,14 +654,14 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px] text-zinc-300">
                     <span>Skala Ukuran (Scale):</span>
-                    <span className="font-mono text-[#25F4EE]">{config.scale.toFixed(2)}x</span>
+                    <span className="font-mono text-[#25F4EE]">{(config.scale ?? 1.0).toFixed(2)}x</span>
                   </div>
                   <input
                     type="range"
                     min="0.5"
                     max="2.5"
                     step="0.05"
-                    value={config.scale}
+                    value={config.scale ?? 1.0}
                     onChange={(e) => handleUpdate({ scale: parseFloat(e.target.value) })}
                     className="w-full accent-[#25F4EE]"
                   />
@@ -640,14 +670,14 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px] text-zinc-300">
                     <span>Ketinggian Vertikal (Offset Y):</span>
-                    <span className="font-mono text-[#25F4EE]">{config.offsetY.toFixed(2)}</span>
+                    <span className="font-mono text-[#25F4EE]">{(config.offsetY ?? 0.0).toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min="-1.0"
                     max="1.0"
                     step="0.05"
-                    value={config.offsetY}
+                    value={config.offsetY ?? 0.0}
                     onChange={(e) => handleUpdate({ offsetY: parseFloat(e.target.value) })}
                     className="w-full accent-[#25F4EE]"
                   />
