@@ -81,7 +81,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-10 py-5 sm:py-6 space-y-5 sm:space-y-6 text-white font-sans">
       {/* 1. Top Quick Status Pill Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 select-none">
+      <div className="spatial-menu flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 select-none">
         {/* Nama Toko Pill */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-zinc-200 border border-white/10 shrink-0 shadow-xs">
           <ShoppingBag className="w-3.5 h-3.5 text-[#25F4EE]" />
@@ -141,7 +141,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 2. Compact Header Intro Card */}
-      <div className="rounded-2xl bg-[#161823] p-4 border border-white/10 shadow-lg space-y-3">
+      <div className="spatial-card rounded-2xl p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
@@ -193,7 +193,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-omzet-hari-ini"
           onClick={() => onNavigate('/penjualan/live')}
-          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="magenta" />
           <div className="flex items-center justify-between gap-1 relative z-10">
@@ -218,7 +218,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-hpp"
           onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="cyan" />
           <div className="flex items-center justify-between gap-1 relative z-10">
@@ -243,7 +243,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-stok"
           onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="emerald" />
           <div className="flex items-center justify-between gap-1 relative z-10">
@@ -268,7 +268,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-saldo-iklan"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="corner-top-left" color="cyan" />
           <div className="flex items-center justify-between gap-1 relative z-10">
@@ -293,7 +293,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-saldo-koin"
           onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="relative p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
         >
           <NeonCorners variant="side-left" color="amber" />
           <div className="flex items-center justify-between gap-1 relative z-10">
@@ -319,7 +319,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div 
         id="banner-kalkulasi-paket-ai"
         onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
-        className="relative p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#121520] to-[#121520] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] overflow-hidden"
+        className="spatial-card relative p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#121520] to-[#121520] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] overflow-hidden"
       >
         <NeonCorners variant="side-left" color="emerald" />
         <div className="flex items-center gap-3.5">
@@ -362,7 +362,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 key={cat.key}
                 id={`card-main-menu-${cat.key}`}
                 onClick={() => onNavigate(cat.path)}
-                className={`relative group p-4 sm:p-4.5 rounded-2xl border bg-[#121520] hover:bg-[#181c2b] transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-3.5 overflow-hidden ${cat.hoverBorder} ${cat.borderAccent}`}
+                className={`spatial-card relative group p-4 sm:p-4.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.99] flex flex-col justify-between gap-3.5 overflow-hidden ${cat.hoverBorder} ${cat.borderAccent}`}
               >
                 <NeonCorners 
                   variant={cat.key === 'persiapan' ? 'corner-top-left' : 'side-left'} 

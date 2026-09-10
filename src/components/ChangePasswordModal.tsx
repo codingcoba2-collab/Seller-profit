@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CurrentUser } from '../types';
 import { StorageService } from '../services/storage';
 import { Lock, X, CheckCircle2, KeyRound, Store, User, ShieldCheck } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -22,6 +23,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [storeName, setStoreName] = useState(currentUser.storeName);
   const [username, setUsername] = useState(currentUser.username || 'owner');
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      SoundFx.playHologramOpen();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,8 +85,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-md bg-[#161823] border border-white/10 rounded-3xl p-6 shadow-2xl text-white">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="holographic-modal relative w-full max-w-md p-6 shadow-2xl text-white">
+        {/* Hologram Corner Reticles */}
+        <div className="hologram-corner-tl" />
+        <div className="hologram-corner-tr" />
+        <div className="hologram-corner-bl" />
+        <div className="hologram-corner-br" />
+
         {/* Close Button */}
         <button
           onClick={onClose}

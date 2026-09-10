@@ -6,7 +6,8 @@ import { BreadcrumbBar } from './components/BreadcrumbBar';
 import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AppLogo } from './components/AppLogo';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { SoundFx } from './services/soundFx';
+import { CheckCircle2, AlertCircle, Info, X, Bot, Volume2 } from 'lucide-react';
 import { 
   RoutePath, 
   normalizePath, 
@@ -55,6 +56,7 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [robotBanner, setRobotBanner] = useState<{ text: string; name: string } | null>(null);
 
   // Helper toast notification
   const handleNotify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -113,8 +115,15 @@ export default function App() {
     [currentUser, handleNotify]
   );
 
-  // Initialize store, session & URL route on mount
+  // Initialize store, session & URL route on mount with time machine warp audio
   useEffect(() => {
+    // 1. Initialize global tactile robot click sounds on all buttons
+    SoundFx.initGlobalButtonSound();
+
+    // 2. Play sound like entering time machine upon opening app
+    SoundFx.playTimeMachineWarp();
+
+    // 3. Opening loading takes 4.5 seconds (4-5 seconds as requested)
     const timer = setTimeout(() => {
       const user = StorageService.getCurrentUser();
       const initialPath = normalizePath(window.location.pathname);
@@ -128,11 +137,20 @@ export default function App() {
           setCurrentRoute('/dashboard');
           window.history.replaceState({}, '', '/dashboard');
         }
+        // Robot welcome voice greeting in English with user name
+        const targetName = user.name || user.username || user.storeName || 'Seller';
+        setTimeout(() => {
+          SoundFx.playRobotVoiceWelcome(targetName);
+          setRobotBanner({
+            name: targetName,
+            text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+          });
+        }, 300);
       } else {
         setCurrentRoute('/dashboard');
       }
       setIsLoading(false);
-    }, 500);
+    }, 4500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -160,7 +178,13 @@ export default function App() {
   }, [currentUser, handleNotify]);
 
   const handleLoginSuccess = (user: CurrentUser) => {
+    // Immediate audio unlock on user click gesture
+    SoundFx.unlockAudio();
     setIsLoading(true);
+    // Play time machine warp sound during login transition
+    SoundFx.playTimeMachineWarp();
+
+    // Login loading duration 4.5 seconds (4-5 seconds as requested)
     setTimeout(() => {
       setCurrentUser(user);
       const currentUrlPath = normalizePath(window.location.pathname);
@@ -168,7 +192,17 @@ export default function App() {
       setCurrentRoute(destination);
       window.history.replaceState({}, '', destination);
       setIsLoading(false);
-    }, 300);
+
+      // Robot welcome voice greeting with user name in English
+      const targetName = user.name || user.username || user.storeName || 'Seller';
+      setTimeout(() => {
+        SoundFx.playRobotVoiceWelcome(targetName);
+        setRobotBanner({
+          name: targetName,
+          text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+        });
+      }, 350);
+    }, 4500);
   };
 
   const handleLogout = () => {
@@ -181,9 +215,9 @@ export default function App() {
     }, 300);
   };
 
-  // Loading Screen
+  // Loading Screen (Item 2 & Item 4 - 4.5s duration)
   if (isLoading) {
-    return <LoadingScreen storeName={currentUser?.storeName} />;
+    return <LoadingScreen storeName={currentUser?.storeName} durationMs={4500} />;
   }
 
   // If not logged in, render LoginView
@@ -259,6 +293,50 @@ export default function App() {
         currentRoute={currentRoute}
         onNavigate={handleNavigate}
       />
+
+      {/* Sci-Fi Robot Voice Transmission Banner */}
+      {robotBanner && (
+        <div className="w-full bg-gradient-to-r from-[#25F4EE]/15 via-[#161823] to-[#FE2C55]/15 border-b border-[#25F4EE]/40 px-4 py-2 text-xs transition-all animate-fadeIn relative overflow-hidden">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-white">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="p-1 rounded-lg bg-[#25F4EE]/20 border border-[#25F4EE]/50 text-[#25F4EE] flex-shrink-0 animate-pulse">
+                <Bot className="w-4 h-4" />
+              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
+                <span className="text-[10px] font-mono font-bold tracking-wider text-[#25F4EE] uppercase flex-shrink-0">
+                  ROBOT AI VOICE
+                </span>
+                <span className="font-semibold text-xs text-white truncate">
+                  "{robotBanner.text}"
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  SoundFx.unlockAudio();
+                  SoundFx.playRobotVoiceWelcome(robotBanner.name);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[#25F4EE]/20 hover:bg-[#25F4EE]/30 border border-[#25F4EE]/50 text-[#25F4EE] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition"
+                title="Putar Ulang Suara Sambutan Robot"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Putar Ulang</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRobotBanner(null)}
+                className="p-1 rounded-md text-zinc-400 hover:text-white transition cursor-pointer"
+                title="Tutup Banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className={`flex-1 pb-16 transition-opacity duration-200 ${isNavigating ? 'opacity-30' : 'opacity-100'}`}>
@@ -482,7 +560,7 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-[#161823]/80 py-4 text-center text-xs text-zinc-400">
+      <footer className="spatial-footer border-t border-white/10 bg-[#161823]/80 backdrop-blur-xl py-4 text-center text-xs text-zinc-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
             <strong className="text-white">Seller Profit</strong> • Akuntansi Penjualan Live &amp; Manajemen Toko

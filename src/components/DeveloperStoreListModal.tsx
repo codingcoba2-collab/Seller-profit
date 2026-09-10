@@ -18,6 +18,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from './ConfirmModal';
+import { SoundFx } from '../services/soundFx';
 
 interface DeveloperStoreListModalProps {
   isOpen: boolean;
@@ -69,6 +70,12 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
   if (!isOpen) return null;
 
   const stores = StorageService.getStores();
+
+  React.useEffect(() => {
+    if (isOpen) {
+      SoundFx.playHologramOpen();
+    }
+  }, [isOpen]);
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +207,13 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
 
   return (
     <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl bg-[#161823] border border-white/15 rounded-3xl p-6 shadow-2xl text-white max-h-[90vh] flex flex-col">
+      <div className="holographic-modal relative w-full max-w-2xl p-6 shadow-2xl text-white max-h-[90vh] flex flex-col">
+        {/* Hologram Corner Reticles */}
+        <div className="hologram-corner-tl" />
+        <div className="hologram-corner-tr" />
+        <div className="hologram-corner-bl" />
+        <div className="hologram-corner-br" />
+
         {/* Close */}
         <button
           onClick={() => {

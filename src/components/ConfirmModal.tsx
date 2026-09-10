@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, CheckCircle, HelpCircle, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, HelpCircle, Trash2, X, Sparkles } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 
 export type ConfirmActionType = 'create' | 'edit' | 'save' | 'delete' | 'warning';
 
@@ -24,6 +25,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useEffect(() => {
+    if (isOpen) {
+      SoundFx.playHologramOpen();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -68,15 +75,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const getIconBg = () => {
     switch (type) {
       case 'delete':
-        return 'bg-[#FE2C55]/15 border-[#FE2C55]/30';
+        return 'bg-[#FE2C55]/15 border-[#FE2C55]/30 shadow-[0_0_15px_rgba(254,44,85,0.3)]';
       case 'warning':
-        return 'bg-amber-400/15 border-amber-400/30';
+        return 'bg-amber-400/15 border-amber-400/30 shadow-[0_0_15px_rgba(251,191,36,0.3)]';
       case 'create':
       case 'save':
       default:
-        return 'bg-[#25F4EE]/15 border-[#25F4EE]/30';
+        return 'bg-[#25F4EE]/15 border-[#25F4EE]/30 shadow-[0_0_15px_rgba(37,244,238,0.3)]';
       case 'edit':
-        return 'bg-sky-400/15 border-sky-400/30';
+        return 'bg-sky-400/15 border-sky-400/30 shadow-[0_0_15px_rgba(56,189,248,0.3)]';
     }
   };
 
@@ -88,25 +95,41 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      {/* Holographic Popup Container */}
       <div 
         id="dialog-confirmation-card"
-        className="relative w-full max-w-md bg-[#161823] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl text-white space-y-4"
+        className="holographic-modal relative w-full max-w-md p-6 text-white space-y-4 shadow-2xl"
         role="dialog"
         aria-modal="true"
       >
+        {/* Holographic sci-fi reticles */}
+        <div className="hologram-corner-tl" />
+        <div className="hologram-corner-tr" />
+        <div className="hologram-corner-bl" />
+        <div className="hologram-corner-br" />
+
+        {/* Top holographic HUD tag */}
+        <div className="flex items-center justify-between text-[10px] font-mono text-[#25F4EE] opacity-80 border-b border-white/10 pb-2">
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-[#25F4EE]" />
+            HOLOGRAPHIC PROTOCOL // DIALOG
+          </span>
+          <span className="text-zinc-500">SYS.SECURITY</span>
+        </div>
+
         {/* Close Button */}
         <button
           type="button"
           id="btn-close-confirm-modal"
           onClick={onCancel}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer z-10"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Header Icon + Title */}
-        <div className="flex items-start gap-3.5 pr-6">
+        <div className="flex items-start gap-3.5 pr-6 pt-1">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${getIconBg()}`}>
             {getIcon()}
           </div>

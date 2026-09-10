@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
-import { CurrentUser, StoreAccount, UserRole } from '../types';
+import { CurrentUser, StoreAccount } from '../types';
 import { 
   ShoppingBag, 
   Lock, 
@@ -13,11 +13,14 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  CloudCheck,
-  CheckCircle2
+  X,
+  Sparkles,
+  ShieldCheck
 } from 'lucide-react';
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
 import { UpdateAppModal } from '../components/UpdateAppModal';
+import { MuJersey360Viewer } from '../components/MuJersey360Viewer';
+import { SoundFx } from '../services/soundFx';
 
 interface LoginViewProps {
   onLoginSuccess: (user: CurrentUser) => void;
@@ -26,12 +29,12 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInstallGuide, onNotify }) => {
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showDeveloperStoreList, setShowDeveloperStoreList] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-  const [cloudSynced, setCloudSynced] = useState(false);
 
   // Login form state
   const [storeNameOrId, setStoreNameOrId] = useState('');
@@ -48,7 +51,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     setIsCloudSyncing(true);
     try {
       await StorageService.syncStoresAndEmployeesFromCloud();
-      setCloudSynced(true);
     } catch (err) {
       console.warn('Sync notice:', err);
     } finally {
@@ -64,6 +66,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     };
   }, []);
 
+  // Open holographic login modal with sound effect
+  const handleOpenLogin = () => {
+    SoundFx.playHologramOpen();
+    setShowLoginModal(true);
+  };
+
   // Handle standard login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +80,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     // Attempt 1: Check with local cache
     let stores = StorageService.getStores();
     
-    // If stores empty or username not found, trigger online refresh
     let targetStore: StoreAccount | undefined;
     if (storeNameOrId.trim()) {
       targetStore = stores.find(
@@ -131,6 +138,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
         roles: ['owner'],
       };
       StorageService.setCurrentUser(user);
+      setShowLoginModal(false);
       onLoginSuccess(user);
       return;
     }
@@ -152,6 +160,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
         employeeProfile: emp,
       };
       StorageService.setCurrentUser(user);
+      setShowLoginModal(false);
       onLoginSuccess(user);
       return;
     }
@@ -160,157 +169,176 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
   };
 
   return (
-    <div 
-      style={{ paddingTop: 'max(env(safe-area-inset-top, 32px), 32px)' }}
-      className="min-h-screen bg-[#0b0c10] text-[#f4f4f6] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans"
-    >
-      {/* TikTok Ambient Neon Background */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-[#25F4EE]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 -right-20 w-80 h-80 bg-[#FE2C55]/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative min-h-screen bg-[#07080b] text-[#f4f4f6] flex flex-col justify-between overflow-x-hidden font-sans">
+      {/* ==================================================================== */}
+      {/* 1. BERANDA SEBELUM LOGIN: TOMBOL LOGIN & GAMBAR JERSEY MU 4K HD 360° */}
+      {/* ==================================================================== */}
+      <MuJersey360Viewer onOpenLoginModal={handleOpenLogin} />
 
-      {/* Brand Header */}
-      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="flex justify-center mb-3">
-          <div className="relative w-16 h-16 rounded-2xl bg-[#161823] border border-white/15 flex items-center justify-center text-white shadow-2xl">
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] opacity-30 blur-xs" />
-            <ShoppingBag className="relative z-10 w-8 h-8 text-[#25F4EE] drop-shadow-[0_0_8px_#25F4EE]" />
-          </div>
-        </div>
-        <h2 className="text-2xl font-black text-white tracking-tight">
-          Seller Profit
-        </h2>
-        <p className="mt-1 text-xs font-medium text-zinc-400">
-          Sistem Akuntansi Penjualan Live Marketplace &amp; Laba Bersih
-        </p>
+      {/* ==================================================================== */}
+      {/* 2. HOLOGRAPHIC LOGIN POPUP MODAL                                     */}
+      {/* ==================================================================== */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="holographic-modal relative w-full max-w-md p-6 sm:p-7 shadow-2xl text-white max-h-[92vh] overflow-y-auto">
+            {/* Holographic sci-fi reticles */}
+            <div className="hologram-corner-tl" />
+            <div className="hologram-corner-tr" />
+            <div className="hologram-corner-bl" />
+            <div className="hologram-corner-br" />
 
-        {/* Cloud Sync Status Indicator */}
-        <div className="mt-3 flex items-center justify-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#161823] border border-white/10 text-zinc-300">
-            <span className={`w-2 h-2 rounded-full ${isCloudSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
-            <span>{isCloudSyncing ? 'Menyinkronkan Cloud...' : 'Cloud Online Realtime Terhubung'}</span>
-          </span>
-          <button
-            type="button"
-            onClick={doCloudSync}
-            disabled={isCloudSyncing}
-            className="p-1 text-zinc-400 hover:text-[#25F4EE] transition"
-            title="Refresh data dari Cloud Firestore"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      <div className="relative z-10 mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-[#161823] backdrop-blur-md py-7 px-6 sm:px-8 shadow-2xl rounded-3xl border border-white/10">
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-semibold flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#FE2C55] shrink-0" />
-              <span>{errorMsg}</span>
+            {/* Top HUD Telemetry Tag */}
+            <div className="flex items-center justify-between text-[10px] font-mono text-[#25F4EE] opacity-80 border-b border-white/10 pb-2 mb-4">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-[#25F4EE]" />
+                HOLOGRAPHIC AUTHENTICATION GATE
+              </span>
+              <span className="text-zinc-500">SYS.ONLINE</span>
             </div>
-          )}
 
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="border-b border-white/10 pb-3 mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <User className="w-4 h-4 text-[#25F4EE]" />
-                <span>Masuk Akun Toko / Pegawai</span>
+            {/* Close Button */}
+            <button
+              type="button"
+              id="btn-close-login-modal"
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer z-10"
+              title="Tutup Modal Login"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Brand Header Inside Modal */}
+            <div className="text-center mb-5">
+              <div className="flex justify-center mb-2.5">
+                <div className="relative w-14 h-14 rounded-2xl bg-[#161823] border border-white/20 flex items-center justify-center text-white shadow-[0_0_20px_rgba(37,244,238,0.3)]">
+                  <ShoppingBag className="w-7 h-7 text-[#25F4EE] drop-shadow-[0_0_8px_#25F4EE]" />
+                </div>
+              </div>
+              <h3 className="text-lg font-black text-white tracking-tight uppercase">
+                Seller Profit
               </h3>
-            </div>
+              <p className="text-xs font-medium text-zinc-400">
+                Sistem Akuntansi Penjualan Live Marketplace &amp; Laba Bersih
+              </p>
 
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                Nama Toko (Opsional / Kosongkan untuk Toko Utama)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                  <Store className="w-4 h-4" />
-                </div>
-                <input
-                  id="input-login-store"
-                  type="text"
-                  value={storeNameOrId}
-                  onChange={e => setStoreNameOrId(e.target.value)}
-                  placeholder="Contoh: Fashion Thrift Official"
-                  className="block w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                Username <span className="text-[#FE2C55]">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                  <User className="w-4 h-4" />
-                </div>
-                <input
-                  id="input-login-username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="Username Akun Anda (Contoh: siti_host / owner)"
-                  className="block w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-zinc-300">
-                  Password <span className="text-[#FE2C55]">*</span>
-                </label>
-                {/* Lupa Password WhatsApp Link */}
-                <a
-                  href={waHelpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] font-bold text-[#25F4EE] hover:text-[#25F4EE]/80 flex items-center gap-1 transition"
-                  title="Hubungi Developer via WhatsApp untuk Bantuan Password"
-                >
-                  <MessageCircle className="w-3 h-3 text-[#25F4EE]" />
-                  <span>Lupa Password?</span>
-                </a>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  id="input-login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Password Anda"
-                  className="block w-full pl-9 pr-10 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
-                />
+              {/* Cloud Sync Status Indicator */}
+              <div className="mt-2.5 flex items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-black/40 border border-white/10 text-zinc-300">
+                  <span className={`w-2 h-2 rounded-full ${isCloudSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+                  <span>{isCloudSyncing ? 'Menyinkronkan Cloud...' : 'Cloud Firestore Terhubung'}</span>
+                </span>
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  onClick={doCloudSync}
+                  disabled={isCloudSyncing}
+                  className="p-1 text-zinc-400 hover:text-[#25F4EE] transition"
+                  title="Refresh data dari Cloud Firestore"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  <RefreshCw className={`w-3 h-3 ${isCloudSyncing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             </div>
 
-            <div className="pt-2 space-y-2.5">
-              <button
-                id="btn-submit-login"
-                type="submit"
-                disabled={isCloudSyncing}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-black bg-[#25F4EE] hover:bg-[#25F4EE]/90 border border-[#25F4EE]/50 shadow-lg shadow-[#25F4EE]/20 active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
-              >
-                <span>{isCloudSyncing ? 'Memeriksa Cloud...' : 'Masuk ke Aplikasi'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 text-[#FE2C55] text-xs font-semibold flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#FE2C55] shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
-              <div className="pt-1">
+            {/* Login Form */}
+            <form onSubmit={handleLogin} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Nama Toko (Opsional / Kosongkan untuk Toko Utama)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <Store className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="input-login-store"
+                    type="text"
+                    value={storeNameOrId}
+                    onChange={e => setStoreNameOrId(e.target.value)}
+                    placeholder="Contoh: Fashion Thrift Official"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Username <span className="text-[#FE2C55]">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="input-login-username"
+                    type="text"
+                    required
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="Username Akun Anda (Contoh: siti_host / owner)"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-zinc-300">
+                    Password <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  {/* Lupa Password WhatsApp Link */}
+                  <a
+                    href={waHelpUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-bold text-[#25F4EE] hover:text-[#25F4EE]/80 flex items-center gap-1 transition"
+                    title="Hubungi Developer via WhatsApp untuk Bantuan Password"
+                  >
+                    <MessageCircle className="w-3 h-3 text-[#25F4EE]" />
+                    <span>Lupa Password?</span>
+                  </a>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="input-login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Password Anda"
+                    className="block w-full pl-9 pr-10 py-2.5 text-xs rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  id="btn-submit-login"
+                  type="submit"
+                  disabled={isCloudSyncing}
+                  className="spatial-button w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black text-black bg-[#25F4EE] hover:bg-[#25F4EE]/90 border border-[#25F4EE]/50 shadow-lg shadow-[#25F4EE]/20 active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
+                >
+                  <span>{isCloudSyncing ? 'Memeriksa Cloud...' : 'Masuk ke Aplikasi'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
                 {/* List Toko Terdaftar untuk Developer */}
                 <button
                   id="btn-developer-store-list"
@@ -322,29 +350,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                   <span>List Toko Terdaftar (Developer)</span>
                 </button>
               </div>
+            </form>
+
+            {/* Modal Bottom Actions */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-center">
+              <button
+                type="button"
+                onClick={onOpenInstallGuide}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span>Install di HP</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowUpdateModal(true)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#25F4EE] hover:text-[#25F4EE]/80 transition cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3 text-[#25F4EE]" />
+                <span>Update Aplikasi</span>
+              </button>
             </div>
-          </form>
+          </div>
         </div>
-
-        {/* Install app guide footer button & Update App button */}
-        <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2.5 text-center">
-          <button
-            onClick={onOpenInstallGuide}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white bg-[#161823] px-3.5 py-2 rounded-full border border-white/10 hover:border-white/20 transition cursor-pointer"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Install di HP</span>
-          </button>
-
-          <button
-            onClick={() => setShowUpdateModal(true)}
-            className="inline-flex items-center gap-2 text-xs font-bold text-[#25F4EE] bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 px-3.5 py-2 rounded-full border border-[#25F4EE]/30 hover:border-[#25F4EE]/50 transition cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Update Aplikasi</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Developer Store List Modal */}
       <DeveloperStoreListModal

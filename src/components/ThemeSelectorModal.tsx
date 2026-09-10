@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ThemeConfig, ThemeMode, ThemePalette } from '../types';
 import { ThemeService, THEME_PALETTES } from '../services/theme';
 import { Palette, Moon, Sun, Check, Sparkles, X } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 
 interface ThemeSelectorModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setTheme(ThemeService.getTheme());
+      SoundFx.playHologramOpen();
     }
   }, [isOpen]);
 
@@ -43,8 +45,14 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="holographic-modal w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+        {/* Hologram Corner Reticles */}
+        <div className="hologram-corner-tl" />
+        <div className="hologram-corner-tr" />
+        <div className="hologram-corner-bl" />
+        <div className="hologram-corner-br" />
+
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-2.5">

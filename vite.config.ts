@@ -55,12 +55,16 @@ export default defineConfig(() => {
           cleanupOutdatedCaches: true,
           skipWaiting: true,
           clientsClaim: true,
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
         },
       }),
     ],
+    build: {
+      chunkSizeWarningLimit: 3500,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

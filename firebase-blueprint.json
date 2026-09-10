@@ -1,0 +1,212 @@
+{
+  "entities": {
+    "Store": {
+      "title": "Store",
+      "description": "Store profile, owner credentials, and marketplace configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeName": { "type": "string" },
+        "ownerUsername": { "type": "string" },
+        "ownerPassword": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "settings": { "type": "object" }
+      },
+      "required": ["id", "storeName", "ownerUsername", "ownerPassword"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Staff member account with roles, payroll model, and incentive rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "roles": { "type": "array" },
+        "salaryType": { "type": "string" },
+        "salaryRate": { "type": "number" },
+        "incentiveConfigs": { "type": "object" }
+      },
+      "required": ["id", "storeId", "name", "username", "password"]
+    },
+    "InventoryBall": {
+      "title": "InventoryBall",
+      "description": "Stock bundle / ball inventory with cost of goods and sorting details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "batchName": { "type": "string" },
+        "purchaseDate": { "type": "string" },
+        "ballCount": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "storeId", "totalCost"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily employee attendance, shift tracking, and work hours",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string" },
+        "shift": { "type": "string" },
+        "status": { "type": "string" },
+        "hoursWorked": { "type": "number" }
+      },
+      "required": ["id", "storeId", "employeeId", "date"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Daily or live streaming sales record, gross revenue, items sold, and packages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "date": { "type": "string" },
+        "hostEmployeeId": { "type": "string" },
+        "hostEmployeeName": { "type": "string" },
+        "channel": { "type": "string" },
+        "omzet": { "type": "number" },
+        "pcsSold": { "type": "number" },
+        "packageCount": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "storeId", "date", "omzet"]
+    },
+    "Return": {
+      "title": "Return",
+      "description": "Customer return records, dispute resolution, and return loss calculation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "date": { "type": "string" },
+        "channel": { "type": "string" },
+        "reason": { "type": "string" },
+        "totalLoss": { "type": "number" }
+      },
+      "required": ["id", "storeId", "date", "totalLoss"]
+    },
+    "AdsCoin": {
+      "title": "AdsCoin",
+      "description": "Marketplace ad spend top-ups and coin cashback balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "date": { "type": "string" },
+        "channel": { "type": "string" },
+        "amount": { "type": "number" }
+      },
+      "required": ["id", "storeId", "date", "amount"]
+    },
+    "Cashflow": {
+      "title": "Cashflow",
+      "description": "Operational cash inflows and outflows",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "storeId", "date", "type", "amount"]
+    },
+    "SteamSortir": {
+      "title": "SteamSortir",
+      "description": "Steam and sorting operational logs and staff processing productivity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "date": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "type": { "type": "string" },
+        "pcsProcessed": { "type": "number" }
+      },
+      "required": ["id", "storeId", "date", "pcsProcessed"]
+    },
+    "PersonalBudget": {
+      "title": "PersonalBudget",
+      "description": "Personal finance budget allocation for the store owner",
+      "type": "object",
+      "properties": {
+        "storeId": { "type": "string" },
+        "allocations": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["storeId"]
+    },
+    "PersonalExpense": {
+      "title": "PersonalExpense",
+      "description": "Personal expense entries categorized according to the budget",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "storeId", "amount", "date"]
+    }
+  },
+  "firestore": {
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Store account settings and credentials"
+    },
+    "/employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "Employees registered under stores"
+    },
+    "/inventory_balls/{ballId}": {
+      "schema": "InventoryBall",
+      "description": "Inventory stock and cost records"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Daily employee attendance and shift logs"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Sales records per live session / day"
+    },
+    "/returns/{returnId}": {
+      "schema": "Return",
+      "description": "Marketplace return and refund tracking"
+    },
+    "/ads_coins/{adId}": {
+      "schema": "AdsCoin",
+      "description": "Marketplace ad deposits and coin top-ups"
+    },
+    "/cashflow/{cashflowId}": {
+      "schema": "Cashflow",
+      "description": "Income and operational expense ledger"
+    },
+    "/steam_sortir/{logId}": {
+      "schema": "SteamSortir",
+      "description": "Garment steam and sorting output tracking"
+    },
+    "/personal_budget/{storeId}": {
+      "schema": "PersonalBudget",
+      "description": "Owner personal budget allocations"
+    },
+    "/personal_expenses/{expenseId}": {
+      "schema": "PersonalExpense",
+      "description": "Owner personal expense records"
+    }
+  }
+}

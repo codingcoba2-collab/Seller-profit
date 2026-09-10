@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DownloadCloud, 
   RefreshCw, 
@@ -10,6 +10,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 
 interface UpdateAppModalProps {
   isOpen: boolean;
@@ -25,6 +26,12 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [step, setStep] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      SoundFx.playHologramOpen();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -103,7 +110,13 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
-      <div className="relative w-full max-w-lg bg-[#161823] border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-5 text-white">
+      <div className="holographic-modal relative w-full max-w-lg shadow-2xl p-6 sm:p-8 space-y-5 text-white">
+        {/* Hologram Corner Reticles */}
+        <div className="hologram-corner-tl" />
+        <div className="hologram-corner-tr" />
+        <div className="hologram-corner-bl" />
+        <div className="hologram-corner-br" />
+
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-3">

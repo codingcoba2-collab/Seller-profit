@@ -2,20 +2,81 @@
 <html lang="id">
   <head>
     <script>
-      // Suppress benign [vite] failed to connect to websocket error in sandboxed environment
+      // Gracefully handle Vite HMR websocket and suppress benign [vite] notices in sandboxed container
       (function() {
-        var _origError = console.error;
-        console.error = function() {
-          if (arguments.length > 0) {
-            var first = arguments[0];
-            if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('websocket') !== -1)) {
-              return;
+        // 1. Inert WebSocket stub for 'vite-hmr' subprotocol when HMR is disabled in container
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          var OriginalWS = window.WebSocket;
+          var PatchedWS = function(url, protocols) {
+            var isVite = protocols === 'vite-hmr' || (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1);
+            if (isVite) {
+              var listeners = {};
+              var stub = {
+                readyState: 1, // WebSocket.OPEN
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                send: function() {},
+                close: function() { this.readyState = 3; },
+                addEventListener: function(evt, cb) {
+                  if (!listeners[evt]) listeners[evt] = [];
+                  listeners[evt].push(cb);
+                  if (evt === 'open') {
+                    setTimeout(function() {
+                      try { cb(new Event('open')); } catch(err) {}
+                    }, 0);
+                  }
+                },
+                removeEventListener: function(evt, cb) {
+                  if (!listeners[evt]) return;
+                  listeners[evt] = listeners[evt].filter(function(fn) { return fn !== cb; });
+                }
+              };
+              return stub;
             }
-          }
-          return _origError.apply(console, arguments);
-        };
+            if (arguments.length === 1) return new OriginalWS(url);
+            return new OriginalWS(url, protocols);
+          };
+          PatchedWS.prototype = OriginalWS.prototype;
+          PatchedWS.CONNECTING = 0;
+          PatchedWS.OPEN = 1;
+          PatchedWS.CLOSING = 2;
+          PatchedWS.CLOSED = 3;
+          window.WebSocket = PatchedWS;
+        }
+
+        // 2. Filter console notices containing [vite] or websocket connection notices
+        var methods = ['error', 'warn', 'info', 'log', 'debug'];
+        function isViteMsg(arg) {
+          if (!arg) return false;
+          var str = typeof arg === 'string' ? arg : (arg.message || String(arg));
+          return str.indexOf('[vite]') !== -1 || str.indexOf('websocket') !== -1;
+        }
+        for (var i = 0; i < methods.length; i++) {
+          (function(m) {
+            var orig = console[m];
+            if (!orig) return;
+            console[m] = function() {
+              for (var j = 0; j < arguments.length; j++) {
+                if (isViteMsg(arguments[j])) return;
+              }
+              return orig.apply(console, arguments);
+            };
+          })(methods[i]);
+        }
+
+        // 3. Window error and unhandled rejection guards
         window.addEventListener('error', function(e) {
-          if (e && e.message && (e.message.indexOf('[vite]') !== -1 || e.message.indexOf('websocket') !== -1)) {
+          if (e && isViteMsg(e.message)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e && (e.reason ? (e.reason.message || String(e.reason)) : '');
+          if (reason && isViteMsg(reason)) {
             e.preventDefault();
             e.stopPropagation();
           }
