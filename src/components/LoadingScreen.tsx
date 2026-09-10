@@ -14,11 +14,41 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   durationMs = 4500,
 }) => {
   const [progress, setProgress] = useState(12);
+  const [isAudioActive, setIsAudioActive] = useState(SoundFx.isAudioRunning());
+
+  // Function to unlock and trigger audio
+  const handleTriggerAudio = async () => {
+    const running = await SoundFx.unlockAudio();
+    setIsAudioActive(running);
+    SoundFx.playTimeMachineWarp();
+    SoundFx.playLoadingScreenSequence();
+  };
 
   // Play loading telemetry audio and increment progress counter
   useEffect(() => {
-    SoundFx.unlockAudio();
-    SoundFx.playLoadingScreenSequence();
+    // Attempt automatic unlock
+    SoundFx.unlockAudio().then((active) => {
+      setIsAudioActive(active);
+      if (active) {
+        SoundFx.playTimeMachineWarp();
+        SoundFx.playLoadingScreenSequence();
+      }
+    });
+
+    // Listen on window for user gesture to immediately unlock audio if blocked by browser autoplay
+    const onUserInteraction = async () => {
+      const active = await SoundFx.unlockAudio();
+      setIsAudioActive(active);
+      SoundFx.playTimeMachineWarp();
+      SoundFx.playLoadingScreenSequence();
+      window.removeEventListener('pointerdown', onUserInteraction);
+      window.removeEventListener('touchstart', onUserInteraction);
+      window.removeEventListener('keydown', onUserInteraction);
+    };
+
+    window.addEventListener('pointerdown', onUserInteraction, { once: true });
+    window.addEventListener('touchstart', onUserInteraction, { once: true });
+    window.addEventListener('keydown', onUserInteraction, { once: true });
 
     const startTime = performance.now();
     const interval = setInterval(() => {
@@ -30,17 +60,17 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }
     }, 50);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('pointerdown', onUserInteraction);
+      window.removeEventListener('touchstart', onUserInteraction);
+      window.removeEventListener('keydown', onUserInteraction);
+    };
   }, [durationMs]);
-
-  const handleScreenTouch = () => {
-    SoundFx.unlockAudio();
-    SoundFx.playLoadingScreenSequence();
-  };
 
   return (
     <div 
-      onClick={handleScreenTouch}
+      onClick={handleTriggerAudio}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden cursor-pointer"
     >
       {/* Background ambient neon glow & grid */}
@@ -88,6 +118,32 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <p className="text-xs text-zinc-400 font-medium">
             {message}
           </p>
+
+          {/* Audio Telemetry Indicator / Activator */}
+          <div className="flex justify-center pt-1">
+            {!isAudioActive ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTriggerAudio();
+                }}
+                className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FE2C55]/30 via-[#25F4EE]/30 to-[#FE2C55]/30 hover:from-[#FE2C55]/50 hover:to-[#25F4EE]/50 border border-[#25F4EE]/60 text-white text-[11px] font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(37,244,238,0.3)] animate-pulse cursor-pointer transition-all hover:scale-105 active:scale-95"
+              >
+                <Volume2 className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span>Klik / Sentuh untuk Bunyikan Suara Sci-Fi</span>
+              </button>
+            ) : (
+              <div className="px-3 py-1 rounded-full bg-[#25F4EE]/10 border border-[#25F4EE]/40 text-[#25F4EE] text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(37,244,238,0.2)]">
+                <span className="flex items-end gap-0.5 h-3">
+                  <span className="w-0.5 h-2 bg-[#25F4EE] animate-pulse" />
+                  <span className="w-0.5 h-3 bg-[#25F4EE] animate-pulse delay-75" />
+                  <span className="w-0.5 h-1.5 bg-[#25F4EE] animate-pulse delay-150" />
+                </span>
+                <span>AUDIO QUANTUM TIME-WARP ON</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ========================================================= */}

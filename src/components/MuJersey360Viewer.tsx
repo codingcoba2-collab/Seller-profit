@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { 
   ShieldCheck, 
   Sparkles, 
@@ -16,10 +18,15 @@ import {
   Pause,
   Layers,
   Info,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  GraduationCap,
+  Box
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 import { ProcessingService } from '../services/processingService';
+import { MeshyModelStorage } from '../services/meshyModelStorage';
+import { MeshyModelModal } from './MeshyModelModal';
 import { 
   OutfitConfig, 
   TouchRipple, 
@@ -143,8 +150,22 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Engine Mode: 'scan' (Photorealistic 3D Scan of Sophia in MU Jersey) vs 'webgl' (Three.js Procedural Canvas)
-  const [engineMode, setEngineMode] = useState<'scan' | 'webgl'>('scan');
+  // Engine Mode: 'scan' (Photorealistic 3D Scan) vs 'webgl' (Procedural Canvas) vs 'meshy' (Meshy AI GLB Model)
+  const [engineMode, setEngineMode] = useState<'scan' | 'webgl' | 'meshy'>('scan');
+
+  // Meshy AI GLB 3D Model States
+  const [activeMeshyModelName, setActiveMeshyModelName] = useState<string | null>(null);
+  const [activeMeshyModelSize, setActiveMeshyModelSize] = useState<number | null>(null);
+  const [isMeshyModalOpen, setIsMeshyModalOpen] = useState(false);
+  const [meshyScale, setMeshyScale] = useState(1.0);
+  const [meshyOffsetY, setMeshyOffsetY] = useState(0.0);
+  const [isMeshyLoading, setIsMeshyLoading] = useState(false);
+
+  // References for Meshy AI Model & Animations
+  const meshyGroupRef = useRef<THREE.Group | null>(null);
+  const meshyMixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const baseFitScaleRef = useRef<number>(1.0);
+  const meshyClockRef = useRef<THREE.Clock>(new THREE.Clock());
 
   // 360 Rotation & Motion States
   const [rotationDeg, setRotationDeg] = useState(0);
@@ -430,7 +451,210 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     }, 4500);
   };
 
-  // Image Upload / Drag & Drop Handler
+  // Helper to normalize any input buffer (binary GLB, renamed .txt, Base64 data)
+  const normalizeToGLBBuffer = (rawBuffer: ArrayBuffer): ArrayBuffer => {
+    const bytes = new Uint8Array(rawBuffer);
+    // 1. Check if standard binary GLB magic header: 'glTF' (103, 108, 84, 70)
+    if (bytes.length >= 4 && bytes[0] === 103 && bytes[1] === 108 && bytes[2] === 84 && bytes[3] === 70) {
+      return rawBuffer;
+    }
+
+    // 2. Check if text representation (Base64 data or data URI)
+    try {
+      const snippet = new TextDecoder('utf-8').decode(bytes.slice(0, 300)).trim();
+      if (snippet.startsWith('data:') && snippet.includes('base64,')) {
+        const fullText = new TextDecoder('utf-8').decode(bytes);
+        const b64Data = fullText.substring(fullText.indexOf('base64,') + 7).trim();
+        const binaryString = atob(b64Data);
+        const len = binaryString.length;
+        const out = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          out[i] = binaryString.charCodeAt(i);
+        }
+        return out.buffer;
+      }
+
+      if (/^[A-Za-z0-9+/=]{20,}/.test(snippet)) {
+        const fullText = new TextDecoder('utf-8').decode(bytes).trim();
+        const binaryString = atob(fullText);
+        if (binaryString.charCodeAt(0) === 103 && binaryString.charCodeAt(1) === 108 && binaryString.charCodeAt(2) === 84 && binaryString.charCodeAt(3) === 70) {
+          const len = binaryString.length;
+          const out = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            out[i] = binaryString.charCodeAt(i);
+          }
+          return out.buffer;
+        }
+      }
+    } catch {}
+
+    return rawBuffer;
+  };
+
+  // =========================================================================
+  // 4. MESHY AI GLB 3D MODEL LOADER & PARSER
+  // =========================================================================
+  const parseAndMountGLTF = useCallback(
+    (arrayBuffer: ArrayBuffer, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        try {
+          setIsMeshyLoading(true);
+          const cleanBuffer = normalizeToGLBBuffer(arrayBuffer);
+          const loader = new GLTFLoader();
+          const dracoLoader = new DRACOLoader();
+          dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+          loader.setDRACOLoader(dracoLoader);
+
+          loader.parse(
+            cleanBuffer,
+            '',
+            (gltf) => {
+              if (meshyMixerRef.current) {
+                meshyMixerRef.current.stopAllAction();
+                meshyMixerRef.current = null;
+              }
+
+              // Enable shadows, double-sided materials, and PBR reflections on meshes
+              gltf.scene.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                  child.castShadow = true;
+                  child.receiveShadow = true;
+                  const m = child as THREE.Mesh;
+                  if (m.material) {
+                    if (Array.isArray(m.material)) {
+                      m.material.forEach((mat) => {
+                        mat.side = THREE.DoubleSide;
+                        mat.needsUpdate = true;
+                      });
+                    } else {
+                      m.material.side = THREE.DoubleSide;
+                      m.material.needsUpdate = true;
+                    }
+                  }
+                }
+              });
+
+              // Calculate bounding box and center geometry
+              const box = new THREE.Box3().setFromObject(gltf.scene);
+              const size = box.getSize(new THREE.Vector3());
+              const center = box.getCenter(new THREE.Vector3());
+
+              gltf.scene.position.x = -center.x;
+              gltf.scene.position.y = -center.y;
+              gltf.scene.position.z = -center.z;
+
+              const maxDim = Math.max(size.x, size.y, size.z);
+              const baseFitScale = maxDim > 0 ? 2.4 / maxDim : 1;
+              baseFitScaleRef.current = baseFitScale;
+
+              const wrapper = new THREE.Group();
+              wrapper.name = 'MeshyGroupWrapper';
+              wrapper.add(gltf.scene);
+              wrapper.scale.setScalar(baseFitScale * meshyScale);
+              wrapper.position.set(0, meshyOffsetY, 0);
+
+              meshyGroupRef.current = wrapper;
+
+              // If Three.js scene is currently running, hot-swap the model immediately!
+              if (sceneRef.current) {
+                const toRemove: THREE.Object3D[] = [];
+                sceneRef.current.children.forEach(child => {
+                  if (child.name === 'MeshyGroupWrapper') {
+                    toRemove.push(child);
+                  }
+                });
+                toRemove.forEach(c => sceneRef.current?.remove(c));
+                sceneRef.current.add(wrapper);
+              }
+
+              // Setup animation clips if Meshy model includes bones/skeleton
+              if (gltf.animations && gltf.animations.length > 0) {
+                const mixer = new THREE.AnimationMixer(gltf.scene);
+                gltf.animations.forEach((clip) => {
+                  mixer.clipAction(clip).play();
+                });
+                meshyMixerRef.current = mixer;
+              }
+
+              setActiveMeshyModelName(name);
+              setActiveMeshyModelSize(cleanBuffer.byteLength);
+              setEngineMode('meshy');
+              setIsMeshyLoading(false);
+
+              // Persist locally in IndexedDB so reload preserves model
+              MeshyModelStorage.saveModel(name, cleanBuffer).catch(() => {});
+
+              SoundFx.playSkinTouchSound();
+              resolve(true);
+            },
+            (err) => {
+              console.error('Error parsing Meshy GLTF model:', err);
+              setIsMeshyLoading(false);
+              resolve(false);
+            }
+          );
+        } catch (err) {
+          console.error('Fatal GLTF Loader error:', err);
+          setIsMeshyLoading(false);
+          resolve(false);
+        }
+      });
+    },
+    [meshyScale, meshyOffsetY]
+  );
+
+  const loadModelFromUrl = useCallback(
+    async (url: string): Promise<boolean> => {
+      try {
+        setIsMeshyLoading(true);
+        const res = await fetch(url);
+        if (!res.ok) {
+          setIsMeshyLoading(false);
+          return false;
+        }
+        const buf = await res.arrayBuffer();
+        const filename = url.split('/').pop()?.split('?')[0] || 'model.glb';
+        return await parseAndMountGLTF(buf, filename);
+      } catch (err) {
+        console.error('Failed to load model from URL:', err);
+        setIsMeshyLoading(false);
+        return false;
+      }
+    },
+    [parseAndMountGLTF]
+  );
+
+  const handleResetMeshyToDefault = useCallback(() => {
+    if (meshyMixerRef.current) {
+      meshyMixerRef.current.stopAllAction();
+      meshyMixerRef.current = null;
+    }
+    meshyGroupRef.current = null;
+    setActiveMeshyModelName(null);
+    setActiveMeshyModelSize(null);
+    setEngineMode('scan');
+    MeshyModelStorage.clearModel().catch(() => {});
+  }, []);
+
+  // Restore saved Meshy model from IndexedDB or probe /model.glb on mount
+  useEffect(() => {
+    MeshyModelStorage.loadModel().then((saved) => {
+      if (saved && saved.buffer) {
+        parseAndMountGLTF(saved.buffer, saved.name);
+      } else {
+        // Probe default model in /public/ if present
+        fetch('/model.glb', { method: 'HEAD' })
+          .then((res) => {
+            if (res.ok) {
+              loadModelFromUrl('/model.glb');
+            }
+          })
+          .catch(() => {});
+      }
+    });
+  }, [parseAndMountGLTF, loadModelFromUrl]);
+
+  // Image Upload / Drag & Drop Handler (for Sophia Outfit)
   const handleImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Mohon gunakan file gambar (PNG, JPG, WEBP)');
@@ -439,7 +663,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
     ProcessingService.show({
       title: 'MEMPROSES OUTFIT 3D DIGITAL HUMAN',
-      message: `Memetakan gambar "${file.name}" ke model 3D realistis Sophia...`,
+      message: `Memetakan gambar "${file.name}" ke model 3D Sophia...`,
       durationMs: 1400,
     });
 
@@ -472,11 +696,51 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     reader.readAsDataURL(file);
   };
 
+  // Universal File Drop & Select Handler (Supports 3D GLB Models & Outfit Images)
+  const handleDroppedOrSelectedFile = async (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    let is3D = lowerName.endsWith('.glb') || lowerName.endsWith('.gltf');
+
+    // If file was renamed to .txt, .bin or has other extension, inspect header
+    if (!is3D) {
+      try {
+        const headerBuf = await file.slice(0, 300).arrayBuffer();
+        const view = new Uint8Array(headerBuf);
+        // 'g', 'l', 'T', 'F' = 103, 108, 84, 70
+        if (view[0] === 103 && view[1] === 108 && view[2] === 84 && view[3] === 70) {
+          is3D = true;
+        } else {
+          const text = new TextDecoder('utf-8').decode(view).trim();
+          if (text.includes('glTF') || text.startsWith('data:') || text.startsWith('{')) {
+            is3D = true;
+          }
+        }
+      } catch {}
+    }
+
+    if (is3D) {
+      ProcessingService.show({
+        title: 'MEMUAT MODEL 3D MESHY AI',
+        message: `Membaca data 3D "${file.name}" (${(file.size / 1024).toFixed(1)} KB)...`,
+        durationMs: 1400,
+      });
+      const arrayBuffer = await file.arrayBuffer();
+      const success = await parseAndMountGLTF(arrayBuffer, file.name);
+      if (!success) {
+        alert('Gagal memproses file 3D. Pastikan file adalah binary GLB dari Meshy AI (meskipun telah di-rename jadi .txt).');
+      }
+      return;
+    }
+
+    // Otherwise handle as outfit texture image
+    handleImageFile(file);
+  };
+
   // =========================================================================
-  // 4. THREE.JS WEBGL RUNTIME (OPTIONAL DUAL-MODE)
+  // 5. THREE.JS WEBGL RUNTIME (WEBGL AVATAR & MESHY AI 3D MODES)
   // =========================================================================
   useEffect(() => {
-    if (engineMode !== 'webgl') return;
+    if (engineMode !== 'webgl' && engineMode !== 'meshy') return;
     if (!webglCanvasRef.current || !containerRef.current) return;
 
     const width = containerRef.current.clientWidth || window.innerWidth;
@@ -501,78 +765,116 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.18;
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xFFF9F5, 0.95);
+    const ambientLight = new THREE.AmbientLight(0xFFF9F5, 1.1);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xFFFAF2, 2.2);
+    const keyLight = new THREE.DirectionalLight(0xFFFAF2, 2.5);
     keyLight.position.set(2.4, 4.5, 3.8);
+    keyLight.castShadow = true;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xEAF2FA, 1.15);
+    const fillLight = new THREE.DirectionalLight(0xEAF2FA, 1.3);
     fillLight.position.set(-2.8, 2.6, 2.8);
     scene.add(fillLight);
 
-    const skinTex = createPhotorealisticSkinTexture();
-    const skinBumpMap = createPhotorealisticSkinBumpMap();
-    const skinMaterial = new THREE.MeshPhysicalMaterial({
-      map: skinTex,
-      bumpMap: skinBumpMap,
-      bumpScale: 0.0035,
-      roughness: 0.38,
-      color: 0xFFF5EE,
-    });
+    const rimLight = new THREE.DirectionalLight(0x25F4EE, 1.6);
+    rimLight.position.set(0, 3, -3.5);
+    scene.add(rimLight);
 
-    const eyeTex = createPhotorealisticEyeTexture();
-    const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFBF8 });
-    const irisMaterial = new THREE.MeshStandardMaterial({ map: eyeTex });
-    const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x050706 });
-    const tearDuctMaterial = new THREE.MeshStandardMaterial({ color: 0xEE929C });
-    const hairTex = createPhotorealisticHairTexture();
-    const hairMaterial = new THREE.MeshStandardMaterial({ map: hairTex, color: 0x1A1210 });
-    const lipsMaterial = new THREE.MeshPhysicalMaterial({ color: 0xD06072, roughness: 0.16 });
-    const nailMaterial = new THREE.MeshPhysicalMaterial({ color: 0xFFE0D8 });
+    // Subtle Ground Shadow Plane
+    const shadowGeo = new THREE.PlaneGeometry(8, 8);
+    const shadowMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = -1.25;
+    shadowMesh.receiveShadow = true;
+    scene.add(shadowMesh);
 
-    const jerseyTex = generateOutfitTexture(activeOutfit, customImageElement);
-    const jerseyMaterial = new THREE.MeshStandardMaterial({ map: jerseyTex });
-    jerseyMaterialRef.current = jerseyMaterial;
+    if (engineMode === 'meshy') {
+      // Mount Meshy AI Model
+      if (meshyGroupRef.current) {
+        scene.add(meshyGroupRef.current);
+      }
+    } else {
+      // Mount Procedural Digital Human
+      const skinTex = createPhotorealisticSkinTexture();
+      const skinBumpMap = createPhotorealisticSkinBumpMap();
+      const skinMaterial = new THREE.MeshPhysicalMaterial({
+        map: skinTex,
+        bumpMap: skinBumpMap,
+        bumpScale: 0.0035,
+        roughness: 0.38,
+        color: 0xFFF5EE,
+      });
 
-    const shortsTex = generateShortsTexture(activeOutfit.baseColor, activeOutfit.accentColor);
-    const shortsMaterial = new THREE.MeshStandardMaterial({ map: shortsTex });
-    shortsMaterialRef.current = shortsMaterial;
+      const eyeTex = createPhotorealisticEyeTexture();
+      const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFBF8 });
+      const irisMaterial = new THREE.MeshStandardMaterial({ map: eyeTex });
+      const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x050706 });
+      const tearDuctMaterial = new THREE.MeshStandardMaterial({ color: 0xEE929C });
+      const hairTex = createPhotorealisticHairTexture();
+      const hairMaterial = new THREE.MeshStandardMaterial({ map: hairTex, color: 0x1A1210 });
+      const lipsMaterial = new THREE.MeshPhysicalMaterial({ color: 0xD06072, roughness: 0.16 });
+      const nailMaterial = new THREE.MeshPhysicalMaterial({ color: 0xFFE0D8 });
 
-    const sockMaterial = new THREE.MeshStandardMaterial({ color: 0x14141A });
-    const shoeMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFDFD });
-    const shoeSoleMaterial = new THREE.MeshStandardMaterial({ color: 0x18181E });
-    const redTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xC70101 });
+      const jerseyTex = generateOutfitTexture(activeOutfit, customImageElement);
+      const jerseyMaterial = new THREE.MeshStandardMaterial({ map: jerseyTex });
+      jerseyMaterialRef.current = jerseyMaterial;
 
-    const materials: HumanMaterials = {
-      skinMaterial,
-      lipsMaterial,
-      hairMaterial,
-      eyeWhiteMaterial,
-      irisMaterial,
-      pupilMaterial,
-      tearDuctMaterial,
-      nailMaterial,
-      jerseyMaterial,
-      shortsMaterial,
-      sockMaterial,
-      shoeMaterial,
-      shoeSoleMaterial,
-      redTrimMaterial,
-    };
+      const shortsTex = generateShortsTexture(activeOutfit.baseColor, activeOutfit.accentColor);
+      const shortsMaterial = new THREE.MeshStandardMaterial({ map: shortsTex });
+      shortsMaterialRef.current = shortsMaterial;
 
-    const meshes = buildPhotorealisticDigitalHuman(scene, materials);
-    avatarGroupRef.current = meshes.avatarGroup;
+      const sockMaterial = new THREE.MeshStandardMaterial({ color: 0x14141A });
+      const shoeMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFDFD });
+      const shoeSoleMaterial = new THREE.MeshStandardMaterial({ color: 0x18181E });
+      const redTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xC70101 });
+
+      const materials: HumanMaterials = {
+        skinMaterial,
+        lipsMaterial,
+        hairMaterial,
+        eyeWhiteMaterial,
+        irisMaterial,
+        pupilMaterial,
+        tearDuctMaterial,
+        nailMaterial,
+        jerseyMaterial,
+        shortsMaterial,
+        sockMaterial,
+        shoeMaterial,
+        shoeSoleMaterial,
+        redTrimMaterial,
+      };
+
+      const meshes = buildPhotorealisticDigitalHuman(scene, materials);
+      avatarGroupRef.current = meshes.avatarGroup;
+    }
 
     let animId: number;
+    const clock = new THREE.Clock();
+
     const animate = () => {
-      if (avatarGroupRef.current) {
+      const delta = clock.getDelta();
+
+      if (engineMode === 'meshy') {
+        if (meshyMixerRef.current) {
+          meshyMixerRef.current.update(delta);
+        }
+        if (meshyGroupRef.current) {
+          meshyGroupRef.current.rotation.y = currentRotationRef.current;
+          meshyGroupRef.current.rotation.x = (tilt.x * Math.PI) / 180;
+          meshyGroupRef.current.rotation.z = (tilt.y * Math.PI) / 180;
+          meshyGroupRef.current.position.y = meshyOffsetY;
+          meshyGroupRef.current.scale.setScalar(baseFitScaleRef.current * meshyScale);
+        }
+      } else if (avatarGroupRef.current) {
         avatarGroupRef.current.rotation.y = currentRotationRef.current;
       }
+
       renderer.render(scene, camera);
       animId = requestAnimationFrame(animate);
     };
@@ -582,12 +884,12 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       cancelAnimationFrame(animId);
       renderer.dispose();
     };
-  }, [engineMode, activeOutfit, customImageElement]);
+  }, [engineMode, activeOutfit, customImageElement, activeMeshyModelName, meshyScale, meshyOffsetY, tilt]);
 
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-screen min-h-[640px] flex flex-col justify-between overflow-hidden bg-gradient-to-b from-[#06070B] via-[#0B0D14] to-[#06070B] select-none"
+      className="relative w-full min-h-[85vh] lg:min-h-screen flex flex-col justify-between overflow-hidden bg-gradient-to-b from-[#06070B] via-[#0B0D14] to-[#06070B] select-none"
       onDragOver={(e) => {
         e.preventDefault();
         setIsDraggingFileOver(true);
@@ -597,29 +899,35 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         e.preventDefault();
         setIsDraggingFileOver(false);
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleImageFile(e.dataTransfer.files[0]);
+          handleDroppedOrSelectedFile(e.dataTransfer.files[0]);
         }
       }}
     >
-      {/* Hidden File Input */}
+      {/* Universal Hidden File Input (Supports GLB/TXT Meshy 3D Models and Outfit Images) */}
       <input 
         ref={fileInputRef}
         type="file" 
-        accept="image/png, image/jpeg, image/webp" 
+        accept=".glb,.gltf,.txt,.bin,model/gltf-binary,model/gltf+json,application/octet-stream,image/png,image/jpeg,image/webp,*/*" 
         className="hidden"
         onChange={(e) => {
           if (e.target.files && e.target.files[0]) {
-            handleImageFile(e.target.files[0]);
+            handleDroppedOrSelectedFile(e.target.files[0]);
           }
         }}
       />
 
       {/* Drag & Drop Highlight */}
       {isDraggingFileOver && (
-        <div className="absolute inset-0 z-50 bg-[#FE2C55]/20 border-4 border-dashed border-[#FE2C55] backdrop-blur-md flex flex-col items-center justify-center text-white animate-pulse">
-          <Upload className="w-16 h-16 text-[#FE2C55] mb-3 animate-bounce" />
-          <h2 className="text-xl font-black tracking-wide uppercase">Lepaskan File Outfit di Sini</h2>
-          <p className="text-xs text-zinc-300">Gambar akan langsung dipetakan ke model Sophia</p>
+        <div className="absolute inset-0 z-50 bg-black/85 border-4 border-dashed border-[#25F4EE] backdrop-blur-md flex flex-col items-center justify-center text-white animate-pulse p-6 text-center">
+          <div className="p-4 rounded-2xl bg-[#25F4EE]/20 border border-[#25F4EE]/50 mb-4 animate-bounce">
+            <Box className="w-14 h-14 text-[#25F4EE]" />
+          </div>
+          <h2 className="text-xl font-black tracking-wide uppercase text-white">
+            Lepaskan File Model 3D Meshy AI (.glb / .txt) atau Gambar Outfit di Sini
+          </h2>
+          <p className="text-sm text-zinc-300 max-w-md mt-2">
+            File 3D Meshy AI (baik format <span className="text-[#25F4EE] font-mono font-bold">.glb</span> maupun <span className="text-[#25F4EE] font-mono font-bold">.txt</span>) otomatis dimuat ke Three.js Viewer. File gambar otomatis dipetakan ke jersey Sophia.
+          </p>
         </div>
       )}
 
@@ -631,23 +939,33 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       {/* TOP FLOATING HUD BAR                                                */}
       {/* =================================================================== */}
       <div className="relative z-30 w-full max-w-5xl mx-auto px-4 pt-4 sm:pt-6 flex items-center justify-between pointer-events-auto">
-        {/* Realism Badge */}
+        {/* Realism Badge / Meshy Badge */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="relative p-2 sm:p-2.5 rounded-2xl bg-black/60 border border-[#FE2C55]/40 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.25)] flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5 text-[#FE2C55]" />
+            {engineMode === 'meshy' ? (
+              <Box className="w-5 h-5 text-[#25F4EE]" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 text-[#FE2C55]" />
+            )}
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#25F4EE] animate-ping" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
-                Model 3D Scan Sophia x MU 24/25
+                {engineMode === 'meshy' ? 'Model 3D Meshy AI' : 'Model 3D Scan Sophia x MU 24/25'}
               </span>
-              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-md bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-[9px] font-bold">
-                Fotorealistis 360°
+              <span className={`hidden sm:inline-block px-1.5 py-0.5 rounded-md border text-[9px] font-bold ${
+                engineMode === 'meshy' 
+                  ? 'bg-[#25F4EE]/15 border-[#25F4EE]/30 text-[#25F4EE]'
+                  : 'bg-[#FE2C55]/15 border-[#FE2C55]/30 text-[#FE2C55]'
+              }`}>
+                {engineMode === 'meshy' ? 'Meshy AI Active' : 'Fotorealistis 360°'}
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-zinc-400">
-              Anatomi Asli Sophia • Jersey Manchester United Resmi • Putar 360° Bebas
+              {engineMode === 'meshy'
+                ? `Model: ${activeMeshyModelName || 'Meshy 3D'} • Putar 360° Real-time`
+                : 'Anatomi Asli Sophia • Jersey Manchester United Resmi • Putar 360° Bebas'}
             </p>
           </div>
         </div>
@@ -660,6 +978,28 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
             <span>{rotationDeg}°</span>
             <span className="text-[10px] text-zinc-400">({cardinalText})</span>
           </div>
+
+          {/* Meshy AI 3D Model Manager Button */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              setIsMeshyModalOpen(true);
+            }}
+            className={`px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer ${
+              engineMode === 'meshy'
+                ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_15px_rgba(37,244,238,0.3)]'
+                : 'bg-white/10 hover:bg-white/15 border-white/20 text-white'
+            }`}
+            title="Upload / Kelola Model 3D Meshy AI (.glb / .txt)"
+          >
+            <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span className="hidden sm:inline">Model Meshy AI</span>
+            <span className="sm:hidden">Meshy</span>
+            {activeMeshyModelName && (
+              <span className="w-2 h-2 rounded-full bg-[#25F4EE] animate-ping ml-0.5" />
+            )}
+          </button>
 
           {/* Auto Spin Toggle */}
           <button
@@ -889,12 +1229,16 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
             )}
           </div>
         ) : (
-          /* WebGL Three.js Procedural Avatar Canvas */
-          <canvas 
-            ref={webglCanvasRef}
+          /* WebGL Three.js Procedural Avatar & Meshy 3D Canvas */
+          <div 
             onClick={handleStageClick}
-            className="w-full h-full block touch-none"
-          />
+            className="relative w-full max-w-[500px] h-[82vh] max-h-[780px] flex items-center justify-center"
+          >
+            <canvas 
+              ref={webglCanvasRef}
+              className="w-full h-full block touch-none cursor-grab active:cursor-grabbing"
+            />
+          </div>
         )}
 
         {/* Touch Ripple Visuals */}
@@ -923,11 +1267,23 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
         {/* Active Model & Outfit Tag */}
         <div className="absolute top-4 left-4 z-20 hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/60 border border-white/15 text-xs text-white backdrop-blur-sm">
-          <Sparkle className="w-3.5 h-3.5 text-[#FE2C55]" />
-          <span className="text-zinc-400">Karakter:</span>
-          <span className="font-bold text-white">Sophia (Photorealistic 3D)</span>
-          <span className="text-zinc-500">•</span>
-          <span className="text-[#25F4EE] font-semibold">{activeOutfit.name}</span>
+          {engineMode === 'meshy' ? (
+            <>
+              <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span className="text-zinc-400">Model 3D:</span>
+              <span className="font-bold text-[#25F4EE]">{activeMeshyModelName || 'Meshy AI 3D'}</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-xs text-zinc-300">GLB/Three.js</span>
+            </>
+          ) : (
+            <>
+              <Sparkle className="w-3.5 h-3.5 text-[#FE2C55]" />
+              <span className="text-zinc-400">Karakter:</span>
+              <span className="font-bold text-white">Sophia (Photorealistic 3D)</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-[#25F4EE] font-semibold">{activeOutfit.name}</span>
+            </>
+          )}
         </div>
 
         {/* 360° Swipe Gesture Hint */}
@@ -948,11 +1304,33 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         <div className="spatial-card w-full py-2.5 px-4 rounded-2xl flex items-center justify-between gap-3 text-xs text-zinc-300">
           <div className="flex items-center gap-2 font-medium text-xs">
             <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
-            <span className="hidden sm:inline">Putaran 360° Halus • Sentuh model untuk sapaan suara</span>
+            <span className="hidden sm:inline">
+              {engineMode === 'meshy' 
+                ? 'Model Meshy AI 3D Aktif • Putar Bebas 360°'
+                : 'Putaran 360° Halus • Sentuh model untuk sapaan suara'}
+            </span>
             <span className="sm:hidden">{cardinalText}</span>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Model Meshy AI Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                SoundFx.unlockAudio();
+                setIsMeshyModalOpen(true);
+              }}
+              className={`px-2.5 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0 ${
+                engineMode === 'meshy'
+                  ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE]'
+                  : 'bg-white/5 hover:bg-white/10 border-white/15 text-zinc-200 hover:text-white'
+              }`}
+              title="Kelola & Upload Model Meshy AI 3D (.glb / .txt)"
+            >
+              <Box className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Meshy AI</span>
+            </button>
+
             {/* Hotspots Toggle */}
             <button
               type="button"
@@ -983,6 +1361,23 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
             >
               <Upload className="w-3.5 h-3.5 text-[#FE2C55]" />
               <span>Ganti Baju</span>
+            </button>
+
+            {/* Scroll ke Edukasi & Keuntungan */}
+            <button
+              type="button"
+              onClick={() => {
+                SoundFx.unlockAudio();
+                const el = document.getElementById('edukasi-seller-profit');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-[#FE2C55]/15 hover:from-[#25F4EE]/30 hover:to-[#FE2C55]/30 border border-[#25F4EE]/40 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition shrink-0"
+              title="Pelajari Edukasi, Keuntungan & Kelebihan Aplikasi Seller Profit"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span className="hidden sm:inline">Edukasi &amp; Keuntungan</span>
+              <span className="sm:hidden">Edukasi</span>
+              <ChevronDown className="w-3 h-3 text-zinc-400 animate-bounce" />
             </button>
 
             {/* Sapa Avatar Button */}
@@ -1205,6 +1600,38 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
           </div>
         </div>
       )}
+
+      {/* Meshy AI 3D Model Modal */}
+      <MeshyModelModal
+        isOpen={isMeshyModalOpen}
+        onClose={() => setIsMeshyModalOpen(false)}
+        activeModelName={activeMeshyModelName}
+        activeModelSize={activeMeshyModelSize}
+        onLoadModelBuffer={async (buffer, name) => {
+          const ok = await parseAndMountGLTF(buffer, name);
+          if (ok) {
+            setEngineMode('meshy');
+          }
+          return ok;
+        }}
+        onLoadModelUrl={loadModelFromUrl}
+        onResetToDefault={handleResetMeshyToDefault}
+        isMeshyActive={engineMode === 'meshy'}
+        modelScale={meshyScale}
+        onScaleChange={(scale) => {
+          setMeshyScale(scale);
+          if (meshyGroupRef.current) {
+            meshyGroupRef.current.scale.setScalar(baseFitScaleRef.current * scale);
+          }
+        }}
+        modelOffsetY={meshyOffsetY}
+        onOffsetYChange={(offset) => {
+          setMeshyOffsetY(offset);
+          if (meshyGroupRef.current) {
+            meshyGroupRef.current.position.y = offset;
+          }
+        }}
+      />
     </div>
   );
 };

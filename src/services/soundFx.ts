@@ -28,9 +28,17 @@ class SoundFxService {
     if (this.isInitialized || typeof window === 'undefined') return;
     this.isInitialized = true;
 
+    // Immediate resume listeners for any user gesture (pointerdown, touchstart, keydown, click)
+    const gestureResume = () => {
+      this.unlockAudio();
+    };
+    window.addEventListener('pointerdown', gestureResume, { capture: true, passive: true });
+    window.addEventListener('touchstart', gestureResume, { capture: true, passive: true });
+    window.addEventListener('keydown', gestureResume, { capture: true, passive: true });
+
     const handleClick = (e: MouseEvent) => {
       // Resume audio context on any user gesture
-      this.getContext();
+      this.unlockAudio();
 
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -340,19 +348,29 @@ class SoundFxService {
   }
 
   /**
+   * Check if AudioContext is currently running and producing sound
+   */
+  public isAudioRunning(): boolean {
+    return !!(this.ctx && this.ctx.state === 'running');
+  }
+
+  /**
    * Unlocks AudioContext and SpeechSynthesis on user gesture
    */
-  public unlockAudio() {
-    if (typeof window === 'undefined') return;
+  public async unlockAudio(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
     try {
       const ctx = this.getContext();
       if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
+        await ctx.resume();
       }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.resume();
       }
-    } catch {}
+      return this.isAudioRunning();
+    } catch {
+      return false;
+    }
   }
 
   /**

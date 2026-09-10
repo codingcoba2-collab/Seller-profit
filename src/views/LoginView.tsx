@@ -20,6 +20,7 @@ import {
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
 import { UpdateAppModal } from '../components/UpdateAppModal';
 import { MuJersey360Viewer } from '../components/MuJersey360Viewer';
+import { AppEducationSection } from '../components/AppEducationSection';
 import { SoundFx } from '../services/soundFx';
 
 interface LoginViewProps {
@@ -174,6 +175,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
       {/* 1. BERANDA SEBELUM LOGIN: TOMBOL LOGIN & GAMBAR JERSEY MU 4K HD 360° */}
       {/* ==================================================================== */}
       <MuJersey360Viewer onOpenLoginModal={handleOpenLogin} />
+
+      {/* ==================================================================== */}
+      {/* EDUKASI TENTANG APLIKASI: KEUNTUNGAN & KELEBIHAN (DI BAWAH AVATAR)   */}
+      {/* ==================================================================== */}
+      <AppEducationSection onOpenLoginModal={handleOpenLogin} />
 
       {/* ==================================================================== */}
       {/* 2. HOLOGRAPHIC LOGIN POPUP MODAL                                     */}
