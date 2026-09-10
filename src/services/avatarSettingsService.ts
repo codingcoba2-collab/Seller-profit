@@ -73,9 +73,9 @@ export const POSE_PRESETS = [
 ];
 
 export const DEFAULT_AVATAR_CONFIG: AvatarStudioConfig = {
-  engineMode: 'meshy', // Default to 3D Meshy Model so anyone opening on other phones immediately sees the 3D mesh!
+  engineMode: 'webgl', // Default to 3D Digital Human so character studio customizations are immediately visible and responsive!
   modelUrl: '/meshy_mu_athlete.glb',
-  modelName: 'Meshy 3D Athlete Pro (Official MU)',
+  modelName: 'Sophia 3D Digital Human (Official MU)',
   skinTone: '#FFF5EE',
   skinToneId: 'fair',
   hairColor: '#16100E',

@@ -192,6 +192,7 @@ export default function App() {
       const destination = isRouteAllowed(currentUrlPath, user) ? currentUrlPath : '/dashboard';
       setCurrentRoute(destination);
       window.history.replaceState({}, '', destination);
+      SoundFx.stopLoadingAudio();
       setIsLoading(false);
 
       // Robot welcome voice greeting with user name in English

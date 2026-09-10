@@ -246,12 +246,19 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const avatarGroupRef = useRef<THREE.Group | null>(null);
+  const skinMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const hairMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const irisMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const jerseyMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const shortsMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const redTrimMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
   const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const lastPointerMoveTimeRef = useRef<number>(0);
+  const isAutoSpinRef = useRef<boolean>(isAutoSpin);
+  isAutoSpinRef.current = isAutoSpin;
 
   // =========================================================================
   // 1. ANGLE-BASED IMAGE CROSS-FADING LOGIC (0° to 360°)
@@ -327,10 +334,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
     const updatePhysics = () => {
       if (isAutoSpin) {
-        currentRotationRef.current += 0.008;
+        currentRotationRef.current += 0.007;
       } else if (!isDraggingRef.current) {
         currentRotationRef.current += angularVelocityRef.current;
-        angularVelocityRef.current *= 0.93; // smooth friction
+        angularVelocityRef.current *= 0.935; // smooth momentum friction
 
         if (Math.abs(angularVelocityRef.current) < 0.0001) {
           angularVelocityRef.current = 0;
@@ -339,15 +346,15 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
       const deg = Math.round(((-currentRotationRef.current * (180 / Math.PI)) % 360 + 360) % 360);
       
-      // Throttle React state updates so React is NOT re-rendering at 120 FPS
+      // Update React state at 30fps during inertia/auto-spin for silky image cross-fade
       const now = performance.now();
-      if (now - lastDegReportTime.current > 100 && Math.abs(deg - lastReportedDeg.current) >= 2) {
+      if (!isDraggingRef.current && (now - lastDegReportTime.current > 33) && Math.abs(deg - lastReportedDeg.current) >= 1) {
         lastDegReportTime.current = now;
         lastReportedDeg.current = deg;
         setRotationDeg(deg);
       }
 
-      // Play sound tick on every 25 degrees of rotation
+      // Play subtle tick sound on every 25 degrees
       if (Math.abs(deg - lastSoundTickDeg.current) >= 25) {
         lastSoundTickDeg.current = deg;
         SoundFx.playJerseyRotateTick();
@@ -364,6 +371,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const handlePointerDown = (clientX: number) => {
     isDraggingRef.current = true;
     prevPointerXRef.current = clientX;
+    lastPointerMoveTimeRef.current = performance.now();
     angularVelocityRef.current = 0;
     setShowSwipeHint(false);
     if (isAutoSpin) setIsAutoSpin(false);
@@ -373,10 +381,18 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     if (isDraggingRef.current) {
       const deltaX = clientX - prevPointerXRef.current;
       prevPointerXRef.current = clientX;
+      lastPointerMoveTimeRef.current = performance.now();
 
-      const rotationDelta = deltaX * 0.0085;
+      const rotationDelta = deltaX * 0.0075;
       currentRotationRef.current += rotationDelta;
       angularVelocityRef.current = rotationDelta;
+
+      // Immediate rotationDeg update while dragging gives instantaneous 60fps tracking
+      const deg = Math.round(((-currentRotationRef.current * (180 / Math.PI)) % 360 + 360) % 360);
+      if (Math.abs(deg - lastReportedDeg.current) >= 1) {
+        lastReportedDeg.current = deg;
+        setRotationDeg(deg);
+      }
     }
 
     // Parallax Tilt calculation directly into mutable ref (Zero React Re-render)
@@ -384,14 +400,18 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       const rect = stageRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      const tiltY = ((clientX - centerX) / (rect.width / 2)) * 6; // max 6 deg
-      const tiltX = -((clientY - centerY) / (rect.height / 2)) * 4; // max 4 deg
+      const tiltY = ((clientX - centerX) / (rect.width / 2)) * 5; // max 5 deg
+      const tiltX = -((clientY - centerY) / (rect.height / 2)) * 3.5; // max 3.5 deg
       tiltRef.current = { x: tiltX, y: tiltY };
     }
   }, []);
 
   const handlePointerUp = () => {
     isDraggingRef.current = false;
+    // If finger held still before releasing (>50ms), cancel momentum so it doesn't jerk
+    if (performance.now() - lastPointerMoveTimeRef.current > 50) {
+      angularVelocityRef.current = 0;
+    }
     const finalDeg = Math.round(((-currentRotationRef.current * (180 / Math.PI)) % 360 + 360) % 360);
     setRotationDeg(finalDeg);
   };
@@ -533,7 +553,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   // 4. MESHY AI GLB 3D MODEL LOADER & PARSER
   // =========================================================================
   const parseAndMountGLTF = useCallback(
-    (arrayBuffer: ArrayBuffer, name: string): Promise<boolean> => {
+    (arrayBuffer: ArrayBuffer, name: string, switchToMeshy: boolean = true): Promise<boolean> => {
       return new Promise((resolve) => {
         try {
           setIsMeshyLoading(true);
@@ -638,7 +658,9 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
                 setActiveMeshyModelName(name);
                 setActiveMeshyModelSize(cleanBuffer.byteLength);
-                setEngineMode('meshy');
+                if (switchToMeshy) {
+                  setEngineMode('meshy');
+                }
                 setIsMeshyLoading(false);
 
                 // Persist locally in IndexedDB so reload preserves model
@@ -729,15 +751,17 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       }));
     });
 
-    // 2. Load model from IndexedDB or fallback to official bundled GLB
+    // 2. Load model from IndexedDB or fallback to official bundled GLB (without overriding user's webgl digital human)
     MeshyModelStorage.loadModel().then((saved) => {
       if (!isMounted) return;
+      const initialMode = AvatarSettingsService.getConfig().engineMode;
+      const shouldSwitchToMeshy = initialMode === 'meshy';
       if (saved && saved.buffer) {
-        parseAndMountGLTF(saved.buffer, saved.name);
+        parseAndMountGLTF(saved.buffer, saved.name, shouldSwitchToMeshy);
       } else {
         // Automatically fetch official 3D athlete model from public directory
         loadModelFromUrl('/meshy_mu_athlete.glb').then((loaded) => {
-          if (loaded && isMounted) {
+          if (loaded && isMounted && shouldSwitchToMeshy) {
             setEngineMode('meshy');
           }
         });
@@ -919,7 +943,9 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       }
 
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+        if (currentEngine !== 'scan') {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+        }
       }
       animId = requestAnimationFrame(animate);
     };
@@ -990,27 +1016,9 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       rimLightRef.current.intensity = rimInt;
     }
 
-    // 2. Manage 3D Model in Scene
-    if (engineMode === 'meshy') {
-      // Detach WebGL digital human if present
-      if (avatarGroupRef.current && avatarGroupRef.current.parent) {
-        scene.remove(avatarGroupRef.current);
-      }
-      // Attach Meshy 3D model
-      if (meshyGroupRef.current && !meshyGroupRef.current.parent) {
-        scene.add(meshyGroupRef.current);
-      }
-    } else if (engineMode === 'webgl') {
-      // Detach Meshy model if present
-      if (meshyGroupRef.current && meshyGroupRef.current.parent) {
-        scene.remove(meshyGroupRef.current);
-      }
-      // Remove previous digital human to prevent ghost meshes
-      if (avatarGroupRef.current && avatarGroupRef.current.parent) {
-        scene.remove(avatarGroupRef.current);
-      }
-
-      // Rebuild Digital Human with updated customizations
+    // 2. Manage 3D Models in Scene with zero garbage collection spikes
+    if (!avatarGroupRef.current) {
+      // First-time build: Instantiate Digital Human meshes ONCE
       const skinTex = createPhotorealisticSkinTexture();
       const skinBumpMap = createPhotorealisticSkinBumpMap();
       const skinMaterial = new THREE.MeshPhysicalMaterial({
@@ -1020,6 +1028,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         roughness: 0.38,
         color: new THREE.Color(avatarStudioConfig.skinTone || '#FFF5EE'),
       });
+      skinMaterialRef.current = skinMaterial;
 
       const eyeTex = createPhotorealisticEyeTexture();
       const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFBF8 });
@@ -1027,6 +1036,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         map: eyeTex,
         color: new THREE.Color(avatarStudioConfig.eyeColor || '#38BDF8'),
       });
+      irisMaterialRef.current = irisMaterial;
+
       const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x050706 });
       const tearDuctMaterial = new THREE.MeshStandardMaterial({ color: 0xEE929C });
       const hairTex = createPhotorealisticHairTexture();
@@ -1034,21 +1045,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         map: hairTex,
         color: new THREE.Color(avatarStudioConfig.hairColor || '#1A1210'),
       });
+      hairMaterialRef.current = hairMaterial;
+
       const lipsMaterial = new THREE.MeshPhysicalMaterial({ color: 0xD06072, roughness: 0.16 });
       const nailMaterial = new THREE.MeshPhysicalMaterial({ color: 0xFFE0D8 });
-
-      let jerseyRoughness = 0.45;
-      let jerseyMetalness = 0.1;
-      if (avatarStudioConfig.materialFinish === 'matte') {
-        jerseyRoughness = 0.88;
-        jerseyMetalness = 0.02;
-      } else if (avatarStudioConfig.materialFinish === 'glossy') {
-        jerseyRoughness = 0.15;
-        jerseyMetalness = 0.25;
-      } else if (avatarStudioConfig.materialFinish === 'metallic') {
-        jerseyRoughness = 0.22;
-        jerseyMetalness = 0.85;
-      }
 
       const mergedOutfitConfig: OutfitConfig = {
         ...activeOutfit,
@@ -1062,8 +1062,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       const jerseyTex = generateOutfitTexture(mergedOutfitConfig, customImageElement);
       const jerseyMaterial = new THREE.MeshStandardMaterial({
         map: jerseyTex,
-        roughness: jerseyRoughness,
-        metalness: jerseyMetalness,
+        roughness: 0.45,
+        metalness: 0.1,
       });
       jerseyMaterialRef.current = jerseyMaterial;
 
@@ -1073,8 +1073,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       );
       const shortsMaterial = new THREE.MeshStandardMaterial({
         map: shortsTex,
-        roughness: jerseyRoughness,
-        metalness: jerseyMetalness,
+        roughness: 0.45,
+        metalness: 0.1,
       });
       shortsMaterialRef.current = shortsMaterial;
 
@@ -1084,6 +1084,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       const redTrimMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color(avatarStudioConfig.accentColor || '#C70101'),
       });
+      redTrimMaterialRef.current = redTrimMaterial;
 
       const materials: HumanMaterials = {
         skinMaterial,
@@ -1104,6 +1105,80 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
       const meshes = buildPhotorealisticDigitalHuman(scene, materials);
       avatarGroupRef.current = meshes.avatarGroup;
+    } else {
+      // Subsequent updates: Mutate existing materials in-place (ZERO memory allocations, NO lag)
+      let jerseyRoughness = 0.45;
+      let jerseyMetalness = 0.1;
+      if (avatarStudioConfig.materialFinish === 'matte') {
+        jerseyRoughness = 0.88;
+        jerseyMetalness = 0.02;
+      } else if (avatarStudioConfig.materialFinish === 'glossy') {
+        jerseyRoughness = 0.15;
+        jerseyMetalness = 0.25;
+      } else if (avatarStudioConfig.materialFinish === 'metallic') {
+        jerseyRoughness = 0.22;
+        jerseyMetalness = 0.85;
+      }
+
+      if (skinMaterialRef.current) {
+        skinMaterialRef.current.color.set(avatarStudioConfig.skinTone || '#FFF5EE');
+      }
+      if (hairMaterialRef.current) {
+        hairMaterialRef.current.color.set(avatarStudioConfig.hairColor || '#1A1210');
+      }
+      if (irisMaterialRef.current) {
+        irisMaterialRef.current.color.set(avatarStudioConfig.eyeColor || '#38BDF8');
+      }
+      if (redTrimMaterialRef.current) {
+        redTrimMaterialRef.current.color.set(avatarStudioConfig.accentColor || '#C70101');
+      }
+
+      const mergedOutfitConfig: OutfitConfig = {
+        ...activeOutfit,
+        backName: avatarStudioConfig.backName || activeOutfit.backName,
+        backNumber: avatarStudioConfig.backNumber || activeOutfit.backNumber,
+        baseColor: avatarStudioConfig.jerseyColor || activeOutfit.baseColor,
+        accentColor: avatarStudioConfig.accentColor || activeOutfit.accentColor,
+        shortsColor: avatarStudioConfig.shortsColor || activeOutfit.shortsColor,
+      };
+
+      if (jerseyMaterialRef.current) {
+        const jerseyTex = generateOutfitTexture(mergedOutfitConfig, customImageElement);
+        jerseyMaterialRef.current.map = jerseyTex;
+        jerseyMaterialRef.current.roughness = jerseyRoughness;
+        jerseyMaterialRef.current.metalness = jerseyMetalness;
+        jerseyMaterialRef.current.needsUpdate = true;
+      }
+
+      if (shortsMaterialRef.current) {
+        const shortsTex = generateShortsTexture(
+          avatarStudioConfig.shortsColor || activeOutfit.shortsColor || '#FFFFFF',
+          avatarStudioConfig.accentColor || activeOutfit.accentColor || '#C70101'
+        );
+        shortsMaterialRef.current.map = shortsTex;
+        shortsMaterialRef.current.roughness = jerseyRoughness;
+        shortsMaterialRef.current.metalness = jerseyMetalness;
+        shortsMaterialRef.current.needsUpdate = true;
+      }
+    }
+
+    // Toggle visibility between models cleanly
+    if (engineMode === 'meshy') {
+      if (avatarGroupRef.current) avatarGroupRef.current.visible = false;
+      if (meshyGroupRef.current) {
+        meshyGroupRef.current.visible = true;
+        if (!meshyGroupRef.current.parent) scene.add(meshyGroupRef.current);
+      }
+    } else if (engineMode === 'webgl') {
+      if (meshyGroupRef.current) meshyGroupRef.current.visible = false;
+      if (avatarGroupRef.current) {
+        avatarGroupRef.current.visible = true;
+        if (!avatarGroupRef.current.parent) scene.add(avatarGroupRef.current);
+      }
+    } else {
+      // scan mode: hide both 3D groups
+      if (meshyGroupRef.current) meshyGroupRef.current.visible = false;
+      if (avatarGroupRef.current) avatarGroupRef.current.visible = false;
     }
   }, [engineMode, avatarStudioConfig, activeOutfit, customImageElement, activeMeshyModelName]);
 

@@ -164,13 +164,17 @@ class SoundFxService {
     this.loadingTimeouts.forEach(t => clearTimeout(t));
     this.loadingTimeouts = [];
 
+    const now = this.ctx ? this.ctx.currentTime : 0;
     this.loadingNodes.forEach(({ osc, gain }) => {
       try {
-        if (this.ctx) {
-          gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        if (gain && this.ctx) {
+          gain.gain.cancelScheduledValues(now);
+          gain.gain.setValueAtTime(0, now);
         }
-        osc.stop();
-        osc.disconnect();
+        if (osc) {
+          osc.stop();
+          osc.disconnect();
+        }
       } catch {}
     });
     this.loadingNodes = [];
@@ -194,21 +198,21 @@ class SoundFxService {
       const droneGain = ctx.createGain();
       droneOsc.type = 'sine';
       droneOsc.frequency.setValueAtTime(110, now);
-      droneOsc.frequency.linearRampToValueAtTime(220, now + 3.5);
+      droneOsc.frequency.linearRampToValueAtTime(220, now + 3.0);
 
       droneGain.gain.setValueAtTime(0.001, now);
-      droneGain.gain.linearRampToValueAtTime(0.07, now + 0.5);
-      droneGain.gain.exponentialRampToValueAtTime(0.001, now + 4.2);
+      droneGain.gain.linearRampToValueAtTime(0.06, now + 0.4);
+      droneGain.gain.exponentialRampToValueAtTime(0.001, now + 3.8);
 
       droneOsc.connect(droneGain);
       droneGain.connect(ctx.destination);
 
       droneOsc.start(now);
-      droneOsc.stop(now + 4.3);
+      droneOsc.stop(now + 3.9);
       this.loadingNodes.push({ osc: droneOsc, gain: droneGain });
 
       // 2. High-tech diagnostic telemetry beeps along the progress
-      const beepTimes = [0.4, 0.9, 1.5, 2.1, 2.7, 3.4, 4.0];
+      const beepTimes = [0.3, 0.7, 1.2, 1.8, 2.4, 3.0, 3.6];
       const beepPitches = [987.77, 1174.66, 1318.51, 1567.98, 1760.00, 1975.53, 2349.32];
 
       beepTimes.forEach((t, i) => {
@@ -217,14 +221,14 @@ class SoundFxService {
         bOsc.type = 'sine';
         bOsc.frequency.setValueAtTime(beepPitches[i], now + t);
 
-        bGain.gain.setValueAtTime(0.04, now + t);
-        bGain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.06);
+        bGain.gain.setValueAtTime(0.035, now + t);
+        bGain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.05);
 
         bOsc.connect(bGain);
         bGain.connect(ctx.destination);
 
         bOsc.start(now + t);
-        bOsc.stop(now + t + 0.07);
+        bOsc.stop(now + t + 0.06);
         this.loadingNodes.push({ osc: bOsc, gain: bGain });
       });
     } catch {}
@@ -287,6 +291,7 @@ class SoundFxService {
    */
   public playTimeMachineWarp() {
     if (this.isMuted) return;
+    this.isLoadingAudioActive = true;
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -319,6 +324,7 @@ class SoundFxService {
 
       subOsc.start(now);
       subOsc.stop(now + duration);
+      this.loadingNodes.push({ osc: subOsc, gain: subGain });
 
       // 2. Phased Time-Vortex Sweeper (Portal Opening)
       const warpOsc = ctx.createOscillator();
@@ -349,9 +355,12 @@ class SoundFxService {
       warpOsc.start(now);
       lfo.stop(now + duration);
       warpOsc.stop(now + duration);
+      this.loadingNodes.push({ osc: warpOsc, gain: warpGain });
+      this.loadingNodes.push({ osc: lfo, gain: lfoGain });
 
       // 3. Futuristic High-Energy Warp Pulse Burst at climax (1.6s)
-      setTimeout(() => {
+      const chordTimeout = window.setTimeout(() => {
+        if (!this.isLoadingAudioActive) return;
         try {
           const pCtx = this.getContext();
           if (!pCtx) return;
@@ -371,9 +380,11 @@ class SoundFxService {
 
             chordOsc.start(pNow + idx * 0.05);
             chordOsc.stop(pNow + 0.85);
+            this.loadingNodes.push({ osc: chordOsc, gain: chordGain });
           });
         } catch {}
       }, 1600);
+      this.loadingTimeouts.push(chordTimeout);
 
     } catch {
       // AudioContext unavailable

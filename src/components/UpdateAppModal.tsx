@@ -29,6 +29,8 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
 
   const [isDone, setIsDone] = useState(false);
 
+  const [countdown, setCountdown] = useState<number | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       SoundFx.playHologramOpen();
@@ -36,10 +38,32 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
       setIsUpdating(false);
       setStatusMessage('');
       setStep(0);
+      setCountdown(null);
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    let timer: number;
+    if (isDone && countdown !== null && countdown > 0) {
+      timer = window.setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    } else if (isDone && countdown === 0) {
+      triggerReload();
+    }
+    return () => clearTimeout(timer);
+  }, [isDone, countdown]);
+
   if (!isOpen) return null;
+
+  const triggerReload = () => {
+    SoundFx.playRobotButtonClick();
+    try {
+      window.location.reload();
+    } catch {
+      window.location.href = window.location.href;
+    }
+  };
 
   const performFullUpdate = async (isHardReset: boolean = false) => {
     SoundFx.playRobotButtonClick();
@@ -60,86 +84,81 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
       // Step 1: Clear browser CacheStorage (max 1200ms)
       await withTimeout(
         (async () => {
-          if ('caches' in window) {
-            const cacheKeys = await caches.keys();
-            await Promise.all(
-              cacheKeys.map(key => caches.delete(key).catch(() => false))
-            );
+          if (typeof window !== 'undefined' && 'caches' in window) {
+            try {
+              const cacheKeys = await caches.keys();
+              for (const key of cacheKeys) {
+                try {
+                  await caches.delete(key);
+                } catch {}
+              }
+            } catch {}
           }
         })(),
         1200,
         undefined
       );
 
-      // Smooth step pacing for user confidence
-      await new Promise(r => setTimeout(r, 450));
+      // Smooth step pacing
+      await new Promise(r => setTimeout(r, 400));
       setStep(2);
       setStatusMessage('2/4: Memperbarui & sinkronisasi Service Worker PWA...');
 
       // Step 2: Unregister / update service worker (max 1500ms)
       await withTimeout(
         (async () => {
-          if ('serviceWorker' in navigator) {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const reg of registrations) {
-              try {
-                if (reg.waiting) {
-                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                }
-                if (isHardReset) {
-                  await reg.unregister();
-                } else {
-                  await reg.update().catch(() => {});
-                }
-              } catch {}
-            }
+          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const reg of registrations) {
+                try {
+                  if (reg.waiting) {
+                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                  if (isHardReset) {
+                    await reg.unregister();
+                  } else {
+                    await reg.update().catch(() => {});
+                  }
+                } catch {}
+              }
+            } catch {}
           }
         })(),
         1500,
         undefined
       );
 
-      await new Promise(r => setTimeout(r, 450));
+      await new Promise(r => setTimeout(r, 400));
       setStep(3);
       setStatusMessage('3/4: Memvalidasi aset terbaru & membersihkan data sementara...');
 
       // Step 3: Clear session storage safely (preserving local storage database!)
       try {
-        sessionStorage.clear();
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.clear();
+        }
       } catch {}
 
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 350));
       setStep(4);
+      setIsUpdating(false);
       setIsDone(true);
-      setStatusMessage('4/4: Pembaruan Berhasil! Membuka versi terbaru...');
+      setStatusMessage('4/4: Pembaruan Berhasil 100%! Aplikasi siap digunakan.');
+      setCountdown(4);
       SoundFx.playOutfitEquipSound();
 
       if (onNotify) {
         onNotify('Aplikasi berhasil diperbarui ke versi terbaru!', 'success');
       }
 
-      // Auto-reload after 1.5 seconds, or user can click button immediately
-      setTimeout(() => {
-        triggerReload();
-      }, 1500);
-
     } catch (err) {
       console.error('Update app error:', err);
       setStep(4);
+      setIsUpdating(false);
       setIsDone(true);
-      setStatusMessage('Pembaruan selesai! Menyiapkan versi terbaru...');
-      setTimeout(() => {
-        triggerReload();
-      }, 1200);
-    }
-  };
-
-  const triggerReload = () => {
-    try {
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.location.replace(`${cleanUrl}?_update=${Date.now()}`);
-    } catch {
-      window.location.reload();
+      setStatusMessage('Pembaruan selesai! Silakan muat ulang untuk menerapkan versi terbaru.');
+      setCountdown(4);
     }
   };
 
@@ -235,7 +254,11 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-[#25F4EE] hover:opacity-95 text-black font-black text-sm transition shadow-lg shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 active:scale-98 animate-pulse"
             >
               <CheckCircle2 className="w-5 h-5 text-black" />
-              <span>Buka Versi Terbaru Sekarang (Memuat Ulang...)</span>
+              <span>
+                {countdown !== null && countdown > 0 
+                  ? `Muat Ulang Otomatis (${countdown}d) — Klik Untuk Segera Buka`
+                  : 'Buka Versi Terbaru Sekarang'}
+              </span>
             </button>
           ) : (
             <button

@@ -51,6 +51,7 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'apparel' | 'body' | 'lighting' | 'pose' | 'engine'>('apparel');
   const [isSavingCloud, setIsSavingCloud] = useState(false);
   const [cloudSuccessMsg, setCloudSuccessMsg] = useState<string | null>(null);
+  const [cloudErrorMsg, setCloudErrorMsg] = useState<string | null>(null);
 
   // Guaranteed safe merged config with default values so it never renders blank
   const [config, setConfig] = useState<AvatarStudioConfig>(() => ({
@@ -86,6 +87,7 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
     SoundFx.playOutfitEquipSound();
     setIsSavingCloud(true);
     setCloudSuccessMsg(null);
+    setCloudErrorMsg(null);
 
     ProcessingService.show({
       title: 'SINKRONISASI AVATAR KE CLOUD',
@@ -93,26 +95,34 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
       durationMs: 1200,
     });
 
-    const success = await AvatarSettingsService.saveToCloud(config);
-    setIsSavingCloud(false);
+    try {
+      const success = await AvatarSettingsService.saveToCloud(config);
+      setIsSavingCloud(false);
 
-    if (success) {
-      setCloudSuccessMsg('Karakter berhasil disimpan ke Cloud! Semua pengunjung di HP lain akan melihat avatar ini.');
-      setTimeout(() => setCloudSuccessMsg(null), 5000);
-    } else {
-      alert('Gagal menyinkronkan ke cloud. Data tetap tersimpan di browser ini.');
+      if (success) {
+        setCloudSuccessMsg('Karakter berhasil disimpan ke Cloud! Semua pengunjung di HP lain akan melihat avatar ini.');
+        setTimeout(() => setCloudSuccessMsg(null), 5000);
+      } else {
+        setCloudErrorMsg('Sinkronisasi cloud ditangguhkan. Pengaturan tersimpan aman di HP & browser ini.');
+        setTimeout(() => setCloudErrorMsg(null), 5000);
+      }
+    } catch (err) {
+      console.warn('Save to cloud caught error:', err);
+      setIsSavingCloud(false);
+      setCloudErrorMsg('Pengaturan tersimpan aman di HP & browser ini.');
+      setTimeout(() => setCloudErrorMsg(null), 5000);
     }
   };
 
   const handleResetToDefault = () => {
-    if (confirm('Kembalikan semua pengaturan avatar ke konfigurasi resmi default?')) {
-      SoundFx.playRobotButtonClick();
-      const def = { ...DEFAULT_AVATAR_CONFIG };
-      setConfig(def);
-      if (onChangeConfig) onChangeConfig(def);
-      if (onConfigChange) onConfigChange(def);
-      AvatarSettingsService.saveToLocal(def);
-    }
+    SoundFx.playRobotButtonClick();
+    const def = { ...DEFAULT_AVATAR_CONFIG };
+    setConfig(def);
+    if (onChangeConfig) onChangeConfig(def);
+    if (onConfigChange) onConfigChange(def);
+    AvatarSettingsService.saveToLocal(def);
+    setCloudSuccessMsg('Pengaturan avatar dikembalikan ke konfigurasi resmi default.');
+    setTimeout(() => setCloudSuccessMsg(null), 4000);
   };
 
   return (
@@ -709,6 +719,14 @@ export const AvatarCustomizerModal: React.FC<AvatarCustomizerModalProps> = ({
           <div className="px-5 py-2.5 bg-emerald-500/20 border-t border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
             <Check className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{cloudSuccessMsg}</span>
+          </div>
+        )}
+
+        {/* Cloud Error / Offline Fallback Alert */}
+        {cloudErrorMsg && (
+          <div className="px-5 py-2.5 bg-amber-500/20 border-t border-amber-500/40 text-amber-300 text-xs flex items-center gap-2 animate-fadeIn">
+            <X className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{cloudErrorMsg}</span>
           </div>
         )}
 

@@ -16,12 +16,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [progress, setProgress] = useState(12);
   const [isAudioActive, setIsAudioActive] = useState(SoundFx.isAudioRunning());
 
-  // Function to unlock and trigger audio
+  // Function to unlock and trigger audio strictly during loading (never duplicate or restart if already playing)
   const handleTriggerAudio = async () => {
+    if (progress >= 90) return;
     const running = await SoundFx.unlockAudio();
-    setIsAudioActive(running);
-    SoundFx.playTimeMachineWarp();
-    SoundFx.playLoadingScreenSequence();
+    if (!isAudioActive) {
+      setIsAudioActive(running);
+      SoundFx.playTimeMachineWarp();
+      SoundFx.playLoadingScreenSequence();
+    }
   };
 
   // Play loading telemetry audio and increment progress counter automatically
@@ -41,9 +44,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       if (!isStillLoading) return;
       const active = await SoundFx.unlockAudio();
       if (!isStillLoading) return;
-      setIsAudioActive(active);
-      SoundFx.playTimeMachineWarp();
-      SoundFx.playLoadingScreenSequence();
+      if (!isAudioActive) {
+        setIsAudioActive(active);
+        SoundFx.playTimeMachineWarp();
+        SoundFx.playLoadingScreenSequence();
+      }
       window.removeEventListener('pointerdown', onUserInteraction);
       window.removeEventListener('touchstart', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
@@ -58,6 +63,10 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       const elapsed = performance.now() - startTime;
       const pct = Math.min(100, Math.floor((elapsed / durationMs) * 100));
       setProgress(pct);
+      if (pct >= 98) {
+        // Cut audio as soon as loading reaches completion
+        SoundFx.stopLoadingAudio();
+      }
       if (pct >= 100) {
         clearInterval(interval);
         SoundFx.stopLoadingAudio();
@@ -72,7 +81,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       window.removeEventListener('touchstart', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
     };
-  }, [durationMs]);
+  }, [durationMs, isAudioActive]);
 
   return (
     <div 
