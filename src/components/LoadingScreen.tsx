@@ -26,8 +26,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   // Play loading telemetry audio and increment progress counter automatically
   useEffect(() => {
+    let isStillLoading = true;
+
     // Attempt immediate automatic unlock & playback
     SoundFx.unlockAudio().then((active) => {
+      if (!isStillLoading) return;
       setIsAudioActive(active);
       SoundFx.playTimeMachineWarp();
       SoundFx.playLoadingScreenSequence();
@@ -35,7 +38,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
     // Listen on window for user gesture to immediately unlock audio if initially paused by browser autoplay policy
     const onUserInteraction = async () => {
+      if (!isStillLoading) return;
       const active = await SoundFx.unlockAudio();
+      if (!isStillLoading) return;
       setIsAudioActive(active);
       SoundFx.playTimeMachineWarp();
       SoundFx.playLoadingScreenSequence();
@@ -55,11 +60,14 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       setProgress(pct);
       if (pct >= 100) {
         clearInterval(interval);
+        SoundFx.stopLoadingAudio();
       }
     }, 50);
 
     return () => {
+      isStillLoading = false;
       clearInterval(interval);
+      SoundFx.stopLoadingAudio();
       window.removeEventListener('pointerdown', onUserInteraction);
       window.removeEventListener('touchstart', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);

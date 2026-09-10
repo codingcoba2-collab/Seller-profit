@@ -188,8 +188,22 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const [showHotspots, setShowHotspots] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<JerseyHotspot | null>(null);
 
-  // Tilt 3D Parallax State
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  // Tilt 3D Parallax Reference (Decoupled from React renders for ultra-smooth 60-120 FPS)
+  const tiltRef = useRef({ x: 0, y: 0 });
+
+  // Synced refs for animation loop
+  const engineModeRef = useRef(engineMode);
+  const meshyScaleRef = useRef(meshyScale);
+  const meshyOffsetYRef = useRef(meshyOffsetY);
+  const avatarStudioConfigRef = useRef(avatarStudioConfig);
+  const lastDegReportTime = useRef(0);
+  const lastReportedDeg = useRef(0);
+
+  // Sync state to refs immediately
+  useEffect(() => { engineModeRef.current = engineMode; }, [engineMode]);
+  useEffect(() => { meshyScaleRef.current = meshyScale; }, [meshyScale]);
+  useEffect(() => { meshyOffsetYRef.current = meshyOffsetY; }, [meshyOffsetY]);
+  useEffect(() => { avatarStudioConfigRef.current = avatarStudioConfig; }, [avatarStudioConfig]);
 
   // Touch & Reaction State
   const [isReacting, setIsReacting] = useState(false);
@@ -234,6 +248,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const avatarGroupRef = useRef<THREE.Group | null>(null);
   const jerseyMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const shortsMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
+  const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
 
   // =========================================================================
   // 1. ANGLE-BASED IMAGE CROSS-FADING LOGIC (0° to 360°)
@@ -320,17 +338,19 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       }
 
       const deg = Math.round(((-currentRotationRef.current * (180 / Math.PI)) % 360 + 360) % 360);
-      setRotationDeg(deg);
+      
+      // Throttle React state updates so React is NOT re-rendering at 120 FPS
+      const now = performance.now();
+      if (now - lastDegReportTime.current > 100 && Math.abs(deg - lastReportedDeg.current) >= 2) {
+        lastDegReportTime.current = now;
+        lastReportedDeg.current = deg;
+        setRotationDeg(deg);
+      }
 
       // Play sound tick on every 25 degrees of rotation
       if (Math.abs(deg - lastSoundTickDeg.current) >= 25) {
         lastSoundTickDeg.current = deg;
         SoundFx.playJerseyRotateTick();
-      }
-
-      // Sync with Three.js avatar if in WebGL mode
-      if (avatarGroupRef.current) {
-        avatarGroupRef.current.rotation.y = currentRotationRef.current;
       }
 
       animId = requestAnimationFrame(updatePhysics);
@@ -359,19 +379,21 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       angularVelocityRef.current = rotationDelta;
     }
 
-    // Parallax Tilt calculation
+    // Parallax Tilt calculation directly into mutable ref (Zero React Re-render)
     if (stageRef.current && clientY !== undefined) {
       const rect = stageRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const tiltY = ((clientX - centerX) / (rect.width / 2)) * 6; // max 6 deg
       const tiltX = -((clientY - centerY) / (rect.height / 2)) * 4; // max 4 deg
-      setTilt({ x: tiltX, y: tiltY });
+      tiltRef.current = { x: tiltX, y: tiltY };
     }
   }, []);
 
   const handlePointerUp = () => {
     isDraggingRef.current = false;
+    const finalDeg = Math.round(((-currentRotationRef.current * (180 / Math.PI)) % 360 + 360) % 360);
+    setRotationDeg(finalDeg);
   };
 
   // =========================================================================
@@ -760,10 +782,9 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   };
 
   // =========================================================================
-  // 5. THREE.JS WEBGL RUNTIME (WEBGL AVATAR & MESHY AI 3D MODES)
+  // 5. THREE.JS WEBGL RUNTIME (PERSISTENT RENDERER & ANIMATION LOOP)
   // =========================================================================
   useEffect(() => {
-    if (engineMode !== 'webgl' && engineMode !== 'meshy') return;
     if (!webglCanvasRef.current || !containerRef.current) return;
 
     const width = containerRef.current.clientWidth || window.innerWidth;
@@ -785,68 +806,34 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
     rendererRef.current = renderer;
 
-    // Configure Studio Lighting dynamically based on avatarStudioConfig preset
-    let ambientColor = 0xFFF9F5;
-    let ambientInt = 1.1;
-    let keyColor = 0xFFFAF2;
-    let keyInt = 2.5;
-    let fillColor = 0xEAF2FA;
-    let fillInt = 1.3;
-    let rimColor = 0x25F4EE;
-    let rimInt = 1.6;
-
-    if (avatarStudioConfig.lightingPreset === 'neon') {
-      ambientColor = 0x0F111E;
-      ambientInt = 0.8;
-      keyColor = 0x25F4EE; // Cyan Key
-      keyInt = 2.8;
-      fillColor = 0xFE2C55; // Magenta Fill
-      fillInt = 2.4;
-      rimColor = 0x9333EA; // Purple Cyber Rim
-      rimInt = 3.0;
-    } else if (avatarStudioConfig.lightingPreset === 'sunset') {
-      ambientColor = 0xFEF3C7;
-      ambientInt = 1.0;
-      keyColor = 0xF59E0B; // Amber Golden Hour
-      keyInt = 2.8;
-      fillColor = 0xF43F5E; // Warm Coral
-      fillInt = 1.6;
-      rimColor = 0xFFEDD5;
-      rimInt = 2.0;
-    } else if (avatarStudioConfig.lightingPreset === 'showroom') {
-      ambientColor = 0xFFFFFF;
-      ambientInt = 1.4;
-      keyColor = 0xFFFFFF;
-      keyInt = 2.2;
-      fillColor = 0xF0F4F8;
-      fillInt = 1.5;
-      rimColor = 0xE2E8F0;
-      rimInt = 1.2;
-    }
-
-    const ambientLight = new THREE.AmbientLight(ambientColor, ambientInt);
+    // Persistent Lighting Setup
+    const ambientLight = new THREE.AmbientLight(0xFFF9F5, 1.1);
     scene.add(ambientLight);
+    ambientLightRef.current = ambientLight;
 
-    const keyLight = new THREE.DirectionalLight(keyColor, keyInt);
+    const keyLight = new THREE.DirectionalLight(0xFFFAF2, 2.5);
     keyLight.position.set(2.4, 4.5, 3.8);
     keyLight.castShadow = true;
     scene.add(keyLight);
+    keyLightRef.current = keyLight;
 
-    const fillLight = new THREE.DirectionalLight(fillColor, fillInt);
+    const fillLight = new THREE.DirectionalLight(0xEAF2FA, 1.3);
     fillLight.position.set(-2.8, 2.6, 2.8);
     scene.add(fillLight);
+    fillLightRef.current = fillLight;
 
-    const rimLight = new THREE.DirectionalLight(rimColor, rimInt);
+    const rimLight = new THREE.DirectionalLight(0x25F4EE, 1.6);
     rimLight.position.set(0, 3, -3.5);
     scene.add(rimLight);
+    rimLightRef.current = rimLight;
 
-    // Subtle Ground Shadow Plane
+    // Ground Shadow Plane
     const shadowGeo = new THREE.PlaneGeometry(8, 8);
     const shadowMat = new THREE.ShadowMaterial({ opacity: 0.25 });
     const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
@@ -855,13 +842,175 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     shadowMesh.receiveShadow = true;
     scene.add(shadowMesh);
 
+    // Responsive Resize Observer
+    const resizeObserver = new ResizeObserver(() => {
+      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+      const w = containerRef.current.clientWidth || window.innerWidth;
+      const h = containerRef.current.clientHeight || window.innerHeight;
+      cameraRef.current.aspect = w / h;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(w, h);
+    });
+    resizeObserver.observe(containerRef.current);
+
+    // Mobile WebGL context recovery
+    const canvas = webglCanvasRef.current;
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      console.warn('WebGL context lost, recovering smoothly...');
+    };
+    const handleContextRestored = () => {
+      console.info('WebGL context restored');
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost, false);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
+
+    let animId: number;
+    const clock = new THREE.Clock();
+
+    const animate = () => {
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      const currentEngine = engineModeRef.current;
+      const currentTilt = tiltRef.current;
+      const currentScale = meshyScaleRef.current;
+      const currentOffsetY = meshyOffsetYRef.current;
+      const currentConfig = avatarStudioConfigRef.current;
+
+      if (currentEngine === 'meshy') {
+        if (meshyMixerRef.current) {
+          meshyMixerRef.current.update(delta);
+        }
+        if (meshyGroupRef.current) {
+          meshyGroupRef.current.rotation.y = currentRotationRef.current;
+          meshyGroupRef.current.rotation.x = (currentTilt.x * Math.PI) / 180;
+          meshyGroupRef.current.rotation.z = (currentTilt.y * Math.PI) / 180;
+          meshyGroupRef.current.position.y = currentOffsetY;
+          meshyGroupRef.current.scale.setScalar(baseFitScaleRef.current * currentScale);
+        }
+      } else if (avatarGroupRef.current) {
+        avatarGroupRef.current.rotation.y = currentRotationRef.current;
+        avatarGroupRef.current.rotation.x = (currentTilt.x * Math.PI) / 180;
+        avatarGroupRef.current.rotation.z = (currentTilt.y * Math.PI) / 180;
+
+        // Pose gestures in digital human
+        if (currentConfig.pose === 'idle') {
+          avatarGroupRef.current.position.y = Math.sin(time * 2.2) * 0.008;
+        } else if (currentConfig.pose === 'greeting') {
+          avatarGroupRef.current.position.y = Math.sin(time * 1.6) * 0.006;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          if (rArm) {
+            rArm.rotation.z = -1.2 + Math.sin(time * 4.5) * 0.3;
+          }
+        } else if (currentConfig.pose === 'celebration') {
+          avatarGroupRef.current.position.y = Math.abs(Math.sin(time * 3.5)) * 0.025;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
+          if (rArm) rArm.rotation.z = -2.3 + Math.sin(time * 3.0) * 0.15;
+          if (lArm) lArm.rotation.z = 2.3 - Math.sin(time * 3.0) * 0.15;
+        } else if (currentConfig.pose === 'business') {
+          avatarGroupRef.current.position.y = Math.sin(time * 1.2) * 0.004;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
+          if (rArm) rArm.rotation.z = -0.55;
+          if (lArm) lArm.rotation.z = 0.55;
+        }
+      }
+
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+      animId = requestAnimationFrame(animate);
+    };
+
+    animId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      resizeObserver.disconnect();
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+      renderer.dispose();
+    };
+  }, []);
+
+  // Scene & Materials In-Place Synchronization (Zero Renderer Disposals, No Blank Screens)
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    // 1. Update Lights in place
+    if (ambientLightRef.current && keyLightRef.current && fillLightRef.current && rimLightRef.current) {
+      let ambientColor = 0xFFF9F5;
+      let ambientInt = 1.1;
+      let keyColor = 0xFFFAF2;
+      let keyInt = 2.5;
+      let fillColor = 0xEAF2FA;
+      let fillInt = 1.3;
+      let rimColor = 0x25F4EE;
+      let rimInt = 1.6;
+
+      if (avatarStudioConfig.lightingPreset === 'neon') {
+        ambientColor = 0x0F111E;
+        ambientInt = 0.8;
+        keyColor = 0x25F4EE;
+        keyInt = 2.8;
+        fillColor = 0xFE2C55;
+        fillInt = 2.4;
+        rimColor = 0x9333EA;
+        rimInt = 3.0;
+      } else if (avatarStudioConfig.lightingPreset === 'sunset') {
+        ambientColor = 0xFEF3C7;
+        ambientInt = 1.0;
+        keyColor = 0xF59E0B;
+        keyInt = 2.8;
+        fillColor = 0xF43F5E;
+        fillInt = 1.6;
+        rimColor = 0xFFEDD5;
+        rimInt = 2.0;
+      } else if (avatarStudioConfig.lightingPreset === 'showroom') {
+        ambientColor = 0xFFFFFF;
+        ambientInt = 1.4;
+        keyColor = 0xFFFFFF;
+        keyInt = 2.2;
+        fillColor = 0xF0F4F8;
+        fillInt = 1.5;
+        rimColor = 0xE2E8F0;
+        rimInt = 1.2;
+      }
+
+      ambientLightRef.current.color.setHex(ambientColor);
+      ambientLightRef.current.intensity = ambientInt;
+      keyLightRef.current.color.setHex(keyColor);
+      keyLightRef.current.intensity = keyInt;
+      fillLightRef.current.color.setHex(fillColor);
+      fillLightRef.current.intensity = fillInt;
+      rimLightRef.current.color.setHex(rimColor);
+      rimLightRef.current.intensity = rimInt;
+    }
+
+    // 2. Manage 3D Model in Scene
     if (engineMode === 'meshy') {
-      // Mount Meshy AI Model
-      if (meshyGroupRef.current) {
+      // Detach WebGL digital human if present
+      if (avatarGroupRef.current && avatarGroupRef.current.parent) {
+        scene.remove(avatarGroupRef.current);
+      }
+      // Attach Meshy 3D model
+      if (meshyGroupRef.current && !meshyGroupRef.current.parent) {
         scene.add(meshyGroupRef.current);
       }
-    } else {
-      // Mount Procedural Digital Human with Custom Studio Configuration
+    } else if (engineMode === 'webgl') {
+      // Detach Meshy model if present
+      if (meshyGroupRef.current && meshyGroupRef.current.parent) {
+        scene.remove(meshyGroupRef.current);
+      }
+      // Remove previous digital human to prevent ghost meshes
+      if (avatarGroupRef.current && avatarGroupRef.current.parent) {
+        scene.remove(avatarGroupRef.current);
+      }
+
+      // Rebuild Digital Human with updated customizations
       const skinTex = createPhotorealisticSkinTexture();
       const skinBumpMap = createPhotorealisticSkinBumpMap();
       const skinMaterial = new THREE.MeshPhysicalMaterial({
@@ -888,7 +1037,6 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       const lipsMaterial = new THREE.MeshPhysicalMaterial({ color: 0xD06072, roughness: 0.16 });
       const nailMaterial = new THREE.MeshPhysicalMaterial({ color: 0xFFE0D8 });
 
-      // Shading finish
       let jerseyRoughness = 0.45;
       let jerseyMetalness = 0.1;
       if (avatarStudioConfig.materialFinish === 'matte') {
@@ -957,63 +1105,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       const meshes = buildPhotorealisticDigitalHuman(scene, materials);
       avatarGroupRef.current = meshes.avatarGroup;
     }
-
-    let animId: number;
-    const clock = new THREE.Clock();
-
-    const animate = () => {
-      const delta = clock.getDelta();
-      const time = clock.getElapsedTime();
-
-      if (engineMode === 'meshy') {
-        if (meshyMixerRef.current) {
-          meshyMixerRef.current.update(delta);
-        }
-        if (meshyGroupRef.current) {
-          meshyGroupRef.current.rotation.y = currentRotationRef.current;
-          meshyGroupRef.current.rotation.x = (tilt.x * Math.PI) / 180;
-          meshyGroupRef.current.rotation.z = (tilt.y * Math.PI) / 180;
-          meshyGroupRef.current.position.y = meshyOffsetY;
-          meshyGroupRef.current.scale.setScalar(baseFitScaleRef.current * meshyScale);
-        }
-      } else if (avatarGroupRef.current) {
-        avatarGroupRef.current.rotation.y = currentRotationRef.current;
-
-        // Pose gestures in digital human
-        if (avatarStudioConfig.pose === 'idle') {
-          // Natural breathing oscillation
-          avatarGroupRef.current.position.y = Math.sin(time * 2.2) * 0.008;
-        } else if (avatarStudioConfig.pose === 'greeting') {
-          avatarGroupRef.current.position.y = Math.sin(time * 1.6) * 0.006;
-          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
-          if (rArm) {
-            rArm.rotation.z = -1.2 + Math.sin(time * 4.5) * 0.3;
-          }
-        } else if (avatarStudioConfig.pose === 'celebration') {
-          avatarGroupRef.current.position.y = Math.abs(Math.sin(time * 3.5)) * 0.025;
-          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
-          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
-          if (rArm) rArm.rotation.z = -2.3 + Math.sin(time * 3.0) * 0.15;
-          if (lArm) lArm.rotation.z = 2.3 - Math.sin(time * 3.0) * 0.15;
-        } else if (avatarStudioConfig.pose === 'business') {
-          avatarGroupRef.current.position.y = Math.sin(time * 1.2) * 0.004;
-          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
-          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
-          if (rArm) rArm.rotation.z = -0.55;
-          if (lArm) lArm.rotation.z = 0.55;
-        }
-      }
-
-      renderer.render(scene, camera);
-      animId = requestAnimationFrame(animate);
-    };
-    animId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      renderer.dispose();
-    };
-  }, [engineMode, activeOutfit, customImageElement, activeMeshyModelName, meshyScale, meshyOffsetY, tilt, avatarStudioConfig]);
+  }, [engineMode, avatarStudioConfig, activeOutfit, customImageElement, activeMeshyModelName]);
 
   return (
     <div 
@@ -1052,10 +1144,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
             <Box className="w-14 h-14 text-[#25F4EE]" />
           </div>
           <h2 className="text-xl font-black tracking-wide uppercase text-white">
-            Lepaskan File Model 3D Meshy AI (.glb / .txt) atau Gambar Outfit di Sini
+            Lepaskan File Model 3D (.glb) atau Gambar Outfit di Sini
           </h2>
           <p className="text-sm text-zinc-300 max-w-md mt-2">
-            File 3D Meshy AI (baik format <span className="text-[#25F4EE] font-mono font-bold">.glb</span> maupun <span className="text-[#25F4EE] font-mono font-bold">.txt</span>) otomatis dimuat ke Three.js Viewer. File gambar otomatis dipetakan ke jersey Sophia.
+            File 3D (.glb) otomatis dimuat ke Three.js 3D Viewer. File gambar otomatis dipetakan ke jersey Sophia.
           </p>
         </div>
       )}
@@ -1067,12 +1159,12 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       {/* =================================================================== */}
       {/* TOP FLOATING HUD BAR                                                */}
       {/* =================================================================== */}
-      <div className="relative z-30 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-5 flex flex-wrap items-center justify-between gap-2.5 pointer-events-auto">
-        {/* Clean App Brand Badge (Removed Meshy text and description as requested) */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className="relative p-2 sm:p-2.5 rounded-xl bg-black/70 border border-[#FE2C55]/50 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.35)] flex items-center justify-center">
+      <div className="relative z-30 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+        {/* Clean App Brand Badge */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="relative p-2 rounded-xl bg-black/70 border border-[#FE2C55]/50 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.35)] flex items-center justify-center">
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#25F4EE] animate-pulse" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#FE2C55] animate-ping" />
+            <span className="absolute -top-1 -right-1 w-2 rounded-full bg-[#FE2C55] animate-ping" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
@@ -1086,8 +1178,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
           </div>
         </div>
 
-        {/* Action Controls - Responsive & Wrapped to prevent horizontal overflow */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+        {/* Action Controls - Wrapped nicely so nothing is cut off on mobile right edge */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0 max-w-full">
           {/* Compass / Angle Indicator */}
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/10 text-zinc-300 text-xs font-mono">
             <Compass className="w-3.5 h-3.5 text-[#25F4EE] animate-spin" style={{ animationDuration: '10s' }} />
@@ -1102,7 +1194,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               setIsStudioModalOpen(true);
             }}
             className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 via-[#C70101]/25 to-[#FE2C55]/25 hover:from-[#FE2C55]/35 hover:to-[#C70101]/35 border border-[#FE2C55]/50 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-[0_0_15px_rgba(254,44,85,0.25)] transition active:scale-95 cursor-pointer"
-            title="Pengaturan Karakter Avatar 3D (Kulit, Rambut, Mata, Jersey, Model 3D & Cloud Sync)"
+            title="Pengaturan Karakter Avatar 3D"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
             <span>Studio 3D</span>
@@ -1151,10 +1243,10 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               onOpenLoginModal();
             }}
-            className="px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white text-xs sm:text-sm font-black tracking-wide uppercase flex items-center gap-1.5 sm:gap-2 shadow-[0_0_25px_rgba(254,44,85,0.5)] transition active:scale-95 cursor-pointer"
+            className="px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white text-xs sm:text-sm font-black tracking-wide uppercase flex items-center gap-1.5 shadow-[0_0_25px_rgba(254,44,85,0.5)] transition active:scale-95 cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse" />
-            <span>Masuk / Login</span>
+            <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+            <span>Masuk</span>
           </button>
         </div>
       </div>
@@ -1183,17 +1275,17 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         {engineMode === 'scan' ? (
           <div 
             onClick={handleStageClick}
-            className="relative w-full max-w-[500px] h-[82vh] max-h-[780px] flex items-center justify-center transition-transform duration-100 ease-out"
+            className="relative w-full max-w-[460px] h-[55vh] sm:h-[65vh] max-h-[640px] flex items-center justify-center transition-transform duration-100 ease-out"
             style={{
               perspective: '1200px',
-              transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+              transform: `rotateX(${tiltRef.current.x}deg) rotateY(${tiltRef.current.y}deg)`,
             }}
           >
             {/* Ambient Lighting Specular Glare */}
             <div 
               className="absolute inset-0 pointer-events-none rounded-3xl opacity-30 mix-blend-overlay transition-opacity"
               style={{
-                background: `radial-gradient(circle at ${50 + tilt.y * 3}% ${40 + tilt.x * 3}%, rgba(255,255,255,0.4), transparent 70%)`
+                background: `radial-gradient(circle at ${50 + tiltRef.current.y * 3}% ${40 + tiltRef.current.x * 3}%, rgba(255,255,255,0.4), transparent 70%)`
               }}
             />
 
@@ -1341,7 +1433,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
           /* WebGL Three.js Procedural Avatar & Meshy 3D Canvas */
           <div 
             onClick={handleStageClick}
-            className="relative w-full max-w-[500px] h-[82vh] max-h-[780px] flex items-center justify-center"
+            className="relative w-full max-w-[460px] h-[55vh] sm:h-[65vh] max-h-[640px] flex items-center justify-center"
           >
             <canvas 
               ref={webglCanvasRef}
@@ -1397,18 +1489,20 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       {/* =================================================================== */}
       {/* BOTTOM FLOATING BAR - RESPONSIVE HOLOGRAPHIC CONTROL DOCK           */}
       {/* =================================================================== */}
-      <div className="relative z-30 w-full max-w-3xl mx-auto px-3 sm:px-4 pb-4 sm:pb-6 flex flex-col items-center gap-2 pointer-events-auto">
-        {/* Centered Status Pill */}
-        <div className="flex items-center justify-center gap-2 px-3.5 py-1 rounded-full bg-black/75 border border-[#25F4EE]/35 text-[11px] text-zinc-300 backdrop-blur-md shadow-md">
-          <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
-          <span className="font-medium text-white">Putar 360° Bebas</span>
+      <div className="relative z-30 w-full max-w-2xl mx-auto px-3 sm:px-4 pb-4 sm:pb-6 flex flex-col items-center gap-2 pointer-events-auto">
+        {/* Centered Responsive Status Pill - Wraps naturally, never overflows screen */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 rounded-full bg-black/80 border border-[#25F4EE]/35 text-[10px] sm:text-xs text-zinc-300 backdrop-blur-md shadow-md text-center max-w-[95vw]">
+          <span className="inline-flex items-center gap-1 text-white font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FE2C55] animate-ping" />
+            Putar 360° Bebas
+          </span>
           <span className="text-zinc-500">•</span>
-          <span className="text-zinc-300">Sentuh avatar untuk respon suara</span>
-          <span className="text-zinc-500">•</span>
+          <span className="text-zinc-300 hidden xs:inline">Sentuh avatar untuk respon suara</span>
+          <span className="text-zinc-500 hidden xs:inline">•</span>
           <span className="text-[#25F4EE] font-mono font-bold">{rotationDeg}° ({cardinalText})</span>
         </div>
 
-        {/* Action Button Dock - Clean wrap, no overflow, touch-friendly min-h-[36px] */}
+        {/* Action Button Dock - Clean wrap, 100% clickable with 38px touch targets */}
         <div className="spatial-card w-full p-2 sm:p-2.5 rounded-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
           {/* Character Studio Trigger */}
           <button
@@ -1417,8 +1511,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setIsStudioModalOpen(true);
             }}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 to-[#C70101]/25 hover:from-[#FE2C55]/40 hover:to-[#C70101]/40 border border-[#FE2C55]/50 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-[0_0_12px_rgba(254,44,85,0.3)] min-h-[36px]"
-            title="Buka Pengaturan Karakter Avatar (Kulit, Rambut, Jersey, Studio & Cloud Sync)"
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 to-[#C70101]/25 hover:from-[#FE2C55]/40 hover:to-[#C70101]/40 border border-[#FE2C55]/50 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-[0_0_12px_rgba(254,44,85,0.3)] min-h-[38px]"
+            title="Buka Pengaturan Karakter Avatar"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
             <span>Studio 3D</span>
@@ -1434,7 +1528,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setIsOutfitDrawerOpen(true);
             }}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-sm min-h-[36px]"
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition shadow-sm min-h-[38px]"
             title="Ganti Outfit / Upload Gambar Baju Sendiri"
           >
             <Upload className="w-3.5 h-3.5 text-[#FE2C55]" />
@@ -1445,7 +1539,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
           <button
             type="button"
             onClick={(e) => handleStageClick(e as any)}
-            className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/50 text-[#FE2C55] text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition min-h-[36px]"
+            className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/50 text-[#FE2C55] text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition min-h-[38px]"
             title="Sentuh untuk sapaan dan reaksi suara avatar"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -1464,7 +1558,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               SoundFx.unlockAudio();
               setShowHotspots(prev => !prev);
             }}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 cursor-pointer transition active:scale-95 min-h-[36px] ${
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 cursor-pointer transition active:scale-95 min-h-[38px] ${
               showHotspots
                 ? 'bg-[#FE2C55]/20 border-[#FE2C55]/50 text-[#FE2C55]'
                 : 'bg-white/5 border-white/15 text-zinc-300 hover:text-white'
@@ -1483,11 +1577,11 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               const el = document.getElementById('edukasi-seller-profit');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-[#FE2C55]/15 hover:from-[#25F4EE]/25 hover:to-[#FE2C55]/25 border border-[#25F4EE]/40 text-white text-xs font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition min-h-[36px]"
-            title="Pelajari Edukasi, Keuntungan & Kelebihan Aplikasi Seller Profit"
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#25F4EE]/15 to-[#FE2C55]/15 hover:from-[#25F4EE]/25 hover:to-[#FE2C55]/25 border border-[#25F4EE]/40 text-white text-xs font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition min-h-[38px]"
+            title="Pelajari Edukasi & Keuntungan Aplikasi Seller Profit"
           >
             <GraduationCap className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Edukasi &amp; Keuntungan</span>
+            <span>Edukasi</span>
             <ChevronDown className="w-3 h-3 text-zinc-400 animate-bounce ml-0.5" />
           </button>
         </div>

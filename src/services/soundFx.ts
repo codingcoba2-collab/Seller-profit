@@ -6,6 +6,9 @@ class SoundFxService {
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
   private lastClickTime: number = 0;
+  private loadingNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
+  private loadingTimeouts: any[] = [];
+  private isLoadingAudioActive: boolean = false;
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -153,10 +156,34 @@ class SoundFxService {
   }
 
   /**
+   * Immediately stops and cuts off any loading drone, telemetry beeps, or scheduled timers.
+   * Ensures sound NEVER leaks past the loading screen.
+   */
+  public stopLoadingAudio() {
+    this.isLoadingAudioActive = false;
+    this.loadingTimeouts.forEach(t => clearTimeout(t));
+    this.loadingTimeouts = [];
+
+    this.loadingNodes.forEach(({ osc, gain }) => {
+      try {
+        if (this.ctx) {
+          gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        }
+        osc.stop();
+        osc.disconnect();
+      } catch {}
+    });
+    this.loadingNodes = [];
+  }
+
+  /**
    * Futuristic telemetry audio loop during the Initial Loading Screen
    */
   public playLoadingScreenSequence() {
     if (this.isMuted) return;
+    this.stopLoadingAudio();
+    this.isLoadingAudioActive = true;
+
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -178,6 +205,7 @@ class SoundFxService {
 
       droneOsc.start(now);
       droneOsc.stop(now + 4.3);
+      this.loadingNodes.push({ osc: droneOsc, gain: droneGain });
 
       // 2. High-tech diagnostic telemetry beeps along the progress
       const beepTimes = [0.4, 0.9, 1.5, 2.1, 2.7, 3.4, 4.0];
@@ -197,6 +225,7 @@ class SoundFxService {
 
         bOsc.start(now + t);
         bOsc.stop(now + t + 0.07);
+        this.loadingNodes.push({ osc: bOsc, gain: bGain });
       });
     } catch {}
   }

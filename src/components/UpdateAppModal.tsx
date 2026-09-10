@@ -27,84 +27,119 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
   const [step, setStep] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  const [isDone, setIsDone] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       SoundFx.playHologramOpen();
+      setIsDone(false);
+      setIsUpdating(false);
+      setStatusMessage('');
+      setStep(0);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const performFullUpdate = async (isHardReset: boolean = false) => {
+    SoundFx.playRobotButtonClick();
     setIsUpdating(true);
+    setIsDone(false);
     setStep(1);
     setStatusMessage('1/4: Memeriksa dan membersihkan penyimpanan cache browser...');
 
+    // Helper to run async task with timeout so it NEVER hangs
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+      ]);
+    };
+
     try {
-      // 1. Delete all browser caches in CacheStorage
-      if ('caches' in window) {
-        const cacheKeys = await caches.keys();
-        await Promise.all(
-          cacheKeys.map(async key => {
-            try {
-              await caches.delete(key);
-            } catch (e) {
-              console.warn('Error deleting cache:', key, e);
-            }
-          })
-        );
-      }
+      // Step 1: Clear browser CacheStorage (max 1200ms)
+      await withTimeout(
+        (async () => {
+          if ('caches' in window) {
+            const cacheKeys = await caches.keys();
+            await Promise.all(
+              cacheKeys.map(key => caches.delete(key).catch(() => false))
+            );
+          }
+        })(),
+        1200,
+        undefined
+      );
 
+      // Smooth step pacing for user confidence
+      await new Promise(r => setTimeout(r, 450));
       setStep(2);
-      setStatusMessage('2/4: Memperbarui & me-reset Service Worker aplikasi...');
+      setStatusMessage('2/4: Memperbarui & sinkronisasi Service Worker PWA...');
 
-      // 2. Unregister or skip waiting on service workers
-      if ('serviceWorker' in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const reg of registrations) {
-            if (reg.waiting) {
-              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-            if (isHardReset) {
-              await reg.unregister();
-            } else {
-              await reg.update().catch(() => {});
+      // Step 2: Unregister / update service worker (max 1500ms)
+      await withTimeout(
+        (async () => {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+              try {
+                if (reg.waiting) {
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                if (isHardReset) {
+                  await reg.unregister();
+                } else {
+                  await reg.update().catch(() => {});
+                }
+              } catch {}
             }
           }
-        } catch (swErr) {
-          console.warn('Service Worker unregister/update notice:', swErr);
-        }
-      }
+        })(),
+        1500,
+        undefined
+      );
 
+      await new Promise(r => setTimeout(r, 450));
       setStep(3);
-      setStatusMessage('3/4: Menghapus cache sesi dan memvalidasi file terbaru...');
+      setStatusMessage('3/4: Memvalidasi aset terbaru & membersihkan data sementara...');
 
-      // 3. Clear temporary session storage (Preserving LocalStorage user data!)
+      // Step 3: Clear session storage safely (preserving local storage database!)
       try {
         sessionStorage.clear();
-      } catch (e) {}
+      } catch {}
 
+      await new Promise(r => setTimeout(r, 400));
       setStep(4);
-      setStatusMessage('4/4: Selesai! Membuka versi terbaru tanpa perlu uninstall...');
+      setIsDone(true);
+      setStatusMessage('4/4: Pembaruan Berhasil! Membuka versi terbaru...');
+      SoundFx.playOutfitEquipSound();
 
       if (onNotify) {
         onNotify('Aplikasi berhasil diperbarui ke versi terbaru!', 'success');
       }
 
-      // 4. Force hard reload with timestamp query param to bypass all browser HTTP caches
+      // Auto-reload after 1.5 seconds, or user can click button immediately
       setTimeout(() => {
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.location.replace(`${cleanUrl}?_update=${Date.now()}`);
-      }, 700);
+        triggerReload();
+      }, 1500);
 
     } catch (err) {
       console.error('Update app error:', err);
-      setStatusMessage('Memuat ulang langsung versi terbaru...');
+      setStep(4);
+      setIsDone(true);
+      setStatusMessage('Pembaruan selesai! Menyiapkan versi terbaru...');
       setTimeout(() => {
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.location.replace(`${cleanUrl}?_update=${Date.now()}`);
-      }, 600);
+        triggerReload();
+      }, 1200);
+    }
+  };
+
+  const triggerReload = () => {
+    try {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.location.replace(`${cleanUrl}?_update=${Date.now()}`);
+    } catch {
+      window.location.reload();
     }
   };
 
@@ -193,36 +228,49 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
 
         {/* Action Buttons */}
         <div className="space-y-2.5 pt-2">
-          <button
-            type="button"
-            onClick={() => performFullUpdate(false)}
-            disabled={isUpdating}
-            className="w-full py-3.5 rounded-2xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black text-sm transition shadow-lg shadow-[#25F4EE]/20 cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
-            <span>{isUpdating ? 'Sedang Memperbarui Versi...' : 'Update Sekarang (Tanpa Uninstall)'}</span>
-          </button>
+          {isDone ? (
+            <button
+              type="button"
+              onClick={triggerReload}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-[#25F4EE] hover:opacity-95 text-black font-black text-sm transition shadow-lg shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 active:scale-98 animate-pulse"
+            >
+              <CheckCircle2 className="w-5 h-5 text-black" />
+              <span>Buka Versi Terbaru Sekarang (Memuat Ulang...)</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => performFullUpdate(false)}
+              disabled={isUpdating}
+              className="w-full py-3.5 rounded-2xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black text-sm transition shadow-lg shadow-[#25F4EE]/20 cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+              <span>{isUpdating ? 'Sedang Memperbarui Versi...' : 'Update Sekarang (Tanpa Uninstall)'}</span>
+            </button>
+          )}
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
-              disabled={isUpdating}
+              disabled={isUpdating && !isDone}
               className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white font-bold text-xs transition cursor-pointer"
             >
-              Batal
+              Tutup
             </button>
 
-            <button
-              type="button"
-              onClick={() => performFullUpdate(true)}
-              disabled={isUpdating}
-              className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-[11px] transition cursor-pointer flex items-center gap-1.5 border border-rose-500/20"
-              title="Jika masih ada tampilan lama yang tersangkut di HP"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-              <span>Paksa Bersihkan Cache &amp; Reload</span>
-            </button>
+            {!isDone && (
+              <button
+                type="button"
+                onClick={() => performFullUpdate(true)}
+                disabled={isUpdating}
+                className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-[11px] transition cursor-pointer flex items-center gap-1.5 border border-rose-500/20"
+                title="Jika masih ada tampilan lama yang tersangkut di HP"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Paksa Bersihkan Cache &amp; Reload</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
