@@ -250,12 +250,21 @@ export function createPhotorealisticHairTexture(): THREE.CanvasTexture {
 /**
  * Procedural texture generator for Manchester United Home Jersey (1024x1024)
  */
-export function createMUJerseyCanvas(ctx: CanvasRenderingContext2D) {
+export function createMUJerseyCanvas(
+  ctx: CanvasRenderingContext2D,
+  customName?: string,
+  customNumber?: string,
+  customBaseColor?: string,
+  customAccentColor?: string
+) {
+  const baseRed = customBaseColor || '#C70101';
+  const accent = customAccentColor || '#FFFFFF';
+
   // Vibrant crimson red gradient
   const grad = ctx.createLinearGradient(0, 0, 0, 1024);
-  grad.addColorStop(0, '#DA020E');
-  grad.addColorStop(0.5, '#C70101');
-  grad.addColorStop(1, '#980000');
+  grad.addColorStop(0, baseRed);
+  grad.addColorStop(0.5, baseRed);
+  grad.addColorStop(1, '#0D0E12');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 1024, 1024);
 
@@ -271,7 +280,7 @@ export function createMUJerseyCanvas(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(944, 0, 80, 1024);
 
   // Collar accent
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = accent;
   ctx.fillRect(0, 0, 1024, 60);
   ctx.fillStyle = '#0B0C10';
   ctx.fillRect(0, 50, 1024, 12);
@@ -331,24 +340,27 @@ export function createMUJerseyCanvas(ctx: CanvasRenderingContext2D) {
   ctx.fillText('Snapdragon', spX, spY + 38);
   ctx.restore();
 
-  // Back side
+  // Back side (Name & Number customizable)
   const backCenterX = 768;
+  const backNameStr = (customName || 'SELLER PROFIT').toUpperCase().slice(0, 16);
+  const backNumberStr = (customNumber || '7').slice(0, 2);
+
   ctx.save();
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '900 42px sans-serif';
+  ctx.fillStyle = accent;
+  ctx.font = '900 40px sans-serif';
   ctx.textAlign = 'center';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
   ctx.shadowBlur = 8;
-  ctx.fillText('SELLER PROFIT', backCenterX, 220);
+  ctx.fillText(backNameStr, backCenterX, 220);
 
   ctx.font = '900 230px sans-serif';
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = accent;
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 14;
-  ctx.strokeText('7', backCenterX, 460);
-  ctx.fillText('7', backCenterX, 460);
+  ctx.strokeText(backNumberStr, backCenterX, 460);
+  ctx.fillText(backNumberStr, backCenterX, 460);
 
-  ctx.fillStyle = '#C70101';
+  ctx.fillStyle = '#FFC72C';
   ctx.beginPath();
   ctx.arc(backCenterX + 35, 435, 16, 0, Math.PI * 2);
   ctx.fill();
@@ -358,7 +370,15 @@ export function createMUJerseyCanvas(ctx: CanvasRenderingContext2D) {
 /**
  * Draws preset outfit patterns (Away, Cyberpunk, Batik, Minimalist)
  */
-export function createPresetPatternCanvas(ctx: CanvasRenderingContext2D, presetId: string) {
+export function createPresetPatternCanvas(
+  ctx: CanvasRenderingContext2D,
+  presetId: string,
+  customName?: string,
+  customNumber?: string
+) {
+  const backNameStr = (customName || 'SELLER PROFIT').toUpperCase().slice(0, 16);
+  const backNumberStr = (customNumber || '7').slice(0, 2);
+
   if (presetId === 'mu-away') {
     ctx.fillStyle = '#101524';
     ctx.fillRect(0, 0, 1024, 1024);
@@ -382,9 +402,9 @@ export function createPresetPatternCanvas(ctx: CanvasRenderingContext2D, presetI
     ctx.fillText('Snapdragon', 256, 430);
 
     ctx.font = '900 42px sans-serif';
-    ctx.fillText('SELLER PROFIT', 768, 220);
+    ctx.fillText(backNameStr, 768, 220);
     ctx.font = '900 230px sans-serif';
-    ctx.fillText('7', 768, 460);
+    ctx.fillText(backNumberStr, 768, 460);
     ctx.restore();
   } else if (presetId === 'cyberpunk') {
     ctx.fillStyle = '#080A10';
@@ -407,11 +427,11 @@ export function createPresetPatternCanvas(ctx: CanvasRenderingContext2D, presetI
     ctx.fillStyle = '#25F4EE';
     ctx.font = '900 34px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('SELLER PROFIT', 256, 410);
+    ctx.fillText(backNameStr, 256, 410);
 
     ctx.font = '900 220px sans-serif';
     ctx.fillStyle = '#25F4EE';
-    ctx.fillText('01', 768, 460);
+    ctx.fillText(backNumberStr || '01', 768, 460);
     ctx.restore();
   } else if (presetId === 'batik') {
     ctx.fillStyle = '#26160E';
@@ -430,6 +450,15 @@ export function createPresetPatternCanvas(ctx: CanvasRenderingContext2D, presetI
         ctx.fillStyle = '#D4AF37';
       }
     }
+
+    ctx.save();
+    ctx.fillStyle = '#D4AF37';
+    ctx.font = '900 38px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(backNameStr, 768, 230);
+    ctx.font = '900 220px sans-serif';
+    ctx.fillText(backNumberStr, 768, 460);
+    ctx.restore();
   } else if (presetId === 'clean-white') {
     ctx.fillStyle = '#F8F9FA';
     ctx.fillRect(0, 0, 1024, 1024);
@@ -440,10 +469,14 @@ export function createPresetPatternCanvas(ctx: CanvasRenderingContext2D, presetI
     ctx.textAlign = 'center';
     ctx.fillText('PROFIT // CLUB', 256, 420);
 
+    ctx.save();
+    ctx.fillStyle = '#111319';
     ctx.font = '900 38px sans-serif';
-    ctx.fillText('SELLER PROFIT', 768, 230);
+    ctx.textAlign = 'center';
+    ctx.fillText(backNameStr, 768, 230);
     ctx.font = '900 220px sans-serif';
-    ctx.fillText('7', 768, 460);
+    ctx.fillText(backNumberStr, 768, 460);
+    ctx.restore();
   }
 }
 
@@ -460,9 +493,9 @@ export function generateOutfitTexture(
   const ctx = canvas.getContext('2d')!;
 
   if (config.type === 'default-mu') {
-    createMUJerseyCanvas(ctx);
+    createMUJerseyCanvas(ctx, config.backName, config.backNumber, config.baseColor, config.accentColor);
   } else if (config.type === 'preset' && config.presetId) {
-    createPresetPatternCanvas(ctx, config.presetId);
+    createPresetPatternCanvas(ctx, config.presetId, config.backName, config.backNumber);
   } else if (config.type === 'custom' && customImageElement) {
     const img = customImageElement;
 

@@ -26,7 +26,13 @@ import {
 import { SoundFx } from '../services/soundFx';
 import { ProcessingService } from '../services/processingService';
 import { MeshyModelStorage } from '../services/meshyModelStorage';
+import { inspect3DBuffer } from '../utils/modelValidation';
 import { MeshyModelModal } from './MeshyModelModal';
+import { AvatarCustomizerModal } from './AvatarCustomizerModal';
+import { 
+  AvatarStudioConfig, 
+  AvatarSettingsService 
+} from '../services/avatarSettingsService';
 import { 
   OutfitConfig, 
   TouchRipple, 
@@ -150,15 +156,23 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Avatar Character Development Studio (Cloud Synced across all mobile devices)
+  const [avatarStudioConfig, setAvatarStudioConfig] = useState<AvatarStudioConfig>(() =>
+    AvatarSettingsService.getConfig()
+  );
+  const [isStudioModalOpen, setIsStudioModalOpen] = useState(false);
+
   // Engine Mode: 'scan' (Photorealistic 3D Scan) vs 'webgl' (Procedural Canvas) vs 'meshy' (Meshy AI GLB Model)
-  const [engineMode, setEngineMode] = useState<'scan' | 'webgl' | 'meshy'>('scan');
+  const [engineMode, setEngineMode] = useState<'scan' | 'webgl' | 'meshy'>(() => {
+    return AvatarSettingsService.getConfig().engineMode || 'meshy';
+  });
 
   // Meshy AI GLB 3D Model States
   const [activeMeshyModelName, setActiveMeshyModelName] = useState<string | null>(null);
   const [activeMeshyModelSize, setActiveMeshyModelSize] = useState<number | null>(null);
   const [isMeshyModalOpen, setIsMeshyModalOpen] = useState(false);
-  const [meshyScale, setMeshyScale] = useState(1.0);
-  const [meshyOffsetY, setMeshyOffsetY] = useState(0.0);
+  const [meshyScale, setMeshyScale] = useState(() => AvatarSettingsService.getConfig().scale ?? 1.0);
+  const [meshyOffsetY, setMeshyOffsetY] = useState(() => AvatarSettingsService.getConfig().offsetY ?? 0.0);
   const [isMeshyLoading, setIsMeshyLoading] = useState(false);
 
   // References for Meshy AI Model & Animations
@@ -451,211 +465,8 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     }, 4500);
   };
 
-  // Helper to normalize any input buffer (binary GLB, renamed .txt, Base64 data)
-  const normalizeToGLBBuffer = (rawBuffer: ArrayBuffer): ArrayBuffer => {
-    const bytes = new Uint8Array(rawBuffer);
-    // 1. Check if standard binary GLB magic header: 'glTF' (103, 108, 84, 70)
-    if (bytes.length >= 4 && bytes[0] === 103 && bytes[1] === 108 && bytes[2] === 84 && bytes[3] === 70) {
-      return rawBuffer;
-    }
-
-    // 2. Check if text representation (Base64 data or data URI)
-    try {
-      const snippet = new TextDecoder('utf-8').decode(bytes.slice(0, 300)).trim();
-      if (snippet.startsWith('data:') && snippet.includes('base64,')) {
-        const fullText = new TextDecoder('utf-8').decode(bytes);
-        const b64Data = fullText.substring(fullText.indexOf('base64,') + 7).trim();
-        const binaryString = atob(b64Data);
-        const len = binaryString.length;
-        const out = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          out[i] = binaryString.charCodeAt(i);
-        }
-        return out.buffer;
-      }
-
-      if (/^[A-Za-z0-9+/=]{20,}/.test(snippet)) {
-        const fullText = new TextDecoder('utf-8').decode(bytes).trim();
-        const binaryString = atob(fullText);
-        if (binaryString.charCodeAt(0) === 103 && binaryString.charCodeAt(1) === 108 && binaryString.charCodeAt(2) === 84 && binaryString.charCodeAt(3) === 70) {
-          const len = binaryString.length;
-          const out = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            out[i] = binaryString.charCodeAt(i);
-          }
-          return out.buffer;
-        }
-      }
-    } catch {}
-
-    return rawBuffer;
-  };
-
-  // =========================================================================
-  // 4. MESHY AI GLB 3D MODEL LOADER & PARSER
-  // =========================================================================
-  const parseAndMountGLTF = useCallback(
-    (arrayBuffer: ArrayBuffer, name: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        try {
-          setIsMeshyLoading(true);
-          const cleanBuffer = normalizeToGLBBuffer(arrayBuffer);
-          const loader = new GLTFLoader();
-          const dracoLoader = new DRACOLoader();
-          dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-          loader.setDRACOLoader(dracoLoader);
-
-          loader.parse(
-            cleanBuffer,
-            '',
-            (gltf) => {
-              if (meshyMixerRef.current) {
-                meshyMixerRef.current.stopAllAction();
-                meshyMixerRef.current = null;
-              }
-
-              // Enable shadows, double-sided materials, and PBR reflections on meshes
-              gltf.scene.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                  child.castShadow = true;
-                  child.receiveShadow = true;
-                  const m = child as THREE.Mesh;
-                  if (m.material) {
-                    if (Array.isArray(m.material)) {
-                      m.material.forEach((mat) => {
-                        mat.side = THREE.DoubleSide;
-                        mat.needsUpdate = true;
-                      });
-                    } else {
-                      m.material.side = THREE.DoubleSide;
-                      m.material.needsUpdate = true;
-                    }
-                  }
-                }
-              });
-
-              // Calculate bounding box and center geometry
-              const box = new THREE.Box3().setFromObject(gltf.scene);
-              const size = box.getSize(new THREE.Vector3());
-              const center = box.getCenter(new THREE.Vector3());
-
-              gltf.scene.position.x = -center.x;
-              gltf.scene.position.y = -center.y;
-              gltf.scene.position.z = -center.z;
-
-              const maxDim = Math.max(size.x, size.y, size.z);
-              const baseFitScale = maxDim > 0 ? 2.4 / maxDim : 1;
-              baseFitScaleRef.current = baseFitScale;
-
-              const wrapper = new THREE.Group();
-              wrapper.name = 'MeshyGroupWrapper';
-              wrapper.add(gltf.scene);
-              wrapper.scale.setScalar(baseFitScale * meshyScale);
-              wrapper.position.set(0, meshyOffsetY, 0);
-
-              meshyGroupRef.current = wrapper;
-
-              // If Three.js scene is currently running, hot-swap the model immediately!
-              if (sceneRef.current) {
-                const toRemove: THREE.Object3D[] = [];
-                sceneRef.current.children.forEach(child => {
-                  if (child.name === 'MeshyGroupWrapper') {
-                    toRemove.push(child);
-                  }
-                });
-                toRemove.forEach(c => sceneRef.current?.remove(c));
-                sceneRef.current.add(wrapper);
-              }
-
-              // Setup animation clips if Meshy model includes bones/skeleton
-              if (gltf.animations && gltf.animations.length > 0) {
-                const mixer = new THREE.AnimationMixer(gltf.scene);
-                gltf.animations.forEach((clip) => {
-                  mixer.clipAction(clip).play();
-                });
-                meshyMixerRef.current = mixer;
-              }
-
-              setActiveMeshyModelName(name);
-              setActiveMeshyModelSize(cleanBuffer.byteLength);
-              setEngineMode('meshy');
-              setIsMeshyLoading(false);
-
-              // Persist locally in IndexedDB so reload preserves model
-              MeshyModelStorage.saveModel(name, cleanBuffer).catch(() => {});
-
-              SoundFx.playSkinTouchSound();
-              resolve(true);
-            },
-            (err) => {
-              console.error('Error parsing Meshy GLTF model:', err);
-              setIsMeshyLoading(false);
-              resolve(false);
-            }
-          );
-        } catch (err) {
-          console.error('Fatal GLTF Loader error:', err);
-          setIsMeshyLoading(false);
-          resolve(false);
-        }
-      });
-    },
-    [meshyScale, meshyOffsetY]
-  );
-
-  const loadModelFromUrl = useCallback(
-    async (url: string): Promise<boolean> => {
-      try {
-        setIsMeshyLoading(true);
-        const res = await fetch(url);
-        if (!res.ok) {
-          setIsMeshyLoading(false);
-          return false;
-        }
-        const buf = await res.arrayBuffer();
-        const filename = url.split('/').pop()?.split('?')[0] || 'model.glb';
-        return await parseAndMountGLTF(buf, filename);
-      } catch (err) {
-        console.error('Failed to load model from URL:', err);
-        setIsMeshyLoading(false);
-        return false;
-      }
-    },
-    [parseAndMountGLTF]
-  );
-
-  const handleResetMeshyToDefault = useCallback(() => {
-    if (meshyMixerRef.current) {
-      meshyMixerRef.current.stopAllAction();
-      meshyMixerRef.current = null;
-    }
-    meshyGroupRef.current = null;
-    setActiveMeshyModelName(null);
-    setActiveMeshyModelSize(null);
-    setEngineMode('scan');
-    MeshyModelStorage.clearModel().catch(() => {});
-  }, []);
-
-  // Restore saved Meshy model from IndexedDB or probe /model.glb on mount
-  useEffect(() => {
-    MeshyModelStorage.loadModel().then((saved) => {
-      if (saved && saved.buffer) {
-        parseAndMountGLTF(saved.buffer, saved.name);
-      } else {
-        // Probe default model in /public/ if present
-        fetch('/model.glb', { method: 'HEAD' })
-          .then((res) => {
-            if (res.ok) {
-              loadModelFromUrl('/model.glb');
-            }
-          })
-          .catch(() => {});
-      }
-    });
-  }, [parseAndMountGLTF, loadModelFromUrl]);
-
   // Image Upload / Drag & Drop Handler (for Sophia Outfit)
-  const handleImageFile = (file: File) => {
+  const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Mohon gunakan file gambar (PNG, JPG, WEBP)');
       return;
@@ -694,46 +505,258 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-  };
+  }, [activeOutfit, triggerOutfitEquipped]);
+
+  // =========================================================================
+  // 4. MESHY AI GLB 3D MODEL LOADER & PARSER
+  // =========================================================================
+  const parseAndMountGLTF = useCallback(
+    (arrayBuffer: ArrayBuffer, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        try {
+          setIsMeshyLoading(true);
+          const inspection = inspect3DBuffer(arrayBuffer);
+          if (!inspection.valid) {
+            setIsMeshyLoading(false);
+            if (inspection.isImage) {
+              const mimeType =
+                inspection.imageFormat === 'webp'
+                  ? 'image/webp'
+                  : inspection.imageFormat === 'png'
+                  ? 'image/png'
+                  : 'image/jpeg';
+              const blob = new Blob([arrayBuffer], { type: mimeType });
+              const imgFile = new File([blob], name, { type: mimeType });
+              handleImageFile(imgFile);
+              resolve(false);
+              return;
+            }
+            console.warn('File bukan model 3D valid:', inspection.error);
+            resolve(false);
+            return;
+          }
+
+          const cleanBuffer = inspection.buffer;
+          const loader = new GLTFLoader();
+          const dracoLoader = new DRACOLoader();
+          dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+          loader.setDRACOLoader(dracoLoader);
+
+          try {
+            loader.parse(
+              cleanBuffer,
+              '',
+              (gltf) => {
+                if (meshyMixerRef.current) {
+                  meshyMixerRef.current.stopAllAction();
+                  meshyMixerRef.current = null;
+                }
+
+                // Enable shadows, double-sided materials, and PBR reflections on meshes
+                gltf.scene.traverse((child) => {
+                  if ((child as THREE.Mesh).isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    const m = child as THREE.Mesh;
+                    if (m.material) {
+                      if (Array.isArray(m.material)) {
+                        m.material.forEach((mat) => {
+                          mat.side = THREE.DoubleSide;
+                          mat.needsUpdate = true;
+                        });
+                      } else {
+                        m.material.side = THREE.DoubleSide;
+                        m.material.needsUpdate = true;
+                      }
+                    }
+                  }
+                });
+
+                // Calculate bounding box and center geometry
+                const box = new THREE.Box3().setFromObject(gltf.scene);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+
+                gltf.scene.position.x = -center.x;
+                gltf.scene.position.y = -center.y;
+                gltf.scene.position.z = -center.z;
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const baseFitScale = maxDim > 0 ? 2.4 / maxDim : 1;
+                baseFitScaleRef.current = baseFitScale;
+
+                const wrapper = new THREE.Group();
+                wrapper.name = 'MeshyGroupWrapper';
+                wrapper.add(gltf.scene);
+                wrapper.scale.setScalar(baseFitScale * meshyScale);
+                wrapper.position.set(0, meshyOffsetY, 0);
+
+                meshyGroupRef.current = wrapper;
+
+                // If Three.js scene is currently running, hot-swap the model immediately!
+                if (sceneRef.current) {
+                  const toRemove: THREE.Object3D[] = [];
+                  sceneRef.current.children.forEach(child => {
+                    if (child.name === 'MeshyGroupWrapper') {
+                      toRemove.push(child);
+                    }
+                  });
+                  toRemove.forEach(c => sceneRef.current?.remove(c));
+                  sceneRef.current.add(wrapper);
+                }
+
+                // Setup animation clips if Meshy model includes bones/skeleton
+                if (gltf.animations && gltf.animations.length > 0) {
+                  const mixer = new THREE.AnimationMixer(gltf.scene);
+                  gltf.animations.forEach((clip) => {
+                    mixer.clipAction(clip).play();
+                  });
+                  meshyMixerRef.current = mixer;
+                }
+
+                setActiveMeshyModelName(name);
+                setActiveMeshyModelSize(cleanBuffer.byteLength);
+                setEngineMode('meshy');
+                setIsMeshyLoading(false);
+
+                // Persist locally in IndexedDB so reload preserves model
+                MeshyModelStorage.saveModel(name, cleanBuffer).catch(() => {});
+
+                SoundFx.playSkinTouchSound();
+                resolve(true);
+              },
+              (err) => {
+                console.warn('Meshy GLTF model parse warning:', err);
+                setIsMeshyLoading(false);
+                resolve(false);
+              }
+            );
+          } catch (innerErr) {
+            console.warn('GLTFLoader parse warning:', innerErr);
+            setIsMeshyLoading(false);
+            resolve(false);
+          }
+        } catch (err) {
+          console.warn('GLTF Loader error:', err);
+          setIsMeshyLoading(false);
+          resolve(false);
+        }
+      });
+    },
+    [meshyScale, meshyOffsetY, handleImageFile]
+  );
+
+  const loadModelFromUrl = useCallback(
+    async (url: string): Promise<boolean> => {
+      try {
+        setIsMeshyLoading(true);
+        const res = await fetch(url);
+        if (!res.ok) {
+          setIsMeshyLoading(false);
+          return false;
+        }
+        const buf = await res.arrayBuffer();
+        const filename = url.split('/').pop()?.split('?')[0] || 'model.glb';
+        return await parseAndMountGLTF(buf, filename);
+      } catch (err) {
+        console.error('Failed to load model from URL:', err);
+        setIsMeshyLoading(false);
+        return false;
+      }
+    },
+    [parseAndMountGLTF]
+  );
+
+  const handleResetMeshyToDefault = useCallback(() => {
+    if (meshyMixerRef.current) {
+      meshyMixerRef.current.stopAllAction();
+      meshyMixerRef.current = null;
+    }
+    meshyGroupRef.current = null;
+    setActiveMeshyModelName(null);
+    setActiveMeshyModelSize(null);
+    setEngineMode('scan');
+    MeshyModelStorage.clearModel().catch(() => {});
+  }, []);
+
+  // Restore saved Meshy model from IndexedDB on mount OR automatically load official bundled GLB model
+  // so any user opening on ANY phone automatically sees the real 3D athlete model!
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Subscribe to Cloud Avatar Settings (Realtime across all mobile & desktop devices)
+    const unsub = AvatarSettingsService.subscribeToCloud((cloudCfg) => {
+      if (!isMounted) return;
+      setAvatarStudioConfig(cloudCfg);
+      if (cloudCfg.engineMode) {
+        setEngineMode(cloudCfg.engineMode);
+      }
+      if (cloudCfg.scale !== undefined) {
+        setMeshyScale(cloudCfg.scale);
+      }
+      if (cloudCfg.offsetY !== undefined) {
+        setMeshyOffsetY(cloudCfg.offsetY);
+      }
+      setActiveOutfit((prev) => ({
+        ...prev,
+        baseColor: cloudCfg.jerseyColor,
+        accentColor: cloudCfg.accentColor,
+        shortsColor: cloudCfg.shortsColor,
+        backName: cloudCfg.backName,
+        backNumber: cloudCfg.backNumber,
+      }));
+    });
+
+    // 2. Load model from IndexedDB or fallback to official bundled GLB
+    MeshyModelStorage.loadModel().then((saved) => {
+      if (!isMounted) return;
+      if (saved && saved.buffer) {
+        parseAndMountGLTF(saved.buffer, saved.name);
+      } else {
+        // Automatically fetch official 3D athlete model from public directory
+        loadModelFromUrl('/meshy_mu_athlete.glb').then((loaded) => {
+          if (loaded && isMounted) {
+            setEngineMode('meshy');
+          }
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
+  }, [parseAndMountGLTF, loadModelFromUrl]);
 
   // Universal File Drop & Select Handler (Supports 3D GLB Models & Outfit Images)
   const handleDroppedOrSelectedFile = async (file: File) => {
-    const lowerName = file.name.toLowerCase();
-    let is3D = lowerName.endsWith('.glb') || lowerName.endsWith('.gltf');
-
-    // If file was renamed to .txt, .bin or has other extension, inspect header
-    if (!is3D) {
-      try {
-        const headerBuf = await file.slice(0, 300).arrayBuffer();
-        const view = new Uint8Array(headerBuf);
-        // 'g', 'l', 'T', 'F' = 103, 108, 84, 70
-        if (view[0] === 103 && view[1] === 108 && view[2] === 84 && view[3] === 70) {
-          is3D = true;
-        } else {
-          const text = new TextDecoder('utf-8').decode(view).trim();
-          if (text.includes('glTF') || text.startsWith('data:') || text.startsWith('{')) {
-            is3D = true;
-          }
-        }
-      } catch {}
-    }
-
-    if (is3D) {
-      ProcessingService.show({
-        title: 'MEMUAT MODEL 3D MESHY AI',
-        message: `Membaca data 3D "${file.name}" (${(file.size / 1024).toFixed(1)} KB)...`,
-        durationMs: 1400,
-      });
+    try {
       const arrayBuffer = await file.arrayBuffer();
-      const success = await parseAndMountGLTF(arrayBuffer, file.name);
-      if (!success) {
-        alert('Gagal memproses file 3D. Pastikan file adalah binary GLB dari Meshy AI (meskipun telah di-rename jadi .txt).');
-      }
-      return;
-    }
+      const inspection = inspect3DBuffer(arrayBuffer);
 
-    // Otherwise handle as outfit texture image
-    handleImageFile(file);
+      if (inspection.valid) {
+        ProcessingService.show({
+          title: 'MEMUAT MODEL 3D MESHY AI',
+          message: `Membaca model 3D "${file.name}" (${(file.size / 1024).toFixed(1)} KB)...`,
+          durationMs: 1400,
+        });
+        const success = await parseAndMountGLTF(inspection.buffer, file.name);
+        if (!success) {
+          alert('Gagal memproses file 3D. Pastikan file adalah binary GLB dari Meshy AI.');
+        }
+        return;
+      }
+
+      if (inspection.isImage || file.type.startsWith('image/')) {
+        handleImageFile(file);
+        return;
+      }
+
+      // If neither a valid 3D model nor an image
+      alert(`File "${file.name}" tidak dapat dimuat: ${inspection.error}`);
+    } catch {
+      handleImageFile(file);
+    }
   };
 
   // =========================================================================
@@ -768,19 +791,58 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
     renderer.toneMappingExposure = 1.18;
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xFFF9F5, 1.1);
+    // Configure Studio Lighting dynamically based on avatarStudioConfig preset
+    let ambientColor = 0xFFF9F5;
+    let ambientInt = 1.1;
+    let keyColor = 0xFFFAF2;
+    let keyInt = 2.5;
+    let fillColor = 0xEAF2FA;
+    let fillInt = 1.3;
+    let rimColor = 0x25F4EE;
+    let rimInt = 1.6;
+
+    if (avatarStudioConfig.lightingPreset === 'neon') {
+      ambientColor = 0x0F111E;
+      ambientInt = 0.8;
+      keyColor = 0x25F4EE; // Cyan Key
+      keyInt = 2.8;
+      fillColor = 0xFE2C55; // Magenta Fill
+      fillInt = 2.4;
+      rimColor = 0x9333EA; // Purple Cyber Rim
+      rimInt = 3.0;
+    } else if (avatarStudioConfig.lightingPreset === 'sunset') {
+      ambientColor = 0xFEF3C7;
+      ambientInt = 1.0;
+      keyColor = 0xF59E0B; // Amber Golden Hour
+      keyInt = 2.8;
+      fillColor = 0xF43F5E; // Warm Coral
+      fillInt = 1.6;
+      rimColor = 0xFFEDD5;
+      rimInt = 2.0;
+    } else if (avatarStudioConfig.lightingPreset === 'showroom') {
+      ambientColor = 0xFFFFFF;
+      ambientInt = 1.4;
+      keyColor = 0xFFFFFF;
+      keyInt = 2.2;
+      fillColor = 0xF0F4F8;
+      fillInt = 1.5;
+      rimColor = 0xE2E8F0;
+      rimInt = 1.2;
+    }
+
+    const ambientLight = new THREE.AmbientLight(ambientColor, ambientInt);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xFFFAF2, 2.5);
+    const keyLight = new THREE.DirectionalLight(keyColor, keyInt);
     keyLight.position.set(2.4, 4.5, 3.8);
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xEAF2FA, 1.3);
+    const fillLight = new THREE.DirectionalLight(fillColor, fillInt);
     fillLight.position.set(-2.8, 2.6, 2.8);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight(0x25F4EE, 1.6);
+    const rimLight = new THREE.DirectionalLight(rimColor, rimInt);
     rimLight.position.set(0, 3, -3.5);
     scene.add(rimLight);
 
@@ -799,7 +861,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         scene.add(meshyGroupRef.current);
       }
     } else {
-      // Mount Procedural Digital Human
+      // Mount Procedural Digital Human with Custom Studio Configuration
       const skinTex = createPhotorealisticSkinTexture();
       const skinBumpMap = createPhotorealisticSkinBumpMap();
       const skinMaterial = new THREE.MeshPhysicalMaterial({
@@ -807,31 +869,73 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         bumpMap: skinBumpMap,
         bumpScale: 0.0035,
         roughness: 0.38,
-        color: 0xFFF5EE,
+        color: new THREE.Color(avatarStudioConfig.skinTone || '#FFF5EE'),
       });
 
       const eyeTex = createPhotorealisticEyeTexture();
       const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFBF8 });
-      const irisMaterial = new THREE.MeshStandardMaterial({ map: eyeTex });
+      const irisMaterial = new THREE.MeshStandardMaterial({
+        map: eyeTex,
+        color: new THREE.Color(avatarStudioConfig.eyeColor || '#38BDF8'),
+      });
       const pupilMaterial = new THREE.MeshBasicMaterial({ color: 0x050706 });
       const tearDuctMaterial = new THREE.MeshStandardMaterial({ color: 0xEE929C });
       const hairTex = createPhotorealisticHairTexture();
-      const hairMaterial = new THREE.MeshStandardMaterial({ map: hairTex, color: 0x1A1210 });
+      const hairMaterial = new THREE.MeshStandardMaterial({
+        map: hairTex,
+        color: new THREE.Color(avatarStudioConfig.hairColor || '#1A1210'),
+      });
       const lipsMaterial = new THREE.MeshPhysicalMaterial({ color: 0xD06072, roughness: 0.16 });
       const nailMaterial = new THREE.MeshPhysicalMaterial({ color: 0xFFE0D8 });
 
-      const jerseyTex = generateOutfitTexture(activeOutfit, customImageElement);
-      const jerseyMaterial = new THREE.MeshStandardMaterial({ map: jerseyTex });
+      // Shading finish
+      let jerseyRoughness = 0.45;
+      let jerseyMetalness = 0.1;
+      if (avatarStudioConfig.materialFinish === 'matte') {
+        jerseyRoughness = 0.88;
+        jerseyMetalness = 0.02;
+      } else if (avatarStudioConfig.materialFinish === 'glossy') {
+        jerseyRoughness = 0.15;
+        jerseyMetalness = 0.25;
+      } else if (avatarStudioConfig.materialFinish === 'metallic') {
+        jerseyRoughness = 0.22;
+        jerseyMetalness = 0.85;
+      }
+
+      const mergedOutfitConfig: OutfitConfig = {
+        ...activeOutfit,
+        backName: avatarStudioConfig.backName || activeOutfit.backName,
+        backNumber: avatarStudioConfig.backNumber || activeOutfit.backNumber,
+        baseColor: avatarStudioConfig.jerseyColor || activeOutfit.baseColor,
+        accentColor: avatarStudioConfig.accentColor || activeOutfit.accentColor,
+        shortsColor: avatarStudioConfig.shortsColor || activeOutfit.shortsColor,
+      };
+
+      const jerseyTex = generateOutfitTexture(mergedOutfitConfig, customImageElement);
+      const jerseyMaterial = new THREE.MeshStandardMaterial({
+        map: jerseyTex,
+        roughness: jerseyRoughness,
+        metalness: jerseyMetalness,
+      });
       jerseyMaterialRef.current = jerseyMaterial;
 
-      const shortsTex = generateShortsTexture(activeOutfit.baseColor, activeOutfit.accentColor);
-      const shortsMaterial = new THREE.MeshStandardMaterial({ map: shortsTex });
+      const shortsTex = generateShortsTexture(
+        avatarStudioConfig.shortsColor || activeOutfit.shortsColor || '#FFFFFF',
+        avatarStudioConfig.accentColor || activeOutfit.accentColor || '#C70101'
+      );
+      const shortsMaterial = new THREE.MeshStandardMaterial({
+        map: shortsTex,
+        roughness: jerseyRoughness,
+        metalness: jerseyMetalness,
+      });
       shortsMaterialRef.current = shortsMaterial;
 
       const sockMaterial = new THREE.MeshStandardMaterial({ color: 0x14141A });
       const shoeMaterial = new THREE.MeshStandardMaterial({ color: 0xFDFDFD });
       const shoeSoleMaterial = new THREE.MeshStandardMaterial({ color: 0x18181E });
-      const redTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xC70101 });
+      const redTrimMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(avatarStudioConfig.accentColor || '#C70101'),
+      });
 
       const materials: HumanMaterials = {
         skinMaterial,
@@ -859,6 +963,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
 
     const animate = () => {
       const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
 
       if (engineMode === 'meshy') {
         if (meshyMixerRef.current) {
@@ -873,6 +978,30 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
         }
       } else if (avatarGroupRef.current) {
         avatarGroupRef.current.rotation.y = currentRotationRef.current;
+
+        // Pose gestures in digital human
+        if (avatarStudioConfig.pose === 'idle') {
+          // Natural breathing oscillation
+          avatarGroupRef.current.position.y = Math.sin(time * 2.2) * 0.008;
+        } else if (avatarStudioConfig.pose === 'greeting') {
+          avatarGroupRef.current.position.y = Math.sin(time * 1.6) * 0.006;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          if (rArm) {
+            rArm.rotation.z = -1.2 + Math.sin(time * 4.5) * 0.3;
+          }
+        } else if (avatarStudioConfig.pose === 'celebration') {
+          avatarGroupRef.current.position.y = Math.abs(Math.sin(time * 3.5)) * 0.025;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
+          if (rArm) rArm.rotation.z = -2.3 + Math.sin(time * 3.0) * 0.15;
+          if (lArm) lArm.rotation.z = 2.3 - Math.sin(time * 3.0) * 0.15;
+        } else if (avatarStudioConfig.pose === 'business') {
+          avatarGroupRef.current.position.y = Math.sin(time * 1.2) * 0.004;
+          const rArm = avatarGroupRef.current.getObjectByName('upperArmR');
+          const lArm = avatarGroupRef.current.getObjectByName('upperArmL');
+          if (rArm) rArm.rotation.z = -0.55;
+          if (lArm) lArm.rotation.z = 0.55;
+        }
       }
 
       renderer.render(scene, camera);
@@ -884,7 +1013,7 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
       cancelAnimationFrame(animId);
       renderer.dispose();
     };
-  }, [engineMode, activeOutfit, customImageElement, activeMeshyModelName, meshyScale, meshyOffsetY, tilt]);
+  }, [engineMode, activeOutfit, customImageElement, activeMeshyModelName, meshyScale, meshyOffsetY, tilt, avatarStudioConfig]);
 
   return (
     <div 
@@ -999,6 +1128,24 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
             {activeMeshyModelName && (
               <span className="w-2 h-2 rounded-full bg-[#25F4EE] animate-ping ml-0.5" />
             )}
+          </button>
+
+          {/* Avatar Character Development Studio Button */}
+          <button
+            type="button"
+            onClick={() => {
+              SoundFx.unlockAudio();
+              setIsStudioModalOpen(true);
+            }}
+            className="px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#FE2C55]/25 via-[#C70101]/25 to-[#FE2C55]/25 hover:from-[#FE2C55]/35 hover:to-[#C70101]/35 border border-[#FE2C55]/50 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-[0_0_15px_rgba(254,44,85,0.25)] transition active:scale-95 cursor-pointer"
+            title="Pengaturan Karakter Avatar 3D (Kulit, Rambut, Mata, Jersey & Cloud Sync)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
+            <span className="hidden sm:inline">Karakter Avatar</span>
+            <span className="sm:hidden">Studio</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-mono border border-emerald-500/30">
+              Cloud
+            </span>
           </button>
 
           {/* Auto Spin Toggle */}
@@ -1331,6 +1478,20 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
               <span>Meshy AI</span>
             </button>
 
+            {/* Character Studio Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                SoundFx.unlockAudio();
+                setIsStudioModalOpen(true);
+              }}
+              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#FE2C55]/20 to-[#C70101]/20 hover:from-[#FE2C55]/30 hover:to-[#C70101]/30 border border-[#FE2C55]/40 text-white text-[11px] font-black flex items-center gap-1.5 cursor-pointer active:scale-95 transition shrink-0 shadow-[0_0_10px_rgba(254,44,85,0.25)]"
+              title="Buka Pengaturan Karakter Avatar (Kulit, Rambut, Jersey, Studio & Cloud Sync)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#FE2C55]" />
+              <span>Studio 3D</span>
+            </button>
+
             {/* Hotspots Toggle */}
             <button
               type="button"
@@ -1630,6 +1791,31 @@ export const MuJersey360Viewer: React.FC<MuJersey360ViewerProps> = ({ onOpenLogi
           if (meshyGroupRef.current) {
             meshyGroupRef.current.position.y = offset;
           }
+        }}
+      />
+
+      {/* Avatar Character Development Studio Modal */}
+      <AvatarCustomizerModal
+        isOpen={isStudioModalOpen}
+        onClose={() => setIsStudioModalOpen(false)}
+        initialConfig={avatarStudioConfig}
+        onConfigChange={(newCfg) => {
+          setAvatarStudioConfig(newCfg);
+          setEngineMode(newCfg.engineMode);
+          if (newCfg.scale !== undefined) {
+            setMeshyScale(newCfg.scale);
+          }
+          if (newCfg.offsetY !== undefined) {
+            setMeshyOffsetY(newCfg.offsetY);
+          }
+          setActiveOutfit((prev) => ({
+            ...prev,
+            baseColor: newCfg.jerseyColor,
+            accentColor: newCfg.accentColor,
+            shortsColor: newCfg.shortsColor,
+            backName: newCfg.backName,
+            backNumber: newCfg.backNumber,
+          }));
         }}
       />
     </div>

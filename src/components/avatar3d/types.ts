@@ -8,6 +8,9 @@ export interface OutfitConfig {
   mode: OutfitMode;
   baseColor: string;
   accentColor: string;
+  shortsColor?: string;
+  backNumber?: string;
+  backName?: string;
 }
 
 export interface TouchRipple {

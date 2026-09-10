@@ -15,6 +15,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
+import { inspect3DBuffer } from '../utils/modelValidation';
 
 interface MeshyModelModalProps {
   isOpen: boolean;
@@ -74,7 +75,24 @@ export const MeshyModelModal: React.FC<MeshyModelModalProps> = ({
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const success = await onLoadModelBuffer(arrayBuffer, file.name);
+      const inspection = inspect3DBuffer(arrayBuffer);
+
+      if (!inspection.valid) {
+        if (inspection.isImage) {
+          setFeedback({
+            type: 'error',
+            message: `File "${file.name}" adalah format gambar (${inspection.imageFormat.toUpperCase()}), bukan model 3D GLB. Untuk model 3D utuh, ekspor format .GLB dari Meshy AI. Gambar dapat dipakai untuk motif baju di menu "Ganti Baju".`,
+          });
+          return;
+        }
+        setFeedback({
+          type: 'error',
+          message: `${inspection.error} Pastikan file adalah binary GLB dari Meshy AI.`,
+        });
+        return;
+      }
+
+      const success = await onLoadModelBuffer(inspection.buffer, file.name);
       if (success) {
         setFeedback({ 
           type: 'success', 
@@ -84,7 +102,7 @@ export const MeshyModelModal: React.FC<MeshyModelModalProps> = ({
       } else {
         setFeedback({ 
           type: 'error', 
-          message: 'Format file tidak valid. Pastikan file adalah binary GLB dari Meshy AI (meskipun telah di-rename jadi .txt).' 
+          message: 'Format file tidak dapat diuraikan oleh Three.js. Pastikan model GLB valid.' 
         });
       }
     } catch (err: any) {

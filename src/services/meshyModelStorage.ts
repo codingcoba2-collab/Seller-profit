@@ -1,3 +1,5 @@
+import { inspect3DBuffer } from '../utils/modelValidation';
+
 // IndexedDB storage service for local 3D GLB/GLTF models (e.g. from Meshy AI)
 
 const DB_NAME = 'seller_profit_meshy_db';
@@ -40,6 +42,12 @@ function openDB(): Promise<IDBDatabase> {
 
 export const MeshyModelStorage = {
   async saveModel(name: string, buffer: ArrayBuffer): Promise<void> {
+    const inspection = inspect3DBuffer(buffer);
+    if (!inspection.valid) {
+      console.warn('MeshyModelStorage: Not saving invalid 3D model buffer:', inspection.error);
+      return;
+    }
+
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -47,8 +55,8 @@ export const MeshyModelStorage = {
       const record: StoredModel = {
         id: ACTIVE_KEY,
         name,
-        buffer,
-        size: buffer.byteLength,
+        buffer: inspection.buffer,
+        size: inspection.buffer.byteLength,
         updatedAt: Date.now(),
       };
       const req = store.put(record);
@@ -61,15 +69,23 @@ export const MeshyModelStorage = {
     try {
       const db = await openDB();
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
+        const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         const req = store.get(ACTIVE_KEY);
         req.onsuccess = () => {
           if (req.result && req.result.buffer) {
+            const inspection = inspect3DBuffer(req.result.buffer);
+            if (!inspection.valid) {
+              // Corrupted or non-3D file was saved; purge it immediately
+              console.warn('MeshyModelStorage: Purging invalid stored 3D model:', inspection.error);
+              store.delete(ACTIVE_KEY);
+              resolve(null);
+              return;
+            }
             resolve({
               name: req.result.name,
-              buffer: req.result.buffer,
-              size: req.result.size || req.result.buffer.byteLength,
+              buffer: inspection.buffer,
+              size: req.result.size || inspection.buffer.byteLength,
             });
           } else {
             resolve(null);
