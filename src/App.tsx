@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { BreadcrumbBar } from './components/BreadcrumbBar';
 import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
+import { ProcessingModal } from './components/ProcessingModal';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
 import { CheckCircle2, AlertCircle, Info, X, Bot, Volume2 } from 'lucide-react';
@@ -576,6 +577,9 @@ export default function App() {
         isOpen={showInstallGuide}
         onClose={() => setShowInstallGuide(false)}
       />
+
+      {/* Futuristic Global Processing HUD Popup */}
+      <ProcessingModal />
     </div>
   );
 }

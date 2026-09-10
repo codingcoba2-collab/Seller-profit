@@ -36,18 +36,157 @@ class SoundFxService {
       if (!target) return;
 
       // Check if clicked element or any parent is a button or clickable interactive element
-      const clickable = target.closest('button, [role="button"], a, input[type="submit"], input[type="button"], .clickable-sound');
+      const clickable = target.closest('button, [role="button"], [role="tab"], [role="menuitem"], a, input[type="submit"], input[type="button"], nav *, [data-menu], .menu-item, select, label:has(input), .clickable-sound');
       if (clickable) {
         // Debounce slightly to prevent double audio on rapid clicks
         const now = Date.now();
-        if (now - this.lastClickTime > 40) {
+        if (now - this.lastClickTime > 30) {
           this.lastClickTime = now;
-          this.playRobotButtonClick();
+          if (clickable.matches('nav *, [role="tab"], [data-menu], .menu-item, [data-nav]')) {
+            this.playMenuSound();
+          } else {
+            this.playRobotButtonClick();
+          }
         }
       }
     };
 
     window.addEventListener('click', handleClick, true);
+  }
+
+  /**
+   * Distinct sci-fi tactile sound for menu navigation & tab switching
+   */
+  public playMenuSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Smooth cyber frequency slide (whoosh / sweep)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(1080, now + 0.08);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.095);
+    } catch {}
+  }
+
+  /**
+   * Tactile skin touch sound effect (soft organic resonance + gentle harmonic)
+   */
+  public playSkinTouchSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(580, now + 0.06);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.14);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.17);
+    } catch {}
+  }
+
+  /**
+   * Sound effect for background processing popups (data computation chatter)
+   */
+  public playProcessingSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      const freqs = [880, 1174, 1318, 1760];
+      freqs.forEach((f, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, now + idx * 0.04);
+
+        gain.gain.setValueAtTime(0.05, now + idx * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.08);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + idx * 0.04);
+        osc.stop(now + idx * 0.04 + 0.09);
+      });
+    } catch {}
+  }
+
+  /**
+   * Futuristic telemetry audio loop during the Initial Loading Screen
+   */
+  public playLoadingScreenSequence() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // 1. Ambient power-up telemetry drone
+      const droneOsc = ctx.createOscillator();
+      const droneGain = ctx.createGain();
+      droneOsc.type = 'sine';
+      droneOsc.frequency.setValueAtTime(110, now);
+      droneOsc.frequency.linearRampToValueAtTime(220, now + 3.5);
+
+      droneGain.gain.setValueAtTime(0.001, now);
+      droneGain.gain.linearRampToValueAtTime(0.07, now + 0.5);
+      droneGain.gain.exponentialRampToValueAtTime(0.001, now + 4.2);
+
+      droneOsc.connect(droneGain);
+      droneGain.connect(ctx.destination);
+
+      droneOsc.start(now);
+      droneOsc.stop(now + 4.3);
+
+      // 2. High-tech diagnostic telemetry beeps along the progress
+      const beepTimes = [0.4, 0.9, 1.5, 2.1, 2.7, 3.4, 4.0];
+      const beepPitches = [987.77, 1174.66, 1318.51, 1567.98, 1760.00, 1975.53, 2349.32];
+
+      beepTimes.forEach((t, i) => {
+        const bOsc = ctx.createOscillator();
+        const bGain = ctx.createGain();
+        bOsc.type = 'sine';
+        bOsc.frequency.setValueAtTime(beepPitches[i], now + t);
+
+        bGain.gain.setValueAtTime(0.04, now + t);
+        bGain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.06);
+
+        bOsc.connect(bGain);
+        bGain.connect(ctx.destination);
+
+        bOsc.start(now + t);
+        bOsc.stop(now + t + 0.07);
+      });
+    } catch {}
   }
 
   /**
@@ -400,6 +539,37 @@ class SoundFxService {
 
       osc.start(now);
       osc.stop(now + 0.045);
+    } catch {}
+  }
+
+  /**
+   * Sci-fi chime when outfit / clothing texture is equipped or changed
+   */
+  public playOutfitEquipSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Arpeggiated sparkle notes (E5 -> G#5 -> B5 -> E6)
+      const freqs = [659.25, 830.61, 987.77, 1318.51];
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now + i * 0.07);
+
+        gain.gain.setValueAtTime(0.001, now + i * 0.07);
+        gain.gain.linearRampToValueAtTime(0.1, now + i * 0.07 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + i * 0.07);
+        osc.stop(now + i * 0.07 + 0.38);
+      });
     } catch {}
   }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Cpu, ShieldCheck, Zap, Activity, Terminal } from 'lucide-react';
+import { ShoppingBag, Cpu, ShieldCheck, Zap, Activity, Terminal, Volume2 } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 
 interface LoadingScreenProps {
   message?: string;
@@ -14,8 +15,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 }) => {
   const [progress, setProgress] = useState(12);
 
-  // Smooth realistic telemetry progress counter
+  // Play loading telemetry audio and increment progress counter
   useEffect(() => {
+    SoundFx.unlockAudio();
+    SoundFx.playLoadingScreenSequence();
+
     const startTime = performance.now();
     const interval = setInterval(() => {
       const elapsed = performance.now() - startTime;
@@ -29,8 +33,16 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     return () => clearInterval(interval);
   }, [durationMs]);
 
+  const handleScreenTouch = () => {
+    SoundFx.unlockAudio();
+    SoundFx.playLoadingScreenSequence();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden">
+    <div 
+      onClick={handleScreenTouch}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden cursor-pointer"
+    >
       {/* Background ambient neon glow & grid */}
       <div className="absolute w-96 h-96 rounded-full bg-[#FE2C55]/15 blur-3xl pointer-events-none -translate-x-1/3 -translate-y-1/4" />
       <div className="absolute w-96 h-96 rounded-full bg-[#25F4EE]/15 blur-3xl pointer-events-none translate-x-1/3 translate-y-1/4" />
