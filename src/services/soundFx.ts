@@ -45,17 +45,16 @@ class SoundFxService {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      // Check if clicked element or any parent is a button or clickable interactive element
-      const clickable = target.closest(
-        'button, [role="button"], [role="tab"], [role="menuitem"], a, input, select, textarea, label, [tabindex], [data-action], [data-nav], [data-menu], .menu-item, .spatial-card, .spatial-button, [class*="cursor-pointer"], [id*="btn"], [id*="card"], [onclick], .clickable-sound'
-      ) as HTMLElement | null;
+      // Fast check for interactive elements
+      const clickable = (target.tagName === 'BUTTON' || target.tagName === 'A') 
+        ? target 
+        : target.closest('button, [role="button"], a, input[type="submit"], [data-nav]');
 
       if (clickable) {
-        // Debounce slightly to prevent duplicate audio across pointerdown & click events
         const now = Date.now();
-        if (now - this.lastClickTime > 40) {
+        if (now - this.lastClickTime > 80) {
           this.lastClickTime = now;
-          if (clickable.matches('nav *, [role="tab"], [data-menu], .menu-item, [data-nav]')) {
+          if (clickable.matches('nav *, [role="tab"], [data-nav]')) {
             this.playMenuSound();
           } else {
             this.playRobotButtonClick();
@@ -64,9 +63,8 @@ class SoundFxService {
       }
     };
 
-    // Use pointerdown for zero-latency tactile response, and click as guaranteed fallback
+    // Single passive pointerdown listener for ultra-low latency & zero lag
     window.addEventListener('pointerdown', handleInteractiveSound, { capture: true, passive: true });
-    window.addEventListener('click', handleInteractiveSound, { capture: true });
   }
 
   /**

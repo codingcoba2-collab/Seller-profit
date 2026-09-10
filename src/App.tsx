@@ -61,7 +61,6 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNavigating, setIsNavigating] = useState(false);
   const [robotBanner, setRobotBanner] = useState<{ text: string; name: string } | null>(null);
 
   // Helper toast notification
@@ -82,7 +81,7 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Centralized Navigation Handler
+  // Instant & Fluid Navigation Handler without blocking lag
   const handleNavigate = useCallback(
     (target: RoutePath | ViewState | string, editId?: string) => {
       // Resolve path
@@ -110,26 +109,21 @@ export default function App() {
         window.history.pushState({}, '', resolvedPath);
       }
 
-      setIsNavigating(true);
       setCurrentRoute(resolvedPath);
       window.scrollTo({ top: 0, behavior: 'instant' });
-
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 1000);
     },
     [currentUser, handleNotify]
   );
 
-  // Initialize store, session & URL route on mount with time machine warp audio
+  // Initialize store, session & URL route on mount with automatic time machine warp audio
   useEffect(() => {
-    // 1. Initialize global tactile robot click sounds on all buttons
+    // 1. Initialize global tactile robot click sounds on buttons
     SoundFx.initGlobalButtonSound();
 
-    // 2. Play sound like entering time machine upon opening app
+    // 2. Play sound like entering time machine automatically upon opening app
     SoundFx.playTimeMachineWarp();
 
-    // 3. Opening loading takes 4.5 seconds (4-5 seconds as requested)
+    // 3. Crisp, responsive initial boot
     const timer = setTimeout(() => {
       const user = StorageService.getCurrentUser();
       const initialPath = normalizePath(window.location.pathname);
@@ -151,12 +145,12 @@ export default function App() {
             name: targetName,
             text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
           });
-        }, 300);
+        }, 200);
       } else {
         setCurrentRoute('/dashboard');
       }
       setIsLoading(false);
-    }, 4500);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, []);
@@ -165,7 +159,6 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = normalizePath(window.location.pathname);
-      setIsNavigating(true);
       if (currentUser && !isRouteAllowed(path, currentUser)) {
         handleNotify('Akses menu ini dibatasi untuk peran Anda.', 'error');
         setCurrentRoute('/dashboard');
@@ -174,9 +167,6 @@ export default function App() {
         setCurrentRoute(path);
       }
       window.scrollTo({ top: 0, behavior: 'instant' });
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 1000);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -184,13 +174,10 @@ export default function App() {
   }, [currentUser, handleNotify]);
 
   const handleLoginSuccess = (user: CurrentUser) => {
-    // Immediate audio unlock on user click gesture
     SoundFx.unlockAudio();
     setIsLoading(true);
-    // Play time machine warp sound during login transition
     SoundFx.playTimeMachineWarp();
 
-    // Login loading duration 4.5 seconds (4-5 seconds as requested)
     setTimeout(() => {
       setCurrentUser(user);
       const currentUrlPath = normalizePath(window.location.pathname);
@@ -208,8 +195,8 @@ export default function App() {
           name: targetName,
           text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
         });
-      }, 350);
-    }, 4500);
+      }, 250);
+    }, 1000);
   };
 
   const handleLogout = () => {
@@ -219,12 +206,12 @@ export default function App() {
       setCurrentUser(null);
       window.history.replaceState({}, '', '/dashboard');
       setIsLoading(false);
-    }, 300);
+    }, 250);
   };
 
-  // Loading Screen (Item 2 & Item 4 - 4.5s duration)
+  // Loading Screen (automated sound, fast & responsive)
   if (isLoading) {
-    return <LoadingScreen storeName={currentUser?.storeName} durationMs={4500} />;
+    return <LoadingScreen storeName={currentUser?.storeName} durationMs={1200} />;
   }
 
   // If not logged in, render LoginView
@@ -249,41 +236,6 @@ export default function App() {
       {/* Ambient Futuristic Background Glows */}
       <div className="fixed top-0 left-1/4 w-96 h-96 bg-[#25F4EE]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
       <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[#FE2C55]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
-
-      {/* Page Navigation Transition Screen with App Logo (~1s) */}
-      {isNavigating && (
-        <div className="fixed inset-0 z-[99999] bg-[#0b0c10] flex flex-col items-center justify-center transition-all animate-fadeIn select-none cursor-wait">
-          {/* Neon Glow Ambient */}
-          <div className="absolute w-60 h-60 rounded-full bg-[#FE2C55]/20 blur-3xl pointer-events-none -translate-x-1/4" />
-          <div className="absolute w-60 h-60 rounded-full bg-[#25F4EE]/20 blur-3xl pointer-events-none translate-x-1/4" />
-
-          <div className="relative z-10 flex flex-col items-center text-center space-y-4">
-            {/* App Logo with animated rings */}
-            <div className="relative flex items-center justify-center">
-              <div className="absolute -inset-2.5 rounded-3xl border-2 border-[#25F4EE]/60 animate-ping opacity-60 pointer-events-none" style={{ animationDuration: '1.4s' }} />
-              <div className="absolute -inset-1 rounded-2xl border-2 border-[#FE2C55]/60 animate-spin opacity-80 pointer-events-none" style={{ animationDuration: '2s' }} />
-              <div className="relative z-10 p-2 rounded-2xl bg-[#161823] border border-white/20 shadow-2xl animate-pulse">
-                <AppLogo size="lg" showText={false} />
-              </div>
-            </div>
-
-            {/* App Brand & Loading indicator */}
-            <div className="space-y-1 pt-1">
-              <div className="font-black text-sm text-white tracking-wide flex items-center justify-center gap-1">
-                <span>Seller</span>
-                <span className="bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] bg-clip-text text-transparent">
-                  Profit
-                </span>
-              </div>
-              <div className="flex items-center justify-center gap-1.5 pt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#25F4EE] animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FE2C55] animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header & Navbar */}
       <Navbar
@@ -347,7 +299,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 pb-16 transition-opacity duration-200 ${isNavigating ? 'opacity-30' : 'opacity-100'}`}>
+      <main className="flex-1 pb-16">
         {/* 1. Dashboard Utama */}
         {currentRoute === '/dashboard' && (
           <DashboardView

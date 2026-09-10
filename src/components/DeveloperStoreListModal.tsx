@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { StoreAccount } from '../types';
 import { 
@@ -67,15 +67,15 @@ export const DeveloperStoreListModal: React.FC<DeveloperStoreListModalProps> = (
   const [newOwnerUsername, setNewOwnerUsername] = useState('');
   const [newOwnerPassword, setNewOwnerPassword] = useState('');
 
-  if (!isOpen) return null;
-
-  const stores = StorageService.getStores();
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       SoundFx.playHologramOpen();
     }
   }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const stores = StorageService.getStores();
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();

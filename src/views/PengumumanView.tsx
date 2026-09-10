@@ -44,6 +44,9 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
   const loadAnnouncements = () => {
     const list = StorageService.getAnnouncements(currentUser.storeId);
     setAnnouncements(list);
+    if (list.length === 0 && currentUser.isOwner) {
+      setIsCreating(true);
+    }
   };
 
   useEffect(() => {
@@ -196,7 +199,7 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
           {announcements.filter(a => a.isActive).length > 0 ? (
             announcements.filter(a => a.isActive).map(a => `📢 [${a.priority.toUpperCase()}]: ${a.title} - ${a.content}`).join(' • ')
           ) : (
-            'Belum ada pengumuman aktif. Teks berjalan akan menampilkan metrik omzet dan stok toko default.'
+            'Belum ada pesan Live Info aktif. Tulis pengumuman di bawah dan aktifkan tombol Live Info agar langsung tampil di teks berjalan.'
           )}
         </div>
       </div>

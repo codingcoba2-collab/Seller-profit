@@ -785,35 +785,11 @@ export class StorageService {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
       if (!raw) {
-        const defaultList: StoreAnnouncement[] = [
-          {
-            id: 'ann-default-1',
-            storeId,
-            title: 'Target Live Malam Ini: 50 Paket',
-            content: 'Host dan admin toko mohon standby 15 menit sebelum live streaming. Fokus bundling hemat thrift & diskon voucher live.',
-            authorName: 'Owner Toko',
-            priority: 'urgent',
-            isActive: true,
-            date: new Date().toISOString().slice(0, 10),
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: 'ann-default-2',
-            storeId,
-            title: 'Standar QC & Finishing Steam Sortir',
-            content: 'Mohon tim sortir memastikan tidak ada kancing lepas atau noda bandel pada pakaian sebelum masuk sesi display live.',
-            authorName: 'Owner Toko',
-            priority: 'penting',
-            isActive: true,
-            date: new Date().toISOString().slice(0, 10),
-            createdAt: new Date().toISOString(),
-          }
-        ];
-        localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(defaultList));
-        return defaultList;
+        return [];
       }
       const all: StoreAnnouncement[] = JSON.parse(raw);
-      return all.filter(a => a.storeId === storeId);
+      // Filter out any previous mock defaults and return only store announcements created by owner
+      return all.filter(a => a.storeId === storeId && !a.id.startsWith('ann-default-'));
     } catch {
       return [];
     }

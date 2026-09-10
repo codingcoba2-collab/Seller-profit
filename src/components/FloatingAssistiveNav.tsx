@@ -10,7 +10,6 @@ import {
   Megaphone, 
   Volume2, 
   X, 
-  Sparkles,
   Command
 } from 'lucide-react';
 
@@ -21,6 +20,17 @@ interface FloatingAssistiveNavProps {
   onOpenProfile: () => void;
 }
 
+const clampPosition = (x: number, y: number) => {
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 380;
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 700;
+  const maxX = Math.max(12, winW - 68);
+  const maxY = Math.max(60, winH - 76);
+  return {
+    x: Math.min(Math.max(12, x), maxX),
+    y: Math.min(Math.max(60, y), maxY),
+  };
+};
+
 export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
   currentRoute,
   currentUser,
@@ -28,20 +38,42 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
   onOpenProfile,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState<{ x: number; y: number }>({ x: 24, y: 80 }); // offset from bottom-right
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
-  const clickPreventRef = useRef(false);
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+    try {
+      const saved = localStorage.getItem('seller_profit_assistive_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          return clampPosition(parsed.x, parsed.y);
+        }
+      }
+    } catch {}
+    const defaultX = typeof window !== 'undefined' ? window.innerWidth - 68 : 300;
+    const defaultY = typeof window !== 'undefined' ? window.innerHeight - 150 : 500;
+    return clampPosition(defaultX, defaultY);
+  });
 
-  // Toggle open
-  const handleToggle = () => {
-    if (clickPreventRef.current) {
-      clickPreventRef.current = false;
-      return;
-    }
-    SoundFx.playRobotButtonClick();
-    setIsOpen(!isOpen);
-  };
+  const buttonRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
+  const startPointerRef = useRef({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const hasMovedRef = useRef(false);
+  const currentPosRef = useRef(position);
+  currentPosRef.current = position;
+
+  // Re-clamp position on window resize to guarantee it never disappears off-screen
+  useEffect(() => {
+    const handleResize = () => {
+      const clamped = clampPosition(currentPosRef.current.x, currentPosRef.current.y);
+      setPosition(clamped);
+      if (buttonRef.current) {
+        buttonRef.current.style.left = `${clamped.x}px`;
+        buttonRef.current.style.top = `${clamped.y}px`;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleAction = (action: () => void) => {
     SoundFx.playRobotButtonClick();
@@ -49,44 +81,79 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
     setIsOpen(false);
   };
 
-  // Drag handlers for mobile & desktop touch
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
-    clickPreventRef.current = false;
-    dragStartRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      posX: position.x,
-      posY: position.y,
-    };
+  // Hardware-accelerated pointer drag handlers with pointer capture
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    startPointerRef.current = { x: e.clientX, y: e.clientY };
+    startPosRef.current = { x: currentPosRef.current.x, y: currentPosRef.current.y };
+
+    if (buttonRef.current) {
+      buttonRef.current.style.transition = 'none';
+    }
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || !dragStartRef.current) return;
-    const dx = e.clientX - dragStartRef.current.startX;
-    const dy = e.clientY - dragStartRef.current.startY;
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - startPointerRef.current.x;
+    const dy = e.clientY - startPointerRef.current.y;
 
-    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-      clickPreventRef.current = true;
+    if (Math.hypot(dx, dy) > 6) {
+      hasMovedRef.current = true;
     }
 
-    // Since position is measured from right & bottom:
-    const newX = Math.max(12, Math.min(window.innerWidth - 70, dragStartRef.current.posX - dx));
-    const newY = Math.max(12, Math.min(window.innerHeight - 70, dragStartRef.current.posY - dy));
-    setPosition({ x: newX, y: newY });
+    const clamped = clampPosition(startPosRef.current.x + dx, startPosRef.current.y + dy);
+
+    // Direct DOM styling for maximum 120 FPS buttery smoothness without React re-render lag
+    if (buttonRef.current) {
+      buttonRef.current.style.left = `${clamped.x}px`;
+      buttonRef.current.style.top = `${clamped.y}px`;
+    }
+    currentPosRef.current = clamped;
   };
 
-  const handlePointerUp = () => {
-    setIsDragging(false);
-    dragStartRef.current = null;
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (!hasMovedRef.current) {
+      // Clean tap without drag: open/close menu
+      SoundFx.playRobotButtonClick();
+      setIsOpen((prev) => !prev);
+      return;
+    }
+
+    // Magnetic snap to nearest edge (iOS Assistive Touch behavior)
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 380;
+    const snapX = currentPosRef.current.x < winW / 2 ? 16 : winW - 68;
+    const finalPos = clampPosition(snapX, currentPosRef.current.y);
+
+    if (buttonRef.current) {
+      buttonRef.current.style.transition = 'left 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2), top 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2)';
+      buttonRef.current.style.left = `${finalPos.x}px`;
+      buttonRef.current.style.top = `${finalPos.y}px`;
+    }
+
+    setPosition(finalPos);
+    try {
+      localStorage.setItem('seller_profit_assistive_pos', JSON.stringify(finalPos));
+    } catch {}
   };
 
   return (
     <>
-      {/* Expanded iOS Assistive Touch Menu Overlay */}
+      {/* Expanded iOS Assistive Touch Menu Modal */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-[9995] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setIsOpen(false)}
         >
           <div 
@@ -115,7 +182,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
 
             {/* Grid of Shortcuts */}
             <div className="grid grid-cols-2 gap-2.5">
-              {/* 1. Live Chat (User Request) */}
+              {/* 1. Live Chat */}
               <button
                 type="button"
                 id="btn-assistive-livechat"
@@ -129,7 +196,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
                 <span className="text-[10px] text-zinc-400">Real-time chat</span>
               </button>
 
-              {/* 2. Kalkulasi Paket (User Request) */}
+              {/* 2. Kalkulasi Paket */}
               <button
                 type="button"
                 id="btn-assistive-kalkulasi"
@@ -201,30 +268,31 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
         </div>
       )}
 
-      {/* Floating AssistiveTouch Button (iPhone Style) */}
+      {/* Floating AssistiveTouch Button (Buttery Smooth & 100% Guaranteed Persistent) */}
       <div
         id="btn-floating-assistive-touch"
+        ref={buttonRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onClick={handleToggle}
         style={{
-          right: `${position.x}px`,
-          bottom: `${position.y}px`,
+          left: `${position.x}px`,
+          top: `${position.y}px`,
           touchAction: 'none',
+          willChange: 'left, top, transform',
         }}
-        className={`fixed z-[75] flex items-center justify-center w-14 h-14 rounded-full select-none cursor-pointer transition-transform active:scale-90 ${
+        className={`fixed z-[9990] flex items-center justify-center w-14 h-14 rounded-full select-none cursor-pointer transition-transform active:scale-95 ${
           isOpen ? 'scale-90' : 'hover:scale-105'
         }`}
-        title="Pintasan Mengambang iPhone (Live Chat & Kalkulasi)"
+        title="Pintasan Mengambang iPhone (Geser atau Ketuk)"
       >
         {/* Outer Pulsing Glow */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#25F4EE] via-purple-500 to-[#FE2C55] opacity-75 blur-md animate-pulse" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#25F4EE] via-purple-500 to-[#FE2C55] opacity-75 blur-md animate-pulse pointer-events-none" />
 
         {/* Glossy Black iOS Assistive Ring */}
-        <div className="relative w-full h-full rounded-full bg-black/80 backdrop-blur-md border-2 border-white/60 shadow-[0_0_25px_rgba(37,244,238,0.4)] flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-full rounded-full bg-black/85 backdrop-blur-md border-2 border-white/60 shadow-[0_0_25px_rgba(37,244,238,0.45)] flex items-center justify-center overflow-hidden pointer-events-none">
           {/* Concentric iOS Assistive Touch Circles */}
-          <div className="w-8 h-8 rounded-full border border-white/40 bg-white/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border border-white/40 bg-white/15 flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-white shadow-xs" />
           </div>
 

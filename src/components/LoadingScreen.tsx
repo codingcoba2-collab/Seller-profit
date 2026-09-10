@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Cpu, ShieldCheck, Zap, Activity, Terminal } from 'lucide-react';
+import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 
 interface LoadingScreenProps {
@@ -14,34 +14,24 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   durationMs = 4500,
 }) => {
   const [progress, setProgress] = useState(12);
-  const [isAudioActive, setIsAudioActive] = useState(SoundFx.isAudioRunning());
 
-  // Function to unlock and trigger audio strictly during loading
-  const handleTriggerAudio = async () => {
-    await SoundFx.unlockAudio();
-    setIsAudioActive(true);
-    SoundFx.playTimeMachineWarp();
-  };
-
-  // Play loading telemetry audio and increment progress counter automatically
+  // Play loading telemetry audio automatically and increment progress counter
   useEffect(() => {
     let isStillLoading = true;
 
-    // Trigger time machine warp sound immediately
+    // Trigger time machine warp sound automatically
     const startAudio = async () => {
       await SoundFx.unlockAudio();
       if (!isStillLoading) return;
-      setIsAudioActive(true);
       SoundFx.playTimeMachineWarp();
     };
     startAudio();
 
-    // Listen globally on window and document for any user gesture to immediately trigger time travel sound if initial autoplay was restricted
+    // Unlock on any first gesture automatically
     const onUserInteraction = async () => {
       if (!isStillLoading) return;
       await SoundFx.unlockAudio();
       if (!isStillLoading) return;
-      setIsAudioActive(true);
       SoundFx.playTimeMachineWarp();
     };
 
@@ -56,9 +46,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       const elapsed = performance.now() - startTime;
       const pct = Math.min(100, Math.floor((elapsed / durationMs) * 100));
       setProgress(pct);
-      if (SoundFx.isAudioRunning()) {
-        setIsAudioActive(true);
-      }
       if (pct >= 98) {
         // Cut audio as soon as loading reaches completion
         SoundFx.stopLoadingAudio();
@@ -83,8 +70,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   return (
     <div 
-      onClick={handleTriggerAudio}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden cursor-pointer"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden"
     >
       {/* Background ambient neon glow & grid */}
       <div className="absolute w-96 h-96 rounded-full bg-[#FE2C55]/15 blur-3xl pointer-events-none -translate-x-1/3 -translate-y-1/4" />
@@ -131,29 +117,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           <p className="text-xs text-zinc-400 font-medium">
             {message}
           </p>
-
-          {/* Audio Telemetry Indicator (Automated Quantum Sync) */}
-          <div className="flex flex-col items-center gap-1.5 pt-1">
-            <button
-              type="button"
-              id="btn-trigger-time-warp-sound"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTriggerAudio();
-              }}
-              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FE2C55]/20 via-[#25F4EE]/25 to-purple-600/20 border border-[#25F4EE]/60 hover:border-[#25F4EE] text-[#25F4EE] hover:text-white text-[11px] font-mono font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(37,244,238,0.35)] active:scale-95 transition cursor-pointer"
-            >
-              <span className="flex items-end gap-0.5 h-3">
-                <span className="w-0.5 h-2.5 bg-[#FE2C55] animate-pulse" />
-                <span className="w-0.5 h-3 bg-[#25F4EE] animate-pulse delay-75" />
-                <span className="w-0.5 h-2 bg-purple-400 animate-pulse delay-150" />
-              </span>
-              <span>🌀 SUARA TIME TRAVELLING (PUTAR ULANG)</span>
-            </button>
-            <span className="text-[10px] text-zinc-500 font-mono">
-              Ketuk di mana saja pada layar untuk mengaktifkan suara
-            </span>
-          </div>
         </div>
 
         {/* ========================================================= */}
@@ -235,30 +198,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           </div>
         </div>
 
-        {/* Audio Status & Interactive Sound Trigger Button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleTriggerAudio();
-          }}
-          className={`px-4 py-2 rounded-2xl border text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-lg flex items-center gap-2 cursor-pointer ${
-            isAudioActive
-              ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] shadow-[0_0_20px_rgba(37,244,238,0.4)] animate-pulse'
-              : 'bg-[#FE2C55]/20 border-[#FE2C55] text-white hover:bg-[#FE2C55]/30 shadow-[0_0_25px_rgba(254,44,85,0.5)] animate-bounce'
-          }`}
-        >
-          <Zap className="w-4 h-4 text-[#25F4EE]" />
-          <span>
-            {isAudioActive
-              ? '⚡ SUARA TIME TRAVELLING AKTIF'
-              : '🔊 KETUK UNTUK SUARA TIME TRAVEL'}
-          </span>
-        </button>
-
         {/* Status Prompt */}
         <div className="text-[11px] font-mono text-zinc-400">
-          &gt; Inisialisasi modul buku besar &amp; realtime marketplace...
+          &gt; Memuat modul sistem &amp; realtime data...
         </div>
       </div>
     </div>

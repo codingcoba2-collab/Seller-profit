@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CurrentUser } from '../types';
+import React, { useState, useEffect } from 'react';
+import { CurrentUser, StoreAnnouncement } from '../types';
 import { StorageService } from '../services/storage';
 import { formatRupiah, formatNumber } from '../utils/formatters';
 import { CATEGORIES, RoutePath } from '../services/navigation';
@@ -60,27 +60,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Active announcements by Owner for Live Info ticker
-  const activeAnnouncements = StorageService.getActiveAnnouncements(currentUser.storeId);
-  const announcementMessages = activeAnnouncements.map(
-    (a) => `📢 [PENGUMUMAN OWNER - ${a.priority.toUpperCase()}]: ${a.title} - ${a.content}`
+  const [announcements, setAnnouncements] = useState<StoreAnnouncement[]>(() =>
+    StorageService.getActiveAnnouncements(currentUser.storeId)
   );
 
-  // Running text ticker items
-  const runningMessages = [
-    ...announcementMessages,
-    `🔥 Omzet Hari Ini: ${formatRupiah(todayOmzet)} (${formatNumber(todayPcs)} pcs / ${formatNumber(todayPackages)} paket)`,
-    `📊 HPP Rata-rata: ${formatRupiah(hppInfo.weightedAverageHpp)} /pcs`,
-    `📦 Sisa Stok Tersedia: ${formatNumber(stockInfo.remainingStock)} pcs (Terjual: ${formatNumber(stockInfo.totalPcsSold)} pcs)`,
-    `📢 Sisa Saldo Iklan: ${formatRupiah(adsCoinInfo.remainingAds)} (Terpakai: ${formatRupiah(adsCoinInfo.totalAdsUsed)})`,
-    `🪙 Sisa Saldo Koin: ${formatRupiah(adsCoinInfo.remainingCoin)} (Terpakai: ${formatRupiah(adsCoinInfo.totalCoinUsed)})`,
-    `⚡ Seller Profit - Sistem Akuntansi Marketplace, Shopee Live, & Manajemen HPP Terpadu`,
-  ];
+  useEffect(() => {
+    const unsub = StorageService.subscribe((event) => {
+      if (event === 'announcements' || event === 'all') {
+        setAnnouncements(StorageService.getActiveAnnouncements(currentUser.storeId));
+      }
+    });
+    return () => unsub();
+  }, [currentUser.storeId]);
+
+  // Running text ticker items: strictly contains only whatever is typed by the Owner (no default dummy metrics)
+  const runningMessages = announcements.length > 0
+    ? announcements.map((a) => `${a.title ? `${a.title}: ` : ''}${a.content}`)
+    : [
+        currentUser.isOwner
+          ? 'Live Info belum diisi. Ketuk di sini atau buka menu Informasi > Pengumuman untuk menulis pesan teks berjalan toko Anda.'
+          : 'Belum ada pesan Live Info aktif dari Owner toko.'
+      ];
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-5 text-white font-sans overflow-x-hidden">
       {/* 1. Tulisan Berjalan (Running Marquee Banner Ticker) */}
-      <RunningTextBanner messages={runningMessages} speed={20} iconType="volume" badgeText="LIVE INFO" />
+      <div 
+        onClick={() => onNavigate('/informasi/pengumuman')}
+        className="cursor-pointer active:scale-[0.99] transition-transform"
+        title="Klik untuk membuka menu Pengumuman Toko (Live Info)"
+      >
+        <RunningTextBanner messages={runningMessages} speed={20} iconType="volume" badgeText="LIVE INFO" />
+      </div>
 
       {/* 2. METRIK UTAMA DASHBOARD (5 KARTU SESUAI PERMINTAAN USER & SCREENSHOT):
           - Omzet Hari Ini
