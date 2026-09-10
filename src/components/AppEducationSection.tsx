@@ -213,7 +213,7 @@ export const AppEducationSection: React.FC<AppEducationSectionProps> = ({ onOpen
             Fitur Canggih yang Tidak Ada di Aplikasi Lain
           </h3>
           <p className="text-xs text-zinc-400">
-            Menggabungkan akuntansi bisnis profesional dengan visual 3D interaktif dan performa mutakhir.
+            Menggabungkan akuntansi bisnis ritel profesional dengan kecepatan kasir kilat dan analisis keuangan mutakhir.
           </p>
         </div>
 
@@ -222,9 +222,9 @@ export const AppEducationSection: React.FC<AppEducationSectionProps> = ({ onOpen
             <div className="w-10 h-10 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] flex items-center justify-center">
               <Cpu className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-white">Avatar 3D Interaktif</h4>
+            <h4 className="text-sm font-bold text-white">Kasir POS & Struk Kilat</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Beranda interaktif dengan model 360° interaktif yang dapat diputar bebas, dikustomisasi, dan merespon sentuhan.
+              Pencatatan transaksi kasir secepat kilat dengan dukungan scan barcode, kalkulasi diskon, dan cetak struk bluetooth.
             </p>
           </div>
 

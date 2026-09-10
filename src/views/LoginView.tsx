@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
 import { UpdateAppModal } from '../components/UpdateAppModal';
-import { MuJersey360Viewer } from '../components/MuJersey360Viewer';
+import { AppHeroSection } from '../components/AppHeroSection';
 import { AppEducationSection } from '../components/AppEducationSection';
 import { SoundFx } from '../services/soundFx';
 
@@ -172,12 +172,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
   return (
     <div className="relative min-h-screen bg-[#07080b] text-[#f4f4f6] flex flex-col justify-between overflow-x-hidden font-sans">
       {/* ==================================================================== */}
-      {/* 1. BERANDA SEBELUM LOGIN: TOMBOL LOGIN & GAMBAR JERSEY MU 4K HD 360° */}
+      {/* 1. BERANDA SEBELUM LOGIN: HEADER & HERO SECTION SELLER PROFIT        */}
       {/* ==================================================================== */}
-      <MuJersey360Viewer onOpenLoginModal={handleOpenLogin} />
+      <AppHeroSection onOpenLoginModal={handleOpenLogin} />
 
       {/* ==================================================================== */}
-      {/* EDUKASI TENTANG APLIKASI: KEUNTUNGAN & KELEBIHAN (DI BAWAH AVATAR)   */}
+      {/* EDUKASI TENTANG APLIKASI: KEUNTUNGAN & KELEBIHAN BISNIS RITEL         */}
       {/* ==================================================================== */}
       <AppEducationSection onOpenLoginModal={handleOpenLogin} />
 

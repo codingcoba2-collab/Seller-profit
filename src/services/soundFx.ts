@@ -511,7 +511,7 @@ class SoundFxService {
   }
 
   /**
-   * Sound effect when touching the 3D woman avatar on beranda
+   * Playful sci-fi sparkle chord
    */
   public playAvatarTouchReaction() {
     if (this.isMuted) return;
