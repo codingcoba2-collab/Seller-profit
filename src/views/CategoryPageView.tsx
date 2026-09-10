@@ -24,7 +24,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header without category switcher tabs */}
-      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#121520] border border-white/10 shadow-lg overflow-hidden">
+      <div className="spatial-card relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-white/10 shadow-lg overflow-hidden">
         <NeonCorners variant="side-left" color="cyan" />
         <div className="flex items-center gap-3 relative z-10">
           <div
@@ -76,10 +76,10 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
                 }
               }}
-              className={`relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border cursor-pointer overflow-hidden ${
+              className={`spatial-card relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border cursor-pointer overflow-hidden ${
                 accessible
-                  ? 'bg-[#121520] hover:bg-[#181c2b] border-white/10 hover:border-[#25F4EE]/40 shadow-sm hover:shadow-md active:scale-[0.99]'
-                  : 'bg-[#12141c]/70 border-white/5 opacity-50 cursor-not-allowed'
+                  ? 'border-white/10 hover:border-[#25F4EE]/60 shadow-sm hover:shadow-md active:scale-[0.99]'
+                  : 'border-white/5 opacity-50 cursor-not-allowed'
               }`}
             >
               {accessible && (

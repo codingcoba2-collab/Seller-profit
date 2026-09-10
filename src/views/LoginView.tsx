@@ -78,6 +78,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
     e.preventDefault();
     setErrorMsg('');
 
+    // Synchronously unlock audio and prime speech synthesis within this direct user gesture
+    SoundFx.unlockAudio();
+
     // Attempt 1: Check with local cache
     let stores = StorageService.getStores();
     

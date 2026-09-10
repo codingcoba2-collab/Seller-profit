@@ -9,26 +9,11 @@ import {
   Megaphone,
   Package,
   Layers,
-  Smartphone,
-  Cloud,
-  RefreshCw,
-  Palette,
-  ShoppingBag,
-  Sparkles,
   Flame,
-  Calculator,
-  Radio,
-  MessageSquare
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
-import { MarqueeText } from '../components/MarqueeText';
 import { RunningTextBanner } from '../components/RunningTextBanner';
 import { NeonCorners } from '../components/NeonCorners';
-
-// Visual Assets for Dashboard Imagery
-import sellerCenterLogo from '../assets/images/seller_center_logo_1788971192030.jpg';
-import muJerseyImg from '../assets/images/mu_jersey_front_1789001163095.jpg';
-import muModelImg from '../assets/images/sophia_mu_front_1789019777467.jpg';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -87,180 +72,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-5 text-white font-sans overflow-x-hidden">
-      {/* 1. Top Quick Status Pill Bar */}
-      <div className="spatial-menu flex flex-wrap items-center gap-2 py-2 px-3 select-none rounded-2xl">
-        {/* Nama Toko Pill */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-zinc-200 border border-white/10 shrink-0 shadow-xs">
-          <ShoppingBag className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>{store?.storeName || 'Nano'}</span>
-        </div>
-
-        {/* Cloud Sync Button */}
-        <button
-          type="button"
-          id="btn-pill-cloud-sync"
-          onClick={handleManualSync}
-          disabled={isSyncing}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#161823] text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold transition cursor-pointer shrink-0 shadow-xs active:scale-95"
-          title="Sinkronisasi Cloud"
-        >
-          <Cloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-bounce' : ''}`} />
-          <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-        </button>
-
-        {/* Sisa Stok Pill */}
-        <div 
-          onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-zinc-200 border border-white/10 shrink-0 cursor-pointer hover:border-[#25F4EE]/40 transition shadow-xs"
-        >
-          <Package className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>{formatNumber(stockInfo.remainingStock)} pcs</span>
-        </div>
-
-        {/* Iklan Pill */}
-        <div 
-          onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-[#FE2C55] border border-[#FE2C55]/30 shrink-0 cursor-pointer hover:bg-[#FE2C55]/10 transition shadow-xs"
-        >
-          <Megaphone className="w-3.5 h-3.5" />
-          <span>{formatRupiah(adsCoinInfo.remainingAds)}</span>
-        </div>
-
-        {/* Koin Pill */}
-        <div 
-          onClick={() => onNavigate('/persiapan/saldo-iklan')}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#161823] text-xs font-bold text-amber-400 border border-amber-400/30 shrink-0 cursor-pointer hover:bg-amber-400/10 transition shadow-xs"
-        >
-          <Coins className="w-3.5 h-3.5" />
-          <span>{formatRupiah(adsCoinInfo.remainingCoin)}</span>
-        </div>
-
-        {/* Tema Switcher Pill */}
-        <button
-          type="button"
-          id="btn-dashboard-theme-switcher"
-          onClick={() => setShowThemeModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 text-xs font-bold transition cursor-pointer shrink-0 shadow-xs active:scale-95"
-          title="Pilih Tema Warna Aplikasi"
-        >
-          <Palette className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>Tema</span>
-        </button>
-
-        {/* Install HP Pill */}
-        <button
-          type="button"
-          id="btn-pill-install-hp"
-          onClick={onOpenInstallGuide}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-black transition cursor-pointer shrink-0 shadow-xs hover:bg-[#25F4EE]/20 active:scale-95"
-        >
-          <Smartphone className="w-3.5 h-3.5" />
-          <span>Install HP</span>
-        </button>
-      </div>
-
-      {/* Visual Showcase Holographic Banner with Store Images */}
-      <div className="spatial-card rounded-2xl p-4 sm:p-5 border border-[#25F4EE]/30 relative overflow-hidden group shadow-[0_0_25px_rgba(37,244,238,0.12)]">
-        <NeonCorners variant="side-left" color="cyan" />
-        {/* Hologram top laser line */}
-        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#25F4EE] to-transparent opacity-80 animate-pulse absolute top-0 left-0" />
-
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-5">
-          {/* Left: Info & Fast Action Badges */}
-          <div className="space-y-3 flex-1 w-full">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/40 shadow-[0_0_12px_rgba(254,44,85,0.3)]">
-                <span className="w-2 h-2 rounded-full bg-[#FE2C55] animate-ping" />
-                STUDIO LIVE SHOPEE
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30">
-                <Radio className="w-3 h-3 animate-pulse text-[#25F4EE]" />
-                ONLINE DISPATCH
-              </span>
-            </div>
-
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>Seller Profit Cyber Matrix</span>
-                <Sparkles className="w-4 h-4 text-[#25F4EE] animate-pulse" />
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-300 mt-1 max-w-xl leading-relaxed">
-                Pusat kendali operasional live streaming, kalkulasi HPP ball sortir, presensi shift, slip gaji host, dan koordinasi tim real-time.
-              </p>
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex items-center gap-2.5 pt-1 flex-wrap">
-              <button
-                type="button"
-                id="btn-beranda-open-live-chat"
-                onClick={() => onNavigate('/informasi/live-chat')}
-                className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-[#25F4EE] to-[#00c8e0] hover:from-[#3ffef8] hover:to-[#25F4EE] text-black transition cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(37,244,238,0.3)] active:scale-95"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Buka Live Chat Tim</span>
-              </button>
-
-              <button
-                type="button"
-                id="btn-beranda-open-kalkulator"
-                onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white border border-white/20 transition cursor-pointer flex items-center gap-2 active:scale-95 shadow-xs"
-              >
-                <Calculator className="w-4 h-4 text-[#25F4EE]" />
-                <span>Kalkulasi Paket AI</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Right: Rich Visual Image Showcase */}
-          <div className="flex items-center gap-3 shrink-0 self-center">
-            {/* Visual 1: Model Preview */}
-            <div className="relative group/img overflow-hidden rounded-2xl border-2 border-[#25F4EE]/40 shadow-[0_0_20px_rgba(37,244,238,0.25)] w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
-              <img
-                src={muModelImg}
-                alt="Live Host Catalog"
-                className="w-full h-full object-cover object-top group-hover/img:scale-105 transition-transform duration-500"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
-                <span className="text-[10px] font-black tracking-wider text-[#25F4EE] uppercase">Host Catalog</span>
-              </div>
-            </div>
-
-            {/* Visual 2: Jersey Live Stock */}
-            <div className="relative group/img overflow-hidden rounded-2xl border-2 border-[#FE2C55]/40 shadow-[0_0_20px_rgba(254,44,85,0.25)] w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
-              <img
-                src={muJerseyImg}
-                alt="Product Showcase"
-                className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
-                <span className="text-[10px] font-black tracking-wider text-[#FE2C55] uppercase">Live Stock</span>
-              </div>
-            </div>
-
-            {/* Visual 3: Seller Center Badge (Hidden on small screens) */}
-            <div className="hidden sm:block relative group/img overflow-hidden rounded-2xl border-2 border-white/20 shadow-md w-24 sm:w-32 h-32 sm:h-40 bg-black/60">
-              <img
-                src={sellerCenterLogo}
-                alt="Seller Center"
-                className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end p-2">
-                <span className="text-[10px] font-black tracking-wider text-zinc-300 uppercase">Center Hub</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Tulisan Berjalan (Running Marquee Banner Ticker) */}
+      {/* 1. Tulisan Berjalan (Running Marquee Banner Ticker) */}
       <RunningTextBanner messages={runningMessages} speed={20} iconType="volume" badgeText="LIVE INFO" />
 
-      {/* 4. METRIK UTAMA DASHBOARD (5 KARTU SESUAI PERMINTAAN USER & SCREENSHOT):
+      {/* 2. METRIK UTAMA DASHBOARD (5 KARTU SESUAI PERMINTAAN USER & SCREENSHOT):
           - Omzet Hari Ini
           - HPP
           - Sisa Stok
@@ -395,40 +210,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Quick AI Feature Banner: Kalkulasi Harga & Paket Terjual */}
-      <div 
-        id="banner-kalkulasi-paket-ai"
-        onClick={() => onNavigate('/penjualan/kalkulasi-paket')}
-        className="spatial-card relative p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#121520] to-[#121520] border border-emerald-500/40 hover:border-emerald-500/70 transition-all cursor-pointer shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] overflow-hidden"
-      >
-        <NeonCorners variant="side-left" color="emerald" />
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-            <Calculator className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors">
-                Kalkulasi Harga & Paket Terjual
-              </h4>
-              <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                <Sparkles className="w-3 h-3" />
-                Fitur AI Baru
-              </span>
-            </div>
-            <p className="text-xs text-zinc-400 mt-0.5 max-w-xl">
-              Tanya AI: berapa harga bundling dan minimum paket terjual jika iklan 60k & koin 30k untuk untung 1 jt/hari? Lengkap dengan mode input interaktif.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition-transform self-start sm:self-auto shrink-0 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/30">
-          <span>Buka Kalkulator AI</span>
-          <span>→</span>
-        </div>
-      </div>
-
-      {/* 5. MENU UTAMA: TAMPILKAN 4 KATEGORI UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN, INFORMASI) */}
+      {/* 3. MENU UTAMA: TAMPILKAN 4 KATEGORI UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN, INFORMASI) */}
       <div className="space-y-2.5 pt-1">
         <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
           Kategori Menu

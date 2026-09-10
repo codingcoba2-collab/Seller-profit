@@ -36,7 +36,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     };
     startAudio();
 
-    // Listen on window for user gesture to immediately trigger time travel sound if initial autoplay was restricted
+    // Listen globally on window and document for any user gesture to immediately trigger time travel sound if initial autoplay was restricted
     const onUserInteraction = async () => {
       if (!isStillLoading) return;
       await SoundFx.unlockAudio();
@@ -45,15 +45,20 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       SoundFx.playTimeMachineWarp();
     };
 
-    window.addEventListener('pointerdown', onUserInteraction, { once: true });
-    window.addEventListener('touchstart', onUserInteraction, { once: true });
-    window.addEventListener('keydown', onUserInteraction, { once: true });
+    window.addEventListener('pointerdown', onUserInteraction, { capture: true });
+    window.addEventListener('touchstart', onUserInteraction, { capture: true, passive: true });
+    window.addEventListener('click', onUserInteraction, { capture: true });
+    window.addEventListener('mousedown', onUserInteraction, { capture: true });
+    window.addEventListener('keydown', onUserInteraction, { capture: true });
 
     const startTime = performance.now();
     const interval = setInterval(() => {
       const elapsed = performance.now() - startTime;
       const pct = Math.min(100, Math.floor((elapsed / durationMs) * 100));
       setProgress(pct);
+      if (SoundFx.isAudioRunning()) {
+        setIsAudioActive(true);
+      }
       if (pct >= 98) {
         // Cut audio as soon as loading reaches completion
         SoundFx.stopLoadingAudio();
@@ -70,6 +75,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       SoundFx.stopLoadingAudio();
       window.removeEventListener('pointerdown', onUserInteraction);
       window.removeEventListener('touchstart', onUserInteraction);
+      window.removeEventListener('click', onUserInteraction);
+      window.removeEventListener('mousedown', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
     };
   }, [durationMs]);

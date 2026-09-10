@@ -119,6 +119,40 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
     return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Explicit Owner Guard: Live Chat is reserved for Owner
+  if (!currentUser.isOwner) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12 text-white">
+        <div className="spatial-card rounded-2xl p-6 sm:p-8 text-center border border-rose-500/40 shadow-[0_0_30px_rgba(244,63,94,0.2)] relative overflow-hidden">
+          <NeonCorners variant="all-corners" color="pink" />
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <Shield className="w-7 h-7 text-rose-400" />
+          </div>
+          <h2 className="text-xl font-black text-white">Akses Terbatas: Khusus Owner</h2>
+          <p className="text-sm text-zinc-300 mt-2 max-w-md mx-auto leading-relaxed">
+            Live Chat dan saluran informasi ini dikhususkan bagi Owner toko untuk menjaga kerahasiaan data dan koordinasi strategis.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('/informasi')}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold transition cursor-pointer"
+            >
+              Kembali ke Menu Informasi
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('/dashboard')}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] text-white text-xs font-bold transition cursor-pointer"
+            >
+              Kembali ke Beranda
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 text-white font-sans">
       {/* 1. Holographic Header Bar */}
@@ -132,15 +166,18 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-                <span>Live Chat Tim Toko</span>
+                <span>Live Chat Khusus Owner</span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   REAL-TIME ACTIVE
                 </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                  SUB-MENU INFORMASI
+                </span>
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Ruang koordinasi cepat antara Owner, Host Live, Admin Toko, Sortir &amp; Steam.
+              Saluran live chat dan koordinasi operasional terenkripsi khusus Owner toko.
             </p>
           </div>
         </div>
@@ -163,26 +200,24 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
           </button>
 
           {/* Clear chat (Owner only) */}
-          {currentUser.roles.includes('owner') && (
-            <button
-              type="button"
-              onClick={handleClearChat}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/40 text-zinc-300 hover:text-rose-400 transition cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95"
-              title="Bersihkan Semua Pesan Chat"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Bersihkan</span>
-            </button>
-          )}
-
-          {/* Back button */}
           <button
             type="button"
-            onClick={() => onNavigate('/dashboard')}
+            onClick={handleClearChat}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/40 text-zinc-300 hover:text-rose-400 transition cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95"
+            title="Bersihkan Semua Pesan Chat"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Bersihkan</span>
+          </button>
+
+          {/* Back button to Informasi */}
+          <button
+            type="button"
+            onClick={() => onNavigate('/informasi')}
             className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Beranda</span>
+            <span>Informasi</span>
           </button>
         </div>
       </div>

@@ -284,7 +284,7 @@ export const CATEGORIES: CategoryDefinition[] = [
     key: 'informasi',
     path: '/informasi',
     title: 'Informasi',
-    description: 'Pusat koordinasi real-time tim toko, live chat interaktif, dan panduan operasional marketplace.',
+    description: 'Pusat koordinasi informasi khusus owner toko, live chat real-time, dan pemantauan operasional marketplace.',
     icon: MessageSquare,
     iconColor: 'text-[#25F4EE]',
     gradientBg: 'from-[#25F4EE]/15 via-[#25F4EE]/5 to-transparent',
@@ -296,12 +296,11 @@ export const CATEGORIES: CategoryDefinition[] = [
       {
         path: '/informasi/live-chat',
         title: 'Live Chat Real-Time',
-        subtitle: 'Koordinasi real-time antara owner, host live, admin toko & tim staf',
-        badgeText: 'Live Chat',
+        subtitle: 'Live chat & saluran informasi koordinasi khusus Owner toko',
+        badgeText: 'Khusus Owner',
         icon: MessageCircle,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
-        allEmployeesCanView: true,
+        allowedRoles: ['owner'],
       },
     ],
   },
@@ -433,13 +432,17 @@ export function viewStateToPath(view: ViewState): RoutePath {
 export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   if (user.isOwner) return true;
 
-  // Dashboard, category hubs, & live chat are viewable by any authenticated user
+  // Live chat in information sub-menu is strictly reserved for the owner
+  if (route === '/informasi/live-chat') {
+    return user.isOwner;
+  }
+
+  // Dashboard, category hubs are viewable by any authenticated user
   if (route === '/dashboard' || 
       route === '/persiapan' || 
       route === '/penjualan' || 
       route === '/keuangan' || 
-      route === '/informasi' || 
-      route === '/informasi/live-chat') {
+      route === '/informasi') {
     return true;
   }
 
@@ -633,6 +636,24 @@ export function getBreadcrumbs(route: RoutePath): BreadcrumbItem[] {
     });
 
     if (route !== '/keuangan') {
+      items.push({
+        label: getPageTitle(route),
+        path: route,
+        isCurrent: true
+      });
+    }
+    return items;
+  }
+
+  // Informasi group
+  if (route.startsWith('/informasi')) {
+    items.push({
+      label: 'Informasi',
+      path: '/informasi',
+      isCurrent: route === '/informasi'
+    });
+
+    if (route !== '/informasi') {
       items.push({
         label: getPageTitle(route),
         path: route,
