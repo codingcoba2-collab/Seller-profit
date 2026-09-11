@@ -523,19 +523,19 @@ body:not([data-theme-mode="light"]) {
   background-attachment: fixed;
 }
 
-/* 2. Neon Corner Box Utility (Lengkung Neon di Ujung Bersebrangan) */
+/* 2. Neon Corner Box Utility (Lengkung Neon di Ujung Bersebrangan) - Holographic Cyber Interface */
 .neon-corner-box {
   position: relative;
   background-color: #121520 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: hologram-card-continuous-flicker 5.2s ease-in-out infinite;
-  will-change: filter, opacity;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
 }
 
 .neon-corner-box:hover {
   border-color: rgba(37, 244, 238, 0.4) !important;
-  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.7), 0 0 20px rgba(37, 244, 238, 0.18) !important;
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.75), 0 0 20px rgba(37, 244, 238, 0.3) !important;
 }
 
 /* Lengkung Ujung Kiri-Atas (Top-Left Curved Neon Arc) */
@@ -549,10 +549,10 @@ body:not([data-theme-mode="light"]) {
   border-top: 2.8px solid #25F4EE;
   border-left: 2.8px solid #25F4EE;
   border-top-left-radius: 1rem;
-  filter: drop-shadow(0 0 6px #25F4EE) drop-shadow(0 0 12px rgba(37, 244, 238, 0.8));
+  box-shadow: -1.5px -1.5px 8px rgba(37, 244, 238, 0.8), 0 0 14px rgba(37, 244, 238, 0.6);
   pointer-events: none;
   z-index: 5;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 /* Lengkung Ujung Kanan-Bawah (Bottom-Right Curved Neon Arc - Bersebrangan) */
@@ -566,22 +566,22 @@ body:not([data-theme-mode="light"]) {
   border-bottom: 2.8px solid #FE2C55;
   border-right: 2.8px solid #FE2C55;
   border-bottom-right-radius: 1rem;
-  filter: drop-shadow(0 0 6px #FE2C55) drop-shadow(0 0 12px rgba(254, 44, 85, 0.8));
+  box-shadow: 1.5px 1.5px 8px rgba(254, 44, 85, 0.8), 0 0 14px rgba(254, 44, 85, 0.6);
   pointer-events: none;
   z-index: 5;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 .neon-corner-box:hover::before {
-  width: 24px;
-  height: 24px;
-  filter: drop-shadow(0 0 8px #25F4EE) drop-shadow(0 0 16px rgba(37, 244, 238, 1));
+  width: 22px;
+  height: 22px;
+  box-shadow: -2px -2px 14px rgba(37, 244, 238, 1), 0 0 18px rgba(37, 244, 238, 0.8);
 }
 
 .neon-corner-box:hover::after {
-  width: 24px;
-  height: 24px;
-  filter: drop-shadow(0 0 8px #FE2C55) drop-shadow(0 0 16px rgba(254, 44, 85, 1));
+  width: 22px;
+  height: 22px;
+  box-shadow: 2px 2px 14px rgba(254, 44, 85, 1), 0 0 18px rgba(254, 44, 85, 0.8);
 }
 
 /* Alternatif Variasi 2: Lengkung Ujung Kanan-Atas & Kiri-Bawah */
@@ -591,12 +591,12 @@ body:not([data-theme-mode="light"]) {
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: hologram-card-continuous-flicker 4.7s ease-in-out infinite -1.8s;
-  will-change: filter, opacity;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
 }
 
 .neon-corner-box-alt:hover {
   border-color: rgba(254, 44, 85, 0.4) !important;
-  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.7), 0 0 20px rgba(254, 44, 85, 0.18) !important;
+  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.75), 0 0 20px rgba(254, 44, 85, 0.3) !important;
 }
 
 .neon-corner-box-alt::before {
@@ -609,10 +609,10 @@ body:not([data-theme-mode="light"]) {
   border-top: 2.8px solid #25F4EE;
   border-right: 2.8px solid #25F4EE;
   border-top-right-radius: 1rem;
-  filter: drop-shadow(0 0 6px #25F4EE) drop-shadow(0 0 12px rgba(37, 244, 238, 0.8));
+  box-shadow: 1.5px -1.5px 8px rgba(37, 244, 238, 0.8), 0 0 14px rgba(37, 244, 238, 0.6);
   pointer-events: none;
   z-index: 5;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 .neon-corner-box-alt::after {
@@ -625,22 +625,22 @@ body:not([data-theme-mode="light"]) {
   border-bottom: 2.8px solid #FE2C55;
   border-left: 2.8px solid #FE2C55;
   border-bottom-left-radius: 1rem;
-  filter: drop-shadow(0 0 6px #FE2C55) drop-shadow(0 0 12px rgba(254, 44, 85, 0.8));
+  box-shadow: -1.5px 1.5px 8px rgba(254, 44, 85, 0.8), 0 0 14px rgba(254, 44, 85, 0.6);
   pointer-events: none;
   z-index: 5;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 .neon-corner-box-alt:hover::before {
-  width: 24px;
-  height: 24px;
-  filter: drop-shadow(0 0 8px #25F4EE) drop-shadow(0 0 16px rgba(37, 244, 238, 1));
+  width: 22px;
+  height: 22px;
+  box-shadow: 2px -2px 14px rgba(37, 244, 238, 1), 0 0 18px rgba(37, 244, 238, 0.8);
 }
 
 .neon-corner-box-alt:hover::after {
-  width: 24px;
-  height: 24px;
-  filter: drop-shadow(0 0 8px #FE2C55) drop-shadow(0 0 16px rgba(254, 44, 85, 1));
+  width: 22px;
+  height: 22px;
+  box-shadow: -2px 2px 14px rgba(254, 44, 85, 1), 0 0 18px rgba(254, 44, 85, 0.8);
 }
 
 /* 3. Text & Button Ultra-Crisp Legibility Enforcer */
@@ -792,15 +792,12 @@ body:not([data-theme-mode="light"]) {
 
 .spatial-card {
   position: relative;
-  background: linear-gradient(135deg, rgba(22, 24, 35, 0.93) 0%, rgba(11, 12, 16, 0.97) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(37, 244, 238, 0.32);
+  background: linear-gradient(135deg, rgba(22, 24, 35, 0.96) 0%, rgba(11, 12, 16, 0.98) 100%);
+  border: 1px solid rgba(37, 244, 238, 0.35);
   box-shadow: 
     0 4px 20px -2px rgba(0, 0, 0, 0.7),
     0 0 16px -2px rgba(37, 244, 238, 0.2),
     inset 0 1px 1px rgba(255, 255, 255, 0.15);
-  transform-style: preserve-3d;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
   animation: hologram-card-continuous-flicker 5s ease-in-out infinite;
   will-change: filter, opacity;
@@ -815,22 +812,22 @@ body:not([data-theme-mode="light"]) {
     0deg,
     transparent,
     transparent 2.5px,
-    rgba(37, 244, 238, 0.035) 2.5px,
-    rgba(37, 244, 238, 0.035) 5px
+    rgba(37, 244, 238, 0.03) 2.5px,
+    rgba(37, 244, 238, 0.03) 5px
   );
   pointer-events: none;
   border-radius: inherit;
   z-index: 1;
 }
 
-/* Staggered electric short-circuit pulse using GPU-accelerated opacity */
+/* Staggered electric short-circuit pulse on cyberpunk accent perimeter */
 .spatial-card::after {
   content: '';
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  border: 1px solid rgba(37, 244, 238, 0.65);
-  box-shadow: 0 0 15px rgba(37, 244, 238, 0.3), inset 0 0 10px rgba(37, 244, 238, 0.08);
+  border: 1px solid rgba(37, 244, 238, 0.55);
+  box-shadow: 0 0 14px rgba(37, 244, 238, 0.3), inset 0 0 8px rgba(37, 244, 238, 0.08);
   pointer-events: none;
   animation: circuit-glow-pulse 4.5s ease-in-out infinite;
   z-index: 2;
@@ -844,7 +841,7 @@ body:not([data-theme-mode="light"]) {
 .spatial-card:nth-child(2n)::after {
   animation-duration: 3.6s;
   animation-delay: -1.4s;
-  border-color: rgba(254, 44, 85, 0.55);
+  border-color: rgba(254, 44, 85, 0.5);
   box-shadow: 0 0 14px rgba(254, 44, 85, 0.25);
 }
 
@@ -856,29 +853,23 @@ body:not([data-theme-mode="light"]) {
 .spatial-card:nth-child(3n)::after {
   animation-duration: 5.1s;
   animation-delay: -2.8s;
-}
-
-.spatial-card:nth-child(5n) {
-  animation-duration: 4.8s;
-  animation-delay: -0.7s;
-}
-
-.spatial-card:nth-child(5n)::after {
-  animation-duration: 4.2s;
-  animation-delay: -0.7s;
+  border-color: rgba(37, 244, 238, 0.5);
+  box-shadow: 0 0 14px rgba(37, 244, 238, 0.28);
 }
 
 .spatial-card:hover {
   border-color: rgba(37, 244, 238, 0.85);
   box-shadow: 
-    0 0 28px -2px rgba(37, 244, 238, 0.45),
-    0 16px 36px -8px rgba(0, 0, 0, 0.8),
-    inset 0 0 18px rgba(37, 244, 238, 0.2);
+    0 0 24px -2px rgba(37, 244, 238, 0.45),
+    0 12px 30px -8px rgba(0, 0, 0, 0.8),
+    inset 0 0 16px rgba(37, 244, 238, 0.15);
   transform: translateY(-2px);
 }
 
 .spatial-card:hover::after {
   opacity: 1 !important;
+  border-color: rgba(37, 244, 238, 0.7);
+  box-shadow: 0 0 16px rgba(37, 244, 238, 0.35);
 }
 
 .spatial-header {

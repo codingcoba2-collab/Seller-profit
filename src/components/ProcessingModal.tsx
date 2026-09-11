@@ -8,24 +8,35 @@ export const ProcessingModal: React.FC = () => {
   const [progress, setProgress] = useState(15);
 
   useEffect(() => {
-    return ProcessingService.subscribe((req) => {
+    let interval: any = null;
+    const unsubscribe = ProcessingService.subscribe((req) => {
       setRequest(req);
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
       if (req) {
         setProgress(18);
         SoundFx.playProcessingSound();
 
         const duration = req.durationMs || 1400;
         const start = performance.now();
-        const interval = setInterval(() => {
+        interval = setInterval(() => {
           const elapsed = performance.now() - start;
           const p = Math.min(100, Math.round((elapsed / duration) * 100));
           setProgress(p);
-          if (p >= 100) clearInterval(interval);
-        }, 40);
-
-        return () => clearInterval(interval);
+          if (p >= 100 && interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+        }, 50);
       }
     });
+
+    return () => {
+      if (interval) clearInterval(interval);
+      unsubscribe();
+    };
   }, []);
 
   if (!request) return null;

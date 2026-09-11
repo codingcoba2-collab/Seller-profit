@@ -63,7 +63,22 @@ export default defineConfig(() => {
       }),
     ],
     build: {
-      chunkSizeWarningLimit: 3500,
+      chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('node_modules/xlsx')) {
+              return 'vendor-xlsx';
+            }
+            if (id.includes('node_modules/lucide-react')) {
+              return 'vendor-lucide';
+            }
+          },
+        },
+      },
     },
     resolve: {
       alias: {

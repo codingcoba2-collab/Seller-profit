@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React from 'react';
 
 export type NeonOppositeVariant = 
   | 'opposite-tl-br' // Lengkung di Ujung Kiri-Atas & Kanan-Bawah (Bersebrangan)
@@ -25,26 +25,22 @@ interface NeonCornersProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const COLOR_MAP: Record<string, { hex: string; glow: string; strokeGlow: string }> = {
+const COLOR_MAP: Record<string, { hex: string; glowColor: string }> = {
   cyan: {
     hex: '#25F4EE',
-    glow: 'rgba(37, 244, 238, 0.9)',
-    strokeGlow: 'drop-shadow(0 0 7px #25F4EE) drop-shadow(0 0 14px rgba(37, 244, 238, 0.7))',
+    glowColor: 'rgba(37, 244, 238, 0.4)',
   },
   magenta: {
     hex: '#FE2C55',
-    glow: 'rgba(254, 44, 85, 0.9)',
-    strokeGlow: 'drop-shadow(0 0 7px #FE2C55) drop-shadow(0 0 14px rgba(254, 44, 85, 0.7))',
+    glowColor: 'rgba(254, 44, 85, 0.4)',
   },
   emerald: {
     hex: '#10B981',
-    glow: 'rgba(16, 185, 129, 0.9)',
-    strokeGlow: 'drop-shadow(0 0 7px #10B981) drop-shadow(0 0 14px rgba(16, 185, 129, 0.7))',
+    glowColor: 'rgba(16, 185, 129, 0.4)',
   },
   amber: {
     hex: '#F59E0B',
-    glow: 'rgba(245, 158, 11, 0.9)',
-    strokeGlow: 'drop-shadow(0 0 7px #F59E0B) drop-shadow(0 0 14px rgba(245, 158, 11, 0.7))',
+    glowColor: 'rgba(245, 158, 11, 0.4)',
   },
 };
 
@@ -54,6 +50,9 @@ const COLOR_MAP: Record<string, { hex: string; glow: string; strokeGlow: string 
  * (seperti model sisa saldo di dashboard):
  * - Variasi 1: Ujung Kiri-Atas (Top-Left) & Kanan-Bawah (Bottom-Right)
  * - Variasi 2: Ujung Kanan-Atas (Top-Right) & Kiri-Bawah (Bottom-Left)
+ * 
+ * Dioptimalkan dengan GPU hardware-accelerated layered strokes tanpa filter SVG blur berat,
+ * sehingga sangat ringan, hemat baterai, dan ponsel tetap dingin.
  */
 export const NeonCorners: React.FC<NeonCornersProps> = ({
   cyanTop = true,
@@ -63,8 +62,6 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
   className = '',
   size = 'md',
 }) => {
-  const uniqueId = useId().replace(/[:]/g, '');
-
   // 1. Tentukan varian pasangan ujung bersebrangan
   let resolvedVariant: 'tl-br' | 'tr-bl' = 'tl-br';
 
@@ -112,33 +109,11 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
   }
 
   const svgDimension = size === 'sm' ? 28 : size === 'lg' ? 40 : 34;
+  const outerStroke = size === 'sm' ? 4.2 : 5.2;
+  const coreStroke = size === 'sm' ? 2.2 : 2.8;
 
   return (
     <div className={`pointer-events-none absolute inset-0 z-10 overflow-visible ${className}`} aria-hidden="true">
-      {/* SVG Defs Filter untuk pendaran cahaya neon silikon alami */}
-      <svg className="absolute w-0 h-0 overflow-hidden" aria-hidden="true">
-        <defs>
-          <filter id={`neon-glow-a-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur2" />
-            <feMerge>
-              <feMergeNode in="blur2" />
-              <feMergeNode in="blur1" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id={`neon-glow-b-${uniqueId}`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur2" />
-            <feMerge>
-              <feMergeNode in="blur2" />
-              <feMergeNode in="blur1" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-      </svg>
-
       {/* VARIAN 1: LENGKUNG DI UJUNG KIRI-ATAS & KANAN-BAWAH (BERSEBRANGAN) */}
       {resolvedVariant === 'tl-br' && (
         <>
@@ -149,22 +124,22 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+              style={{ filter: `drop-shadow(0 0 6px ${theme1.hex}) drop-shadow(0 0 12px ${theme1.glowColor})` }}
+              className="overflow-visible transition-transform duration-200"
             >
-              {/* Outer Diffuse Neon Tube Glow */}
+              {/* Diffuse Outer Glow Stroke */}
               <path
                 d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
                 stroke={theme1.hex}
-                strokeWidth="4.8"
+                strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.6"
-                filter={`url(#neon-glow-a-${uniqueId})`}
+                opacity="0.5"
               />
               {/* Main Saturated Flexible Neon Tube */}
               <path
                 d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
                 stroke={theme1.hex}
-                strokeWidth="2.8"
+                strokeWidth={coreStroke}
                 strokeLinecap="round"
               />
               {/* High-Luminance White Core Filament */}
@@ -173,7 +148,7 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
                 stroke="#FFFFFF"
                 strokeWidth="1.1"
                 strokeLinecap="round"
-                opacity="0.9"
+                opacity="0.95"
               />
             </svg>
           </div>
@@ -185,20 +160,20 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+              style={{ filter: `drop-shadow(0 0 6px ${theme2.hex}) drop-shadow(0 0 12px ${theme2.glowColor})` }}
+              className="overflow-visible transition-transform duration-200"
             >
               <path
                 d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
                 stroke={theme2.hex}
-                strokeWidth="4.8"
+                strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.6"
-                filter={`url(#neon-glow-b-${uniqueId})`}
+                opacity="0.5"
               />
               <path
                 d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
                 stroke={theme2.hex}
-                strokeWidth="2.8"
+                strokeWidth={coreStroke}
                 strokeLinecap="round"
               />
               <path
@@ -206,7 +181,7 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
                 stroke="#FFFFFF"
                 strokeWidth="1.1"
                 strokeLinecap="round"
-                opacity="0.9"
+                opacity="0.95"
               />
             </svg>
           </div>
@@ -223,20 +198,20 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+              style={{ filter: `drop-shadow(0 0 6px ${theme1.hex}) drop-shadow(0 0 12px ${theme1.glowColor})` }}
+              className="overflow-visible transition-transform duration-200"
             >
               <path
                 d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
                 stroke={theme1.hex}
-                strokeWidth="4.8"
+                strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.6"
-                filter={`url(#neon-glow-a-${uniqueId})`}
+                opacity="0.5"
               />
               <path
                 d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
                 stroke={theme1.hex}
-                strokeWidth="2.8"
+                strokeWidth={coreStroke}
                 strokeLinecap="round"
               />
               <path
@@ -244,7 +219,7 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
                 stroke="#FFFFFF"
                 strokeWidth="1.1"
                 strokeLinecap="round"
-                opacity="0.9"
+                opacity="0.95"
               />
             </svg>
           </div>
@@ -256,20 +231,20 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              className="overflow-visible transition-all duration-300 group-hover:scale-105"
+              style={{ filter: `drop-shadow(0 0 6px ${theme2.hex}) drop-shadow(0 0 12px ${theme2.glowColor})` }}
+              className="overflow-visible transition-transform duration-200"
             >
               <path
                 d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
                 stroke={theme2.hex}
-                strokeWidth="4.8"
+                strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.6"
-                filter={`url(#neon-glow-b-${uniqueId})`}
+                opacity="0.5"
               />
               <path
                 d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
                 stroke={theme2.hex}
-                strokeWidth="2.8"
+                strokeWidth={coreStroke}
                 strokeLinecap="round"
               />
               <path
@@ -277,7 +252,7 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
                 stroke="#FFFFFF"
                 strokeWidth="1.1"
                 strokeLinecap="round"
-                opacity="0.9"
+                opacity="0.95"
               />
             </svg>
           </div>

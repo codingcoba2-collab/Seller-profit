@@ -43,8 +43,13 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff04_1px,transparent_1px),linear-gradient(to_bottom,#ffffff04_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-[#FE2C55]/15 via-[#C70101]/10 to-transparent rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Top Navigation Bar */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 flex items-center justify-between gap-4">
+      {/* Top Navigation Bar with Safe Area Top Clearance to avoid mobile notches / poni */}
+      <header 
+        style={{ 
+          paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 24px) + 14px)',
+        }}
+        className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 sm:pt-8 flex items-center justify-between gap-4"
+      >
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
           <div className="relative p-2.5 rounded-2xl bg-black/70 border border-[#FE2C55]/50 text-[#FE2C55] shadow-[0_0_20px_rgba(254,44,85,0.35)] flex items-center justify-center">

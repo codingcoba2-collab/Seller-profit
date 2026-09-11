@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { CurrentUser, ViewState } from './types';
 import { StorageService } from './services/storage';
 import { Navbar } from './components/Navbar';
@@ -16,36 +16,46 @@ import {
   viewStateToPath 
 } from './services/navigation';
 
-// Category Page
-import { CategoryPageView } from './views/CategoryPageView';
-
-// Feature Views
+// Primary Views (Loaded Immediately)
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
-import { RoleManagementView } from './views/RoleManagementView';
-import { ModalStokView } from './views/ModalStokView';
-import { SteamSortirView } from './views/SteamSortirView';
-import { AdminShopeeView } from './views/AdminShopeeView';
-import { KehadiranView } from './views/KehadiranView';
-import { PenjualanView } from './views/PenjualanView';
-import { ReturnView } from './views/ReturnView';
-import { GajiView } from './views/GajiView';
-import { LabaRugiView } from './views/LabaRugiView';
-import { CashflowView } from './views/CashflowView';
-import { LabaBersihView } from './views/LabaBersihView';
-import { IndexPerformaView } from './views/IndexPerformaView';
-import { StatistikView } from './views/StatistikView';
-import { PersonalFinanceView } from './views/PersonalFinanceView';
-import { KalkulasiPaketView } from './views/KalkulasiPaketView';
 
-// Top Up Saldo Specialized Views
-import { TopupSaldoHubView } from './views/TopupSaldoHubView';
-import { TopupSaldoInputView } from './views/TopupSaldoInputView';
-import { TopupSaldoRiwayatView } from './views/TopupSaldoRiwayatView';
-import { LiveChatView } from './views/LiveChatView';
-import { PengumumanView } from './views/PengumumanView';
+// Secondary Feature Views (Code-Split via React.lazy for Fast Startup and Low RAM usage)
+const CategoryPageView = lazy(() => import('./views/CategoryPageView').then(m => ({ default: m.CategoryPageView })));
+const RoleManagementView = lazy(() => import('./views/RoleManagementView').then(m => ({ default: m.RoleManagementView })));
+const ModalStokView = lazy(() => import('./views/ModalStokView').then(m => ({ default: m.ModalStokView })));
+const SteamSortirView = lazy(() => import('./views/SteamSortirView').then(m => ({ default: m.SteamSortirView })));
+const AdminShopeeView = lazy(() => import('./views/AdminShopeeView').then(m => ({ default: m.AdminShopeeView })));
+const KehadiranView = lazy(() => import('./views/KehadiranView').then(m => ({ default: m.KehadiranView })));
+const PenjualanView = lazy(() => import('./views/PenjualanView').then(m => ({ default: m.PenjualanView })));
+const ReturnView = lazy(() => import('./views/ReturnView').then(m => ({ default: m.ReturnView })));
+const GajiView = lazy(() => import('./views/GajiView').then(m => ({ default: m.GajiView })));
+const LabaRugiView = lazy(() => import('./views/LabaRugiView').then(m => ({ default: m.LabaRugiView })));
+const CashflowView = lazy(() => import('./views/CashflowView').then(m => ({ default: m.CashflowView })));
+const LabaBersihView = lazy(() => import('./views/LabaBersihView').then(m => ({ default: m.LabaBersihView })));
+const IndexPerformaView = lazy(() => import('./views/IndexPerformaView').then(m => ({ default: m.IndexPerformaView })));
+const StatistikView = lazy(() => import('./views/StatistikView').then(m => ({ default: m.StatistikView })));
+const PersonalFinanceView = lazy(() => import('./views/PersonalFinanceView').then(m => ({ default: m.PersonalFinanceView })));
+const KalkulasiPaketView = lazy(() => import('./views/KalkulasiPaketView').then(m => ({ default: m.KalkulasiPaketView })));
+const TopupSaldoHubView = lazy(() => import('./views/TopupSaldoHubView').then(m => ({ default: m.TopupSaldoHubView })));
+const TopupSaldoInputView = lazy(() => import('./views/TopupSaldoInputView').then(m => ({ default: m.TopupSaldoInputView })));
+const TopupSaldoRiwayatView = lazy(() => import('./views/TopupSaldoRiwayatView').then(m => ({ default: m.TopupSaldoRiwayatView })));
+const LiveChatView = lazy(() => import('./views/LiveChatView').then(m => ({ default: m.LiveChatView })));
+const PengumumanView = lazy(() => import('./views/PengumumanView').then(m => ({ default: m.PengumumanView })));
+
 import { ProfileModal } from './components/ProfileModal';
 import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
+
+// Lightweight View Suspense Fallback
+const ModuleLoader = () => (
+  <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+    <div className="relative w-10 h-10 flex items-center justify-center mb-3">
+      <div className="w-8 h-8 rounded-full border-2 border-[#25F4EE]/20 border-t-[#25F4EE] animate-spin" />
+      <div className="absolute w-5 h-5 rounded-full border-2 border-[#FE2C55]/20 border-b-[#FE2C55] animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
+    </div>
+    <span className="text-[11px] font-mono text-zinc-400 tracking-wider">MEMUAT MODUL...</span>
+  </div>
+);
 
 interface ToastState {
   id: number;
@@ -300,7 +310,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
-        {/* 1. Dashboard Utama */}
+        <Suspense fallback={<ModuleLoader />}>
+          {/* 1. Dashboard Utama */}
         {currentRoute === '/dashboard' && (
           <DashboardView
             currentUser={currentUser}
@@ -508,6 +519,7 @@ export default function App() {
             onNotify={handleNotify}
           />
         )}
+        </Suspense>
       </main>
 
       {/* iPhone Style Floating Assistive Navigation Shortcuts */}

@@ -656,9 +656,11 @@ class SoundFxService {
               // Prevent Chrome/WebKit garbage collection of utterance object
               (window as any).__sellerRobotUtterance = utterance;
 
-              // Chromium keepalive while speaking
+              // Chromium keepalive while speaking (with safe hard auto-clear limit)
+              let keepaliveTicks = 0;
               const resumeTimer = setInterval(() => {
-                if (window.speechSynthesis.speaking) {
+                keepaliveTicks++;
+                if (window.speechSynthesis && window.speechSynthesis.speaking && keepaliveTicks < 6) {
                   window.speechSynthesis.pause();
                   window.speechSynthesis.resume();
                 } else {
