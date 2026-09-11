@@ -41,7 +41,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
     <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#06070B] via-[#0B0D14] to-[#07080B] text-white">
       {/* Background Ambient Glow & Grid Accent */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff04_1px,transparent_1px),linear-gradient(to_bottom,#ffffff04_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-[#FE2C55]/15 via-[#C70101]/10 to-transparent rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[650px] h-[360px] bg-[radial-gradient(ellipse_at_top,_rgba(254,44,85,0.18)_0%,_rgba(199,1,1,0.08)_45%,_transparent_75%)] rounded-full pointer-events-none" />
 
       {/* Top Navigation Bar with Safe Area Top Clearance to avoid mobile notches / poni */}
       <header 

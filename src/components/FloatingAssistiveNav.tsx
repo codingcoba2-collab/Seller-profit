@@ -286,8 +286,8 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
         }`}
         title="Pintasan Mengambang iPhone (Geser atau Ketuk)"
       >
-        {/* Outer Pulsing Glow */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#25F4EE] via-purple-500 to-[#FE2C55] opacity-75 blur-md animate-pulse pointer-events-none" />
+        {/* Outer Pulsing Glow - GPU Composited Box Shadow */}
+        <div className="absolute inset-0 rounded-full shadow-[0_0_18px_rgba(37,244,238,0.55),0_0_28px_rgba(254,44,85,0.35)] pointer-events-none" />
 
         {/* Glossy Black iOS Assistive Ring */}
         <div className="relative w-full h-full rounded-full bg-black/85 backdrop-blur-md border-2 border-white/60 shadow-[0_0_25px_rgba(37,244,238,0.45)] flex items-center justify-center overflow-hidden pointer-events-none">

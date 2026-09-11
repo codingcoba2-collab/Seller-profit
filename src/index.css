@@ -509,18 +509,28 @@ body {
   background-attachment: fixed;
 }
 
-/* Global body in dark mode with neon palette */
+/* Global body in dark mode with neon palette - GPU Layered for Butter-Smooth 60/120fps Mobile Scrolling */
 [data-theme-mode="dark"][data-theme-palette="neon"] body,
 body[data-theme-palette="neon"],
 body:not([data-theme-mode="light"]) {
   background-color: #07090e;
+  position: relative;
+}
+
+body:not([data-theme-mode="light"])::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
   background-image: 
     radial-gradient(circle at 15% 10%, rgba(37, 244, 238, 0.08) 0%, transparent 45%),
     radial-gradient(circle at 85% 85%, rgba(254, 44, 85, 0.07) 0%, transparent 50%),
     linear-gradient(to right, rgba(37, 244, 238, 0.025) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(37, 244, 238, 0.025) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
-  background-attachment: fixed;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* 2. Neon Corner Box Utility (Lengkung Neon di Ujung Bersebrangan) - Holographic Cyber Interface */
@@ -531,6 +541,8 @@ body:not([data-theme-mode="light"]) {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: hologram-card-continuous-flicker 5.2s ease-in-out infinite;
   box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 .neon-corner-box:hover {
@@ -553,6 +565,7 @@ body:not([data-theme-mode="light"]) {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
+  animation: neon-corner-flicker 4.8s ease-in-out infinite;
 }
 
 /* Lengkung Ujung Kanan-Bawah (Bottom-Right Curved Neon Arc - Bersebrangan) */
@@ -570,6 +583,7 @@ body:not([data-theme-mode="light"]) {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
+  animation: neon-corner-flicker 4.8s ease-in-out infinite -2.4s;
 }
 
 .neon-corner-box:hover::before {
@@ -592,6 +606,8 @@ body:not([data-theme-mode="light"]) {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   animation: hologram-card-continuous-flicker 4.7s ease-in-out infinite -1.8s;
   box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 .neon-corner-box-alt:hover {
@@ -613,6 +629,7 @@ body:not([data-theme-mode="light"]) {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
+  animation: neon-corner-flicker 4.8s ease-in-out infinite -1.2s;
 }
 
 .neon-corner-box-alt::after {
@@ -629,6 +646,7 @@ body:not([data-theme-mode="light"]) {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
+  animation: neon-corner-flicker 4.8s ease-in-out infinite -3.6s;
 }
 
 .neon-corner-box-alt:hover::before {
@@ -690,54 +708,86 @@ body:not([data-theme-mode="light"]) {
 
 @keyframes hologram-card-continuous-flicker {
   0%, 100% {
-    filter: brightness(1) drop-shadow(0 0 2px rgba(37, 244, 238, 0.2));
     opacity: 0.98;
+    transform: translateZ(0);
   }
   2.5% {
-    filter: brightness(1.75) contrast(1.25) drop-shadow(0 0 10px rgba(37, 244, 238, 0.65));
-    opacity: 0.93;
+    opacity: 0.88;
   }
   4% {
-    filter: brightness(0.9);
-    opacity: 0.82;
+    opacity: 0.76;
   }
   5.5% {
-    filter: brightness(2.1) contrast(1.35) drop-shadow(0 0 14px rgba(37, 244, 238, 0.8));
     opacity: 1;
   }
   7% {
-    filter: brightness(1);
-    opacity: 0.98;
+    opacity: 0.96;
   }
   48% {
-    filter: brightness(1);
-    opacity: 1;
+    opacity: 0.98;
   }
   49.5% {
-    filter: brightness(1.85) contrast(1.3) drop-shadow(0 0 12px rgba(254, 44, 85, 0.7));
-    opacity: 0.91;
+    opacity: 0.82;
   }
   51% {
-    filter: brightness(0.85);
-    opacity: 0.78;
+    opacity: 0.72;
   }
   52.5% {
-    filter: brightness(2.15) drop-shadow(0 0 15px rgba(37, 244, 238, 0.85));
     opacity: 1;
   }
   54% {
-    filter: brightness(1);
-    opacity: 0.98;
+    opacity: 0.96;
   }
   83% {
-    filter: brightness(1);
+    opacity: 0.98;
   }
   84.5% {
-    filter: brightness(1.9) contrast(1.2) drop-shadow(0 0 11px rgba(37, 244, 238, 0.6));
-    opacity: 0.92;
+    opacity: 0.84;
   }
   86% {
-    filter: brightness(1);
+    opacity: 1;
+  }
+}
+
+@keyframes neon-corner-flicker {
+  0%, 100% {
+    opacity: 0.92;
+    transform: translateZ(0);
+  }
+  3% {
+    opacity: 0.35;
+  }
+  5% {
+    opacity: 1;
+  }
+  7% {
+    opacity: 0.55;
+  }
+  9% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0.92;
+  }
+  50% {
+    opacity: 0.25;
+  }
+  52% {
+    opacity: 1;
+  }
+  54% {
+    opacity: 0.65;
+  }
+  56% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 0.92;
+  }
+  84% {
+    opacity: 0.4;
+  }
+  86% {
     opacity: 1;
   }
 }
@@ -800,7 +850,8 @@ body:not([data-theme-mode="light"]) {
     inset 0 1px 1px rgba(255, 255, 255, 0.15);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
   animation: hologram-card-continuous-flicker 5s ease-in-out infinite;
-  will-change: filter, opacity;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* Hologram scanlines texture overlay across all spatial cards */

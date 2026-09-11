@@ -124,16 +124,23 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              style={{ filter: `drop-shadow(0 0 6px ${theme1.hex}) drop-shadow(0 0 12px ${theme1.glowColor})` }}
               className="overflow-visible transition-transform duration-200"
             >
+              {/* Ultra-Soft Ambient Vector Glow */}
+              <path
+                d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
+                stroke={theme1.hex}
+                strokeWidth={outerStroke + 4}
+                strokeLinecap="round"
+                opacity="0.2"
+              />
               {/* Diffuse Outer Glow Stroke */}
               <path
                 d="M 28 3.5 L 14 3.5 C 8.2 3.5 3.5 8.2 3.5 14 L 3.5 28"
                 stroke={theme1.hex}
                 strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.5"
+                opacity="0.55"
               />
               {/* Main Saturated Flexible Neon Tube */}
               <path
@@ -160,15 +167,22 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              style={{ filter: `drop-shadow(0 0 6px ${theme2.hex}) drop-shadow(0 0 12px ${theme2.glowColor})` }}
               className="overflow-visible transition-transform duration-200"
             >
+              {/* Ultra-Soft Ambient Vector Glow */}
+              <path
+                d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
+                stroke={theme2.hex}
+                strokeWidth={outerStroke + 4}
+                strokeLinecap="round"
+                opacity="0.2"
+              />
               <path
                 d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
                 stroke={theme2.hex}
                 strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.5"
+                opacity="0.55"
               />
               <path
                 d="M 6 30.5 L 20 30.5 C 25.8 30.5 30.5 25.8 30.5 20 L 30.5 6"
@@ -198,15 +212,22 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              style={{ filter: `drop-shadow(0 0 6px ${theme1.hex}) drop-shadow(0 0 12px ${theme1.glowColor})` }}
               className="overflow-visible transition-transform duration-200"
             >
+              {/* Ultra-Soft Ambient Vector Glow */}
+              <path
+                d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
+                stroke={theme1.hex}
+                strokeWidth={outerStroke + 4}
+                strokeLinecap="round"
+                opacity="0.2"
+              />
               <path
                 d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
                 stroke={theme1.hex}
                 strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.5"
+                opacity="0.55"
               />
               <path
                 d="M 6 3.5 L 20 3.5 C 25.8 3.5 30.5 8.2 30.5 14 L 30.5 28"
@@ -231,15 +252,22 @@ export const NeonCorners: React.FC<NeonCornersProps> = ({
               height={svgDimension}
               viewBox="0 0 34 34"
               fill="none"
-              style={{ filter: `drop-shadow(0 0 6px ${theme2.hex}) drop-shadow(0 0 12px ${theme2.glowColor})` }}
               className="overflow-visible transition-transform duration-200"
             >
+              {/* Ultra-Soft Ambient Vector Glow */}
+              <path
+                d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
+                stroke={theme2.hex}
+                strokeWidth={outerStroke + 4}
+                strokeLinecap="round"
+                opacity="0.2"
+              />
               <path
                 d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
                 stroke={theme2.hex}
                 strokeWidth={outerStroke}
                 strokeLinecap="round"
-                opacity="0.5"
+                opacity="0.55"
               />
               <path
                 d="M 28 30.5 L 14 30.5 C 8.2 30.5 3.5 25.8 3.5 20 L 3.5 6"
