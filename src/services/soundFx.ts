@@ -31,9 +31,12 @@ class SoundFxService {
     if (this.isInitialized || typeof window === 'undefined') return;
     this.isInitialized = true;
 
-    // Immediate resume listeners for any user gesture
+    // Immediate resume listeners for any user gesture (auto-detach after first unlock)
     const gestureResume = () => {
       this.unlockAudio();
+      window.removeEventListener('pointerdown', gestureResume);
+      window.removeEventListener('touchstart', gestureResume);
+      window.removeEventListener('keydown', gestureResume);
     };
     window.addEventListener('pointerdown', gestureResume, { capture: true, passive: true });
     window.addEventListener('touchstart', gestureResume, { capture: true, passive: true });

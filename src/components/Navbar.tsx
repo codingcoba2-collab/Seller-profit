@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 16px) + 8px)',
           paddingBottom: '10px'
         }}
-        className="spatial-header sticky top-0 z-40 bg-[#161823]/95 backdrop-blur-xl border-b border-white/10 shadow-lg text-white flex flex-col justify-center transition-all"
+        className="spatial-header sticky top-0 z-40 bg-[#161823] border-b border-white/10 shadow-lg text-white flex flex-col justify-center transition-all"
       >
         {/* Main navigation header with responsive mobile clearance */}
         <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 md:px-10 flex items-center justify-between gap-2 sm:gap-4">

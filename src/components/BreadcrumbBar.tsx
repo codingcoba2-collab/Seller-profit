@@ -18,7 +18,7 @@ export const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
   const breadcrumbs = getBreadcrumbs(currentRoute);
 
   return (
-    <div className="spatial-menu w-full bg-[#12141c]/80 backdrop-blur-md border-b border-white/5 px-4 py-2 text-xs transition-all">
+    <div className="spatial-menu w-full bg-[#12141c] border-b border-white/5 px-4 py-2 text-xs transition-all">
       <div className="max-w-7xl mx-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap text-zinc-400">
         {breadcrumbs.map((crumb, idx) => {
           const isLast = idx === breadcrumbs.length - 1;

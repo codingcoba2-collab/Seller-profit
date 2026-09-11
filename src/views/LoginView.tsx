@@ -61,10 +61,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
 
   useEffect(() => {
     doCloudSync();
-    const unsub = StorageService.startRealtimeSync();
-    return () => {
-      unsub();
-    };
   }, []);
 
   // Open holographic login modal with sound effect

@@ -44,7 +44,7 @@ export const ProcessingModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn select-none">
       {/* Background ambient pulse */}
-      <div className="absolute w-72 h-72 rounded-full bg-[#25F4EE]/10 blur-3xl pointer-events-none" />
+      <div className="absolute w-72 h-72 rounded-full bg-[radial-gradient(circle,_rgba(37,244,238,0.18)_0%,_transparent_70%)] pointer-events-none" />
 
       {/* Holographic Processing Card */}
       <div className="relative w-full max-w-sm bg-[#0e1017] border border-[#25F4EE]/50 rounded-3xl p-6 shadow-[0_0_50px_rgba(0,0,0,0.8),0_0_30px_rgba(37,244,238,0.3)] text-white overflow-hidden text-center">

@@ -97,7 +97,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
       {/* Main Hero Content */}
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-14 sm:pb-20 flex flex-col items-center text-center">
         {/* Pill Tag */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 border border-[#25F4EE]/35 text-xs text-zinc-300 backdrop-blur-md mb-5 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/85 border border-[#25F4EE]/35 text-xs text-zinc-300 mb-5 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-semibold text-white">Sistem Kasir & Akuntansi Pintar</span>
           <span className="text-zinc-600">•</span>
@@ -186,16 +186,16 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
             {/* Bottom Floating Telemetry Highlights */}
             <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-[#25F4EE]/40 text-[#25F4EE] text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
+                <span className="px-3 py-1 rounded-xl bg-black/85 border border-[#25F4EE]/40 text-[#25F4EE] text-xs font-bold font-mono shadow-md flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5" />
                   <span>Kalkulasi HPP & Laba Otomatis</span>
                 </span>
-                <span className="hidden sm:inline-flex px-3 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-emerald-400/40 text-emerald-400 text-xs font-bold font-mono shadow-md items-center gap-1.5">
+                <span className="hidden sm:inline-flex px-3 py-1 rounded-xl bg-black/85 border border-emerald-400/40 text-emerald-400 text-xs font-bold font-mono shadow-md items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Multi-Toko Cloud Database</span>
                 </span>
               </div>
-              <span className="px-3 py-1 rounded-xl bg-[#FE2C55]/30 backdrop-blur-md border border-[#FE2C55]/60 text-white text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-xl bg-[#FE2C55]/60 border border-[#FE2C55]/80 text-white text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5">
                 <span>Klik untuk Masuk</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </span>
@@ -206,7 +206,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
         {/* Interactive Stats Showcase Deck (Continuous Holographic Cards) */}
         <div className="mt-8 sm:mt-12 w-full max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-left">
           {/* Card 1: Kasir POS */}
-          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-[#FE2C55]/60 transition-all backdrop-blur-sm">
+          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-[#FE2C55]/60 transition-all">
             <div className="w-9 h-9 rounded-xl bg-[#FE2C55]/15 text-[#FE2C55] flex items-center justify-center mb-3 border border-[#FE2C55]/30 shadow-[0_0_12px_rgba(254,44,85,0.2)]">
               <Receipt className="w-5 h-5" />
             </div>
@@ -217,7 +217,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
           </div>
 
           {/* Card 2: Laba Rugi */}
-          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-[#25F4EE]/60 transition-all backdrop-blur-sm">
+          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-[#25F4EE]/60 transition-all">
             <div className="w-9 h-9 rounded-xl bg-[#25F4EE]/15 text-[#25F4EE] flex items-center justify-center mb-3 border border-[#25F4EE]/30 shadow-[0_0_12px_rgba(37,244,238,0.2)]">
               <TrendingUp className="w-5 h-5" />
             </div>
@@ -228,7 +228,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
           </div>
 
           {/* Card 3: Manajemen Stok */}
-          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-amber-500/60 transition-all backdrop-blur-sm">
+          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-amber-500/60 transition-all">
             <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center mb-3 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
               <Boxes className="w-5 h-5" />
             </div>
@@ -239,7 +239,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
           </div>
 
           {/* Card 4: Multi-Toko & Cloud */}
-          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-emerald-500/60 transition-all backdrop-blur-sm">
+          <div className="spatial-card p-4 sm:p-5 rounded-2xl border border-white/10 hover:border-emerald-500/60 transition-all">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
               <Building2 className="w-5 h-5" />
             </div>

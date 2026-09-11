@@ -36,9 +36,9 @@ export const AppEducationSection: React.FC<AppEducationSectionProps> = ({ onOpen
       id="edukasi-seller-profit" 
       className="relative z-20 w-full max-w-6xl mx-auto px-4 py-12 sm:py-16 text-white space-y-12"
     >
-      {/* Ambient Neon Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#25F4EE]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-[#FE2C55]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      {/* Ambient Neon Glows - Zero-Blur Radial Gradients */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-[radial-gradient(circle,_rgba(37,244,238,0.14)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
+      <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-[radial-gradient(circle,_rgba(254,44,85,0.14)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
 
       {/* =================================================================== */}
       {/* 1. HEADER SECTION                                                   */}

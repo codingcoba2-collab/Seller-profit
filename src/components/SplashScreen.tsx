@@ -32,8 +32,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white p-6 select-none"
         >
           {/* Subtle background glow */}
-          <div className="absolute w-72 h-72 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-          <div className="absolute w-60 h-60 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute w-72 h-72 rounded-full bg-[radial-gradient(circle,_rgba(16,185,129,0.16)_0%,_transparent_70%)] pointer-events-none" />
+          <div className="absolute w-60 h-60 rounded-full bg-[radial-gradient(circle,_rgba(14,165,233,0.16)_0%,_transparent_70%)] pointer-events-none" />
 
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}

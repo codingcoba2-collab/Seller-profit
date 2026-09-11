@@ -243,9 +243,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-futuristic-cyber text-[#f4f4f6] flex flex-col font-sans selection:bg-[#FE2C55] selection:text-white relative overflow-x-hidden">
-      {/* Ambient Futuristic Background Glows */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[#25F4EE]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[#FE2C55]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+      {/* Ambient Futuristic Background Glows - Zero-Blur Radial Gradients */}
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[radial-gradient(circle,_rgba(37,244,238,0.12)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[radial-gradient(circle,_rgba(254,44,85,0.12)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
 
       {/* Header & Navbar */}
       <Navbar
@@ -577,7 +577,7 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="spatial-footer border-t border-white/10 bg-[#161823]/80 backdrop-blur-xl py-4 text-center text-xs text-zinc-400">
+      <footer className="spatial-footer border-t border-white/10 bg-[#161823] py-4 text-center text-xs text-zinc-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
             <strong className="text-white">Seller Profit</strong> • Akuntansi Penjualan Live &amp; Manajemen Toko

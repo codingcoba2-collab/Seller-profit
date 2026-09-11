@@ -159,7 +159,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
           <div 
             id="assistive-touch-panel"
             onClick={(e) => e.stopPropagation()}
-            className="spatial-card relative w-full max-w-xs rounded-3xl border border-white/20 bg-[#161823]/95 text-white p-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] backdrop-blur-xl animate-scale-up space-y-4"
+            className="spatial-card relative w-full max-w-xs rounded-3xl border border-white/20 bg-[#161823] text-white p-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-scale-up space-y-4"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -290,7 +290,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
         <div className="absolute inset-0 rounded-full shadow-[0_0_18px_rgba(37,244,238,0.55),0_0_28px_rgba(254,44,85,0.35)] pointer-events-none" />
 
         {/* Glossy Black iOS Assistive Ring */}
-        <div className="relative w-full h-full rounded-full bg-black/85 backdrop-blur-md border-2 border-white/60 shadow-[0_0_25px_rgba(37,244,238,0.45)] flex items-center justify-center overflow-hidden pointer-events-none">
+        <div className="relative w-full h-full rounded-full bg-black/95 border-2 border-white/60 shadow-[0_0_25px_rgba(37,244,238,0.45)] flex items-center justify-center overflow-hidden pointer-events-none">
           {/* Concentric iOS Assistive Touch Circles */}
           <div className="w-8 h-8 rounded-full border border-white/40 bg-white/15 flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-white shadow-xs" />

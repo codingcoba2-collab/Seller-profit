@@ -73,8 +73,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden"
     >
       {/* Background ambient neon glow & grid */}
-      <div className="absolute w-96 h-96 rounded-full bg-[#FE2C55]/15 blur-3xl pointer-events-none -translate-x-1/3 -translate-y-1/4" />
-      <div className="absolute w-96 h-96 rounded-full bg-[#25F4EE]/15 blur-3xl pointer-events-none translate-x-1/3 translate-y-1/4" />
+      <div className="absolute w-96 h-96 rounded-full bg-[radial-gradient(circle,_rgba(254,44,85,0.18)_0%,_transparent_70%)] pointer-events-none -translate-x-1/3 -translate-y-1/4" />
+      <div className="absolute w-96 h-96 rounded-full bg-[radial-gradient(circle,_rgba(37,244,238,0.18)_0%,_transparent_70%)] pointer-events-none translate-x-1/3 translate-y-1/4" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(37,244,238,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(37,244,238,0.03)_1px,transparent_1px)] bg-[size:2.5rem_2.5rem] pointer-events-none" />
 
       {/* Center Sci-Fi Loading Container */}
