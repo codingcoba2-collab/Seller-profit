@@ -100,6 +100,12 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
   useEffect(() => {
     loadData();
+    const unsub = StorageService.subscribe((key) => {
+      if (key === 'inventory' || key === 'all') {
+        loadData();
+      }
+    });
+    return () => unsub();
   }, [currentUser.storeId]);
 
   // Total biaya stok / batch masuk
@@ -241,9 +247,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
       if (editingId) {
-        const all = StorageService.getInventory(currentUser.storeId);
-        const updated = all.map(b => b.id === editingId ? newBall : b);
-        StorageService.saveInventory(updated);
+        StorageService.updateInventory(newBall);
         onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
       } else {
         StorageService.addInventory(newBall);

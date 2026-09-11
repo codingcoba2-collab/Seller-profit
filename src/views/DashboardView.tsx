@@ -29,10 +29,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNotify,
 }) => {
   const store = StorageService.getStoreById(currentUser.storeId);
-  const stockInfo = StorageService.calculateStock(currentUser.storeId);
-  const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
-  const hppInfo = StorageService.calculateHPP(currentUser.storeId);
-  const salesList = StorageService.getSales(currentUser.storeId);
+  const [stockInfo, setStockInfo] = useState(() => StorageService.calculateStock(currentUser.storeId));
+  const [adsCoinInfo, setAdsCoinInfo] = useState(() => StorageService.calculateAdsAndCoins(currentUser.storeId));
+  const [hppInfo, setHppInfo] = useState(() => StorageService.calculateHPP(currentUser.storeId));
+  const [salesList, setSalesList] = useState(() => StorageService.getSales(currentUser.storeId));
 
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -65,10 +65,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   useEffect(() => {
+    const refreshAll = () => {
+      setStockInfo(StorageService.calculateStock(currentUser.storeId));
+      setAdsCoinInfo(StorageService.calculateAdsAndCoins(currentUser.storeId));
+      setHppInfo(StorageService.calculateHPP(currentUser.storeId));
+      setSalesList(StorageService.getSales(currentUser.storeId));
+      setAnnouncements(StorageService.getActiveAnnouncements(currentUser.storeId));
+    };
+
     const unsub = StorageService.subscribe((event) => {
-      if (event === 'announcements' || event === 'all') {
-        setAnnouncements(StorageService.getActiveAnnouncements(currentUser.storeId));
-      }
+      refreshAll();
     });
     return () => unsub();
   }, [currentUser.storeId]);

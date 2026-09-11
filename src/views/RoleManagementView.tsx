@@ -136,6 +136,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
   useEffect(() => {
     loadData();
+    const unsub = StorageService.subscribe((key) => {
+      if (key === 'employees' || key === 'stores_and_employees' || key === 'all') {
+        loadData();
+      }
+    });
+    return () => unsub();
   }, [currentUser.storeId]);
 
   const toggleRole = (role: UserRole) => {
@@ -299,7 +305,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !username) {
       onNotify('Nama dan Username wajib diisi!', 'error');
@@ -307,8 +313,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     }
 
     const cleanUsername = username.toLowerCase().replace(/\s+/g, '');
-    if (StorageService.isUsernameTaken(cleanUsername, editingId || undefined, currentUser.storeId)) {
-      onNotify(`Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
+    const availability = await StorageService.checkUsernameAvailabilityAsync(cleanUsername, editingId || undefined);
+    if (availability.isTaken) {
+      onNotify(availability.reason || `Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
       return;
     }
 
@@ -322,28 +329,36 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       const sType = hasSeparate ? (cfg.satuanIncentiveType || 'per_pcs_sold') : (cfg.type === 'per_package_sold' ? 'per_package_sold' : 'per_pcs_sold');
       const bType = hasSeparate ? (cfg.bundlingIncentiveType || 'per_package_sold') : (cfg.type === 'per_pcs_sold' ? 'per_pcs_sold' : 'per_package_sold');
 
-      formattedIncentiveConfigs[r] = {
+      const configObj: IncentiveConfig = {
         type: cfg.type,
         rate: cfg.type === 'none' ? 0 : (hasSeparate ? sRate : fallbackRate),
-        description: cfg.description,
+        description: cfg.description || '',
         hasTierRule: Boolean(cfg.hasTierRule),
-        tierThresholdPackages: cfg.hasTierRule ? (Number(cfg.tierThresholdPackages) || 0) : undefined,
-        tierRate: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0) : undefined,
-        tierRateBundling: cfg.hasTierRule ? (Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0) : undefined,
-        tierRateSatuan: cfg.hasTierRule ? (Number(cfg.tierRateSatuan || sRate) || 0) : undefined,
         tierCalculationMode: cfg.tierCalculationMode || 'excess_only',
-        hasSeparateBundlingSatuan: r === 'host' ? hasSeparate : undefined,
-        satuanRate: r === 'host' ? sRate : undefined,
-        satuanIncentiveType: r === 'host' ? sType : undefined,
-        bundlingRate: r === 'host' ? bRate : undefined,
-        bundlingIncentiveType: r === 'host' ? bType : undefined,
       };
+
+      if (cfg.hasTierRule) {
+        configObj.tierThresholdPackages = Number(cfg.tierThresholdPackages) || 0;
+        configObj.tierRate = Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0;
+        configObj.tierRateBundling = Number(cfg.tierRateBundling || cfg.tierRate || bRate) || 0;
+        configObj.tierRateSatuan = Number(cfg.tierRateSatuan || sRate) || 0;
+      }
+
+      if (r === 'host') {
+        configObj.hasSeparateBundlingSatuan = hasSeparate;
+        configObj.satuanRate = sRate;
+        configObj.satuanIncentiveType = sType;
+        configObj.bundlingRate = bRate;
+        configObj.bundlingIncentiveType = bType;
+      }
+
+      formattedIncentiveConfigs[r] = configObj;
     });
 
     const empData: Employee = {
       id: editingId || 'emp-' + Date.now(),
       storeId: currentUser.storeId,
-      name,
+      name: name.trim(),
       username: cleanUsername,
       password: password || '123',
       roles: selectedRoles,
@@ -394,7 +409,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     });
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (formStep === 1) {
       if (!name.trim()) {
         onNotify('Nama lengkap wajib diisi!', 'error');
@@ -405,11 +420,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
         return;
       }
       const cleanUsername = username.toLowerCase().replace(/\s+/g, '');
-      if (
-        (!editingId || cleanUsername !== initialUsername.toLowerCase().replace(/\s+/g, '')) &&
-        StorageService.isUsernameTaken(cleanUsername, editingId || undefined, currentUser.storeId)
-      ) {
-        onNotify(`Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
+      const availability = await StorageService.checkUsernameAvailabilityAsync(cleanUsername, editingId || undefined);
+      if (availability.isTaken) {
+        onNotify(availability.reason || `Username "${cleanUsername}" sudah digunakan, silakan gunakan username lain!`, 'error');
         return;
       }
       setFormStep(2);
@@ -693,16 +706,25 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       className={`w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border text-white focus:border-[#25F4EE] ${
                         username.trim() &&
                         (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
-                        StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId)
+                        StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined)
                           ? 'border-[#FE2C55]'
                           : 'border-white/10'
                       }`}
                     />
                     {username.trim() &&
                       (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
-                      StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined, currentUser.storeId) && (
-                      <p className="text-[#FE2C55] text-[11px] font-bold mt-1">
-                        Username sudah digunakan, silakan pilih yang lain
+                      StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined) && (
+                      <p className="text-[#FE2C55] text-[11px] font-bold mt-1 flex items-center gap-1">
+                        <span>⚠️</span>
+                        <span>Username sudah terdaftar di sistem, silakan pilih yang lain</span>
+                      </p>
+                    )}
+                    {username.trim() &&
+                      (!editingId || username.trim().toLowerCase().replace(/\s+/g, '') !== initialUsername.trim().toLowerCase().replace(/\s+/g, '')) &&
+                      !StorageService.isUsernameTaken(username.toLowerCase().replace(/\s+/g, ''), editingId || undefined) && (
+                      <p className="text-emerald-400 text-[11px] font-bold mt-1 flex items-center gap-1">
+                        <span>✓</span>
+                        <span>Username tersedia</span>
                       </p>
                     )}
                   </div>

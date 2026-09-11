@@ -371,46 +371,80 @@ export class StorageService {
     }
   }
 
-  // Sync a single record to cloud firestore
-  private static async syncToCloud(collectionName: string, docId: string, data: any) {
-    if (!db) return;
+  // Helper to remove any undefined fields before sending to Firestore
+  public static cleanForFirestore<T>(data: T): T {
+    if (data === undefined || data === null) return data;
+    return JSON.parse(JSON.stringify(data));
+  }
+
+  // Helper to merge cloud and local lists without losing newly added local items
+  private static mergeLists<T extends { id: string }>(cloudItems: T[], localItems: T[]): T[] {
+    const map = new Map<string, T>();
+    // Seed with local items
+    (localItems || []).forEach(item => {
+      if (item && item.id) {
+        map.set(item.id, item);
+      }
+    });
+    // Cloud items take precedence and overwrite
+    (cloudItems || []).forEach(item => {
+      if (item && item.id) {
+        map.set(item.id, item);
+      }
+    });
+    return Array.from(map.values());
+  }
+
+  // Sync a single record to cloud firestore safely without undefined errors
+  public static async syncToCloud(collectionName: string, docId: string, data: any): Promise<boolean> {
+    if (!db) return false;
     try {
-      await setDoc(doc(db, collectionName, docId), data, { merge: true });
+      const cleanData = this.cleanForFirestore(data);
+      await setDoc(doc(db, collectionName, docId), cleanData, { merge: true });
+      return true;
     } catch (e) {
-      console.warn(`Cloud sync write notice for ${collectionName}:`, e);
+      console.warn(`Cloud sync write notice for ${collectionName}/${docId}:`, e);
+      return false;
     }
   }
 
   // Delete a record from cloud firestore
-  private static async deleteFromCloud(collectionName: string, docId: string) {
-    if (!db) return;
+  public static async deleteFromCloud(collectionName: string, docId: string): Promise<boolean> {
+    if (!db) return false;
     try {
       await deleteDoc(doc(db, collectionName, docId));
+      return true;
     } catch (e) {
-      console.warn(`Cloud sync delete notice for ${collectionName}:`, e);
+      console.warn(`Cloud sync delete notice for ${collectionName}/${docId}:`, e);
+      return false;
     }
   }
 
   /**
-   * Fetch all stores and employees from Firestore so that newly registered
-   * usernames/stores from any other phone are instantly available on this phone.
+   * Fetch all stores and employees from Firestore with smart merging
+   * so newly registered stores/employees from any phone persist and are available.
    */
   public static async syncStoresAndEmployeesFromCloud(): Promise<boolean> {
     if (!db) return false;
     try {
       // 1. Sync Stores
       const storesSnap = await getDocs(collection(db, 'stores'));
+      const localStores = this.getStores();
       if (!storesSnap.empty) {
         const cloudStores: StoreAccount[] = [];
         storesSnap.forEach(d => {
           cloudStores.push(d.data() as StoreAccount);
         });
-        if (cloudStores.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(cloudStores));
-        }
+        const mergedStores = this.mergeLists(cloudStores, localStores);
+        localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(mergedStores));
+        // Push any local stores missing in cloud
+        localStores.forEach(st => {
+          if (!cloudStores.some(c => c.id === st.id)) {
+            this.syncToCloud('stores', st.id, st);
+          }
+        });
       } else {
-        // Seed default store to Firestore if empty
-        const localStores = this.getStores();
+        // Seed local stores to Firestore if cloud empty
         for (const st of localStores) {
           await this.syncToCloud('stores', st.id, st);
         }
@@ -418,32 +452,39 @@ export class StorageService {
 
       // 2. Sync Employees
       const empSnap = await getDocs(collection(db, 'employees'));
+      const localEmps = this.getAllEmployeesRaw();
       if (!empSnap.empty) {
         const cloudEmployees: Employee[] = [];
         empSnap.forEach(d => {
           cloudEmployees.push(d.data() as Employee);
         });
-        if (cloudEmployees.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cloudEmployees));
-        }
+        const mergedEmps = this.mergeLists(cloudEmployees, localEmps);
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(mergedEmps));
+        // Push any local employees missing in cloud so they NEVER get deleted!
+        localEmps.forEach(emp => {
+          if (!cloudEmployees.some(c => c.id === emp.id)) {
+            this.syncToCloud('employees', emp.id, emp);
+          }
+        });
       } else {
-        // Seed default employees to Firestore if empty
-        const localEmps = this.getAllEmployeesRaw();
+        // Seed local employees to Firestore if empty
         for (const emp of localEmps) {
           await this.syncToCloud('employees', emp.id, emp);
         }
       }
 
       this.notifyListeners('stores_and_employees');
+      this.notifyListeners('employees');
+      this.notifyListeners('stores');
       return true;
     } catch (err) {
-      console.warn('Sync stores & employees failed, using local cache:', err);
+      console.warn('Sync stores & employees notice:', err);
       return false;
     }
   }
 
   /**
-   * Comprehensive fetch for all store collections
+   * Comprehensive fetch for all store collections with smart merging
    */
   public static async syncAllFromCloud(storeId?: string): Promise<boolean> {
     if (!db) return false;
@@ -453,60 +494,118 @@ export class StorageService {
 
       const currentStoreId = storeId || this.getCurrentUser()?.storeId;
       if (currentStoreId) {
-        // Sync inventory
+        // 1. Sync inventory
         const invSnap = await getDocs(collection(db, 'inventory_balls'));
+        const localInvRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+        const localInv: BallInventory[] = localInvRaw ? JSON.parse(localInvRaw) : DEFAULT_INVENTORY;
         if (!invSnap.empty) {
-          const invList: BallInventory[] = [];
-          invSnap.forEach(d => invList.push(d.data() as BallInventory));
-          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(invList));
+          const cloudInv: BallInventory[] = [];
+          invSnap.forEach(d => cloudInv.push(d.data() as BallInventory));
+          const merged = this.mergeLists(cloudInv, localInv);
+          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
+          localInv.forEach(i => {
+            if (!cloudInv.some(c => c.id === i.id)) {
+              this.syncToCloud('inventory_balls', i.id, i);
+            }
+          });
+        } else if (localInv.length > 0) {
+          localInv.forEach(i => this.syncToCloud('inventory_balls', i.id, i));
         }
 
-        // Sync attendance
+        // 2. Sync attendance
         const attSnap = await getDocs(collection(db, 'attendance'));
+        const localAttRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+        const localAtt: AttendanceRecord[] = localAttRaw ? JSON.parse(localAttRaw) : [];
         if (!attSnap.empty) {
-          const attList: AttendanceRecord[] = [];
-          attSnap.forEach(d => attList.push(d.data() as AttendanceRecord));
-          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attList));
+          const cloudAtt: AttendanceRecord[] = [];
+          attSnap.forEach(d => cloudAtt.push(d.data() as AttendanceRecord));
+          const merged = this.mergeLists(cloudAtt, localAtt);
+          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
+          localAtt.forEach(a => {
+            if (!cloudAtt.some(c => c.id === a.id)) {
+              this.syncToCloud('attendance', a.id, a);
+            }
+          });
         }
 
-        // Sync sales
+        // 3. Sync sales
         const salesSnap = await getDocs(collection(db, 'sales'));
+        const localSalesRaw = localStorage.getItem(STORAGE_KEYS.SALES);
+        const localSales: SalesRecord[] = localSalesRaw ? JSON.parse(localSalesRaw) : [];
         if (!salesSnap.empty) {
-          const salesList: SalesRecord[] = [];
-          salesSnap.forEach(d => salesList.push(d.data() as SalesRecord));
-          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(salesList));
+          const cloudSales: SalesRecord[] = [];
+          salesSnap.forEach(d => cloudSales.push(d.data() as SalesRecord));
+          const merged = this.mergeLists(cloudSales, localSales);
+          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
+          localSales.forEach(s => {
+            if (!cloudSales.some(c => c.id === s.id)) {
+              this.syncToCloud('sales', s.id, s);
+            }
+          });
         }
 
-        // Sync returns
+        // 4. Sync returns
         const returnsSnap = await getDocs(collection(db, 'returns'));
+        const localRetRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
+        const localRet: ReturnRecord[] = localRetRaw ? JSON.parse(localRetRaw) : [];
         if (!returnsSnap.empty) {
-          const returnsList: ReturnRecord[] = [];
-          returnsSnap.forEach(d => returnsList.push(d.data() as ReturnRecord));
-          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returnsList));
+          const cloudRet: ReturnRecord[] = [];
+          returnsSnap.forEach(d => cloudRet.push(d.data() as ReturnRecord));
+          const merged = this.mergeLists(cloudRet, localRet);
+          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
+          localRet.forEach(r => {
+            if (!cloudRet.some(c => c.id === r.id)) {
+              this.syncToCloud('returns', r.id, r);
+            }
+          });
         }
 
-        // Sync ads & coins
+        // 5. Sync ads & coins
         const adsSnap = await getDocs(collection(db, 'ads_coins'));
+        const localAdsRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
+        const localAds: AdsCoinDeposit[] = localAdsRaw ? JSON.parse(localAdsRaw) : [];
         if (!adsSnap.empty) {
-          const adsList: AdsCoinDeposit[] = [];
-          adsSnap.forEach(d => adsList.push(d.data() as AdsCoinDeposit));
-          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(adsList));
+          const cloudAds: AdsCoinDeposit[] = [];
+          adsSnap.forEach(d => cloudAds.push(d.data() as AdsCoinDeposit));
+          const merged = this.mergeLists(cloudAds, localAds);
+          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
+          localAds.forEach(a => {
+            if (!cloudAds.some(c => c.id === a.id)) {
+              this.syncToCloud('ads_coins', a.id, a);
+            }
+          });
         }
 
-        // Sync cashflow
+        // 6. Sync cashflow
         const cashflowSnap = await getDocs(collection(db, 'cashflow'));
+        const localCashRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+        const localCash: CashflowRecord[] = localCashRaw ? JSON.parse(localCashRaw) : [];
         if (!cashflowSnap.empty) {
-          const cashList: CashflowRecord[] = [];
-          cashflowSnap.forEach(d => cashList.push(d.data() as CashflowRecord));
-          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(cashList));
+          const cloudCash: CashflowRecord[] = [];
+          cashflowSnap.forEach(d => cloudCash.push(d.data() as CashflowRecord));
+          const merged = this.mergeLists(cloudCash, localCash);
+          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
+          localCash.forEach(c => {
+            if (!cloudCash.some(cloud => cloud.id === c.id)) {
+              this.syncToCloud('cashflow', c.id, c);
+            }
+          });
         }
 
-        // Sync steam sortir
+        // 7. Sync steam sortir
         const steamSnap = await getDocs(collection(db, 'steam_sortir'));
+        const localSteamRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+        const localSteam: SteamSortirRecord[] = localSteamRaw ? JSON.parse(localSteamRaw) : [];
         if (!steamSnap.empty) {
-          const steamList: SteamSortirRecord[] = [];
-          steamSnap.forEach(d => steamList.push(d.data() as SteamSortirRecord));
-          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(steamList));
+          const cloudSteam: SteamSortirRecord[] = [];
+          steamSnap.forEach(d => cloudSteam.push(d.data() as SteamSortirRecord));
+          const merged = this.mergeLists(cloudSteam, localSteam);
+          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
+          localSteam.forEach(s => {
+            if (!cloudSteam.some(c => c.id === s.id)) {
+              this.syncToCloud('steam_sortir', s.id, s);
+            }
+          });
         }
 
         this.notifyListeners('all');
@@ -524,113 +623,141 @@ export class StorageService {
 
   /**
    * Set up real-time Firebase Firestore listeners (onSnapshot)
-   * This automatically receives real-time updates when any phone creates or changes data.
+   * This automatically receives real-time updates when any device creates or changes data.
    */
   public static startRealtimeSync(storeId?: string): () => void {
     if (!db) return () => {};
 
-    // Clear existing listeners
+    // Clear existing listeners to prevent duplicates
     this.stopRealtimeSync();
 
     try {
       // 1. Realtime listener for Stores
       const unsubStores = onSnapshot(collection(db, 'stores'), (snapshot) => {
-        if (!snapshot.empty) {
-          const list: StoreAccount[] = [];
-          snapshot.forEach(docSnap => list.push(docSnap.data() as StoreAccount));
-          localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(list));
-          this.notifyListeners('stores');
-        }
+        const cloudStores: StoreAccount[] = [];
+        snapshot.forEach(docSnap => cloudStores.push(docSnap.data() as StoreAccount));
+        const localStores = this.getStores();
+        const merged = this.mergeLists(cloudStores, localStores);
+        localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(merged));
+        this.notifyListeners('stores');
+        this.notifyListeners('stores_and_employees');
       }, (err) => console.warn('Realtime stores listener notice:', err));
       this.activeUnsubscribes.push(unsubStores);
 
       // 2. Realtime listener for Employees
       const unsubEmployees = onSnapshot(collection(db, 'employees'), (snapshot) => {
-        if (!snapshot.empty) {
-          const list: Employee[] = [];
-          snapshot.forEach(docSnap => list.push(docSnap.data() as Employee));
-          localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(list));
-          this.notifyListeners('employees');
-        }
+        const cloudEmps: Employee[] = [];
+        snapshot.forEach(docSnap => cloudEmps.push(docSnap.data() as Employee));
+        const localEmps = this.getAllEmployeesRaw();
+        const merged = this.mergeLists(cloudEmps, localEmps);
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(merged));
+        this.notifyListeners('employees');
+        this.notifyListeners('stores_and_employees');
       }, (err) => console.warn('Realtime employees listener notice:', err));
       this.activeUnsubscribes.push(unsubEmployees);
 
       // 3. Realtime listener for Sales
       const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
-        const list: SalesRecord[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as SalesRecord));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(list));
-          this.notifyListeners('sales');
-        }
+        const cloudSales: SalesRecord[] = [];
+        snapshot.forEach(docSnap => cloudSales.push(docSnap.data() as SalesRecord));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.SALES);
+        const localSales: SalesRecord[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudSales, localSales);
+        localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
+        this.notifyListeners('sales');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime sales listener notice:', err));
       this.activeUnsubscribes.push(unsubSales);
 
       // 4. Realtime listener for Inventory
       const unsubInventory = onSnapshot(collection(db, 'inventory_balls'), (snapshot) => {
-        const list: BallInventory[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as BallInventory));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
-          this.notifyListeners('inventory');
-        }
+        const cloudInv: BallInventory[] = [];
+        snapshot.forEach(docSnap => cloudInv.push(docSnap.data() as BallInventory));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+        const localInv: BallInventory[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudInv, localInv);
+        localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
+        this.notifyListeners('inventory');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime inventory listener notice:', err));
       this.activeUnsubscribes.push(unsubInventory);
 
       // 5. Realtime listener for Attendance
       const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {
-        const list: AttendanceRecord[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as AttendanceRecord));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(list));
-          this.notifyListeners('attendance');
-        }
+        const cloudAtt: AttendanceRecord[] = [];
+        snapshot.forEach(docSnap => cloudAtt.push(docSnap.data() as AttendanceRecord));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+        const localAtt: AttendanceRecord[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudAtt, localAtt);
+        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
+        this.notifyListeners('attendance');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime attendance listener notice:', err));
       this.activeUnsubscribes.push(unsubAttendance);
 
       // 6. Realtime listener for Returns
       const unsubReturns = onSnapshot(collection(db, 'returns'), (snapshot) => {
-        const list: ReturnRecord[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as ReturnRecord));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(list));
-          this.notifyListeners('returns');
-        }
+        const cloudRet: ReturnRecord[] = [];
+        snapshot.forEach(docSnap => cloudRet.push(docSnap.data() as ReturnRecord));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
+        const localRet: ReturnRecord[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudRet, localRet);
+        localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
+        this.notifyListeners('returns');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime returns listener notice:', err));
       this.activeUnsubscribes.push(unsubReturns);
 
       // 7. Realtime listener for Ads & Coins
       const unsubAds = onSnapshot(collection(db, 'ads_coins'), (snapshot) => {
-        const list: AdsCoinDeposit[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as AdsCoinDeposit));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
-          this.notifyListeners('ads_coins');
-        }
+        const cloudAds: AdsCoinDeposit[] = [];
+        snapshot.forEach(docSnap => cloudAds.push(docSnap.data() as AdsCoinDeposit));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
+        const localAds: AdsCoinDeposit[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudAds, localAds);
+        localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
+        this.notifyListeners('ads_coins');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime ads_coins listener notice:', err));
       this.activeUnsubscribes.push(unsubAds);
 
       // 8. Realtime listener for Cashflow
       const unsubCashflow = onSnapshot(collection(db, 'cashflow'), (snapshot) => {
-        const list: CashflowRecord[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as CashflowRecord));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(list));
-          this.notifyListeners('cashflow');
-        }
+        const cloudCash: CashflowRecord[] = [];
+        snapshot.forEach(docSnap => cloudCash.push(docSnap.data() as CashflowRecord));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+        const localCash: CashflowRecord[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudCash, localCash);
+        localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
+        this.notifyListeners('cashflow');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime cashflow listener notice:', err));
       this.activeUnsubscribes.push(unsubCashflow);
 
       // 9. Realtime listener for Steam & Sortir
       const unsubSteam = onSnapshot(collection(db, 'steam_sortir'), (snapshot) => {
-        const list: SteamSortirRecord[] = [];
-        snapshot.forEach(docSnap => list.push(docSnap.data() as SteamSortirRecord));
-        if (list.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(list));
-          this.notifyListeners('steam_sortir');
-        }
+        const cloudSteam: SteamSortirRecord[] = [];
+        snapshot.forEach(docSnap => cloudSteam.push(docSnap.data() as SteamSortirRecord));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+        const localSteam: SteamSortirRecord[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudSteam, localSteam);
+        localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
+        this.notifyListeners('steam_sortir');
+        this.notifyListeners('all');
       }, (err) => console.warn('Realtime steam_sortir listener notice:', err));
       this.activeUnsubscribes.push(unsubSteam);
+
+      // 10. Realtime listener for Announcements
+      const unsubAnnounce = onSnapshot(collection(db, 'announcements'), (snapshot) => {
+        const cloudAnn: StoreAnnouncement[] = [];
+        snapshot.forEach(docSnap => cloudAnn.push(docSnap.data() as StoreAnnouncement));
+        const localRaw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+        const localAnn: StoreAnnouncement[] = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeLists(cloudAnn, localAnn);
+        localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(merged));
+        this.notifyListeners('announcements');
+      }, (err) => console.warn('Realtime announcements listener notice:', err));
+      this.activeUnsubscribes.push(unsubAnnounce);
 
     } catch (err) {
       console.warn('Setup realtime sync listeners notice:', err);
@@ -921,6 +1048,20 @@ export class StorageService {
     let all: BallInventory[] = raw ? JSON.parse(raw) : DEFAULT_INVENTORY;
     all.unshift(inv);
     this.saveInventory(all);
+    this.syncToCloud('inventory_balls', inv.id, inv);
+  }
+
+  static updateInventory(inv: BallInventory) {
+    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    let all: BallInventory[] = raw ? JSON.parse(raw) : [];
+    const idx = all.findIndex(i => i.id === inv.id);
+    if (idx !== -1) {
+      all[idx] = inv;
+    } else {
+      all.unshift(inv);
+    }
+    this.saveInventory(all);
+    this.syncToCloud('inventory_balls', inv.id, inv);
   }
 
   static deleteInventory(id: string) {
@@ -2089,29 +2230,84 @@ export class StorageService {
 
     // Check across all stores' owner usernames
     const stores = this.getStores();
-    const isOwnerTaken = stores.some(s => 
-      s.id !== excludeStoreId && 
-      s.ownerUsername.trim().toLowerCase().replace(/\s+/g, '') === cleanUsername
-    );
+    const isOwnerTaken = stores.some(s => {
+      const ownerClean = s.ownerUsername.trim().toLowerCase().replace(/\s+/g, '');
+      if (ownerClean !== cleanUsername) return false;
+      // If we are editing a store owner account, allow retaining their own username
+      if (excludeStoreId && s.id === excludeStoreId && !excludeEmployeeId) {
+        return false;
+      }
+      return true;
+    });
     if (isOwnerTaken) return true;
 
     // Check across all employees in all stores
-    let allEmployees: Employee[] = [];
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-      if (stored) {
-        allEmployees = JSON.parse(stored);
-      }
-    } catch {
-      allEmployees = [];
-    }
-
+    const allEmployees = this.getAllEmployeesRaw();
     const isEmpTaken = allEmployees.some(e => 
       e.id !== excludeEmployeeId && 
       e.username.trim().toLowerCase().replace(/\s+/g, '') === cleanUsername
     );
 
     return isEmpTaken;
+  }
+
+  /**
+   * Asynchronous validation helper that also checks Firestore directly
+   * to guarantee no cross-device duplicate username registrations can happen.
+   */
+  static async checkUsernameAvailabilityAsync(
+    username: string, 
+    excludeEmployeeId?: string, 
+    excludeStoreId?: string
+  ): Promise<{ isTaken: boolean; reason?: string }> {
+    const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
+    if (!cleanUsername) {
+      return { isTaken: false };
+    }
+
+    // 1. Check local cache
+    if (this.isUsernameTaken(cleanUsername, excludeEmployeeId, excludeStoreId)) {
+      return { 
+        isTaken: true, 
+        reason: `Username "${cleanUsername}" sudah digunakan di sistem.` 
+      };
+    }
+
+    // 2. Query Firestore live collections to detect freshly created usernames on other devices
+    if (db) {
+      try {
+        // Query employees collection
+        const empQuery = query(collection(db, 'employees'), where('username', '==', cleanUsername));
+        const empSnap = await getDocs(empQuery);
+        const hasOtherEmp = empSnap.docs.some(d => d.id !== excludeEmployeeId);
+        if (hasOtherEmp) {
+          return { 
+            isTaken: true, 
+            reason: `Username "${cleanUsername}" sudah terdaftar pada akun pegawai lain di Cloud.` 
+          };
+        }
+
+        // Query stores collection
+        const storeQuery = query(collection(db, 'stores'), where('ownerUsername', '==', cleanUsername));
+        const storeSnap = await getDocs(storeQuery);
+        const hasOtherOwner = storeSnap.docs.some(d => {
+          if (excludeStoreId && d.id === excludeStoreId && !excludeEmployeeId) {
+            return false;
+          }
+          return true;
+        });
+        if (hasOtherOwner) {
+          return { 
+            isTaken: true, 
+            reason: `Username "${cleanUsername}" sudah digunakan sebagai akun Owner Toko di Cloud.` 
+          };
+        }
+      } catch (err) {
+        console.warn('Live cloud username availability check notice:', err);
+      }
+    }
+
+    return { isTaken: false };
   }
 
   static isStoreNameTaken(storeName: string, excludeStoreId?: string): boolean {

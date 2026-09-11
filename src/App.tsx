@@ -130,13 +130,17 @@ export default function App() {
     // 1. Initialize global tactile robot click sounds on buttons
     SoundFx.initGlobalButtonSound();
 
-    // 2. 5-second initial boot sequence with sound managed by LoadingScreen
+    // 2. Start immediate cloud synchronization
+    StorageService.syncStoresAndEmployeesFromCloud();
+
+    // 3. 5-second initial boot sequence with sound managed by LoadingScreen
     const timer = setTimeout(() => {
       const user = StorageService.getCurrentUser();
       const initialPath = normalizePath(window.location.pathname);
 
       if (user) {
         setCurrentUser(user);
+        StorageService.syncAllFromCloud(user.storeId);
         if (isRouteAllowed(initialPath, user)) {
           setCurrentRoute(initialPath);
           window.history.replaceState({}, '', initialPath);
@@ -158,6 +162,12 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Realtime Firestore synchronization across all collections & devices
+  useEffect(() => {
+    const unsub = StorageService.startRealtimeSync(currentUser?.storeId);
+    return () => unsub();
+  }, [currentUser?.storeId]);
 
   // Listen to browser Back and Forward button events (popstate)
   useEffect(() => {
