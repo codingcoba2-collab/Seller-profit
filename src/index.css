@@ -707,71 +707,170 @@ body:not([data-theme-mode="light"])::before {
    ========================================================================== */
 
 @keyframes hologram-card-continuous-flicker {
-  0%, 48%, 56%, 100% {
+  0%, 100% {
     opacity: 0.98;
     transform: translateZ(0);
   }
+  2.5% {
+    opacity: 0.85;
+  }
+  4% {
+    opacity: 0.72;
+  }
+  5.5% {
+    opacity: 1;
+  }
+  7% {
+    opacity: 0.92;
+  }
+  28% {
+    opacity: 0.98;
+  }
+  30% {
+    opacity: 0.86;
+  }
+  31.5% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0.98;
+  }
   49.5% {
-    opacity: 0.82;
+    opacity: 0.78;
   }
   51% {
-    opacity: 0.72;
+    opacity: 0.65;
   }
   52.5% {
     opacity: 1;
   }
   54% {
-    opacity: 0.96;
+    opacity: 0.94;
+  }
+  75% {
+    opacity: 0.98;
+  }
+  76.5% {
+    opacity: 0.84;
+  }
+  78% {
+    opacity: 1;
+  }
+  83% {
+    opacity: 0.98;
+  }
+  84.5% {
+    opacity: 0.82;
+  }
+  86% {
+    opacity: 1;
   }
 }
 
 @keyframes neon-corner-flicker {
-  0%, 48%, 57%, 100% {
+  0%, 100% {
     opacity: 0.95;
     transform: translateZ(0);
   }
+  3% {
+    opacity: 0.3;
+  }
+  5% {
+    opacity: 1;
+  }
+  7% {
+    opacity: 0.5;
+  }
+  9% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0.92;
+  }
   50% {
-    opacity: 0.35;
+    opacity: 0.2;
   }
   52% {
     opacity: 1;
   }
   54% {
-    opacity: 0.65;
+    opacity: 0.6;
   }
-  55.5% {
+  56% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 0.92;
+  }
+  84% {
+    opacity: 0.35;
+  }
+  86% {
     opacity: 1;
   }
 }
 
 @keyframes circuit-glow-pulse {
-  0%, 48%, 57%, 100% {
-    opacity: 0.35;
+  0%, 100% {
+    opacity: 0.4;
   }
-  50% {
+  3% {
     opacity: 0.15;
   }
-  52% {
-    opacity: 0.85;
+  5% {
+    opacity: 0.95;
   }
-  54% {
+  7% {
     opacity: 0.25;
   }
-  55.5% {
+  9% {
+    opacity: 0.85;
+  }
+  25% {
+    opacity: 0.3;
+  }
+  26% {
+    opacity: 0.95;
+  }
+  28% {
+    opacity: 0.2;
+  }
+  30% {
     opacity: 0.75;
+  }
+  50% {
+    opacity: 0.2;
+  }
+  52% {
+    opacity: 1;
+  }
+  54% {
+    opacity: 0.35;
+  }
+  56% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.25;
+  }
+  81.5% {
+    opacity: 1;
+  }
+  83% {
+    opacity: 0.45;
   }
 }
 
 .spatial-card {
   position: relative;
   background: linear-gradient(135deg, rgba(22, 24, 35, 0.96) 0%, rgba(11, 12, 16, 0.98) 100%);
-  border: 1px solid rgba(37, 244, 238, 0.35);
+  border: 1.5px solid rgba(37, 244, 238, 0.45);
   box-shadow: 
     0 4px 20px -2px rgba(0, 0, 0, 0.7),
-    0 0 16px -2px rgba(37, 244, 238, 0.2),
-    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    0 0 18px -1px rgba(37, 244, 238, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
-  animation: hologram-card-continuous-flicker 8s ease-in-out infinite;
+  animation: hologram-card-continuous-flicker 4.8s ease-in-out infinite;
   transform: translateZ(0);
   contain: layout paint;
   content-visibility: auto;

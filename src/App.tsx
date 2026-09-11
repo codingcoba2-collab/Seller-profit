@@ -125,15 +125,12 @@ export default function App() {
     [currentUser, handleNotify]
   );
 
-  // Initialize store, session & URL route on mount with automatic time machine warp audio
+  // Initialize store, session & URL route on mount with 5-second loading sequence
   useEffect(() => {
     // 1. Initialize global tactile robot click sounds on buttons
     SoundFx.initGlobalButtonSound();
 
-    // 2. Play sound like entering time machine automatically upon opening app
-    SoundFx.playTimeMachineWarp();
-
-    // 3. Crisp, responsive initial boot
+    // 2. 5-second initial boot sequence with sound managed by LoadingScreen
     const timer = setTimeout(() => {
       const user = StorageService.getCurrentUser();
       const initialPath = normalizePath(window.location.pathname);
@@ -147,20 +144,17 @@ export default function App() {
           setCurrentRoute('/dashboard');
           window.history.replaceState({}, '', '/dashboard');
         }
-        // Robot welcome voice greeting in English with user name
+        // Welcome banner on dashboard (sound played during loading "saat masuk")
         const targetName = user.name || user.username || user.storeName || 'Seller';
-        setTimeout(() => {
-          SoundFx.playRobotVoiceWelcome(targetName);
-          setRobotBanner({
-            name: targetName,
-            text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
-          });
-        }, 200);
+        setRobotBanner({
+          name: targetName,
+          text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+        });
       } else {
         setCurrentRoute('/dashboard');
       }
       setIsLoading(false);
-    }, 1200);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -185,11 +179,10 @@ export default function App() {
 
   const handleLoginSuccess = (user: CurrentUser) => {
     SoundFx.unlockAudio();
+    setCurrentUser(user);
     setIsLoading(true);
-    SoundFx.playTimeMachineWarp();
 
     setTimeout(() => {
-      setCurrentUser(user);
       const currentUrlPath = normalizePath(window.location.pathname);
       const destination = isRouteAllowed(currentUrlPath, user) ? currentUrlPath : '/dashboard';
       setCurrentRoute(destination);
@@ -197,16 +190,13 @@ export default function App() {
       SoundFx.stopLoadingAudio();
       setIsLoading(false);
 
-      // Robot welcome voice greeting with user name in English
+      // Show welcome banner in dashboard (sound already played during loading "saat masuk")
       const targetName = user.name || user.username || user.storeName || 'Seller';
-      setTimeout(() => {
-        SoundFx.playRobotVoiceWelcome(targetName);
-        setRobotBanner({
-          name: targetName,
-          text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
-        });
-      }, 250);
-    }, 1000);
+      setRobotBanner({
+        name: targetName,
+        text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+      });
+    }, 5000);
   };
 
   const handleLogout = () => {
@@ -219,9 +209,17 @@ export default function App() {
     }, 250);
   };
 
-  // Loading Screen (automated sound, fast & responsive)
+  // Loading Screen (5 seconds duration with automated sound DURING entrance)
   if (isLoading) {
-    return <LoadingScreen storeName={currentUser?.storeName} durationMs={1200} />;
+    const activeUser = currentUser || StorageService.getCurrentUser();
+    const targetName = activeUser?.name || activeUser?.username || activeUser?.storeName || 'Seller';
+    return (
+      <LoadingScreen 
+        storeName={activeUser?.storeName} 
+        userName={targetName} 
+        durationMs={5000} 
+      />
+    );
   }
 
   // If not logged in, render LoginView

@@ -1,45 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 
 interface LoadingScreenProps {
   message?: string;
   storeName?: string;
+  userName?: string;
   durationMs?: number;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   message = 'Memuat Sistem Akuntansi Marketplace...',
   storeName,
-  durationMs = 4500,
+  userName,
+  durationMs = 5000,
 }) => {
   const [progress, setProgress] = useState(12);
+  const targetName = userName || storeName || 'Seller';
+  const audioElRef = React.useRef<HTMLAudioElement | null>(null);
+  const [audioSrc, setAudioSrc] = useState<string>('');
+  const hasStartedAudio = React.useRef<boolean>(false);
 
-  // Play loading telemetry audio automatically and increment progress counter
+  // 1. Fetch pre-rendered 4.8s time machine warp audio WAV Blob URL
+  useEffect(() => {
+    SoundFx.getWarpAudioUrl().then((url) => {
+      if (url) {
+        setAudioSrc(url);
+      }
+    });
+  }, []);
+
+  // 2. Play audio with maximum resilience
+  const triggerAudio = useCallback(async () => {
+    if (hasStartedAudio.current) return;
+
+    // Try HTML5 Audio element first (most resilient for autoplay policies)
+    if (audioElRef.current) {
+      try {
+        audioElRef.current.currentTime = 0;
+        await audioElRef.current.play();
+        hasStartedAudio.current = true;
+        return;
+      } catch {
+        // Autoplay may be deferred until user touch
+      }
+    }
+
+    // Try Web Audio API
+    try {
+      await SoundFx.unlockAudio();
+      SoundFx.playTimeMachineWarp(targetName);
+      hasStartedAudio.current = true;
+    } catch {}
+  }, [targetName]);
+
+  // Attempt auto-trigger immediately when audio element is rendered
+  useEffect(() => {
+    if (audioSrc && audioElRef.current && !hasStartedAudio.current) {
+      audioElRef.current.currentTime = 0;
+      audioElRef.current.play().then(() => {
+        hasStartedAudio.current = true;
+      }).catch(() => {
+        // Awaiting user gesture
+      });
+    }
+  }, [audioSrc]);
+
+  // 3. Play audio automatically on mount and attach instant gesture triggers
   useEffect(() => {
     let isStillLoading = true;
 
-    // Trigger time machine warp sound automatically
-    const startAudio = async () => {
-      await SoundFx.unlockAudio();
-      if (!isStillLoading) return;
-      SoundFx.playTimeMachineWarp();
-    };
-    startAudio();
+    // Trigger immediately
+    triggerAudio();
 
-    // Unlock on any first gesture automatically
-    const onUserInteraction = async () => {
+    // Universal gesture handler to catch any user interaction instantly
+    const onUserInteraction = () => {
       if (!isStillLoading) return;
-      await SoundFx.unlockAudio();
-      if (!isStillLoading) return;
-      SoundFx.playTimeMachineWarp();
+      triggerAudio();
     };
 
-    window.addEventListener('pointerdown', onUserInteraction, { capture: true });
+    window.addEventListener('pointerdown', onUserInteraction, { capture: true, passive: true });
     window.addEventListener('touchstart', onUserInteraction, { capture: true, passive: true });
     window.addEventListener('click', onUserInteraction, { capture: true });
     window.addEventListener('mousedown', onUserInteraction, { capture: true });
     window.addEventListener('keydown', onUserInteraction, { capture: true });
+    window.addEventListener('focus', onUserInteraction, { capture: true });
+    document.addEventListener('pointerdown', onUserInteraction, { capture: true, passive: true });
+    document.addEventListener('touchstart', onUserInteraction, { capture: true, passive: true });
 
     const startTime = performance.now();
     const interval = setInterval(() => {
@@ -47,31 +94,52 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       const pct = Math.min(100, Math.floor((elapsed / durationMs) * 100));
       setProgress(pct);
       if (pct >= 98) {
-        // Cut audio as soon as loading reaches completion
+        if (audioElRef.current) {
+          audioElRef.current.pause();
+        }
         SoundFx.stopLoadingAudio();
       }
       if (pct >= 100) {
         clearInterval(interval);
-        SoundFx.stopLoadingAudio();
       }
     }, 50);
 
     return () => {
       isStillLoading = false;
       clearInterval(interval);
+      if (audioElRef.current) {
+        audioElRef.current.pause();
+      }
       SoundFx.stopLoadingAudio();
       window.removeEventListener('pointerdown', onUserInteraction);
       window.removeEventListener('touchstart', onUserInteraction);
       window.removeEventListener('click', onUserInteraction);
       window.removeEventListener('mousedown', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
+      window.removeEventListener('focus', onUserInteraction);
+      document.removeEventListener('pointerdown', onUserInteraction);
+      document.removeEventListener('touchstart', onUserInteraction);
     };
-  }, [durationMs]);
+  }, [durationMs, triggerAudio]);
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080b] text-white px-4 select-none overflow-hidden cursor-pointer"
+      onClick={triggerAudio}
+      onPointerDown={triggerAudio}
+      onTouchStart={triggerAudio}
     >
+      {/* Invisible HTML5 audio element for instant playback */}
+      {audioSrc && (
+        <audio 
+          ref={audioElRef} 
+          src={audioSrc} 
+          autoPlay 
+          playsInline 
+          preload="auto" 
+          className="hidden" 
+        />
+      )}
       {/* Background ambient neon glow & grid */}
       <div className="absolute w-96 h-96 rounded-full bg-[radial-gradient(circle,_rgba(254,44,85,0.18)_0%,_transparent_70%)] pointer-events-none -translate-x-1/3 -translate-y-1/4" />
       <div className="absolute w-96 h-96 rounded-full bg-[radial-gradient(circle,_rgba(37,244,238,0.18)_0%,_transparent_70%)] pointer-events-none translate-x-1/3 translate-y-1/4" />

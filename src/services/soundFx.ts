@@ -8,7 +8,9 @@ class SoundFxService {
   private lastClickTime: number = 0;
   private loadingNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
   private loadingTimeouts: any[] = [];
-  private isLoadingAudioActive: boolean = false;
+  public isLoadingAudioActive: boolean = false;
+  private isWarpPlaying: boolean = false;
+  private cachedWarpUrl: string | null = null;
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -22,6 +24,282 @@ class SoundFxService {
       this.ctx.resume().catch(() => {});
     }
     return this.ctx;
+  }
+
+  /**
+   * Encodes an AudioBuffer into standard 16-bit PCM WAV Blob
+   */
+  private audioBufferToWav(buffer: AudioBuffer): Blob {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const out = new DataView(new ArrayBuffer(length));
+    const channels: Float32Array[] = [];
+    const sampleRate = buffer.sampleRate;
+    let offset = 0;
+    let pos = 0;
+
+    const setUint16 = (data: number) => {
+      out.setUint16(pos, data, true);
+      pos += 2;
+    };
+    const setUint32 = (data: number) => {
+      out.setUint32(pos, data, true);
+      pos += 4;
+    };
+
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8);
+    setUint32(0x45564157); // "WAVE"
+    setUint32(0x20746d66); // "fmt "
+    setUint32(16); // 16 for PCM
+    setUint16(1); // Linear PCM
+    setUint16(numOfChan);
+    setUint32(sampleRate);
+    setUint32(sampleRate * 2 * numOfChan);
+    setUint16(numOfChan * 2);
+    setUint16(16); // 16-bit
+    setUint32(0x61746164); // "data"
+    setUint32(length - pos - 4);
+
+    for (let i = 0; i < buffer.numberOfChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    while (pos < length) {
+      for (let i = 0; i < numOfChan; i++) {
+        let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+        out.setInt16(pos, sample, true);
+        pos += 2;
+      }
+      offset++;
+    }
+
+    return new Blob([out.buffer], { type: 'audio/wav' });
+  }
+
+  /**
+   * Synthesizes 4.8s time machine warp audio completely offline in 10ms into a WAV Blob URL.
+   * This allows HTML5 <audio autoPlay> to play immediately when opening the app.
+   */
+  public async getWarpAudioUrl(): Promise<string> {
+    if (this.cachedWarpUrl) return this.cachedWarpUrl;
+    if (typeof window === 'undefined') return '';
+
+    try {
+      const OfflineCtx = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext;
+      if (!OfflineCtx) return '';
+
+      const sampleRate = 32000;
+      const duration = 4.8;
+      const offlineCtx = new OfflineCtx(1, Math.floor(sampleRate * duration), sampleRate);
+      const now = 0;
+
+      // 1. Deep Sub-Bass Riser (Quantum Reactor Core Charging)
+      const subOsc = offlineCtx.createOscillator();
+      const subGain = offlineCtx.createGain();
+      subOsc.type = 'sawtooth';
+      subOsc.frequency.setValueAtTime(36, now);
+      subOsc.frequency.exponentialRampToValueAtTime(380, now + duration * 0.75);
+      subOsc.frequency.exponentialRampToValueAtTime(70, now + duration);
+
+      subGain.gain.setValueAtTime(0.001, now);
+      subGain.gain.linearRampToValueAtTime(0.35, now + 0.4);
+      subGain.gain.linearRampToValueAtTime(0.38, now + duration * 0.72);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      const subFilter = offlineCtx.createBiquadFilter();
+      subFilter.type = 'lowpass';
+      subFilter.frequency.setValueAtTime(70, now);
+      subFilter.frequency.exponentialRampToValueAtTime(2800, now + duration * 0.78);
+      subFilter.frequency.exponentialRampToValueAtTime(160, now + duration);
+
+      subOsc.connect(subGain);
+      subGain.connect(subFilter);
+      subFilter.connect(offlineCtx.destination);
+      subOsc.start(now);
+      subOsc.stop(now + duration);
+
+      // 2. Accelerating Temporal Chronometer Ticks
+      const tickCount = 32;
+      let tickTime = now + 0.05;
+      let tickInterval = 0.24;
+      for (let i = 0; i < tickCount; i++) {
+        const tickOsc = offlineCtx.createOscillator();
+        const tickGain = offlineCtx.createGain();
+        tickOsc.type = 'square';
+        tickOsc.frequency.setValueAtTime(720 + i * 75, tickTime);
+        tickOsc.frequency.exponentialRampToValueAtTime(2600 + i * 65, tickTime + 0.025);
+
+        tickGain.gain.setValueAtTime(0.09, tickTime);
+        tickGain.gain.exponentialRampToValueAtTime(0.001, tickTime + 0.035);
+
+        const tickFilter = offlineCtx.createBiquadFilter();
+        tickFilter.type = 'bandpass';
+        tickFilter.frequency.setValueAtTime(1200 + i * 70, tickTime);
+        tickFilter.Q.setValueAtTime(4.5, tickTime);
+
+        tickOsc.connect(tickGain);
+        tickGain.connect(tickFilter);
+        tickFilter.connect(offlineCtx.destination);
+
+        tickOsc.start(tickTime);
+        tickOsc.stop(tickTime + 0.04);
+
+        tickInterval = Math.max(0.045, tickInterval * 0.92);
+        tickTime += tickInterval;
+      }
+
+      // 3. Phased Time-Vortex Doppler Sweeper
+      const warpOsc = offlineCtx.createOscillator();
+      const warpGain = offlineCtx.createGain();
+      warpOsc.type = 'sine';
+      warpOsc.frequency.setValueAtTime(160, now);
+      warpOsc.frequency.exponentialRampToValueAtTime(1700, now + 2.2);
+      warpOsc.frequency.linearRampToValueAtTime(560, now + 3.2);
+      warpOsc.frequency.exponentialRampToValueAtTime(3400, now + duration * 0.85);
+
+      const lfo = offlineCtx.createOscillator();
+      const lfoGain = offlineCtx.createGain();
+      lfo.type = 'sawtooth';
+      lfo.frequency.setValueAtTime(8, now);
+      lfo.frequency.linearRampToValueAtTime(46, now + duration);
+      lfoGain.gain.setValueAtTime(140, now);
+      lfo.connect(warpOsc.frequency);
+
+      warpGain.gain.setValueAtTime(0.001, now);
+      warpGain.gain.linearRampToValueAtTime(0.24, now + 0.6);
+      warpGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      warpOsc.connect(warpGain);
+      warpGain.connect(offlineCtx.destination);
+
+      lfo.start(now);
+      warpOsc.start(now);
+      lfo.stop(now + duration);
+      warpOsc.stop(now + duration);
+
+      // 4. White-Noise Hyperspace Wind Whoosh
+      const bufferSize = Math.floor(sampleRate * 3.6);
+      const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = offlineCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const noiseFilter = offlineCtx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(250, now + 0.4);
+      noiseFilter.frequency.exponentialRampToValueAtTime(3800, now + 2.8);
+      noiseFilter.Q.setValueAtTime(2.2, now);
+
+      const noiseGain = offlineCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.001, now + 0.4);
+      noiseGain.gain.linearRampToValueAtTime(0.18, now + 1.8);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 4.1);
+
+      whiteNoise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(offlineCtx.destination);
+
+      whiteNoise.start(now + 0.4);
+      whiteNoise.stop(now + 4.1);
+
+      // 5. Robot AI boot notes & vocoder formants at 1.0s
+      const notes = [392, 523.25, 659.25, 783.99, 1046.50, 1318.51];
+      notes.forEach((freq, i) => {
+        const osc = offlineCtx.createOscillator();
+        const gain = offlineCtx.createGain();
+        osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, 1.0 + i * 0.06);
+
+        gain.gain.setValueAtTime(0.001, 1.0 + i * 0.06);
+        gain.gain.linearRampToValueAtTime(0.12, 1.0 + i * 0.06 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, 1.0 + i * 0.06 + 0.32);
+
+        osc.connect(gain);
+        gain.connect(offlineCtx.destination);
+
+        osc.start(1.0 + i * 0.06);
+        osc.stop(1.0 + i * 0.06 + 0.35);
+      });
+
+      // Formant syllables: "Wel-come to Sel-ler Pro-fit"
+      const formants = [
+        { f1: 530, f2: 1840, dur: 0.16, pitch: 180 },
+        { f1: 400, f2: 1200, dur: 0.18, pitch: 175 },
+        { f1: 300, f2: 870,  dur: 0.14, pitch: 165 },
+        { f1: 530, f2: 1840, dur: 0.16, pitch: 190 },
+        { f1: 450, f2: 1100, dur: 0.16, pitch: 180 },
+        { f1: 380, f2: 1900, dur: 0.18, pitch: 200 },
+        { f1: 270, f2: 2200, dur: 0.22, pitch: 160 },
+      ];
+      let sylTime = 1.0 + 0.42;
+      formants.forEach((v) => {
+        const carrier = offlineCtx.createOscillator();
+        carrier.type = 'sawtooth';
+        carrier.frequency.setValueAtTime(v.pitch, sylTime);
+
+        const bp1 = offlineCtx.createBiquadFilter();
+        bp1.type = 'bandpass';
+        bp1.frequency.setValueAtTime(v.f1, sylTime);
+        bp1.Q.setValueAtTime(6.0, sylTime);
+
+        const bp2 = offlineCtx.createBiquadFilter();
+        bp2.type = 'bandpass';
+        bp2.frequency.setValueAtTime(v.f2, sylTime);
+        bp2.Q.setValueAtTime(8.0, sylTime);
+
+        const gain1 = offlineCtx.createGain();
+        gain1.gain.setValueAtTime(0.001, sylTime);
+        gain1.gain.linearRampToValueAtTime(0.06, sylTime + 0.02);
+        gain1.gain.exponentialRampToValueAtTime(0.001, sylTime + v.dur);
+
+        const gain2 = offlineCtx.createGain();
+        gain2.gain.setValueAtTime(0.001, sylTime);
+        gain2.gain.linearRampToValueAtTime(0.04, sylTime + 0.02);
+        gain2.gain.exponentialRampToValueAtTime(0.001, sylTime + v.dur);
+
+        carrier.connect(bp1);
+        carrier.connect(bp2);
+        bp1.connect(gain1);
+        bp2.connect(gain2);
+        gain1.connect(offlineCtx.destination);
+        gain2.connect(offlineCtx.destination);
+
+        carrier.start(sylTime);
+        carrier.stop(sylTime + v.dur + 0.02);
+
+        sylTime += v.dur + 0.035;
+      });
+
+      // 6. Quantum Hyper-Jump Sonic Flash at Climax (3.9s)
+      const chordFreqs = [523.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+      chordFreqs.forEach((freq, idx) => {
+        const chordOsc = offlineCtx.createOscillator();
+        const chordGain = offlineCtx.createGain();
+        chordOsc.type = 'triangle';
+        chordOsc.frequency.setValueAtTime(freq, 3.9 + idx * 0.035);
+
+        chordGain.gain.setValueAtTime(0.12, 3.9 + idx * 0.035);
+        chordGain.gain.exponentialRampToValueAtTime(0.001, 3.9 + 0.9);
+
+        chordOsc.connect(chordGain);
+        chordGain.connect(offlineCtx.destination);
+
+        chordOsc.start(3.9 + idx * 0.035);
+        chordOsc.stop(3.9 + 0.95);
+      });
+
+      const rendered = await offlineCtx.startRendering();
+      const wav = this.audioBufferToWav(rendered);
+      this.cachedWarpUrl = URL.createObjectURL(wav);
+      return this.cachedWarpUrl;
+    } catch {
+      return '';
+    }
   }
 
   /**
@@ -162,6 +440,7 @@ class SoundFxService {
    */
   public stopLoadingAudio() {
     this.isLoadingAudioActive = false;
+    this.isWarpPlaying = false;
     this.loadingTimeouts.forEach(t => clearTimeout(t));
     this.loadingTimeouts = [];
 
@@ -289,38 +568,54 @@ class SoundFxService {
 
   /**
    * Sound effect like entering a time machine / quantum warp drive when opening app
-   * Full 4.2-second progression matching the 4.5-second loading screen
+   * Full 4.8-second progression matching the 5.0-second loading screen
+   * Plays sci-fi warp drive and robotic welcome greeting DURING loading ("saat masuk")
    */
-  public playTimeMachineWarp() {
+  public playTimeMachineWarp(targetName?: string) {
     if (this.isMuted) return;
-    this.isLoadingAudioActive = true;
     try {
       const ctx = this.getContext();
       if (!ctx) return;
+
+      // Resume audio context immediately
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
+
+        const onStateRunning = () => {
+          if (ctx.state === 'running') {
+            ctx.removeEventListener('statechange', onStateRunning);
+            if (!this.isWarpPlaying) {
+              this.playTimeMachineWarp(targetName);
+            }
+          }
+        };
+        ctx.addEventListener('statechange', onStateRunning);
       }
 
+      this.stopLoadingAudio();
+      this.isLoadingAudioActive = true;
+      this.isWarpPlaying = true;
+
       const now = ctx.currentTime;
-      const duration = 4.2; // Full 4.2 seconds cinematic time travel warp sequence
+      const duration = 4.8; // Full 4.8 seconds cinematic time travel warp sequence
 
       // 1. Deep Sub-Bass Riser (Quantum Reactor Core Charging)
       const subOsc = ctx.createOscillator();
       const subGain = ctx.createGain();
       subOsc.type = 'sawtooth';
       subOsc.frequency.setValueAtTime(36, now);
-      subOsc.frequency.exponentialRampToValueAtTime(360, now + duration * 0.72);
+      subOsc.frequency.exponentialRampToValueAtTime(380, now + duration * 0.75);
       subOsc.frequency.exponentialRampToValueAtTime(70, now + duration);
 
       subGain.gain.setValueAtTime(0.001, now);
       subGain.gain.linearRampToValueAtTime(0.35, now + 0.4);
-      subGain.gain.linearRampToValueAtTime(0.38, now + duration * 0.7);
+      subGain.gain.linearRampToValueAtTime(0.38, now + duration * 0.72);
       subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       const subFilter = ctx.createBiquadFilter();
       subFilter.type = 'lowpass';
       subFilter.frequency.setValueAtTime(70, now);
-      subFilter.frequency.exponentialRampToValueAtTime(2600, now + duration * 0.75);
+      subFilter.frequency.exponentialRampToValueAtTime(2800, now + duration * 0.78);
       subFilter.frequency.exponentialRampToValueAtTime(160, now + duration);
 
       subOsc.connect(subGain);
@@ -333,22 +628,22 @@ class SoundFxService {
 
       // 2. Accelerating Temporal Chronometer Ticks (Time Machine Reverse Pulses)
       // Rapid clockwork / tachyon pulses accelerating exponentially as you enter the wormhole
-      const tickCount = 26;
+      const tickCount = 32;
       let tickTime = now + 0.05;
-      let tickInterval = 0.22;
+      let tickInterval = 0.24;
       for (let i = 0; i < tickCount; i++) {
         const tickOsc = ctx.createOscillator();
         const tickGain = ctx.createGain();
         tickOsc.type = 'square';
-        tickOsc.frequency.setValueAtTime(750 + i * 85, tickTime);
-        tickOsc.frequency.exponentialRampToValueAtTime(2600 + i * 70, tickTime + 0.025);
+        tickOsc.frequency.setValueAtTime(720 + i * 75, tickTime);
+        tickOsc.frequency.exponentialRampToValueAtTime(2600 + i * 65, tickTime + 0.025);
 
         tickGain.gain.setValueAtTime(0.09, tickTime);
         tickGain.gain.exponentialRampToValueAtTime(0.001, tickTime + 0.035);
 
         const tickFilter = ctx.createBiquadFilter();
         tickFilter.type = 'bandpass';
-        tickFilter.frequency.setValueAtTime(1300 + i * 80, tickTime);
+        tickFilter.frequency.setValueAtTime(1200 + i * 70, tickTime);
         tickFilter.Q.setValueAtTime(4.5, tickTime);
 
         tickOsc.connect(tickGain);
@@ -359,7 +654,7 @@ class SoundFxService {
         tickOsc.stop(tickTime + 0.04);
         this.loadingNodes.push({ osc: tickOsc, gain: tickGain });
 
-        tickInterval = Math.max(0.04, tickInterval * 0.91);
+        tickInterval = Math.max(0.045, tickInterval * 0.92);
         tickTime += tickInterval;
       }
 
@@ -368,16 +663,16 @@ class SoundFxService {
       const warpGain = ctx.createGain();
       warpOsc.type = 'sine';
       warpOsc.frequency.setValueAtTime(160, now);
-      warpOsc.frequency.exponentialRampToValueAtTime(1600, now + 1.8);
-      warpOsc.frequency.linearRampToValueAtTime(520, now + 2.7);
-      warpOsc.frequency.exponentialRampToValueAtTime(3200, now + duration * 0.85);
+      warpOsc.frequency.exponentialRampToValueAtTime(1700, now + 2.2);
+      warpOsc.frequency.linearRampToValueAtTime(560, now + 3.2);
+      warpOsc.frequency.exponentialRampToValueAtTime(3400, now + duration * 0.85);
 
       // Fast LFO Tremolo / Phase distortion for time machine vortex
       const lfo = ctx.createOscillator();
       const lfoGain = ctx.createGain();
       lfo.type = 'sawtooth';
       lfo.frequency.setValueAtTime(8, now);
-      lfo.frequency.linearRampToValueAtTime(42, now + duration);
+      lfo.frequency.linearRampToValueAtTime(46, now + duration);
       lfoGain.gain.setValueAtTime(140, now);
       lfo.connect(warpOsc.frequency);
 
@@ -396,7 +691,7 @@ class SoundFxService {
       this.loadingNodes.push({ osc: lfo, gain: lfoGain });
 
       // 4. White-Noise Hyperspace Wind Whoosh
-      const bufferSize = Math.floor(ctx.sampleRate * 2.8);
+      const bufferSize = Math.floor(ctx.sampleRate * 3.6);
       const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
@@ -408,22 +703,32 @@ class SoundFxService {
       const noiseFilter = ctx.createBiquadFilter();
       noiseFilter.type = 'bandpass';
       noiseFilter.frequency.setValueAtTime(250, now + 0.4);
-      noiseFilter.frequency.exponentialRampToValueAtTime(3800, now + 2.4);
+      noiseFilter.frequency.exponentialRampToValueAtTime(3800, now + 2.8);
       noiseFilter.Q.setValueAtTime(2.2, now);
 
       const noiseGain = ctx.createGain();
       noiseGain.gain.setValueAtTime(0.001, now + 0.4);
-      noiseGain.gain.linearRampToValueAtTime(0.18, now + 1.6);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 3.4);
+      noiseGain.gain.linearRampToValueAtTime(0.18, now + 1.8);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 4.1);
 
       whiteNoise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
       noiseGain.connect(ctx.destination);
 
       whiteNoise.start(now + 0.4);
-      whiteNoise.stop(now + 3.4);
+      whiteNoise.stop(now + 4.1);
 
-      // 5. Quantum Hyper-Jump Sonic Flash at Climax (3.4s)
+      // 5. Robotic Voice Greeting & Vocoder Chimes during loading ("Saat Masuk" at 1.0s)
+      const greetingTimeout = window.setTimeout(() => {
+        if (!this.isLoadingAudioActive) return;
+        try {
+          const nameToGreet = targetName || 'Seller';
+          this.playRobotVoiceWelcome(nameToGreet);
+        } catch {}
+      }, 1000);
+      this.loadingTimeouts.push(greetingTimeout);
+
+      // 6. Quantum Hyper-Jump Sonic Flash at Climax (3.9s)
       const chordTimeout = window.setTimeout(() => {
         if (!this.isLoadingAudioActive) return;
         try {
@@ -439,17 +744,17 @@ class SoundFxService {
             chordOsc.frequency.setValueAtTime(freq, pNow + idx * 0.035);
 
             chordGain.gain.setValueAtTime(0.12, pNow + idx * 0.035);
-            chordGain.gain.exponentialRampToValueAtTime(0.001, pNow + 0.9);
+            chordGain.gain.exponentialRampToValueAtTime(0.001, pNow + 0.95);
 
             chordOsc.connect(chordGain);
             chordGain.connect(pCtx.destination);
 
             chordOsc.start(pNow + idx * 0.035);
-            chordOsc.stop(pNow + 0.95);
+            chordOsc.stop(pNow + 1.0);
             this.loadingNodes.push({ osc: chordOsc, gain: chordGain });
           });
         } catch {}
-      }, 3400);
+      }, 3900);
       this.loadingTimeouts.push(chordTimeout);
 
     } catch {
