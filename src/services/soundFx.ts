@@ -567,6 +567,72 @@ class SoundFxService {
   }
 
   /**
+   * Affirmative sci-fi chime for successful operations & unlocked states
+   */
+  public playSuccessSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const now = ctx.currentTime;
+
+      // Two-tone rising harmonic chime (523Hz -> 784Hz)
+      const freqs = [523.25, 783.99];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+
+        gain.gain.setValueAtTime(0.001, now + i * 0.08);
+        gain.gain.linearRampToValueAtTime(0.12, now + i * 0.08 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.24);
+      });
+    } catch {}
+  }
+
+  /**
+   * Sci-fi error / buzz sound when access is denied or operation fails
+   */
+  public playRobotErrorSound() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const now = ctx.currentTime;
+
+      // Dual buzz reject tone (220Hz -> 160Hz)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.linearRampToValueAtTime(160, now + 0.18);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, now);
+
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.24);
+    } catch {}
+  }
+
+  /**
    * Sound effect like entering a time machine / quantum warp drive when opening app
    * Full 4.8-second progression matching the 5.0-second loading screen
    * Plays sci-fi warp drive and robotic welcome greeting DURING loading ("saat masuk")
@@ -577,19 +643,27 @@ class SoundFxService {
       const ctx = this.getContext();
       if (!ctx) return;
 
-      // Resume audio context immediately
+      // If AudioContext is suspended by browser autoplay policy, wait for user gesture to resume and start fresh
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
 
-        const onStateRunning = () => {
-          if (ctx.state === 'running') {
-            ctx.removeEventListener('statechange', onStateRunning);
-            if (!this.isWarpPlaying) {
+        const onUserGestureUnlock = () => {
+          window.removeEventListener('pointerdown', onUserGestureUnlock);
+          window.removeEventListener('touchstart', onUserGestureUnlock);
+          window.removeEventListener('click', onUserGestureUnlock);
+          window.removeEventListener('keydown', onUserGestureUnlock);
+          if (this.ctx && this.ctx.state !== 'closed') {
+            this.ctx.resume().then(() => {
               this.playTimeMachineWarp(targetName);
-            }
+            }).catch(() => {});
           }
         };
-        ctx.addEventListener('statechange', onStateRunning);
+
+        window.addEventListener('pointerdown', onUserGestureUnlock, { capture: true, passive: true });
+        window.addEventListener('touchstart', onUserGestureUnlock, { capture: true, passive: true });
+        window.addEventListener('click', onUserGestureUnlock, { capture: true });
+        window.addEventListener('keydown', onUserGestureUnlock, { capture: true });
+        return;
       }
 
       this.stopLoadingAudio();

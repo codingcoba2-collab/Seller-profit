@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'host' | 'admin_toko' | 'sortir' | 'steam';
+export type UserRole = 'owner' | 'manager' | 'investor' | 'host' | 'admin_toko' | 'sortir' | 'steam';
 
 export type SalaryType = 'hourly' | 'daily';
 
@@ -98,6 +98,7 @@ export interface StoreAccount {
     returnMechanism: 'estimate' | 'detail';
     estimateReturnPercentage: number; // e.g. 5
     averagePackingCost?: number; // e.g. 1500
+    initialCapitalInvested?: number; // Target total modal investasi awal toko
     channelFees?: ChannelFeeConfig[];
   };
 }

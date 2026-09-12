@@ -62,6 +62,8 @@ export const getTodayString = (): string => {
 
 export const roleLabels: Record<string, string> = {
   owner: 'Owner Toko',
+  manager: 'Manager Toko',
+  investor: 'Investor',
   host: 'Host Live',
   admin_toko: 'Admin Toko',
   sortir: 'Sortir',
@@ -72,9 +74,11 @@ export const roleLabels: Record<string, string> = {
 
 export const roleBadgeColors: Record<string, string> = {
   owner: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  manager: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  investor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   host: 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/30',
   admin_toko: 'bg-[#25F4EE]/15 text-[#25F4EE] border-[#25F4EE]/30',
-  sortir: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  sortir: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
   steam: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
   multi_role: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
 };

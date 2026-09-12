@@ -10,7 +10,10 @@ import {
   Sparkles,
   Wallet,
   Coins,
-  Package
+  Package,
+  CheckCircle2,
+  ShieldCheck,
+  Target
 } from 'lucide-react';
 
 interface LabaBersihViewProps {
@@ -128,6 +131,10 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     };
   }, [inventory, sales, returns, cashflows, attendance, employees, store, period, selectedDate, currentUser.storeId]);
 
+  const roi = useMemo(() => {
+    return StorageService.calculateReturnOnInvestment(currentUser.storeId);
+  }, [currentUser.storeId, inventory, sales, returns, cashflows, store]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* Filter Periode */}
@@ -185,6 +192,96 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             <div className="text-[11px] text-zinc-400 pt-2 border-t border-white/10">
               Dari Omzet Kotor: <strong className="text-white">{formatRupiah(report.totalOmzetKotor)}</strong>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sisa Balik Modal (ROI & BEP Toko) */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+              <Target className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <span>Perhitungan Sisa Balik Modal Toko</span>
+                {roi.isBreakEven ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    BEP Tercapai 100%
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    Proses Balik Modal
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Evaluasi total modal investasi toko vs akumulasi laba bersih yang sudah dihasilkan.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[11px] text-zinc-400 block font-semibold">Sisa Belum Balik Modal:</span>
+            <span className={`text-xl sm:text-2xl font-black tracking-tight ${roi.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {formatRupiah(roi.sisaBalikModal)}
+            </span>
+          </div>
+        </div>
+
+        {/* Progress Bar Balik Modal */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="text-zinc-300">
+              Progress Balik Modal: <strong className="text-[#25F4EE]">{roi.progressPercentage}%</strong>
+            </span>
+            <span className="text-zinc-400">
+              Total Investasi: <strong className="text-white">{formatRupiah(roi.totalModalInvestasi)}</strong>
+            </span>
+          </div>
+          <div className="w-full h-3.5 rounded-full bg-[#0b0c10] border border-white/10 overflow-hidden p-0.5">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${
+                roi.isBreakEven 
+                  ? 'bg-gradient-to-r from-emerald-500 to-[#25F4EE]' 
+                  : 'bg-gradient-to-r from-amber-500 to-[#25F4EE]'
+              }`}
+              style={{ width: `${Math.max(3, roi.progressPercentage)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 4 Detail Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
+            <span className="text-[11px] text-zinc-400 block">Total Modal Masuk</span>
+            <span className="text-sm font-black text-white">{formatRupiah(roi.totalModalInvestasi)}</span>
+            <span className="text-[10px] text-zinc-500 block">
+              {roi.modalSumber === 'pengaturan' ? 'Modal Tetap Awal' : 'Dari Stok Ball Pakaian'}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
+            <span className="text-[11px] text-zinc-400 block">Akumulasi Net Profit</span>
+            <span className={`text-sm font-black ${roi.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+              {formatRupiah(roi.totalNetProfit)}
+            </span>
+            <span className="text-[10px] text-zinc-500 block">Semua waktu (All-Time)</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
+            <span className="text-[11px] text-zinc-400 block">Sisa Modal Tersisa</span>
+            <span className="text-sm font-black text-amber-400">{formatRupiah(roi.sisaBalikModal)}</span>
+            <span className="text-[10px] text-zinc-500 block">
+              {roi.isBreakEven ? 'Sudah Lunas' : `${100 - roi.progressPercentage}% lagi ke BEP`}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
+            <span className="text-[11px] text-zinc-400 block">Surplus Profit (Setelah BEP)</span>
+            <span className="text-sm font-black text-emerald-400">{formatRupiah(roi.surplusProfit)}</span>
+            <span className="text-[10px] text-zinc-500 block">Profit murni di atas modal</span>
           </div>
         </div>
       </div>

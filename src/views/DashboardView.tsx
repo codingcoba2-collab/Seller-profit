@@ -5,16 +5,18 @@ import { formatRupiah, formatNumber } from '../utils/formatters';
 import { CATEGORIES, RoutePath } from '../services/navigation';
 import {
   TrendingUp,
+  Wallet,
   Coins,
   Megaphone,
   Package,
   Layers,
   Flame,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { RunningTextBanner } from '../components/RunningTextBanner';
 import { NeonCorners } from '../components/NeonCorners';
-import { FirestoreUsageMonitor } from '../components/FirestoreUsageMonitor';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -34,6 +36,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [adsCoinInfo, setAdsCoinInfo] = useState(() => StorageService.calculateAdsAndCoins(currentUser.storeId));
   const [hppInfo, setHppInfo] = useState(() => StorageService.calculateHPP(currentUser.storeId));
   const [salesList, setSalesList] = useState(() => StorageService.getSales(currentUser.storeId));
+  const [roiInfo, setRoiInfo] = useState(() => StorageService.calculateReturnOnInvestment(currentUser.storeId));
 
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -71,6 +74,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setAdsCoinInfo(StorageService.calculateAdsAndCoins(currentUser.storeId));
       setHppInfo(StorageService.calculateHPP(currentUser.storeId));
       setSalesList(StorageService.getSales(currentUser.storeId));
+      setRoiInfo(StorageService.calculateReturnOnInvestment(currentUser.storeId));
       setAnnouncements(StorageService.getActiveAnnouncements(currentUser.storeId));
     };
 
@@ -184,52 +188,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Sisa Saldo Iklan - Variasi Kabel Ujung Atas Cyan */}
+        {/* Card 4: Net Profit (Laba Bersih Toko) - Variasi Kabel Ujung Atas Cyan */}
         <div 
-          id="card-stat-sisa-saldo-iklan"
-          onClick={() => onNavigate('/persiapan/saldo-iklan')}
+          id="card-stat-net-profit"
+          onClick={() => onNavigate('/keuangan/laba-bersih')}
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="corner-top-left" color="cyan" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Sisa Saldo Iklan
+              Net Profit Toko
             </span>
             <div className="w-6 h-6 rounded-lg bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] shrink-0">
-              <Megaphone className="w-3.5 h-3.5" />
+              <Sparkles className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="relative z-10">
-            <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
-              {formatRupiah(adsCoinInfo.remainingAds)}
+            <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+              {formatRupiah(roiInfo.totalNetProfit)}
             </div>
             <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              Terpakai: {formatRupiah(adsCoinInfo.totalAdsUsed)}
+              Margin: <strong className="text-white">{roiInfo.totalOmzetKotor > 0 ? ((roiInfo.totalNetProfit / roiInfo.totalOmzetKotor) * 100).toFixed(1) : '0'}%</strong> | Omzet: {formatRupiah(roiInfo.totalOmzetKotor)}
             </div>
           </div>
         </div>
 
-        {/* Card 5: Sisa Saldo Koin - Variasi Kabel Samping Amber */}
+        {/* Card 5: Sisa Balik Modal (BEP) - Variasi Kabel Samping Amber */}
         <div 
-          id="card-stat-sisa-saldo-koin"
-          onClick={() => onNavigate('/persiapan/saldo-iklan')}
+          id="card-stat-sisa-balik-modal"
+          onClick={() => onNavigate('/keuangan/laba-bersih')}
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
         >
           <NeonCorners variant="side-left" color="amber" />
           <div className="flex items-center justify-between gap-1 relative z-10">
             <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Sisa Saldo Koin
+              Sisa Balik Modal
             </span>
             <div className="w-6 h-6 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
-              <Coins className="w-3.5 h-3.5" />
+              <Wallet className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="relative z-10">
-            <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
-              {formatRupiah(adsCoinInfo.remainingCoin)}
+            <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {formatRupiah(roiInfo.sisaBalikModal)}
             </div>
             <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              Terpakai: {formatRupiah(adsCoinInfo.totalCoinUsed)}
+              {roiInfo.isBreakEven ? (
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 inline" /> Lunas (BEP 100%)
+                </span>
+              ) : (
+                <span>
+                  <strong className="text-amber-300">{roiInfo.progressPercentage}%</strong> Balik (Modal: {formatRupiah(roiInfo.totalModalInvestasi)})
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -283,28 +295,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             );
           })}
         </div>
-      </div>
-
-      {/* 4. DEVELOPER FIRESTORE USAGE MONITOR (BAR PROSES DATA TERSIMPAN & BACA HARI INI) */}
-      <div className="space-y-2.5 pt-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
-            Developer: Status & Kapasitas Database Firestore
-          </h3>
-          <button
-            type="button"
-            onClick={() => onNavigate('/informasi/developer')}
-            className="text-xs text-[#25F4EE] hover:underline font-bold cursor-pointer"
-          >
-            Buka Layar Penuh →
-          </button>
-        </div>
-
-        <FirestoreUsageMonitor 
-          onNotify={onNotify} 
-          compact={false}
-          onOpenFullView={() => onNavigate('/informasi/developer')} 
-        />
       </div>
 
       {/* Theme Selector Modal */}

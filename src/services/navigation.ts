@@ -120,7 +120,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'HPP & Stok',
         icon: Package,
         iconColor: 'text-emerald-400',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager', 'investor'],
       },
       {
         path: '/persiapan/sortir-qc',
@@ -129,7 +129,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Sortir & QC',
         icon: Scissors,
         iconColor: 'text-teal-400',
-        allowedRoles: ['owner', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'sortir', 'steam'],
       },
       {
         path: '/persiapan/biaya-admin',
@@ -138,7 +138,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Biaya Channel',
         icon: Settings,
         iconColor: 'text-sky-400',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager'],
       },
       {
         path: '/persiapan/saldo-iklan',
@@ -147,7 +147,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Iklan & Promo',
         icon: Coins,
         iconColor: 'text-amber-400',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager'],
       },
     ],
   },
@@ -171,7 +171,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Presensi Tim',
         icon: Clock,
         iconColor: 'text-blue-400',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
       {
@@ -181,7 +181,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Input Order',
         icon: TrendingUp,
         iconColor: 'text-[#FE2C55]',
-        allowedRoles: ['owner', 'admin_toko'],
+        allowedRoles: ['owner', 'manager', 'admin_toko'],
       },
       {
         path: '/penjualan/statistik',
@@ -190,7 +190,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Analisis Tren',
         icon: BarChart3,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
       {
@@ -200,7 +200,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Retur Paket',
         icon: RotateCcw,
         iconColor: 'text-rose-400',
-        allowedRoles: ['owner', 'admin_toko'],
+        allowedRoles: ['owner', 'manager', 'admin_toko'],
       },
       {
         path: '/penjualan/laba-rugi',
@@ -209,7 +209,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Laba per Sesi',
         icon: PieChart,
         iconColor: 'text-violet-400',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager', 'investor'],
       },
       {
         path: '/penjualan/performa',
@@ -218,7 +218,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Evaluasi AI',
         icon: Award,
         iconColor: 'text-amber-400',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
       {
@@ -228,7 +228,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'AI Bundling',
         icon: Calculator,
         iconColor: 'text-emerald-400',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
     ],
@@ -253,7 +253,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Payroll Tim',
         icon: Receipt,
         iconColor: 'text-cyan-400',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
       {
@@ -263,7 +263,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Arus Kas Toko',
         icon: Wallet,
         iconColor: 'text-emerald-400',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager', 'investor'],
       },
       {
         path: '/keuangan/laba-bersih',
@@ -272,7 +272,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Laba Bersih',
         icon: Calculator,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager', 'investor'],
       },
       {
         path: '/keuangan/pribadi',
@@ -466,7 +466,10 @@ export function viewStateToPath(view: ViewState): RoutePath {
 export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   if (user.isOwner) return true;
 
-  // Live chat in information sub-menu is strictly reserved for the owner
+  const isManager = user.roles?.includes('manager');
+  const isInvestor = user.roles?.includes('investor');
+
+  // Live chat and developer monitor are strictly reserved for the owner
   if (route === '/informasi/live-chat' || route === '/informasi/developer' || route === '/developer') {
     return user.isOwner;
   }
@@ -481,18 +484,25 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   }
 
   // Persiapan
-  if (route === '/persiapan/manajemen-pegawai' ||
-      route === '/persiapan/modal-stok' ||
-      route === '/persiapan/biaya-admin' ||
+  if (route === '/persiapan/manajemen-pegawai') {
+    return user.isOwner;
+  }
+
+  // Modal & Stok (HPP) viewable by Owner, Manager, and Investor (read-only)
+  if (route === '/persiapan/modal-stok') {
+    return user.isOwner || isManager || isInvestor;
+  }
+
+  if (route === '/persiapan/biaya-admin' ||
       route === '/persiapan/saldo-iklan' ||
       route === '/topup-saldo' ||
       route === '/topup-saldo/input' ||
       route === '/topup-saldo/riwayat') {
-    return user.isOwner;
+    return user.isOwner || isManager;
   }
 
   if (route === '/persiapan/sortir-qc') {
-    return user.isOwner || user.roles.includes('sortir') || user.roles.includes('steam');
+    return user.isOwner || isManager || user.roles.includes('sortir') || user.roles.includes('steam');
   }
 
   // Penjualan
@@ -501,11 +511,11 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   }
 
   if (route === '/penjualan/transaksi' || route === '/penjualan/retur') {
-    return user.isOwner || user.roles.includes('admin_toko');
+    return user.isOwner || isManager || user.roles.includes('admin_toko');
   }
 
   if (route === '/penjualan/laba-rugi') {
-    return user.isOwner;
+    return user.isOwner || isManager || isInvestor;
   }
 
   // Keuangan
@@ -513,7 +523,11 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
     return true;
   }
 
-  if (route === '/keuangan/cashflow' || route === '/keuangan/laba-bersih' || route === '/keuangan/pribadi') {
+  if (route === '/keuangan/cashflow' || route === '/keuangan/laba-bersih') {
+    return user.isOwner || isManager || isInvestor;
+  }
+
+  if (route === '/keuangan/pribadi') {
     return user.isOwner;
   }
 

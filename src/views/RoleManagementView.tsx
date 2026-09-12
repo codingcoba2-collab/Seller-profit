@@ -26,7 +26,7 @@ interface RoleManagementViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const ALL_ROLES: UserRole[] = ['owner', 'host', 'admin_toko', 'sortir', 'steam'];
+const ALL_ROLES: UserRole[] = ['owner', 'manager', 'investor', 'host', 'admin_toko', 'sortir', 'steam'];
 
 export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   currentUser,
@@ -766,6 +766,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     const isChecked = selectedRoles.includes(role);
                     const descriptions: { [key in UserRole]: string } = {
                       owner: 'Akses penuh seluruh data finansial, modal, dan konfigurasi sistem',
+                      manager: 'Operasional toko, manajemen stok, transaksi, presensi & laporan laba',
+                      investor: 'Akses pantau performa finansial: dashboard, laba rugi, cashflow & bagi hasil (read-only)',
                       host: 'Mencatat sesi live streaming, penjualan per sesi, dan komisi live',
                       admin_toko: 'Pencatatan pesanan harian, status packing, dan operasional toko',
                       sortir: 'Pencatatan sortir ball pakaian baru dan grading kualitas',

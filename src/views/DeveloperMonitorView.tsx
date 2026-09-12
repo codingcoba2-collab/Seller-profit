@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   Database, 
@@ -11,6 +11,10 @@ import {
   Layers,
   Zap,
   Lock,
+  Unlock,
+  KeyRound,
+  Eye,
+  EyeOff,
   Cpu
 } from 'lucide-react';
 import { CurrentUser } from '../types';
@@ -24,11 +28,115 @@ interface DeveloperMonitorViewProps {
   onNotify?: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
+const DEVELOPER_PASSCODE = 'Qwertypoiuy1';
+
 export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
   currentUser,
   onBackToDashboard,
   onNotify,
 }) => {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput.trim() === DEVELOPER_PASSCODE) {
+      SoundFx.playSuccessSound();
+      setIsUnlocked(true);
+      setErrorMessage('');
+      onNotify?.('Akses Developer & Telemetri Firebase Berhasil Dibuka.', 'success');
+    } else {
+      SoundFx.playRobotErrorSound();
+      setErrorMessage('Password developer salah. Akses ditolak.');
+      onNotify?.('Password developer salah.', 'error');
+    }
+  };
+
+  // If locked, render developer password challenge screen
+  if (!isUnlocked) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-12 space-y-6 text-white font-sans">
+        <button
+          type="button"
+          onClick={() => {
+            SoundFx.playRobotButtonClick();
+            onBackToDashboard();
+          }}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <span>Kembali ke Beranda</span>
+        </button>
+
+        <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] border border-amber-500/30 shadow-2xl space-y-5 text-center relative overflow-hidden">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 mx-auto flex items-center justify-center text-amber-400 shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1">
+            <h2 className="text-xl font-black text-white tracking-tight">
+              Akses Developer Terkunci
+            </h2>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+              Monitoring status kuota dan telemetri Google Cloud Firestore dilindungi password master developer.
+            </p>
+          </div>
+
+          <form onSubmit={handleUnlock} className="space-y-4 text-left">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-300 block">
+                Password Developer
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  placeholder="Masukkan password developer..."
+                  className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[#0b0c10] border border-white/15 focus:border-amber-400 focus:outline-hidden text-sm text-white placeholder-zinc-500"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-white transition cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {errorMessage && (
+                <p className="text-xs text-[#FE2C55] font-bold mt-1">
+                  {errorMessage}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-black text-sm transition shadow-lg cursor-pointer active:scale-98 flex items-center justify-center gap-2"
+            >
+              <Unlock className="w-4 h-4" />
+              <span>Buka Akses Developer</span>
+            </button>
+          </form>
+
+          <div className="pt-3 border-t border-white/10 text-[11px] text-zinc-500">
+            Hanya developer berwenang yang dapat mengakses halaman ini.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6 text-white font-sans overflow-x-hidden">
       {/* View Header */}

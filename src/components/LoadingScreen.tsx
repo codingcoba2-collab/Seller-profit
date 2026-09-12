@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal, Volume2 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 
 interface LoadingScreenProps {
@@ -17,9 +17,10 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 }) => {
   const [progress, setProgress] = useState(12);
   const targetName = userName || storeName || 'Seller';
-  const audioElRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const [audioSrc, setAudioSrc] = useState<string>('');
-  const hasStartedAudio = React.useRef<boolean>(false);
+  const [audioStarted, setAudioStarted] = useState<boolean>(false);
+  const hasStartedAudio = useRef<boolean>(false);
 
   // 1. Fetch pre-rendered 4.8s time machine warp audio WAV Blob URL
   useEffect(() => {
@@ -30,29 +31,26 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     });
   }, []);
 
-  // 2. Play audio with maximum resilience
+  // 2. Play audio with maximum resilience & immediate start
   const triggerAudio = useCallback(async () => {
     if (hasStartedAudio.current) return;
+    hasStartedAudio.current = true;
+    setAudioStarted(true);
 
-    // Try HTML5 Audio element first (most resilient for autoplay policies)
-    if (audioElRef.current) {
-      try {
-        audioElRef.current.currentTime = 0;
-        await audioElRef.current.play();
-        hasStartedAudio.current = true;
-        return;
-      } catch {
-        // Autoplay may be deferred until user touch
-      }
-    }
-
-    // Try Web Audio API
+    // Direct Web Audio generation (zero asset latency, plays immediately SAAT masuk)
     try {
       await SoundFx.unlockAudio();
       SoundFx.playTimeMachineWarp(targetName);
-      hasStartedAudio.current = true;
     } catch {}
-  }, [targetName]);
+
+    // Also trigger HTML5 Audio element if available
+    if (audioElRef.current && audioSrc) {
+      try {
+        audioElRef.current.currentTime = 0;
+        await audioElRef.current.play();
+      } catch {}
+    }
+  }, [targetName, audioSrc]);
 
   // Attempt auto-trigger immediately when audio element is rendered
   useEffect(() => {
@@ -60,6 +58,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       audioElRef.current.currentTime = 0;
       audioElRef.current.play().then(() => {
         hasStartedAudio.current = true;
+        setAudioStarted(true);
       }).catch(() => {
         // Awaiting user gesture
       });
@@ -70,7 +69,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   useEffect(() => {
     let isStillLoading = true;
 
-    // Trigger immediately
+    // Trigger immediately SAAT masuk
     triggerAudio();
 
     // Universal gesture handler to catch any user interaction instantly
@@ -255,14 +254,36 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             {[40, 75, 100, 60, 90, 45, 80, 55, 95, 70, 85, 50].map((h, i) => (
               <span
                 key={i}
-                className="w-1 rounded-full bg-[#25F4EE]/70 animate-pulse"
+                className={`w-1 rounded-full ${audioStarted ? 'bg-[#25F4EE]' : 'bg-zinc-600'} transition-all`}
                 style={{
-                  height: `${Math.max(4, Math.round((h * (progress / 100)) * 0.16))}px`,
-                  animationDelay: `${i * 80}ms`,
-                  animationDuration: '600ms',
+                  height: `${Math.max(4, Math.round((h * (progress / 100)) * (audioStarted ? 0.22 : 0.08)))}px`,
+                  animation: audioStarted ? 'pulse 0.4s infinite alternate' : 'none',
+                  animationDelay: `${i * 60}ms`,
                 }}
               />
             ))}
+          </div>
+
+          {/* Audio Status & Interactive Unlock Indicator */}
+          <div className="pt-1 flex items-center justify-center">
+            {audioStarted ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono tracking-wide">
+                <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                <span>SUARA MASUK AKTIF</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerAudio();
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#25F4EE]/20 hover:bg-[#25F4EE]/30 border border-[#25F4EE]/50 text-[#25F4EE] text-xs font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 animate-pulse cursor-pointer shadow-[0_0_15px_rgba(37,244,238,0.3)]"
+              >
+                <Volume2 className="w-3.5 h-3.5 animate-bounce" />
+                <span>SENTUH UNTUK SUARA</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -2254,6 +2254,102 @@ export class StorageService {
   }
 
   /**
+   * Perhitungan Sisa Balik Modal (Return on Investment / Break Even Point Toko)
+   * Menghitung total modal yang diinvestasikan, total laba bersih yang terkumpul,
+   * sisa modal yang belum kembali, dan persentase pencapaian balik modal.
+   */
+  static calculateReturnOnInvestment(storeId: string): {
+    totalModalInvestasi: number;
+    modalSumber: 'pengaturan' | 'stok_ball';
+    totalOmzetKotor: number;
+    totalNetProfit: number;
+    sisaBalikModal: number;
+    surplusProfit: number;
+    progressPercentage: number;
+    isBreakEven: boolean;
+    totalPcsTerjual: number;
+    totalPaketTerjual: number;
+    averageHpp: number;
+  } {
+    const store = this.getStoreById(storeId);
+    const inventory = this.getInventory(storeId);
+    const sales = this.getSales(storeId);
+    const returns = this.getReturns(storeId);
+    const cashflows = this.getCashflow(storeId);
+
+    // 1. Total Modal yang diinvestasikan
+    // Jika owner mengatur manual modal investasi awal di settings, gunakan itu jika > 0.
+    // Jika tidak, akumulasikan total modal beli ball + ongkir + biaya steam + biaya sortir dari inventory
+    const totalModalDariStok = inventory.reduce((acc, i) => {
+      return acc + (i.modalPrice || 0) + (i.shippingCost || 0) + (i.steamCost || 0) + (i.sortirCost || 0);
+    }, 0);
+
+    const manualCapital = store?.settings?.initialCapitalInvested;
+    const hasManualCapital = typeof manualCapital === 'number' && manualCapital > 0;
+    const totalModalInvestasi = hasManualCapital ? manualCapital : totalModalDariStok;
+    const modalSumber: 'pengaturan' | 'stok_ball' = hasManualCapital ? 'pengaturan' : 'stok_ball';
+
+    // 2. Akumulasi Penjualan & Laba Bersih
+    const totalOmzetKotor = sales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+    const totalPcsTerjual = sales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+    const totalPaketTerjual = sales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+
+    const hppData = this.calculateHPP(storeId);
+    const averageHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
+    const modalBarangTerjual = totalPcsTerjual * averageHpp;
+
+    // Biaya Admin & Layanan
+    const adminPct = store?.settings?.adminPromoPercentage ?? 8.5;
+    const totalAdminShopee = Math.round((adminPct / 100) * totalOmzetKotor);
+    const serviceFee = totalPaketTerjual * (store?.settings?.serviceFeePerOrder ?? 1250);
+
+    // Iklan & Koin
+    const totalIklanTerpakai = sales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
+    const totalKoinTerpakai = sales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
+
+    // Return
+    let totalReturn = 0;
+    if (store?.settings?.returnMechanism === 'estimate') {
+      totalReturn = Math.round(((store?.settings?.estimateReturnPercentage ?? 3) / 100) * totalOmzetKotor);
+    } else {
+      totalReturn = returns.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+    }
+
+    // Laba Kotor
+    const labaKotor = totalOmzetKotor - modalBarangTerjual - totalAdminShopee - serviceFee - totalIklanTerpakai - totalKoinTerpakai - totalReturn;
+
+    // Pengeluaran Operasional Cashflow
+    const pengeluaranOperasional = cashflows
+      .filter(c => c.type === 'outflow' && c.category !== 'gaji_pegawai' && c.category !== 'konsumsi_pribadi')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
+    // Laba Bersih Toko Akumulasi
+    const totalNetProfit = labaKotor - pengeluaranOperasional;
+
+    // Sisa Balik Modal
+    const sisaBalikModal = Math.max(0, totalModalInvestasi - totalNetProfit);
+    const surplusProfit = Math.max(0, totalNetProfit - totalModalInvestasi);
+    const progressPercentage = totalModalInvestasi > 0 
+      ? Math.min(100, Math.max(0, Math.round((totalNetProfit / totalModalInvestasi) * 100)))
+      : (totalNetProfit >= 0 ? 100 : 0);
+    const isBreakEven = totalModalInvestasi > 0 ? totalNetProfit >= totalModalInvestasi : true;
+
+    return {
+      totalModalInvestasi,
+      modalSumber,
+      totalOmzetKotor,
+      totalNetProfit,
+      sisaBalikModal,
+      surplusProfit,
+      progressPercentage,
+      isBreakEven,
+      totalPcsTerjual,
+      totalPaketTerjual,
+      averageHpp,
+    };
+  }
+
+  /**
    * Validation helpers for duplicate usernames and store names
    */
   static isUsernameTaken(username: string, excludeEmployeeId?: string, excludeStoreId?: string): boolean {
