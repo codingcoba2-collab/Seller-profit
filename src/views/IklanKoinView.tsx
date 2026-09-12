@@ -146,19 +146,24 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingId) {
-        const all = StorageService.getAdsCoins(currentUser.storeId);
-        const updated = all.map(d => d.id === editingId ? record : d);
-        localStorage.setItem('shopee_lr_adcoins', JSON.stringify(updated));
-        onNotify('Perubahan saldo iklan & koin berhasil disimpan!', 'success');
-      } else {
-        StorageService.addAdsCoin(record);
-        onNotify('Topup saldo iklan & koin berhasil dicatat!', 'success');
-      }
+      try {
+        if (editingId) {
+          const all = StorageService.getAdsCoins(currentUser.storeId);
+          const updated = all.map(d => d.id === editingId ? record : d);
+          StorageService.saveAdsCoins(updated);
+          onNotify('Perubahan saldo iklan & koin berhasil disimpan!', 'success');
+        } else {
+          StorageService.addAdsCoin(record);
+          onNotify('Topup saldo iklan & koin berhasil dicatat!', 'success');
+        }
 
-      loadData();
-      resetForm();
-      setViewMode('output');
+        loadData();
+        resetForm();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving ads/coins:', err);
+        onNotify('Gagal mencatat saldo iklan & koin: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

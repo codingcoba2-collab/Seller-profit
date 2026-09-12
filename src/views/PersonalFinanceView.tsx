@@ -195,9 +195,14 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       confirmText: 'Ya, Simpan Alokasi',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        StorageService.savePersonalBudgetAllocation(currentUser.storeId, alloc);
-        onNotify('Pengaturan alokasi anggaran pribadi berhasil disimpan!', 'success');
-        setViewMode('output');
+        try {
+          StorageService.savePersonalBudgetAllocation(currentUser.storeId, alloc);
+          onNotify('Pengaturan alokasi anggaran pribadi berhasil disimpan!', 'success');
+          setViewMode('output');
+        } catch (err: any) {
+          console.error('Error saving personal budget allocation:', err);
+          onNotify('Gagal menyimpan alokasi: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+        }
       },
     });
   };
@@ -213,38 +218,43 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingExpense) {
-        const updated: PersonalExpenseRecord = {
-          ...editingExpense,
-          date: expenseDate,
-          category: expenseCategory,
-          amount: expenseAmount,
-          description: expenseDescription,
-        };
-        StorageService.updatePersonalExpense(updated);
-        onNotify('Data pengeluaran pribadi berhasil diperbarui!', 'success');
-        setEditingExpense(null);
-      } else {
-        const newRec: PersonalExpenseRecord = {
-          id: 'pexp-' + Date.now(),
-          storeId: currentUser.storeId,
-          date: expenseDate,
-          category: expenseCategory,
-          amount: expenseAmount,
-          description: expenseDescription,
-          createdAt: new Date().toISOString(),
-        };
-        StorageService.addPersonalExpense(newRec);
-        onNotify('Pengeluaran pribadi baru berhasil dicatat!', 'success');
-      }
+      try {
+        if (editingExpense) {
+          const updated: PersonalExpenseRecord = {
+            ...editingExpense,
+            date: expenseDate,
+            category: expenseCategory,
+            amount: expenseAmount,
+            description: expenseDescription,
+          };
+          StorageService.updatePersonalExpense(updated);
+          onNotify('Data pengeluaran pribadi berhasil diperbarui!', 'success');
+          setEditingExpense(null);
+        } else {
+          const newRec: PersonalExpenseRecord = {
+            id: 'pexp-' + Date.now(),
+            storeId: currentUser.storeId,
+            date: expenseDate,
+            category: expenseCategory,
+            amount: expenseAmount,
+            description: expenseDescription,
+            createdAt: new Date().toISOString(),
+          };
+          StorageService.addPersonalExpense(newRec);
+          onNotify('Pengeluaran pribadi baru berhasil dicatat!', 'success');
+        }
 
-      // Reset Form
-      setExpenseAmount(50000);
-      setExpenseDescription('');
-      setExpenseDate(getTodayString());
-      setInputStep(1);
-      loadData();
-      setViewMode('output');
+        // Reset Form
+        setExpenseAmount(50000);
+        setExpenseDescription('');
+        setExpenseDate(getTodayString());
+        setInputStep(1);
+        loadData();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving personal expense:', err);
+        onNotify('Gagal menyimpan pengeluaran pribadi: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

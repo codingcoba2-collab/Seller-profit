@@ -108,8 +108,8 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [selectedHostIds, setSelectedHostIds] = useState<string[]>([]);
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [hoursWorked, setHoursWorked] = useState<number>(4);
-  const [coinUsed, setCoinUsed] = useState<number>(50000);
-  const [adsUsed, setAdsUsed] = useState<number>(100000);
+  const [coinUsed, setCoinUsed] = useState<number>(0);
+  const [adsUsed, setAdsUsed] = useState<number>(0);
 
   // FORM STATES: Non-Live specific
   const [nonLiveChannel, setNonLiveChannel] = useState<SalesChannel>('shopee_reguler');
@@ -212,8 +212,8 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setBundlingPcs(0);
     setBundlingPackages(0);
     setHoursWorked(4);
-    setCoinUsed(50000);
-    setAdsUsed(100000);
+    setCoinUsed(0);
+    setAdsUsed(0);
     setNonLiveAdsUsed(0);
     setNotes('');
     setSelectedSizes(['S', 'M', 'L', 'XL']);
@@ -223,7 +223,10 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setLiveChannel('tiktok_live');
     setNonLiveChannel('shopee_reguler');
 
-    const admins = employees.filter(e => e.roles.includes('admin_toko'));
+    const hosts = employees.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
+    setSelectedHostIds(hosts.length > 0 ? [hosts[0].id] : (currentUser.isOwner ? [currentUser.id] : []));
+
+    const admins = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
     setSelectedAdminIds(admins.length > 0 ? [admins[0].id] : []);
     setSelectedCashierAdminIds(admins.length > 0 ? [admins[0].id] : []);
     setErrorMessage('');
@@ -319,7 +322,17 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     e.preventDefault();
     setErrorMessage('');
 
-    if (selectedHostIds.length === 0) {
+    let effectiveHostIds = [...selectedHostIds];
+    if (effectiveHostIds.length === 0) {
+      const fallbackHost = employees.find(e => e.roles.includes('host') || e.roles.includes('owner'));
+      if (fallbackHost) {
+        effectiveHostIds = [fallbackHost.id];
+      } else if (currentUser.isOwner) {
+        effectiveHostIds = [currentUser.id];
+      }
+    }
+
+    if (effectiveHostIds.length === 0) {
       setErrorMessage('Pilih minimal 1 Host Live yang bertugas!');
       return;
     }
@@ -335,24 +348,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       }
     }
 
-    if (adsUsed > availableAds) {
-      setErrorMessage(`Sisa saldo iklan tidak mencukupi! Sisa: ${formatRupiah(availableAds)}, diinput: ${formatRupiah(adsUsed)}`);
-      return;
+    if (adsUsed > availableAds && availableAds > 0) {
+      onNotify(`Catatan: Penggunaan saldo iklan (${formatRupiah(adsUsed)}) melebihi deposit (${formatRupiah(availableAds)}).`, 'info');
     }
 
-    if (coinUsed > availableCoins) {
-      setErrorMessage(`Sisa saldo koin tidak mencukupi! Sisa: ${formatRupiah(availableCoins)}, diinput: ${formatRupiah(coinUsed)}`);
-      return;
+    if (coinUsed > availableCoins && availableCoins > 0) {
+      onNotify(`Catatan: Penggunaan saldo koin (${formatRupiah(coinUsed)}) melebihi deposit (${formatRupiah(availableCoins)}).`, 'info');
     }
 
-    const hostNames = selectedHostIds.map(id => {
+    const hostNames = effectiveHostIds.map(id => {
       const emp = employees.find(e => e.id === id);
-      return emp ? emp.name : 'Host';
+      return emp ? emp.name : (currentUser.id === id ? currentUser.name : 'Host');
     });
 
-    const adminNames = selectedAdminIds.map(id => {
+    const effectiveAdminIds = selectedAdminIds.length > 0 ? selectedAdminIds : [currentUser.id];
+    const adminNames = effectiveAdminIds.map(id => {
       const emp = employees.find(e => e.id === id);
-      return emp ? emp.name : 'Admin Toko';
+      return emp ? emp.name : (currentUser.id === id ? currentUser.name : 'Admin Toko');
     });
 
     const channelMeta = salesChannelLabels[liveChannel] || { label: 'Marketplace Live' };
@@ -380,11 +392,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       bundlingPcs: finalBundlingPcs,
       bundlingPackages: finalBundlingPkgs,
       bundlingOmzet: finalBundlingOmzet,
-      hostIds: selectedHostIds,
+      hostIds: effectiveHostIds,
       hostNames,
-      adminIds: selectedAdminIds,
+      adminIds: effectiveAdminIds,
       adminNames,
-      adminId: selectedAdminIds[0] || '',
+      adminId: effectiveAdminIds[0] || '',
       adminName: adminNames[0] || '',
       omzet,
       pcsSold,
@@ -402,16 +414,21 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingId) {
-        StorageService.updateSale(record);
-        onNotify('Data penjualan Live berhasil diperbarui!', 'success');
-      } else {
-        StorageService.addSale(record);
-        onNotify('Data penjualan sesi Live berhasil disimpan!', 'success');
+      try {
+        if (editingId) {
+          StorageService.updateSale(record);
+          onNotify('Data penjualan Live berhasil diperbarui!', 'success');
+        } else {
+          StorageService.addSale(record);
+          onNotify('Data penjualan sesi Live berhasil disimpan!', 'success');
+        }
+        loadData();
+        resetForm();
+        setViewMode('rekap');
+      } catch (err: any) {
+        console.error('Error saving live sale:', err);
+        onNotify('Gagal menyimpan transaksi penjualan: ' + (err?.message || 'Terjadi gangguan penyimpanan.'), 'error');
       }
-      loadData();
-      resetForm();
-      setViewMode('rekap');
     };
 
     setConfirmModal({
@@ -470,16 +487,21 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingId) {
-        StorageService.updateSale(record);
-        onNotify('Data penjualan Non-Live berhasil diperbarui!', 'success');
-      } else {
-        StorageService.addSale(record);
-        onNotify('Data penjualan Non-Live berhasil dicatat!', 'success');
+      try {
+        if (editingId) {
+          StorageService.updateSale(record);
+          onNotify('Data penjualan Non-Live berhasil diperbarui!', 'success');
+        } else {
+          StorageService.addSale(record);
+          onNotify('Data penjualan Non-Live berhasil dicatat!', 'success');
+        }
+        loadData();
+        resetForm();
+        setViewMode('rekap');
+      } catch (err: any) {
+        console.error('Error saving non-live sale:', err);
+        onNotify('Gagal mencatat penjualan Non-Live: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
       }
-      loadData();
-      resetForm();
-      setViewMode('rekap');
     };
 
     setConfirmModal({

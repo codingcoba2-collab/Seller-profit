@@ -125,18 +125,23 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
       confirmText: 'Ya, Simpan Pengaturan',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        // Cari shopee atau fallback untuk default
-        const shopeeCh = channelFees.find(c => c.channel === 'shopee' || c.name.toLowerCase().includes('shopee'));
-        const adminPct = shopeeCh ? shopeeCh.adminPercentage : defaultAdminPercentage;
-        const servFee = shopeeCh ? shopeeCh.serviceFeePerOrder : defaultServiceFee;
+        try {
+          // Cari shopee atau fallback untuk default
+          const shopeeCh = channelFees.find(c => c.channel === 'shopee' || c.name.toLowerCase().includes('shopee'));
+          const adminPct = shopeeCh ? shopeeCh.adminPercentage : defaultAdminPercentage;
+          const servFee = shopeeCh ? shopeeCh.serviceFeePerOrder : defaultServiceFee;
 
-        StorageService.updateStoreSettings(currentUser.storeId, {
-          adminPromoPercentage: adminPct,
-          serviceFeePerOrder: servFee,
-          channelFees: channelFees,
-        });
+          StorageService.updateStoreSettings(currentUser.storeId, {
+            adminPromoPercentage: adminPct,
+            serviceFeePerOrder: servFee,
+            channelFees: channelFees,
+          });
 
-        onNotify('Pengaturan seluruh channel marketplace & admin fee berhasil disimpan!', 'success');
+          onNotify('Pengaturan seluruh channel marketplace & admin fee berhasil disimpan!', 'success');
+        } catch (err: any) {
+          console.error('Error saving channel fees:', err);
+          onNotify('Gagal menyimpan pengaturan: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
+        }
       },
     });
   };

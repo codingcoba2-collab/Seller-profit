@@ -246,17 +246,22 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingId) {
-        StorageService.updateInventory(newBall);
-        onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
-      } else {
-        StorageService.addInventory(newBall);
-        onNotify('Data stok fashion baru & kalkulasi HPP berhasil disimpan!', 'success');
-      }
+      try {
+        if (editingId) {
+          StorageService.updateInventory(newBall);
+          onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
+        } else {
+          StorageService.addInventory(newBall);
+          onNotify('Data stok fashion baru & kalkulasi HPP berhasil disimpan!', 'success');
+        }
 
-      loadData();
-      resetForm();
-      setViewMode('list');
+        loadData();
+        resetForm();
+        setViewMode('list');
+      } catch (err: any) {
+        console.error('Error saving inventory:', err);
+        onNotify('Gagal menyimpan data stok: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

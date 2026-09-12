@@ -190,15 +190,48 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      onNotify('Ukuran file foto maksimal 5MB!', 'error');
+    if (file.size > 10 * 1024 * 1024) {
+      onNotify('Ukuran file foto maksimal 10MB!', 'error');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
-      setProofImageUrl(reader.result as string);
-      onNotify('Foto nota berhasil diunggah.', 'info');
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.65);
+            setProofImageUrl(compressed);
+            onNotify('Foto nota berhasil dikompres & siap disimpan.', 'info');
+          } else {
+            setProofImageUrl(dataUrl);
+          }
+        } catch {
+          setProofImageUrl(dataUrl);
+        }
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -229,19 +262,22 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingItem) {
-        const all = StorageService.getCashflow(currentUser.storeId);
-        const updated = all.map(c => c.id === editingItem.id ? record : c);
-        localStorage.setItem('shopee_lr_cashflow', JSON.stringify(updated));
-        onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
-      } else {
-        StorageService.addCashflow(record);
-        onNotify('Transaksi arus kas berhasil dicatat!', 'success');
-      }
+      try {
+        if (editingItem) {
+          StorageService.updateCashflow(record);
+          onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
+        } else {
+          StorageService.addCashflow(record);
+          onNotify('Transaksi arus kas berhasil dicatat!', 'success');
+        }
 
-      loadData();
-      resetForm();
-      setViewMode('output');
+        loadData();
+        resetForm();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving cashflow:', err);
+        onNotify('Gagal menyimpan transaksi kas: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

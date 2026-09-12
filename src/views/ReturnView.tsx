@@ -153,11 +153,21 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      StorageService.addReturn(record);
-      onNotify(editingId ? 'Perubahan data retur berhasil disimpan!' : 'Data retur paket berhasil disimpan!', 'success');
-      loadData();
-      resetForm();
-      setViewMode('output');
+      try {
+        if (editingId) {
+          StorageService.updateReturn(record);
+          onNotify('Perubahan data retur berhasil disimpan!', 'success');
+        } else {
+          StorageService.addReturn(record);
+          onNotify('Data retur paket berhasil disimpan!', 'success');
+        }
+        loadData();
+        resetForm();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving return:', err);
+        onNotify('Gagal menyimpan data retur: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

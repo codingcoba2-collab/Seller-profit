@@ -83,16 +83,21 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editId) {
-        const all = StorageService.getAdsCoins(currentUser.storeId);
-        const updated = all.map(d => d.id === editId ? newDeposit : d);
-        localStorage.setItem('shopee_lr_adscoins', JSON.stringify(updated));
-        onNotify('Perubahan saldo topup iklan/koin berhasil disimpan!', 'success');
-      } else {
-        StorageService.addAdsCoin(newDeposit);
-        onNotify('Top-up saldo iklan & koin berhasil dicatat!', 'success');
+      try {
+        if (editId) {
+          const all = StorageService.getAdsCoins(currentUser.storeId);
+          const updated = all.map(d => d.id === editId ? newDeposit : d);
+          StorageService.saveAdsCoins(updated);
+          onNotify('Perubahan saldo topup iklan/koin berhasil disimpan!', 'success');
+        } else {
+          StorageService.addAdsCoin(newDeposit);
+          onNotify('Top-up saldo iklan & koin berhasil dicatat!', 'success');
+        }
+        onNavigate('/topup-saldo/riwayat');
+      } catch (err: any) {
+        console.error('Error saving topup ads/coins:', err);
+        onNotify('Gagal menyimpan topup saldo: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
       }
-      onNavigate('/topup-saldo/riwayat');
     };
 
     setConfirmModal({

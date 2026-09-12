@@ -192,17 +192,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingRecord) {
-        StorageService.updateSteamSortir(record);
-        onNotify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
-      } else {
-        StorageService.addSteamSortir(record);
-        onNotify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
-      }
+      try {
+        if (editingRecord) {
+          StorageService.updateSteamSortir(record);
+          onNotify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
+        } else {
+          StorageService.addSteamSortir(record);
+          onNotify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
+        }
 
-      resetForm();
-      handleCancelEdit();
-      setViewMode('output');
+        resetForm();
+        handleCancelEdit();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving steam/sortir:', err);
+        onNotify('Gagal menyimpan data sortir & steam: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

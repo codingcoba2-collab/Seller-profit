@@ -385,16 +385,21 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      StorageService.addOrUpdateEmployee(empData);
-      if (editingId) {
-        onNotify('Perubahan data pegawai berhasil disimpan!', 'success');
-      } else {
-        onNotify('Pegawai baru berhasil didaftarkan!', 'success');
-      }
+      try {
+        StorageService.addOrUpdateEmployee(empData);
+        if (editingId) {
+          onNotify('Perubahan data pegawai berhasil disimpan!', 'success');
+        } else {
+          onNotify('Pegawai baru berhasil didaftarkan!', 'success');
+        }
 
-      loadData();
-      resetForm();
-      setViewMode('list');
+        loadData();
+        resetForm();
+        setViewMode('list');
+      } catch (err: any) {
+        console.error('Error saving employee:', err);
+        onNotify('Gagal menyimpan data pegawai: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({

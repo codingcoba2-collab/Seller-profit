@@ -356,6 +356,67 @@ export class StorageService {
     };
   }
 
+  private static inMemoryCache: Map<string, string> = new Map();
+
+  public static safeGetItem(key: string): string | null {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const val = localStorage.getItem(key);
+        if (val !== null) {
+          this.inMemoryCache.set(key, val);
+          return val;
+        }
+      }
+    } catch (e) {
+      console.warn(`safeGetItem reading localStorage notice for ${key}:`, e);
+    }
+    return this.inMemoryCache.get(key) || null;
+  }
+
+  public static safeSetItem(key: string, value: string): void {
+    this.inMemoryCache.set(key, value);
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
+    try {
+      localStorage.setItem(key, value);
+    } catch (e: any) {
+      console.warn(`localStorage.setItem error for key ${key}, executing cleanup & recovery:`, e);
+      try {
+        // Sanitize cashflow images if quota exceeded
+        const cashRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+        if (cashRaw) {
+          try {
+            const list: CashflowRecord[] = JSON.parse(cashRaw);
+            let cleaned = false;
+            list.forEach(item => {
+              if (item.proofImageUrl && item.proofImageUrl.length > 50000) {
+                item.proofImageUrl = item.proofImageUrl.slice(0, 100) + '...';
+                cleaned = true;
+              }
+            });
+            if (cleaned) {
+              localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(list));
+            }
+          } catch {}
+        }
+        localStorage.setItem(key, value);
+      } catch (e2) {
+        console.warn(`localStorage quota still exceeded for ${key}. Kept safely in in-memory cache.`);
+      }
+    }
+  }
+
+  public static safeRemoveItem(key: string): void {
+    this.inMemoryCache.delete(key);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(key);
+      }
+    } catch (e) {
+      console.warn(`safeRemoveItem notice for ${key}:`, e);
+    }
+  }
+
   private static notifyListeners(collectionName: string) {
     this.listeners.forEach(fn => {
       try {
@@ -440,7 +501,7 @@ export class StorageService {
           cloudStores.push(d.data() as StoreAccount);
         });
         const mergedStores = this.mergeLists(cloudStores, localStores);
-        localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(mergedStores));
+        this.safeSetItem(STORAGE_KEYS.STORES, JSON.stringify(mergedStores));
         // Push any local stores missing in cloud
         localStores.forEach(st => {
           if (!cloudStores.some(c => c.id === st.id)) {
@@ -464,7 +525,7 @@ export class StorageService {
           cloudEmployees.push(d.data() as Employee);
         });
         const mergedEmps = this.mergeLists(cloudEmployees, localEmps);
-        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(mergedEmps));
+        this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(mergedEmps));
         // Push any local employees missing in cloud so they NEVER get deleted!
         localEmps.forEach(emp => {
           if (!cloudEmployees.some(c => c.id === emp.id)) {
@@ -502,13 +563,13 @@ export class StorageService {
         // 1. Sync inventory
         const invSnap = await getDocs(collection(db, 'inventory_balls'));
         FirestoreTelemetry.recordReads(invSnap.size || 1, 'inventory_balls', 'Sinkronisasi modal stok HPP');
-        const localInvRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+        const localInvRaw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
         const localInv: BallInventory[] = localInvRaw ? JSON.parse(localInvRaw) : DEFAULT_INVENTORY;
         if (!invSnap.empty) {
           const cloudInv: BallInventory[] = [];
           invSnap.forEach(d => cloudInv.push(d.data() as BallInventory));
           const merged = this.mergeLists(cloudInv, localInv);
-          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
           localInv.forEach(i => {
             if (!cloudInv.some(c => c.id === i.id)) {
               this.syncToCloud('inventory_balls', i.id, i);
@@ -521,13 +582,13 @@ export class StorageService {
         // 2. Sync attendance
         const attSnap = await getDocs(collection(db, 'attendance'));
         FirestoreTelemetry.recordReads(attSnap.size || 1, 'attendance', 'Sinkronisasi kehadiran shift');
-        const localAttRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+        const localAttRaw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
         const localAtt: AttendanceRecord[] = localAttRaw ? JSON.parse(localAttRaw) : [];
         if (!attSnap.empty) {
           const cloudAtt: AttendanceRecord[] = [];
           attSnap.forEach(d => cloudAtt.push(d.data() as AttendanceRecord));
           const merged = this.mergeLists(cloudAtt, localAtt);
-          localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
           localAtt.forEach(a => {
             if (!cloudAtt.some(c => c.id === a.id)) {
               this.syncToCloud('attendance', a.id, a);
@@ -538,13 +599,13 @@ export class StorageService {
         // 3. Sync sales
         const salesSnap = await getDocs(collection(db, 'sales'));
         FirestoreTelemetry.recordReads(salesSnap.size || 1, 'sales', 'Sinkronisasi transaksi penjualan');
-        const localSalesRaw = localStorage.getItem(STORAGE_KEYS.SALES);
+        const localSalesRaw = this.safeGetItem(STORAGE_KEYS.SALES);
         const localSales: SalesRecord[] = localSalesRaw ? JSON.parse(localSalesRaw) : [];
         if (!salesSnap.empty) {
           const cloudSales: SalesRecord[] = [];
           salesSnap.forEach(d => cloudSales.push(d.data() as SalesRecord));
           const merged = this.mergeLists(cloudSales, localSales);
-          localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
           localSales.forEach(s => {
             if (!cloudSales.some(c => c.id === s.id)) {
               this.syncToCloud('sales', s.id, s);
@@ -555,13 +616,13 @@ export class StorageService {
         // 4. Sync returns
         const returnsSnap = await getDocs(collection(db, 'returns'));
         FirestoreTelemetry.recordReads(returnsSnap.size || 1, 'returns', 'Sinkronisasi data retur');
-        const localRetRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
+        const localRetRaw = this.safeGetItem(STORAGE_KEYS.RETURNS);
         const localRet: ReturnRecord[] = localRetRaw ? JSON.parse(localRetRaw) : [];
         if (!returnsSnap.empty) {
           const cloudRet: ReturnRecord[] = [];
           returnsSnap.forEach(d => cloudRet.push(d.data() as ReturnRecord));
           const merged = this.mergeLists(cloudRet, localRet);
-          localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
           localRet.forEach(r => {
             if (!cloudRet.some(c => c.id === r.id)) {
               this.syncToCloud('returns', r.id, r);
@@ -572,13 +633,13 @@ export class StorageService {
         // 5. Sync ads & coins
         const adsSnap = await getDocs(collection(db, 'ads_coins'));
         FirestoreTelemetry.recordReads(adsSnap.size || 1, 'ads_coins', 'Sinkronisasi deposit iklan & koin');
-        const localAdsRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
+        const localAdsRaw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
         const localAds: AdsCoinDeposit[] = localAdsRaw ? JSON.parse(localAdsRaw) : [];
         if (!adsSnap.empty) {
           const cloudAds: AdsCoinDeposit[] = [];
           adsSnap.forEach(d => cloudAds.push(d.data() as AdsCoinDeposit));
           const merged = this.mergeLists(cloudAds, localAds);
-          localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
           localAds.forEach(a => {
             if (!cloudAds.some(c => c.id === a.id)) {
               this.syncToCloud('ads_coins', a.id, a);
@@ -589,13 +650,13 @@ export class StorageService {
         // 6. Sync cashflow
         const cashflowSnap = await getDocs(collection(db, 'cashflow'));
         FirestoreTelemetry.recordReads(cashflowSnap.size || 1, 'cashflow', 'Sinkronisasi arus kas');
-        const localCashRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+        const localCashRaw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
         const localCash: CashflowRecord[] = localCashRaw ? JSON.parse(localCashRaw) : [];
         if (!cashflowSnap.empty) {
           const cloudCash: CashflowRecord[] = [];
           cashflowSnap.forEach(d => cloudCash.push(d.data() as CashflowRecord));
           const merged = this.mergeLists(cloudCash, localCash);
-          localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
           localCash.forEach(c => {
             if (!cloudCash.some(cloud => cloud.id === c.id)) {
               this.syncToCloud('cashflow', c.id, c);
@@ -606,13 +667,13 @@ export class StorageService {
         // 7. Sync steam sortir
         const steamSnap = await getDocs(collection(db, 'steam_sortir'));
         FirestoreTelemetry.recordReads(steamSnap.size || 1, 'steam_sortir', 'Sinkronisasi sortir & steam');
-        const localSteamRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+        const localSteamRaw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
         const localSteam: SteamSortirRecord[] = localSteamRaw ? JSON.parse(localSteamRaw) : [];
         if (!steamSnap.empty) {
           const cloudSteam: SteamSortirRecord[] = [];
           steamSnap.forEach(d => cloudSteam.push(d.data() as SteamSortirRecord));
           const merged = this.mergeLists(cloudSteam, localSteam);
-          localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
+          this.safeSetItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
           localSteam.forEach(s => {
             if (!cloudSteam.some(c => c.id === s.id)) {
               this.syncToCloud('steam_sortir', s.id, s);
@@ -652,7 +713,7 @@ export class StorageService {
         snapshot.forEach(docSnap => cloudStores.push(docSnap.data() as StoreAccount));
         const localStores = this.getStores();
         const merged = this.mergeLists(cloudStores, localStores);
-        localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.STORES, JSON.stringify(merged));
         this.notifyListeners('stores');
         this.notifyListeners('stores_and_employees');
       }, (err) => console.warn('Realtime stores listener notice:', err));
@@ -666,7 +727,7 @@ export class StorageService {
         snapshot.forEach(docSnap => cloudEmps.push(docSnap.data() as Employee));
         const localEmps = this.getAllEmployeesRaw();
         const merged = this.mergeLists(cloudEmps, localEmps);
-        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(merged));
         this.notifyListeners('employees');
         this.notifyListeners('stores_and_employees');
       }, (err) => console.warn('Realtime employees listener notice:', err));
@@ -678,10 +739,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'sales', 'Pembaruan realtime Penjualan');
         const cloudSales: SalesRecord[] = [];
         snapshot.forEach(docSnap => cloudSales.push(docSnap.data() as SalesRecord));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.SALES);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.SALES);
         const localSales: SalesRecord[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudSales, localSales);
-        localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
         this.notifyListeners('sales');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime sales listener notice:', err));
@@ -693,10 +754,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'inventory_balls', 'Pembaruan realtime Stok HPP');
         const cloudInv: BallInventory[] = [];
         snapshot.forEach(docSnap => cloudInv.push(docSnap.data() as BallInventory));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
         const localInv: BallInventory[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudInv, localInv);
-        localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(merged));
         this.notifyListeners('inventory');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime inventory listener notice:', err));
@@ -708,10 +769,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'attendance', 'Pembaruan realtime Kehadiran');
         const cloudAtt: AttendanceRecord[] = [];
         snapshot.forEach(docSnap => cloudAtt.push(docSnap.data() as AttendanceRecord));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
         const localAtt: AttendanceRecord[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudAtt, localAtt);
-        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(merged));
         this.notifyListeners('attendance');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime attendance listener notice:', err));
@@ -723,10 +784,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'returns', 'Pembaruan realtime Retur');
         const cloudRet: ReturnRecord[] = [];
         snapshot.forEach(docSnap => cloudRet.push(docSnap.data() as ReturnRecord));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.RETURNS);
         const localRet: ReturnRecord[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudRet, localRet);
-        localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.RETURNS, JSON.stringify(merged));
         this.notifyListeners('returns');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime returns listener notice:', err));
@@ -738,10 +799,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'ads_coins', 'Pembaruan realtime Iklan & Koin');
         const cloudAds: AdsCoinDeposit[] = [];
         snapshot.forEach(docSnap => cloudAds.push(docSnap.data() as AdsCoinDeposit));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
         const localAds: AdsCoinDeposit[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudAds, localAds);
-        localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(merged));
         this.notifyListeners('ads_coins');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime ads_coins listener notice:', err));
@@ -753,10 +814,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'cashflow', 'Pembaruan realtime Arus Kas');
         const cloudCash: CashflowRecord[] = [];
         snapshot.forEach(docSnap => cloudCash.push(docSnap.data() as CashflowRecord));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
         const localCash: CashflowRecord[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudCash, localCash);
-        localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(merged));
         this.notifyListeners('cashflow');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime cashflow listener notice:', err));
@@ -768,10 +829,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'steam_sortir', 'Pembaruan realtime Steam & Sortir');
         const cloudSteam: SteamSortirRecord[] = [];
         snapshot.forEach(docSnap => cloudSteam.push(docSnap.data() as SteamSortirRecord));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
         const localSteam: SteamSortirRecord[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudSteam, localSteam);
-        localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(merged));
         this.notifyListeners('steam_sortir');
         this.notifyListeners('all');
       }, (err) => console.warn('Realtime steam_sortir listener notice:', err));
@@ -783,10 +844,10 @@ export class StorageService {
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'announcements', 'Pembaruan realtime Pengumuman');
         const cloudAnn: StoreAnnouncement[] = [];
         snapshot.forEach(docSnap => cloudAnn.push(docSnap.data() as StoreAnnouncement));
-        const localRaw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+        const localRaw = this.safeGetItem(STORAGE_KEYS.ANNOUNCEMENTS);
         const localAnn: StoreAnnouncement[] = localRaw ? JSON.parse(localRaw) : [];
         const merged = this.mergeLists(cloudAnn, localAnn);
-        localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(merged));
+        this.safeSetItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(merged));
         this.notifyListeners('announcements');
       }, (err) => console.warn('Realtime announcements listener notice:', err));
       this.activeUnsubscribes.push(unsubAnnounce);
@@ -811,7 +872,7 @@ export class StorageService {
 
   // STORES
   static getStores(): StoreAccount[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.STORES);
+    const raw = this.safeGetItem(STORAGE_KEYS.STORES);
     if (!raw) {
       this.saveStores([DEFAULT_STORE]);
       return [DEFAULT_STORE];
@@ -825,7 +886,7 @@ export class StorageService {
   }
 
   static saveStores(stores: StoreAccount[]) {
-    localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(stores));
+    this.safeSetItem(STORAGE_KEYS.STORES, JSON.stringify(stores));
     stores.forEach(st => this.syncToCloud('stores', st.id, st));
     this.notifyListeners('stores');
   }
@@ -887,15 +948,15 @@ export class StorageService {
 
   // CURRENT USER
   static getCurrentUser(): CurrentUser | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    const raw = this.safeGetItem(STORAGE_KEYS.CURRENT_USER);
     return raw ? JSON.parse(raw) : null;
   }
 
   static setCurrentUser(user: CurrentUser | null) {
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      this.safeSetItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
     } else {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      this.safeRemoveItem(STORAGE_KEYS.CURRENT_USER);
     }
   }
 
@@ -922,10 +983,10 @@ export class StorageService {
         }
       } else {
         // If owner, persist owner profile in user profiles cache & sync
-        const rawProfiles = localStorage.getItem(STORAGE_KEYS.USER_PROFILES);
+        const rawProfiles = this.safeGetItem(STORAGE_KEYS.USER_PROFILES);
         const profiles = rawProfiles ? JSON.parse(rawProfiles) : {};
         profiles[current.id] = { ...profiles[current.id], ...updates };
-        localStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(profiles));
+        this.safeSetItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(profiles));
         this.syncToCloud('stores', current.storeId, {
           ...this.getStoreById(current.storeId),
           ownerProfile: updates,
@@ -942,7 +1003,7 @@ export class StorageService {
   // ANNOUNCEMENTS (Pengumuman Toko / Live Info)
   static getAnnouncements(storeId: string): StoreAnnouncement[] {
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+      const raw = this.safeGetItem(STORAGE_KEYS.ANNOUNCEMENTS);
       if (!raw) {
         return [];
       }
@@ -956,14 +1017,14 @@ export class StorageService {
 
   static saveAnnouncements(announcements: StoreAnnouncement[]) {
     const storeId = this.getCurrentUser()?.storeId;
-    const raw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+    const raw = this.safeGetItem(STORAGE_KEYS.ANNOUNCEMENTS);
     let all: StoreAnnouncement[] = raw ? JSON.parse(raw) : [];
     if (storeId) {
       all = all.filter(a => a.storeId !== storeId).concat(announcements);
     } else {
       all = announcements;
     }
-    localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(all));
+    this.safeSetItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(all));
     announcements.forEach(a => this.syncToCloud('announcements', a.id, a));
     this.notifyListeners('announcements');
   }
@@ -991,7 +1052,7 @@ export class StorageService {
 
   // EMPLOYEES
   private static getAllEmployeesRaw(): Employee[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
     let hasMigration = false;
 
@@ -1033,13 +1094,13 @@ export class StorageService {
   }
 
   static saveEmployees(employees: Employee[]) {
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+    this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
     employees.forEach(emp => this.syncToCloud('employees', emp.id, emp));
     this.notifyListeners('employees');
   }
 
   static addOrUpdateEmployee(emp: Employee) {
-    const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
     const idx = all.findIndex(e => e.id === emp.id);
     if (idx !== -1) {
@@ -1052,7 +1113,7 @@ export class StorageService {
   }
 
   static deleteEmployee(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : [];
     all = all.filter(e => e.id !== id);
     this.saveEmployees(all);
@@ -1061,7 +1122,7 @@ export class StorageService {
 
   // INVENTORY (BALL MODAL & STOK)
   static getInventory(storeId: string): BallInventory[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
     let all: BallInventory[] = raw ? JSON.parse(raw) : DEFAULT_INVENTORY;
     if (!raw) {
       this.saveInventory(all);
@@ -1070,13 +1131,13 @@ export class StorageService {
   }
 
   static saveInventory(list: BallInventory[]) {
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
+    this.safeSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
     list.forEach(inv => this.syncToCloud('inventory_balls', inv.id, inv));
     this.notifyListeners('inventory');
   }
 
   static addInventory(inv: BallInventory) {
-    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
     let all: BallInventory[] = raw ? JSON.parse(raw) : DEFAULT_INVENTORY;
     all.unshift(inv);
     this.saveInventory(all);
@@ -1084,7 +1145,7 @@ export class StorageService {
   }
 
   static updateInventory(inv: BallInventory) {
-    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
     let all: BallInventory[] = raw ? JSON.parse(raw) : [];
     const idx = all.findIndex(i => i.id === inv.id);
     if (idx !== -1) {
@@ -1097,7 +1158,7 @@ export class StorageService {
   }
 
   static deleteInventory(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const raw = this.safeGetItem(STORAGE_KEYS.INVENTORY);
     let all: BallInventory[] = raw ? JSON.parse(raw) : [];
     all = all.filter(i => i.id !== id);
     this.saveInventory(all);
@@ -1106,98 +1167,180 @@ export class StorageService {
 
   // ATTENDANCE
   static getAttendance(storeId: string): AttendanceRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+    const raw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
     const all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
     return all.filter(a => a.storeId === storeId);
   }
 
   static addAttendance(att: AttendanceRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-    let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
-    all.unshift(att);
-    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
-    this.syncToCloud('attendance', att.id, att);
-    this.notifyListeners('attendance');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
+      let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
+      all.unshift(att);
+      this.safeSetItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
+      this.syncToCloud('attendance', att.id, att);
+      this.notifyListeners('attendance');
+      return true;
+    } catch (e) {
+      console.error('Error in addAttendance:', e);
+      return false;
+    }
+  }
+
+  static updateAttendance(att: AttendanceRecord) {
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
+      let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
+      const idx = all.findIndex(a => a.id === att.id);
+      if (idx !== -1) {
+        all[idx] = att;
+      } else {
+        all.unshift(att);
+      }
+      this.safeSetItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
+      this.syncToCloud('attendance', att.id, att);
+      this.notifyListeners('attendance');
+      return true;
+    } catch (e) {
+      console.error('Error in updateAttendance:', e);
+      return false;
+    }
   }
 
   static deleteAttendance(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-    let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
-    all = all.filter(a => a.id !== id);
-    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
-    this.deleteFromCloud('attendance', id);
-    this.notifyListeners('attendance');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.ATTENDANCE);
+      let all: AttendanceRecord[] = raw ? JSON.parse(raw) : [];
+      all = all.filter(a => a.id !== id);
+      this.safeSetItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(all));
+      this.deleteFromCloud('attendance', id);
+      this.notifyListeners('attendance');
+      return true;
+    } catch (e) {
+      console.error('Error in deleteAttendance:', e);
+      return false;
+    }
   }
 
   // SALES
   static getSales(storeId: string): SalesRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.SALES);
+    const raw = this.safeGetItem(STORAGE_KEYS.SALES);
     let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
     if (!raw || all.length === 0) {
       all = DEFAULT_SALES;
-      localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
     }
     return all.filter(s => s.storeId === storeId);
   }
 
   static addSale(sale: SalesRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.SALES);
-    let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
-    all.unshift(sale);
-    localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
-    this.syncToCloud('sales', sale.id, sale);
-    this.notifyListeners('sales');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.SALES);
+      let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+      all.unshift(sale);
+      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+      this.syncToCloud('sales', sale.id, sale);
+      this.notifyListeners('sales');
+      return true;
+    } catch (e) {
+      console.error('Error in addSale:', e);
+      return false;
+    }
   }
 
   static updateSale(sale: SalesRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.SALES);
-    let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
-    const idx = all.findIndex(s => s.id === sale.id);
-    if (idx !== -1) {
-      all[idx] = sale;
-      localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
-      this.syncToCloud('sales', sale.id, sale);
-      this.notifyListeners('sales');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.SALES);
+      let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+      const idx = all.findIndex(s => s.id === sale.id);
+      if (idx !== -1) {
+        all[idx] = sale;
+        this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+        this.syncToCloud('sales', sale.id, sale);
+        this.notifyListeners('sales');
+      }
+      return true;
+    } catch (e) {
+      console.error('Error in updateSale:', e);
+      return false;
     }
   }
 
   static deleteSale(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.SALES);
-    let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
-    all = all.filter(s => s.id !== id);
-    localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(all));
-    this.deleteFromCloud('sales', id);
-    this.notifyListeners('sales');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.SALES);
+      let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+      all = all.filter(s => s.id !== id);
+      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+      this.deleteFromCloud('sales', id);
+      this.notifyListeners('sales');
+      return true;
+    } catch (e) {
+      console.error('Error in deleteSale:', e);
+      return false;
+    }
   }
 
   // RETURNS
   static getReturns(storeId: string): ReturnRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.RETURNS);
+    const raw = this.safeGetItem(STORAGE_KEYS.RETURNS);
     const all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
     return all.filter(r => r.storeId === storeId);
   }
 
   static addReturn(ret: ReturnRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.RETURNS);
-    let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
-    all.unshift(ret);
-    localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
-    this.syncToCloud('returns', ret.id, ret);
-    this.notifyListeners('returns');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.RETURNS);
+      let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
+      all.unshift(ret);
+      this.safeSetItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
+      this.syncToCloud('returns', ret.id, ret);
+      this.notifyListeners('returns');
+      return true;
+    } catch (e) {
+      console.error('Error in addReturn:', e);
+      return false;
+    }
+  }
+
+  static updateReturn(ret: ReturnRecord) {
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.RETURNS);
+      let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
+      const idx = all.findIndex(r => r.id === ret.id);
+      if (idx !== -1) {
+        all[idx] = ret;
+      } else {
+        all.unshift(ret);
+      }
+      this.safeSetItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
+      this.syncToCloud('returns', ret.id, ret);
+      this.notifyListeners('returns');
+      return true;
+    } catch (e) {
+      console.error('Error in updateReturn:', e);
+      return false;
+    }
   }
 
   static deleteReturn(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.RETURNS);
-    let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
-    all = all.filter(r => r.id !== id);
-    localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
-    this.deleteFromCloud('returns', id);
-    this.notifyListeners('returns');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.RETURNS);
+      let all: ReturnRecord[] = raw ? JSON.parse(raw) : [];
+      all = all.filter(r => r.id !== id);
+      this.safeSetItem(STORAGE_KEYS.RETURNS, JSON.stringify(all));
+      this.deleteFromCloud('returns', id);
+      this.notifyListeners('returns');
+      return true;
+    } catch (e) {
+      console.error('Error in deleteReturn:', e);
+      return false;
+    }
   }
 
   // ADS & COINS
   static getAdsCoins(storeId: string): AdsCoinDeposit[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
+    const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
     let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : DEFAULT_ADS_COIN;
     if (!raw) {
       this.saveAdsCoins(all);
@@ -1206,73 +1349,109 @@ export class StorageService {
   }
 
   static saveAdsCoins(list: AdsCoinDeposit[]) {
-    localStorage.setItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
-    list.forEach(item => this.syncToCloud('ads_coins', item.id, item));
-    this.notifyListeners('ads_coins');
+    try {
+      this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
+      list.forEach(item => this.syncToCloud('ads_coins', item.id, item));
+      this.notifyListeners('ads_coins');
+      return true;
+    } catch (e) {
+      console.error('Error in saveAdsCoins:', e);
+      return false;
+    }
   }
 
   static addAdsCoin(item: AdsCoinDeposit) {
-    const raw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
-    let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : DEFAULT_ADS_COIN;
-    all.unshift(item);
-    this.saveAdsCoins(all);
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
+      let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : DEFAULT_ADS_COIN;
+      all.unshift(item);
+      this.saveAdsCoins(all);
+      return true;
+    } catch (e) {
+      console.error('Error in addAdsCoin:', e);
+      return false;
+    }
   }
 
   static deleteAdsCoin(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
-    let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : [];
-    all = all.filter(a => a.id !== id);
-    this.saveAdsCoins(all);
-    this.deleteFromCloud('ads_coins', id);
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
+      let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : [];
+      all = all.filter(a => a.id !== id);
+      this.saveAdsCoins(all);
+      this.deleteFromCloud('ads_coins', id);
+      return true;
+    } catch (e) {
+      console.error('Error in deleteAdsCoin:', e);
+      return false;
+    }
   }
 
   // CASHFLOW
   static getCashflow(storeId: string): CashflowRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
+    const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
     const all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
     return all.filter(c => c.storeId === storeId);
   }
 
   static addCashflow(c: CashflowRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
-    let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
-    all.unshift(c);
-    localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
-    this.syncToCloud('cashflow', c.id, c);
-    this.notifyListeners('cashflow');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      all.unshift(c);
+      this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+      this.syncToCloud('cashflow', c.id, c);
+      this.notifyListeners('cashflow');
 
-    // Otomatis sinkronkan konsumsi pribadi kas toko ke total alokasi keuangan pribadi owner
-    if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
-      this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
+      // Otomatis sinkronkan konsumsi pribadi kas toko ke total alokasi keuangan pribadi owner
+      if (c.type === 'outflow' && c.category === 'konsumsi_pribadi') {
+        this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
+      }
+      return true;
+    } catch (e) {
+      console.error('Error in addCashflow:', e);
+      return false;
     }
   }
 
   static updateCashflow(c: CashflowRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
-    let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
-    const idx = all.findIndex(item => item.id === c.id);
-    if (idx !== -1) {
-      all[idx] = c;
-      localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
-      this.syncToCloud('cashflow', c.id, c);
-      this.notifyListeners('cashflow');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      const idx = all.findIndex(item => item.id === c.id);
+      if (idx !== -1) {
+        all[idx] = c;
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+        this.syncToCloud('cashflow', c.id, c);
+        this.notifyListeners('cashflow');
 
-      // Update sinkronisasi konsumsi pribadi ke alokasi keuangan pribadi
-      this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
+        // Update sinkronisasi konsumsi pribadi ke alokasi keuangan pribadi
+        this.syncKonsumsiPribadiToPersonalAllocation(c.storeId);
+      }
+      return true;
+    } catch (e) {
+      console.error('Error in updateCashflow:', e);
+      return false;
     }
   }
 
   static deleteCashflow(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
-    let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
-    const target = all.find(c => c.id === id);
-    all = all.filter(c => c.id !== id);
-    localStorage.setItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
-    this.deleteFromCloud('cashflow', id);
-    this.notifyListeners('cashflow');
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      const target = all.find(c => c.id === id);
+      all = all.filter(c => c.id !== id);
+      this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+      this.deleteFromCloud('cashflow', id);
+      this.notifyListeners('cashflow');
 
-    if (target) {
-      this.syncKonsumsiPribadiToPersonalAllocation(target.storeId);
+      if (target) {
+        this.syncKonsumsiPribadiToPersonalAllocation(target.storeId);
+      }
+      return true;
+    } catch (e) {
+      console.error('Error in deleteCashflow:', e);
+      return false;
     }
   }
 
@@ -1296,7 +1475,7 @@ export class StorageService {
   }
 
   static cleanupLegacyPriveExpenses(storeId: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     if (!raw) return;
     try {
       const all: PersonalExpenseRecord[] = JSON.parse(raw);
@@ -1312,7 +1491,7 @@ export class StorageService {
   // PERSONAL FINANCE & CASHFLOW (Arus Keuangan Pribadi)
   static getPersonalBudgetAllocation(storeId: string): PersonalBudgetAllocation {
     const totalKonsumsi = this.getTotalKonsumsiPribadi(storeId);
-    const raw = localStorage.getItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`);
+    const raw = this.safeGetItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`);
     let alloc: PersonalBudgetAllocation = {
       totalIncome: totalKonsumsi > 0 ? totalKonsumsi : 0,
       sehariHariPercent: 50,
@@ -1336,32 +1515,32 @@ export class StorageService {
   }
 
   static savePersonalBudgetAllocation(storeId: string, allocation: PersonalBudgetAllocation) {
-    localStorage.setItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`, JSON.stringify(allocation));
+    this.safeSetItem(`${STORAGE_KEYS.PERSONAL_BUDGET}_${storeId}`, JSON.stringify(allocation));
     this.syncToCloud('personal_budget', storeId, { ...allocation, storeId });
     this.notifyListeners('personal_budget');
   }
 
   static getPersonalExpenses(storeId: string): PersonalExpenseRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     const all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     return all.filter(e => e.storeId === storeId);
   }
 
   static savePersonalExpenses(list: PersonalExpenseRecord[]) {
-    localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(list));
+    this.safeSetItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(list));
     list.forEach(item => this.syncToCloud('personal_expenses', item.id, item));
     this.notifyListeners('personal_expenses');
   }
 
   static addPersonalExpense(item: PersonalExpenseRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     all.unshift(item);
     this.savePersonalExpenses(all);
   }
 
   static updatePersonalExpense(item: PersonalExpenseRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     const idx = all.findIndex(e => e.id === item.id);
     if (idx !== -1) {
@@ -1371,7 +1550,7 @@ export class StorageService {
   }
 
   static deletePersonalExpense(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+    const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(e => e.id !== id);
     this.savePersonalExpenses(all);
@@ -1450,26 +1629,26 @@ export class StorageService {
 
   // STEAM & SORTIR RECORDS
   static getSteamSortir(storeId: string): SteamSortirRecord[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+    const raw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
     const all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     return all.filter(s => s.storeId === storeId);
   }
 
   static saveSteamSortir(list: SteamSortirRecord[]) {
-    localStorage.setItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(list));
+    this.safeSetItem(STORAGE_KEYS.STEAM_SORTIR, JSON.stringify(list));
     list.forEach(item => this.syncToCloud('steam_sortir', item.id, item));
     this.notifyListeners('steam_sortir');
   }
 
   static addSteamSortir(item: SteamSortirRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+    const raw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
     let all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     all.unshift(item);
     this.saveSteamSortir(all);
   }
 
   static updateSteamSortir(item: SteamSortirRecord) {
-    const raw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+    const raw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
     let all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     const idx = all.findIndex(s => s.id === item.id);
     if (idx !== -1) {
@@ -1479,7 +1658,7 @@ export class StorageService {
   }
 
   static deleteSteamSortir(id: string) {
-    const raw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
+    const raw = this.safeGetItem(STORAGE_KEYS.STEAM_SORTIR);
     let all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(s => s.id !== id);
     this.saveSteamSortir(all);
@@ -2481,7 +2660,7 @@ export class StorageService {
   // ==========================================
   static getChatMessages(storeId: string): ChatMessage[] {
     try {
-      const data = localStorage.getItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`);
+      const data = this.safeGetItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`);
       if (data) {
         return JSON.parse(data);
       }
@@ -2507,7 +2686,7 @@ export class StorageService {
     try {
       // Keep strictly maximum 80 messages to keep memory and storage feather-light
       const capped = messages.slice(-80);
-      localStorage.setItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`, JSON.stringify(capped));
+      this.safeSetItem(`${STORAGE_KEYS.CHAT_MESSAGES}_${storeId}`, JSON.stringify(capped));
     } catch {}
   }
 

@@ -161,19 +161,22 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
 
     const executeSave = () => {
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      if (editingId) {
-        const all = StorageService.getAttendance(currentUser.storeId);
-        const updated = all.map(a => a.id === editingId ? record : a);
-        localStorage.setItem('shopee_lr_attendance', JSON.stringify(updated));
-        onNotify('Perubahan data kehadiran berhasil disimpan!', 'success');
-      } else {
-        StorageService.addAttendance(record);
-        onNotify('Presensi kehadiran berhasil dicatat!', 'success');
-      }
+      try {
+        if (editingId) {
+          StorageService.updateAttendance(record);
+          onNotify('Perubahan data kehadiran berhasil disimpan!', 'success');
+        } else {
+          StorageService.addAttendance(record);
+          onNotify('Presensi kehadiran berhasil dicatat!', 'success');
+        }
 
-      loadData();
-      handleCancelEdit();
-      setViewMode('output');
+        loadData();
+        handleCancelEdit();
+        setViewMode('output');
+      } catch (err: any) {
+        console.error('Error saving attendance:', err);
+        onNotify('Gagal menyimpan presensi kehadiran: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
+      }
     };
 
     setConfirmModal({
