@@ -417,20 +417,32 @@ export class StorageService {
     }
   }
 
-  private static notifyListeners(collectionName: string) {
-    this.listeners.forEach(fn => {
-      try {
-        fn(collectionName);
-      } catch (err) {
-        console.error('Error in sync listener:', err);
-      }
-    });
+  private static pendingNotifyTimer: any = null;
+  private static pendingCollections: Set<string> = new Set<string>();
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('seller_profit_data_updated', {
-        detail: { collectionName, timestamp: Date.now() }
-      }));
-    }
+  private static notifyListeners(collectionName: string) {
+    this.pendingCollections.add(collectionName);
+    if (this.pendingNotifyTimer) return;
+    this.pendingNotifyTimer = setTimeout(() => {
+      this.pendingNotifyTimer = null;
+      const collections = Array.from(this.pendingCollections);
+      this.pendingCollections.clear();
+      collections.forEach(col => {
+        this.listeners.forEach(fn => {
+          try {
+            fn(col);
+          } catch (err) {
+            console.error('Error in sync listener:', err);
+          }
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('seller_profit_data_updated', {
+            detail: { collectionName: col, timestamp: Date.now() }
+          }));
+        }
+      });
+    }, 40);
   }
 
   // Helper to remove any undefined fields before sending to Firestore
@@ -1459,9 +1471,11 @@ export class StorageService {
   static syncKonsumsiPribadiToPersonalAllocation(storeId: string) {
     const totalKonsumsi = this.getTotalKonsumsiPribadi(storeId);
     const alloc = this.getPersonalBudgetAllocation(storeId);
-    alloc.totalIncome = totalKonsumsi;
-    alloc.updatedAt = new Date().toISOString();
-    this.savePersonalBudgetAllocation(storeId, alloc);
+    if (totalKonsumsi > 0 || !alloc.totalIncome) {
+      alloc.totalIncome = totalKonsumsi;
+      alloc.updatedAt = new Date().toISOString();
+      this.savePersonalBudgetAllocation(storeId, alloc);
+    }
   }
 
   static getTotalKonsumsiPribadi(storeId: string, filterDateFn?: (date: string) => boolean): number {
@@ -1508,7 +1522,8 @@ export class StorageService {
         // fallback
       }
     }
-    if (totalKonsumsi > 0) {
+    // Jika user belum pernah mengatur totalIncome namun terdapat konsumsi pribadi di arus kas
+    if ((!alloc.totalIncome || alloc.totalIncome === 0) && totalKonsumsi > 0) {
       alloc.totalIncome = totalKonsumsi;
     }
     return alloc;
@@ -1528,7 +1543,6 @@ export class StorageService {
 
   static savePersonalExpenses(list: PersonalExpenseRecord[]) {
     this.safeSetItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(list));
-    list.forEach(item => this.syncToCloud('personal_expenses', item.id, item));
     this.notifyListeners('personal_expenses');
   }
 
@@ -1536,7 +1550,9 @@ export class StorageService {
     const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     all.unshift(item);
-    this.savePersonalExpenses(all);
+    this.safeSetItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(all));
+    this.syncToCloud('personal_expenses', item.id, item);
+    this.notifyListeners('personal_expenses');
   }
 
   static updatePersonalExpense(item: PersonalExpenseRecord) {
@@ -1545,7 +1561,9 @@ export class StorageService {
     const idx = all.findIndex(e => e.id === item.id);
     if (idx !== -1) {
       all[idx] = item;
-      this.savePersonalExpenses(all);
+      this.safeSetItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(all));
+      this.syncToCloud('personal_expenses', item.id, item);
+      this.notifyListeners('personal_expenses');
     }
   }
 
@@ -1553,8 +1571,9 @@ export class StorageService {
     const raw = this.safeGetItem(STORAGE_KEYS.PERSONAL_EXPENSES);
     let all: PersonalExpenseRecord[] = raw ? JSON.parse(raw) : [];
     all = all.filter(e => e.id !== id);
-    this.savePersonalExpenses(all);
+    this.safeSetItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(all));
     this.deleteFromCloud('personal_expenses', id);
+    this.notifyListeners('personal_expenses');
   }
 
   static calculatePersonalFinance(storeId: string, filterDateFn?: (date: string) => boolean) {

@@ -309,10 +309,11 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
     });
   };
 
-  // ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) =================
-  if (viewMode === 'menu') {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) ================= */}
+      {viewMode === 'menu' && (
+        <div className="space-y-4">
         {/* Header Bar */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <div className="flex items-center gap-3">
@@ -457,14 +458,12 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
-  if (viewMode === 'input') {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) ================= */}
+      {viewMode === 'input' && (
+        <div className="max-w-3xl mx-auto space-y-4">
         {/* Top Header with Back Button */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
@@ -647,14 +646,12 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
             </div>
           )}
         </form>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // ================= 3. PENGATURAN ALOKASI STATE (Tanpa Tab) =================
-  if (viewMode === 'pengaturan') {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 3. PENGATURAN ALOKASI STATE (Tanpa Tab) ================= */}
+      {viewMode === 'pengaturan' && (
+        <div className="max-w-2xl mx-auto space-y-4">
         {/* Top Header with Back Button */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
@@ -770,13 +767,12 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // ================= 4. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 4. OUTPUT & LAPORAN STATE (Tanpa Tab) ================= */}
+      {viewMode === 'output' && (
+        <div className="space-y-4">
       {/* Top Header Bar with Back Button */}
       <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <button
@@ -954,6 +950,8 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
           </div>
         )}
       </div>
+      </div>
+      )}
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

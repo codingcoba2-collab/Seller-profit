@@ -337,11 +337,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const totalOutflow = filteredList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
   const netCash = totalInflow - totalOutflow;
 
-  // ================= 1. MENU HUB STATE (2 Pilihan Grid) =================
-  if (viewMode === 'menu') {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 1. MENU HUB STATE (2 Pilihan Grid) ================= */}
+      {viewMode === 'menu' && (
+        <div className="space-y-4">
+          {/* Header Bar */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <div className="flex items-center gap-3">
             <button
@@ -455,14 +456,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
-  if (viewMode === 'input') {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      {/* ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) ================= */}
+      {viewMode === 'input' && (
+        <div className="max-w-3xl mx-auto space-y-4">
         {/* Top Header with Back Button */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
@@ -779,14 +778,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           )}
         </form>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header Bar with Back Button */}
+      {/* ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) ================= */}
+      {viewMode === 'output' && (
+        <div className="space-y-4">
+          {/* Top Header Bar with Back Button */}
       <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <button
           id="btn-back-menu-from-output-cashflow"
@@ -938,6 +936,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           </div>
         )}
       </div>
+      </div>
+      )}
 
       {/* Image Preview Modal */}
       {previewPhotoUrl && (

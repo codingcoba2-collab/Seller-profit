@@ -539,10 +539,8 @@ body:not([data-theme-mode="light"])::before {
   background-color: #121520 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: hologram-card-continuous-flicker 5.2s ease-in-out infinite;
   box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
   transform: translateZ(0);
-  will-change: opacity, transform;
 }
 
 .neon-corner-box:hover {
@@ -565,7 +563,6 @@ body:not([data-theme-mode="light"])::before {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
-  animation: neon-corner-flicker 4.8s ease-in-out infinite;
 }
 
 /* Lengkung Ujung Kanan-Bawah (Bottom-Right Curved Neon Arc - Bersebrangan) */
@@ -583,7 +580,6 @@ body:not([data-theme-mode="light"])::before {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
-  animation: neon-corner-flicker 4.8s ease-in-out infinite -2.4s;
 }
 
 .neon-corner-box:hover::before {
@@ -604,10 +600,8 @@ body:not([data-theme-mode="light"])::before {
   background-color: #121520 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: hologram-card-continuous-flicker 4.7s ease-in-out infinite -1.8s;
   box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.6) !important;
   transform: translateZ(0);
-  will-change: opacity, transform;
 }
 
 .neon-corner-box-alt:hover {
@@ -629,7 +623,6 @@ body:not([data-theme-mode="light"])::before {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
-  animation: neon-corner-flicker 4.8s ease-in-out infinite -1.2s;
 }
 
 .neon-corner-box-alt::after {
@@ -646,7 +639,6 @@ body:not([data-theme-mode="light"])::before {
   pointer-events: none;
   z-index: 5;
   transition: all 0.2s ease;
-  animation: neon-corner-flicker 4.8s ease-in-out infinite -3.6s;
 }
 
 .neon-corner-box-alt:hover::before {
@@ -694,7 +686,6 @@ body:not([data-theme-mode="light"])::before {
   display: inline-flex;
   white-space: nowrap;
   animation: marquee-smooth linear infinite;
-  will-change: transform;
 }
 
 .animate-marquee-smooth:hover {
@@ -870,7 +861,6 @@ body:not([data-theme-mode="light"])::before {
     0 0 18px -1px rgba(37, 244, 238, 0.3),
     inset 0 1px 1px rgba(255, 255, 255, 0.18);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
-  animation: hologram-card-continuous-flicker 4.8s ease-in-out infinite;
   transform: translateZ(0);
   contain: layout paint;
   content-visibility: auto;
@@ -894,7 +884,7 @@ body:not([data-theme-mode="light"])::before {
   z-index: 1;
 }
 
-/* Staggered electric short-circuit pulse on cyberpunk accent perimeter */
+/* Subtle cyberpunk accent perimeter border */
 .spatial-card::after {
   content: '';
   position: absolute;
@@ -903,30 +893,17 @@ body:not([data-theme-mode="light"])::before {
   border: 1px solid rgba(37, 244, 238, 0.55);
   box-shadow: 0 0 14px rgba(37, 244, 238, 0.3), inset 0 0 8px rgba(37, 244, 238, 0.08);
   pointer-events: none;
-  animation: circuit-glow-pulse 4.5s ease-in-out infinite;
+  opacity: 0.7;
   z-index: 2;
-}
-
-.spatial-card:nth-child(2n) {
-  animation-duration: 4.3s;
-  animation-delay: -1.2s;
+  transition: opacity 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .spatial-card:nth-child(2n)::after {
-  animation-duration: 3.6s;
-  animation-delay: -1.4s;
   border-color: rgba(254, 44, 85, 0.5);
   box-shadow: 0 0 14px rgba(254, 44, 85, 0.25);
 }
 
-.spatial-card:nth-child(3n) {
-  animation-duration: 5.6s;
-  animation-delay: -2.5s;
-}
-
 .spatial-card:nth-child(3n)::after {
-  animation-duration: 5.1s;
-  animation-delay: -2.8s;
   border-color: rgba(37, 244, 238, 0.5);
   box-shadow: 0 0 14px rgba(37, 244, 238, 0.28);
 }
