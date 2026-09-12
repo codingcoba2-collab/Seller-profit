@@ -9,7 +9,8 @@ import {
   LogOut, 
   Settings, 
   DownloadCloud, 
-  Palette
+  Palette,
+  Database
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -106,6 +107,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <DownloadCloud className="w-3.5 h-3.5 text-[#25F4EE]" />
               <span className="text-[11px] sm:text-xs font-black text-[#25F4EE]">Update</span>
+            </button>
+
+            {/* Developer Firestore Meter Shortcut */}
+            <button
+              id="btn-developer-firestore-meter"
+              onClick={() => onNavigate('/informasi/developer')}
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition cursor-pointer flex items-center gap-1 sm:gap-1.5 active:scale-95 shadow-xs"
+              title="Developer Console: Pantau Kuota & Kapasitas Database Firestore"
+            >
+              <Database className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px] sm:text-xs font-black text-amber-300 hidden md:inline">DB Meter</span>
             </button>
 
             {/* Owner Settings / Gear Icon for Password Change */}

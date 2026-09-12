@@ -8,10 +8,11 @@ import {
   getDoc, 
   getDocs, 
   updateDoc, 
-  deleteDoc,
-  onSnapshot,
-  query,
+  deleteDoc, 
+  onSnapshot, 
+  query, 
   where,
+  getCountFromServer,
   Unsubscribe
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -44,6 +45,7 @@ export {
   onSnapshot,
   query,
   where,
+  getCountFromServer,
   type Unsubscribe 
 };
 

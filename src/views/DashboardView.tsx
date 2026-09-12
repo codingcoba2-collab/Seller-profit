@@ -14,6 +14,7 @@ import {
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { RunningTextBanner } from '../components/RunningTextBanner';
 import { NeonCorners } from '../components/NeonCorners';
+import { FirestoreUsageMonitor } from '../components/FirestoreUsageMonitor';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -282,6 +283,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* 4. DEVELOPER FIRESTORE USAGE MONITOR (BAR PROSES DATA TERSIMPAN & BACA HARI INI) */}
+      <div className="space-y-2.5 pt-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+            Developer: Status & Kapasitas Database Firestore
+          </h3>
+          <button
+            type="button"
+            onClick={() => onNavigate('/informasi/developer')}
+            className="text-xs text-[#25F4EE] hover:underline font-bold cursor-pointer"
+          >
+            Buka Layar Penuh →
+          </button>
+        </div>
+
+        <FirestoreUsageMonitor 
+          onNotify={onNotify} 
+          compact={false}
+          onOpenFullView={() => onNavigate('/informasi/developer')} 
+        />
       </div>
 
       {/* Theme Selector Modal */}

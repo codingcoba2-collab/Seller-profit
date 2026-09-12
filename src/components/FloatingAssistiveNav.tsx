@@ -10,7 +10,8 @@ import {
   Megaphone, 
   Volume2, 
   X, 
-  Command
+  Command,
+  Database
 } from 'lucide-react';
 
 interface FloatingAssistiveNavProps {
@@ -239,15 +240,26 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
               </button>
             </div>
 
-            {/* Bottom Row Actions: Beranda & Suara Robot AI */}
-            <div className="flex items-center gap-2 pt-1">
+            {/* Bottom Row Actions: Beranda, Suara Robot AI & Developer Meter */}
+            <div className="flex items-center gap-1.5 pt-1">
               <button
                 type="button"
                 onClick={() => handleAction(() => onNavigate('/dashboard'))}
-                className="flex-1 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="flex-1 py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white flex items-center justify-center gap-1 transition cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5 text-[#25F4EE]" />
                 <span>Beranda</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-assistive-developer"
+                onClick={() => handleAction(() => onNavigate('/informasi/developer'))}
+                className="py-2 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-bold text-amber-300 flex items-center justify-center gap-1 transition cursor-pointer"
+                title="Developer: Monitor Kuota & Firestore"
+              >
+                <Database className="w-3.5 h-3.5 text-amber-400" />
+                <span>DB Meter</span>
               </button>
 
               <button
@@ -257,7 +269,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
                   SoundFx.playRobotButtonClick();
                   setIsOpen(false);
                 }}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-[#25F4EE]/20 to-[#FE2C55]/20 border border-white/20 hover:border-white/40 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-[#25F4EE]/20 to-[#FE2C55]/20 border border-white/20 hover:border-white/40 text-xs font-bold text-white flex items-center justify-center gap-1 transition cursor-pointer"
                 title="Putar Suara Robot AI"
               >
                 <Volume2 className="w-3.5 h-3.5 text-[#FE2C55]" />

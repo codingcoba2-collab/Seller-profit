@@ -20,7 +20,8 @@ import {
   History,
   MessageSquare,
   MessageCircle,
-  Megaphone
+  Megaphone,
+  Database
 } from 'lucide-react';
 
 export type RoutePath =
@@ -53,7 +54,9 @@ export type RoutePath =
   // Kategori Informasi
   | '/informasi'
   | '/informasi/pengumuman'
-  | '/informasi/live-chat';
+  | '/informasi/live-chat'
+  | '/informasi/developer'
+  | '/developer';
 
 export interface BreadcrumbItem {
   label: string;
@@ -314,6 +317,16 @@ export const CATEGORIES: CategoryDefinition[] = [
         iconColor: 'text-[#25F4EE]',
         allowedRoles: ['owner'],
       },
+      {
+        path: '/informasi/developer',
+        title: 'Developer: Kuota & Database Firestore',
+        subtitle: 'Pantau kapasitas data tersimpan & operasi baca harian Firestore',
+        badgeText: 'Developer Console',
+        icon: Database,
+        iconColor: 'text-amber-400',
+        allowedRoles: ['owner'],
+        allEmployeesCanView: false,
+      },
     ],
   },
 ];
@@ -408,6 +421,11 @@ export function normalizePath(path: string): RoutePath {
     case '/live-chat':
     case '/chat':
       return '/informasi/live-chat';
+    case '/informasi/developer':
+    case '/informasi/telemetry':
+    case '/informasi/kuota':
+    case '/developer':
+      return '/informasi/developer';
 
     default:
       return '/dashboard';
@@ -449,7 +467,7 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   if (user.isOwner) return true;
 
   // Live chat in information sub-menu is strictly reserved for the owner
-  if (route === '/informasi/live-chat') {
+  if (route === '/informasi/live-chat' || route === '/informasi/developer' || route === '/developer') {
     return user.isOwner;
   }
 
@@ -531,6 +549,9 @@ export function getPageTitle(route: RoutePath): string {
     case '/informasi': return 'Informasi';
     case '/informasi/pengumuman': return 'Pengumuman Toko (Live Info)';
     case '/informasi/live-chat': return 'Live Chat Real-Time';
+    case '/informasi/developer':
+    case '/developer':
+      return 'Developer: Kuota & Database Firestore';
     default: return 'Seller Profit';
   }
 }

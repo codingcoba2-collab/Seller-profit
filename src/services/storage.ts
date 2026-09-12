@@ -29,6 +29,7 @@ import {
   where,
   type Unsubscribe 
 } from './firebase';
+import { FirestoreTelemetry } from './firestoreTelemetry';
 
 const STORAGE_KEYS = {
   STORES: 'shopee_lr_stores',
@@ -401,6 +402,7 @@ export class StorageService {
     try {
       const cleanData = this.cleanForFirestore(data);
       await setDoc(doc(db, collectionName, docId), cleanData, { merge: true });
+      FirestoreTelemetry.recordWrites(1, collectionName, `Tulis ${collectionName} (${docId})`);
       return true;
     } catch (e) {
       console.warn(`Cloud sync write notice for ${collectionName}/${docId}:`, e);
@@ -413,6 +415,7 @@ export class StorageService {
     if (!db) return false;
     try {
       await deleteDoc(doc(db, collectionName, docId));
+      FirestoreTelemetry.recordDeletes(1, collectionName, `Hapus ${collectionName} (${docId})`);
       return true;
     } catch (e) {
       console.warn(`Cloud sync delete notice for ${collectionName}/${docId}:`, e);
@@ -429,6 +432,7 @@ export class StorageService {
     try {
       // 1. Sync Stores
       const storesSnap = await getDocs(collection(db, 'stores'));
+      FirestoreTelemetry.recordReads(storesSnap.size || 1, 'stores', 'Sinkronisasi daftar toko');
       const localStores = this.getStores();
       if (!storesSnap.empty) {
         const cloudStores: StoreAccount[] = [];
@@ -452,6 +456,7 @@ export class StorageService {
 
       // 2. Sync Employees
       const empSnap = await getDocs(collection(db, 'employees'));
+      FirestoreTelemetry.recordReads(empSnap.size || 1, 'employees', 'Sinkronisasi daftar pegawai');
       const localEmps = this.getAllEmployeesRaw();
       if (!empSnap.empty) {
         const cloudEmployees: Employee[] = [];
@@ -496,6 +501,7 @@ export class StorageService {
       if (currentStoreId) {
         // 1. Sync inventory
         const invSnap = await getDocs(collection(db, 'inventory_balls'));
+        FirestoreTelemetry.recordReads(invSnap.size || 1, 'inventory_balls', 'Sinkronisasi modal stok HPP');
         const localInvRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
         const localInv: BallInventory[] = localInvRaw ? JSON.parse(localInvRaw) : DEFAULT_INVENTORY;
         if (!invSnap.empty) {
@@ -514,6 +520,7 @@ export class StorageService {
 
         // 2. Sync attendance
         const attSnap = await getDocs(collection(db, 'attendance'));
+        FirestoreTelemetry.recordReads(attSnap.size || 1, 'attendance', 'Sinkronisasi kehadiran shift');
         const localAttRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
         const localAtt: AttendanceRecord[] = localAttRaw ? JSON.parse(localAttRaw) : [];
         if (!attSnap.empty) {
@@ -530,6 +537,7 @@ export class StorageService {
 
         // 3. Sync sales
         const salesSnap = await getDocs(collection(db, 'sales'));
+        FirestoreTelemetry.recordReads(salesSnap.size || 1, 'sales', 'Sinkronisasi transaksi penjualan');
         const localSalesRaw = localStorage.getItem(STORAGE_KEYS.SALES);
         const localSales: SalesRecord[] = localSalesRaw ? JSON.parse(localSalesRaw) : [];
         if (!salesSnap.empty) {
@@ -546,6 +554,7 @@ export class StorageService {
 
         // 4. Sync returns
         const returnsSnap = await getDocs(collection(db, 'returns'));
+        FirestoreTelemetry.recordReads(returnsSnap.size || 1, 'returns', 'Sinkronisasi data retur');
         const localRetRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
         const localRet: ReturnRecord[] = localRetRaw ? JSON.parse(localRetRaw) : [];
         if (!returnsSnap.empty) {
@@ -562,6 +571,7 @@ export class StorageService {
 
         // 5. Sync ads & coins
         const adsSnap = await getDocs(collection(db, 'ads_coins'));
+        FirestoreTelemetry.recordReads(adsSnap.size || 1, 'ads_coins', 'Sinkronisasi deposit iklan & koin');
         const localAdsRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
         const localAds: AdsCoinDeposit[] = localAdsRaw ? JSON.parse(localAdsRaw) : [];
         if (!adsSnap.empty) {
@@ -578,6 +588,7 @@ export class StorageService {
 
         // 6. Sync cashflow
         const cashflowSnap = await getDocs(collection(db, 'cashflow'));
+        FirestoreTelemetry.recordReads(cashflowSnap.size || 1, 'cashflow', 'Sinkronisasi arus kas');
         const localCashRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
         const localCash: CashflowRecord[] = localCashRaw ? JSON.parse(localCashRaw) : [];
         if (!cashflowSnap.empty) {
@@ -594,6 +605,7 @@ export class StorageService {
 
         // 7. Sync steam sortir
         const steamSnap = await getDocs(collection(db, 'steam_sortir'));
+        FirestoreTelemetry.recordReads(steamSnap.size || 1, 'steam_sortir', 'Sinkronisasi sortir & steam');
         const localSteamRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
         const localSteam: SteamSortirRecord[] = localSteamRaw ? JSON.parse(localSteamRaw) : [];
         if (!steamSnap.empty) {
@@ -634,6 +646,8 @@ export class StorageService {
     try {
       // 1. Realtime listener for Stores
       const unsubStores = onSnapshot(collection(db, 'stores'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'stores', 'Pembaruan realtime Toko');
         const cloudStores: StoreAccount[] = [];
         snapshot.forEach(docSnap => cloudStores.push(docSnap.data() as StoreAccount));
         const localStores = this.getStores();
@@ -646,6 +660,8 @@ export class StorageService {
 
       // 2. Realtime listener for Employees
       const unsubEmployees = onSnapshot(collection(db, 'employees'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'employees', 'Pembaruan realtime Pegawai');
         const cloudEmps: Employee[] = [];
         snapshot.forEach(docSnap => cloudEmps.push(docSnap.data() as Employee));
         const localEmps = this.getAllEmployeesRaw();
@@ -658,6 +674,8 @@ export class StorageService {
 
       // 3. Realtime listener for Sales
       const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'sales', 'Pembaruan realtime Penjualan');
         const cloudSales: SalesRecord[] = [];
         snapshot.forEach(docSnap => cloudSales.push(docSnap.data() as SalesRecord));
         const localRaw = localStorage.getItem(STORAGE_KEYS.SALES);
@@ -671,6 +689,8 @@ export class StorageService {
 
       // 4. Realtime listener for Inventory
       const unsubInventory = onSnapshot(collection(db, 'inventory_balls'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'inventory_balls', 'Pembaruan realtime Stok HPP');
         const cloudInv: BallInventory[] = [];
         snapshot.forEach(docSnap => cloudInv.push(docSnap.data() as BallInventory));
         const localRaw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
@@ -684,6 +704,8 @@ export class StorageService {
 
       // 5. Realtime listener for Attendance
       const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'attendance', 'Pembaruan realtime Kehadiran');
         const cloudAtt: AttendanceRecord[] = [];
         snapshot.forEach(docSnap => cloudAtt.push(docSnap.data() as AttendanceRecord));
         const localRaw = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
@@ -697,6 +719,8 @@ export class StorageService {
 
       // 6. Realtime listener for Returns
       const unsubReturns = onSnapshot(collection(db, 'returns'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'returns', 'Pembaruan realtime Retur');
         const cloudRet: ReturnRecord[] = [];
         snapshot.forEach(docSnap => cloudRet.push(docSnap.data() as ReturnRecord));
         const localRaw = localStorage.getItem(STORAGE_KEYS.RETURNS);
@@ -710,6 +734,8 @@ export class StorageService {
 
       // 7. Realtime listener for Ads & Coins
       const unsubAds = onSnapshot(collection(db, 'ads_coins'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'ads_coins', 'Pembaruan realtime Iklan & Koin');
         const cloudAds: AdsCoinDeposit[] = [];
         snapshot.forEach(docSnap => cloudAds.push(docSnap.data() as AdsCoinDeposit));
         const localRaw = localStorage.getItem(STORAGE_KEYS.ADS_COINS);
@@ -723,6 +749,8 @@ export class StorageService {
 
       // 8. Realtime listener for Cashflow
       const unsubCashflow = onSnapshot(collection(db, 'cashflow'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'cashflow', 'Pembaruan realtime Arus Kas');
         const cloudCash: CashflowRecord[] = [];
         snapshot.forEach(docSnap => cloudCash.push(docSnap.data() as CashflowRecord));
         const localRaw = localStorage.getItem(STORAGE_KEYS.CASHFLOW);
@@ -736,6 +764,8 @@ export class StorageService {
 
       // 9. Realtime listener for Steam & Sortir
       const unsubSteam = onSnapshot(collection(db, 'steam_sortir'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'steam_sortir', 'Pembaruan realtime Steam & Sortir');
         const cloudSteam: SteamSortirRecord[] = [];
         snapshot.forEach(docSnap => cloudSteam.push(docSnap.data() as SteamSortirRecord));
         const localRaw = localStorage.getItem(STORAGE_KEYS.STEAM_SORTIR);
@@ -749,6 +779,8 @@ export class StorageService {
 
       // 10. Realtime listener for Announcements
       const unsubAnnounce = onSnapshot(collection(db, 'announcements'), (snapshot) => {
+        const changes = snapshot.docChanges().length;
+        if (changes > 0) FirestoreTelemetry.recordReads(changes, 'announcements', 'Pembaruan realtime Pengumuman');
         const cloudAnn: StoreAnnouncement[] = [];
         snapshot.forEach(docSnap => cloudAnn.push(docSnap.data() as StoreAnnouncement));
         const localRaw = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);

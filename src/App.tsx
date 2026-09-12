@@ -42,6 +42,7 @@ const TopupSaldoInputView = lazy(() => import('./views/TopupSaldoInputView').the
 const TopupSaldoRiwayatView = lazy(() => import('./views/TopupSaldoRiwayatView').then(m => ({ default: m.TopupSaldoRiwayatView })));
 const LiveChatView = lazy(() => import('./views/LiveChatView').then(m => ({ default: m.LiveChatView })));
 const PengumumanView = lazy(() => import('./views/PengumumanView').then(m => ({ default: m.PengumumanView })));
+const DeveloperMonitorView = lazy(() => import('./views/DeveloperMonitorView').then(m => ({ default: m.DeveloperMonitorView })));
 
 import { ProfileModal } from './components/ProfileModal';
 import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
@@ -524,6 +525,14 @@ export default function App() {
           <LiveChatView
             currentUser={currentUser}
             onNavigate={handleNavigate}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {(currentRoute === '/informasi/developer' || currentRoute === '/developer') && (
+          <DeveloperMonitorView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/informasi')}
             onNotify={handleNotify}
           />
         )}
