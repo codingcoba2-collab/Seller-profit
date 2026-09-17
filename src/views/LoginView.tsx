@@ -294,6 +294,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                     id="input-login-username"
                     type="text"
                     required
+                    autoComplete="username"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                     placeholder="Username Akun Anda (Contoh: siti_host / owner)"
@@ -329,6 +330,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                     id="input-login-password"
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="current-password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Password Anda"
