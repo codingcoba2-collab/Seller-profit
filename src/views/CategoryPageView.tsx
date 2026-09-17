@@ -52,10 +52,11 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
           type="button"
           id="btn-sub-menu-back-to-dashboard"
           onClick={() => onNavigate('/dashboard')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95 self-start sm:self-auto shrink-0"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer shadow-xs active:scale-95 self-start sm:self-auto shrink-0"
+          title="Kembali"
+          aria-label="Kembali"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>Kembali ke Beranda</span>
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
       </div>
 

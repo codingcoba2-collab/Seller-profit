@@ -121,11 +121,11 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
             type="button"
             id="btn-back-to-topup-hub"
             onClick={() => onNavigate('/topup-saldo')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
-            title="Kembali ke Hub Saldo"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Hub Saldo</span>
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
           <span className="text-sm font-black text-white px-1">
             {isEditing ? 'Edit Data Top-Up' : 'Input Top-Up Saldo'}
@@ -152,24 +152,8 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       </div>
 
       {/* Dedicated Form Input Card */}
-      <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE]">
-              {isEditing ? <Edit3 className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
-            </div>
-            <div>
-              <h3 className="font-black text-white text-base">
-                {isEditing ? 'Form Edit Top-Up Saldo' : 'Formulir Top-Up Saldo Iklan & Koin'}
-              </h3>
-              <p className="text-xs text-zinc-400">
-                Data akan otomatis memperbarui saldo kredit marketplace &amp; koin live.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Tanggal */}
           <div>
             <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -187,7 +171,7 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nominal Iklan */}
-            <div className="bg-[#0b0c10] p-4 rounded-2xl border border-white/10 space-y-1.5">
+            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-1.5">
               <label className="block text-xs font-bold text-[#25F4EE]">
                 Nominal Saldo Iklan Marketplace (Rp)
               </label>
@@ -198,13 +182,10 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
                 placeholder="Contoh: 1.000.000"
                 className="w-full bg-[#161823] border border-white/10 rounded-xl px-4 py-2.5 text-white font-black text-base focus:outline-hidden focus:border-[#25F4EE]"
               />
-              <p className="text-[11px] text-zinc-500">
-                Kredit untuk Shopee Ads / TikTok Ads Live
-              </p>
             </div>
 
             {/* Nominal Koin */}
-            <div className="bg-[#0b0c10] p-4 rounded-2xl border border-white/10 space-y-1.5">
+            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-1.5">
               <label className="block text-xs font-bold text-amber-400">
                 Nominal Koin Live Reward (Rp)
               </label>
@@ -215,9 +196,6 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
                 placeholder="Contoh: 500.000"
                 className="w-full bg-[#161823] border border-white/10 rounded-xl px-4 py-2.5 text-white font-black text-base focus:outline-hidden focus:border-amber-400"
               />
-              <p className="text-[11px] text-zinc-500">
-                Koin giveaway penonton saat sesi streaming
-              </p>
             </div>
           </div>
 

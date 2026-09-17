@@ -61,15 +61,13 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
             type="button"
             id="btn-back-to-persiapan-from-topup"
             onClick={() => onNavigate('/persiapan')}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-black text-xs transition border border-white/10 cursor-pointer active:scale-95 shadow-xs"
+            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition border border-white/10 cursor-pointer active:scale-95 shadow-xs"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            <span>← Kembali ke Persiapan</span>
+            <ArrowLeft className="w-5 h-5 text-[#25F4EE]" />
           </button>
           <div>
-            <span className="text-[10px] font-black uppercase text-zinc-400 block tracking-wider">
-              Modul Promosi
-            </span>
             <h2 className="text-base sm:text-lg font-black text-white">
               Saldo Biaya Iklan &amp; Koin Live
             </h2>
@@ -84,22 +82,19 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
       {/* ROAS & Saldo Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* ROAS Metric Card */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-[#25F4EE]/30 shadow-xl space-y-3 relative overflow-hidden">
+        <div className="p-5 sm:p-6 rounded-3xl bg-[#161823] text-white border border-[#25F4EE]/30 shadow-xl space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/40">
-                <TrendingUp className="w-5 h-5" />
+              <div className="p-2 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/40">
+                <TrendingUp className="w-4 h-4" />
               </div>
-              <div>
-                <h3 className="font-black text-sm text-white">ROAS Iklan Live</h3>
-                <span className="text-[11px] text-zinc-400">Return On Ad Spend</span>
-              </div>
+              <h3 className="font-black text-sm text-white">ROAS Iklan Live</h3>
             </div>
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
               parseFloat(roasMetrics.roasAdsOnly) >= 4 
                 ? 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/30' 
                 : parseFloat(roasMetrics.roasAdsOnly) >= 2 
-                ? 'bg-amber-400/10 text-amber-400 border-amber-400/30'
+                ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' 
                 : 'bg-[#FE2C55]/10 text-[#FE2C55] border-[#FE2C55]/30'
             }`}>
               {parseFloat(roasMetrics.roasAdsOnly) >= 4 ? 'Menguntungkan' : parseFloat(roasMetrics.roasAdsOnly) >= 2 ? 'Moderat' : 'Optimasi'}
@@ -108,27 +103,21 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
 
           <div className="pt-2 border-t border-white/10">
             <div className="text-xs text-zinc-400">Rasio Omzet vs Iklan:</div>
-            <div className="text-3xl font-black text-[#25F4EE] mt-1 flex items-baseline gap-1">
+            <div className="text-2xl sm:text-3xl font-black text-[#25F4EE] mt-1 flex items-baseline gap-1">
               <span>{roasMetrics.roasAdsOnly}x</span>
               <span className="text-xs text-zinc-400 font-semibold">ROAS</span>
-            </div>
-            <div className="text-[11px] text-zinc-400 mt-2">
-              Tiap Rp 1 biaya iklan menghasilkan Rp {roasMetrics.roasAdsOnly} omzet.
             </div>
           </div>
         </div>
 
         {/* Iklan Marketplace */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
+        <div className="p-5 sm:p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-                <Megaphone className="w-5 h-5" />
+              <div className="p-2 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
+                <Megaphone className="w-4 h-4" />
               </div>
-              <div>
-                <h3 className="font-black text-sm text-white">Saldo Marketplace Ads</h3>
-                <span className="text-[11px] text-zinc-400">Kredit Iklan Aktif</span>
-              </div>
+              <h3 className="font-black text-sm text-white">Saldo Marketplace Ads</h3>
             </div>
             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
               Realtime
@@ -148,16 +137,13 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
         </div>
 
         {/* Koin Marketplace */}
-        <div className="p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
+        <div className="p-5 sm:p-6 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-amber-400 border border-white/10">
-                <Coins className="w-5 h-5" />
+              <div className="p-2 rounded-2xl bg-[#0b0c10] text-amber-400 border border-white/10">
+                <Coins className="w-4 h-4" />
               </div>
-              <div>
-                <h3 className="font-black text-sm text-white">Saldo Koin Live</h3>
-                <span className="text-[11px] text-zinc-400">Koin Live Reward</span>
-              </div>
+              <h3 className="font-black text-sm text-white">Saldo Koin Live</h3>
             </div>
             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400/10 text-amber-400 border border-amber-400/20">
               Realtime
@@ -184,9 +170,6 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
             <Wallet className="w-4 h-4 text-[#25F4EE]" />
             <span>Aksi Kelola Saldo</span>
           </h3>
-          <span className="text-[11px] text-zinc-500 font-semibold">
-            Pilih tindakan topup
-          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -203,9 +186,6 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
               <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight">
                 Input Top-Up Saldo
               </h4>
-              <p className="text-xs text-zinc-400 leading-snug mt-0.5">
-                Tambah saldo iklan marketplace atau koin live
-              </p>
             </div>
           </div>
 
@@ -222,9 +202,6 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
               <h4 className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight">
                 Riwayat & Mutasi Saldo
               </h4>
-              <p className="text-xs text-zinc-400 leading-snug mt-0.5">
-                Daftar transaksi, mutasi, filter tanggal & edit
-              </p>
             </div>
           </div>
         </div>

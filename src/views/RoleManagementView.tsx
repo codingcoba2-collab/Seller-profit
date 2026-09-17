@@ -474,7 +474,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   <Users className="w-5 h-5 text-[#25F4EE]" />
                   <span>Data Pegawai &amp; Akses Role</span>
                 </h2>
-                <p className="text-xs text-zinc-400">Kelola daftar tim, hak akses akun, dan skema gaji/komisi</p>
               </div>
             </div>
 
@@ -624,7 +623,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
                   <span>{editingId ? 'Edit Data Pegawai' : 'Form Registrasi Pegawai Baru'}</span>
                 </h2>
-                <p className="text-xs text-zinc-400">Pengisian bertahap agar informasi terstruktur dan nyaman dibaca</p>
               </div>
             </div>
 
@@ -680,7 +678,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">1</span>
                     <span>Data Akun &amp; Kredensial Login Pegawai</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">Masukkan nama pegawai dan akun yang digunakan untuk login ke aplikasi.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

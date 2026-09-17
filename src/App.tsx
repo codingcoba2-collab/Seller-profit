@@ -2,13 +2,12 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { CurrentUser, ViewState } from './types';
 import { StorageService } from './services/storage';
 import { Navbar } from './components/Navbar';
-import { BreadcrumbBar } from './components/BreadcrumbBar';
 import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProcessingModal } from './components/ProcessingModal';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
-import { CheckCircle2, AlertCircle, Info, X, Bot, Volume2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { 
   RoutePath, 
   normalizePath, 
@@ -46,7 +45,6 @@ const PengumumanView = lazy(() => import('./views/PengumumanView').then(m => ({ 
 const DeveloperMonitorView = lazy(() => import('./views/DeveloperMonitorView').then(m => ({ default: m.DeveloperMonitorView })));
 
 import { ProfileModal } from './components/ProfileModal';
-import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
 
 // Lightweight View Suspense Fallback
 const ModuleLoader = () => (
@@ -74,7 +72,6 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [robotBanner, setRobotBanner] = useState<{ text: string; name: string } | null>(null);
 
   // Helper toast notification
   const handleNotify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -151,12 +148,9 @@ export default function App() {
           setCurrentRoute('/dashboard');
           window.history.replaceState({}, '', '/dashboard');
         }
-        // Welcome banner on dashboard
+        // Play robot AI welcome sound
         const targetName = user.name || user.username || user.storeName || 'Seller';
-        setRobotBanner({
-          name: targetName,
-          text: `Selamat datang di Seller Profit, ${targetName}! Semoga penjualan hari ini berkah dan lancar.`
-        });
+        SoundFx.playRobotVoiceWelcome(targetName);
       } else {
         setCurrentRoute('/dashboard');
       }
@@ -203,12 +197,9 @@ export default function App() {
       SoundFx.stopLoadingAudio();
       setIsLoading(false);
 
-      // Show welcome banner in dashboard
+      // Play robot AI welcome voice
       const targetName = user.name || user.username || user.storeName || 'Seller';
-      setRobotBanner({
-        name: targetName,
-        text: `Selamat datang di Seller Profit, ${targetName}! Semoga penjualan hari ini berkah dan lancar.`
-      });
+      SoundFx.playRobotVoiceWelcome(targetName);
     }, 1000);
   };
 
@@ -268,56 +259,6 @@ export default function App() {
         onOpenProfile={() => setShowProfileModal(true)}
         onNotify={handleNotify}
       />
-
-      {/* Breadcrumb Navigation Bar */}
-      <BreadcrumbBar
-        currentRoute={currentRoute}
-        onNavigate={handleNavigate}
-      />
-
-      {/* Sci-Fi Robot Voice Transmission Banner */}
-      {robotBanner && (
-        <div className="w-full bg-gradient-to-r from-[#25F4EE]/15 via-[#161823] to-[#FE2C55]/15 border-b border-[#25F4EE]/40 px-4 py-2 text-xs transition-all animate-fadeIn relative overflow-hidden">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-white">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="p-1 rounded-lg bg-[#25F4EE]/20 border border-[#25F4EE]/50 text-[#25F4EE] flex-shrink-0 animate-pulse">
-                <Bot className="w-4 h-4" />
-              </span>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
-                <span className="text-[10px] font-mono font-bold tracking-wider text-[#25F4EE] uppercase flex-shrink-0">
-                  ROBOT AI VOICE
-                </span>
-                <span className="font-semibold text-xs text-white truncate">
-                  "{robotBanner.text}"
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  SoundFx.unlockAudio();
-                  SoundFx.playRobotVoiceWelcome(robotBanner.name);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-[#25F4EE]/20 hover:bg-[#25F4EE]/30 border border-[#25F4EE]/50 text-[#25F4EE] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition"
-                title="Putar Ulang Suara Sambutan Robot"
-              >
-                <Volume2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Putar Ulang</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRobotBanner(null)}
-                className="p-1 rounded-md text-zinc-400 hover:text-white transition cursor-pointer"
-                title="Tutup Banner"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
@@ -553,14 +494,6 @@ export default function App() {
         )}
         </Suspense>
       </main>
-
-      {/* iPhone Style Floating Assistive Navigation Shortcuts */}
-      <FloatingAssistiveNav
-        currentRoute={currentRoute}
-        currentUser={currentUser}
-        onNavigate={handleNavigate}
-        onOpenProfile={() => setShowProfileModal(true)}
-      />
 
       {/* User Profile Modal (Foto, WhatsApp, Bio) */}
       <ProfileModal

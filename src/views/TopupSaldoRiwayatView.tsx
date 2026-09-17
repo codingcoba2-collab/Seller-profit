@@ -104,11 +104,11 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
             type="button"
             id="btn-back-to-hub-from-riwayat"
             onClick={() => onNavigate('/topup-saldo')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
-            title="Kembali ke Hub Saldo"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Hub Saldo</span>
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
           <span className="text-sm font-black text-white px-1">
             Riwayat Top-Up Saldo
