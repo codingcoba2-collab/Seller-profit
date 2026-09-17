@@ -90,6 +90,8 @@ export interface StoreAccount {
   storeName: string;
   ownerUsername: string;
   ownerPassword?: string;
+  isPasswordChangedByOwner?: boolean;
+  passwordLastChangedAt?: string;
   createdAt: string;
   settings: {
     adminPromoPercentage: number; // e.g. 8.5

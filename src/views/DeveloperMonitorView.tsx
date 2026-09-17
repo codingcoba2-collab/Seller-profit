@@ -15,10 +15,12 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  Cpu
+  Cpu,
+  Store
 } from 'lucide-react';
 import { CurrentUser } from '../types';
 import { FirestoreUsageMonitor } from '../components/FirestoreUsageMonitor';
+import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { SoundFx } from '../services/soundFx';
 
@@ -39,6 +41,7 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showStoreListModal, setShowStoreListModal] = useState(false);
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,8 +162,18 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
           </span>
         </div>
 
-        {/* Console Link */}
-        <div className="flex items-center gap-2">
+        {/* Console & Store Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowStoreListModal(true)}
+            className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[#25F4EE] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            title="Lihat Daftar Nama Toko & Username"
+          >
+            <Store className="w-3.5 h-3.5 text-[#25F4EE]" />
+            <span>Daftar Toko &amp; Akun</span>
+          </button>
+
           <a
             href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore`}
             target="_blank"
@@ -237,6 +250,12 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Developer Store List Modal */}
+      <DeveloperStoreListModal
+        isOpen={showStoreListModal}
+        onClose={() => setShowStoreListModal(false)}
+      />
     </div>
   );
 };

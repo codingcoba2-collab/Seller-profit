@@ -68,6 +68,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       storeName: storeName.trim() || currentStore.storeName,
       ownerUsername: username.trim() || currentStore.ownerUsername,
       ownerPassword: newPassword,
+      isPasswordChangedByOwner: true,
+      passwordLastChangedAt: new Date().toISOString(),
     };
 
     StorageService.updateStore(updatedStore);
@@ -80,7 +82,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     };
     StorageService.setCurrentUser(updatedUser);
 
-    onNotify('Password toko berhasil diubah! Gunakan password baru untuk login berikutnya.', 'success');
+    onNotify('Password toko berhasil diubah! Password baru kini dirahasiakan dari menu developer.', 'success');
     onClose();
   };
 
@@ -117,6 +119,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               Ubah password dan kredensial akses toko Anda
             </p>
           </div>
+        </div>
+
+        <div className="mb-4 p-2.5 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 text-[11px] text-zinc-300 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-[#25F4EE] shrink-0" />
+          <span>
+            <strong>Privasi Terjamin:</strong> Setelah Anda mengubah password, developer tidak dapat melihat password Anda di menu developer.
+          </span>
         </div>
 
         {errorMsg && (

@@ -15,9 +15,11 @@ import {
   RefreshCw,
   X,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
 import { DeveloperStoreListModal } from '../components/DeveloperStoreListModal';
+import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 import { UpdateAppModal } from '../components/UpdateAppModal';
 import { AppHeroSection } from '../components/AppHeroSection';
 import { AppEducationSection } from '../components/AppEducationSection';
@@ -33,6 +35,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showDeveloperStoreList, setShowDeveloperStoreList] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
@@ -41,6 +44,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
   const [storeNameOrId, setStoreNameOrId] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  const handleSuccessResetPassword = (resetStoreName: string, resetUser: string, resetPass: string) => {
+    setStoreNameOrId(resetStoreName);
+    setUsername(resetUser);
+    setPassword(resetPass);
+    setShowLoginModal(true);
+  };
 
   // WhatsApp Help URL
   const waHelpUrl = `https://wa.me/62895621670403?text=${encodeURIComponent(
@@ -297,17 +307,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
                   <label className="block text-xs font-semibold text-zinc-300">
                     Password <span className="text-[#FE2C55]">*</span>
                   </label>
-                  {/* Lupa Password WhatsApp Link */}
-                  <a
-                    href={waHelpUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-bold text-[#25F4EE] hover:text-[#25F4EE]/80 flex items-center gap-1 transition"
-                    title="Hubungi Developer via WhatsApp untuk Bantuan Password"
-                  >
-                    <MessageCircle className="w-3 h-3 text-[#25F4EE]" />
-                    <span>Lupa Password?</span>
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-open-forgot-password"
+                      onClick={() => setShowForgotPasswordModal(true)}
+                      className="text-[11px] font-bold text-[#25F4EE] hover:text-[#25F4EE]/80 flex items-center gap-1 transition cursor-pointer"
+                      title="Buat password baru asalkan ingat nama toko dan username"
+                    >
+                      <KeyRound className="w-3 h-3 text-[#25F4EE]" />
+                      <span>Lupa Password?</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -388,6 +399,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
         onSelectStoreToLogin={(storeName) => {
           setStoreNameOrId(storeName);
         }}
+      />
+
+      {/* Forgot Password Modal (Mekanisme Buat Password Baru jika Nama Toko & Username Ingat) */}
+      <ForgotPasswordModal
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+        onSuccessReset={handleSuccessResetPassword}
+        onNotify={onNotify}
       />
 
       {/* Update App Modal */}
