@@ -64,10 +64,11 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
             SoundFx.playRobotButtonClick();
             onBackToDashboard();
           }}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition cursor-pointer active:scale-95"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition cursor-pointer active:scale-95 inline-flex items-center justify-center"
+          title="Kembali ke Beranda"
+          aria-label="Kembali ke Beranda"
         >
           <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          <span>Kembali ke Beranda</span>
         </button>
 
         <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] border border-amber-500/30 shadow-2xl space-y-5 text-center relative overflow-hidden">
@@ -153,19 +154,9 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
           >
             <ArrowLeft className="w-5 h-5 text-[#25F4EE]" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                Developer Console & Firestore Telemetry
-              </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                Mode Developer
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
-              Pantau real-time kapasitas penyimpanan data dan jumlah operasi baca/tulis harian di Cloud Firestore.
-            </p>
-          </div>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
+            Mode Developer
+          </span>
         </div>
 
         {/* Console Link */}

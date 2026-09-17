@@ -1186,10 +1186,11 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
+                  className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                  title="Kembali ke Daftar"
+                  aria-label="Kembali ke Daftar"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Kembali ke Daftar</span>
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
                 </button>
               )}
 

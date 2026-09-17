@@ -59,13 +59,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="btn-back-to-parent"
                 onClick={() => onNavigate(parent ? parent.path : '/dashboard')}
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
                 title={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
+                aria-label={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
               >
                 <ArrowLeft className="w-4 h-4 text-[#25F4EE] shrink-0" />
-                <span className="truncate max-w-[90px] sm:max-w-[160px] md:max-w-none">
-                  {parent ? parent.label : 'Beranda'}
-                </span>
               </button>
             ) : (
               <div 

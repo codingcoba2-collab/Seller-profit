@@ -349,17 +349,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               id="btn-back-dashboard-cashflow"
               type="button"
               onClick={onBackToDashboard}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali</span>
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-[#25F4EE]" />
-                <span>Buku Kas &amp; Arus Keuangan</span>
-              </h2>
-            </div>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -471,10 +466,11 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               resetForm();
               setViewMode('menu');
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Kembali ke Menu</span>
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
 
           <div className="flex items-center gap-2">
@@ -790,27 +786,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           id="btn-back-menu-from-output-cashflow"
           type="button"
           onClick={() => setViewMode('menu')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+          title="Kembali"
+          aria-label="Kembali"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>Kembali ke Menu</span>
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-open-form-from-output-cashflow"
-            type="button"
-            onClick={() => {
-              resetForm();
-              setInputStep(1);
-              setViewMode('input');
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Catat Transaksi Baru</span>
-          </button>
-        </div>
       </div>
 
       {/* Filter Bar */}

@@ -751,21 +751,10 @@ Alamat Lengkap:`;
               id="btn-back-to-dashboard"
               onClick={onBackToDashboard}
               className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors border border-white/10 active:scale-95 shrink-0 cursor-pointer"
-              title="Kembali ke Penjualan"
+              title="Kembali"
             >
               <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#25F4EE] animate-pulse shrink-0" />
-                <h1 className="text-sm sm:text-base font-black tracking-tight text-white uppercase truncate">
-                  Kalkulasi Harga & Paket Terjual
-                </h1>
-              </div>
-              <p className="text-[11px] text-zinc-400 truncate hidden sm:block">
-                Simulasi cerdas titik impas, kuota bundling harian, dan alokasi laba bersih
-              </p>
-            </div>
           </div>
 
           <button

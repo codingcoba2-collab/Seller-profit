@@ -134,6 +134,15 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
       {/* Filter Periode */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          </button>
           <span className="text-xs font-bold text-zinc-300">Periode:</span>
           <div className="flex items-center gap-1">
             {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
@@ -173,9 +182,6 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
             <div className={`text-3xl sm:text-4xl font-black tracking-tight ${calculation.labaKotor >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(calculation.labaKotor)}
             </div>
-            <p className="text-xs text-zinc-400 max-w-xl">
-              Dihitung dari Omzet Kotor dikurangi Modal Terjual, Admin Shopee ({calculation.adminPromoPct}%), Biaya Layanan, Ads/Koin, dan Retur.
-            </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 min-w-[200px]">

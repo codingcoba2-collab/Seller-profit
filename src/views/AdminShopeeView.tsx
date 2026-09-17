@@ -166,69 +166,47 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header Banner */}
-      <div className="bg-[#161823] p-6 sm:p-7 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 text-sky-300 text-xs font-bold border border-sky-500/20">
-              <Store className="w-3.5 h-3.5 text-sky-400" />
-              <span>Biaya Admin &amp; Layanan Multi-Channel</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Atur Biaya Admin Tiap Channel Marketplace
-            </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              Tentukan persentase potongan admin (%) dan biaya penanganan layanan (Rp per paket) khusus untuk <strong className="text-white">TikTok</strong>, <strong className="text-white">Shopee</strong>, <strong className="text-white">Toko Offline</strong>, WhatsApp, dan channel lainnya.
-            </p>
-          </div>
+      {/* Action Toolbar */}
+      <div className="flex items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-back-from-channels"
+            type="button"
+            onClick={onBackToDashboard}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          </button>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              id="btn-back-from-channels"
-              type="button"
-              onClick={onBackToDashboard}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
-              title="Kembali ke menu Persiapan"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali</span>
-            </button>
-            <button
-              id="btn-reset-channels"
-              type="button"
-              onClick={handleResetToDefaults}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
-              title="Reset ke daftar standar"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reset Standar</span>
-            </button>
-            <button
-              id="btn-open-add-channel"
-              type="button"
-              onClick={() => setShowAddChannel(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-[#25F4EE] text-zinc-950 hover:bg-[#25F4EE]/90 transition cursor-pointer shadow-md shadow-[#25F4EE]/20"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Channel</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-reset-channels"
+            type="button"
+            onClick={handleResetToDefaults}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
+            title="Reset ke daftar standar"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Reset Standar</span>
+          </button>
+          <button
+            id="btn-open-add-channel"
+            type="button"
+            onClick={() => setShowAddChannel(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-[#25F4EE] text-zinc-950 hover:bg-[#25F4EE]/90 transition cursor-pointer shadow-md shadow-[#25F4EE]/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Channel</span>
+          </button>
         </div>
       </div>
 
       {/* Main Form: Channel Cards */}
       <form onSubmit={handleSaveAll} className="space-y-6">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-[#25F4EE]" />
-              <span>Daftar Channel Marketplace &amp; Toko ({channelFees.length} Channel)</span>
-            </h3>
-            <span className="text-[11px] text-zinc-400">
-              *Perubahan langsung berlaku pada perhitungan laporan laba &amp; rugi sesi
-            </span>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {channelFees.map((ch, idx) => {
               const isOffline = ch.channel === 'offline' || ch.channel === 'whatsapp';

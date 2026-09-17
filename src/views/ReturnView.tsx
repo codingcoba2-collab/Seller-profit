@@ -237,17 +237,12 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               id="btn-back-dashboard-return"
               type="button"
               onClick={onBackToDashboard}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali</span>
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-[#FE2C55]" />
-                <span>Return &amp; Paket Gagal COD</span>
-              </h2>
-            </div>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -416,10 +411,11 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               resetForm();
               setViewMode('menu');
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Kembali ke Menu</span>
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
 
           <div className="flex items-center gap-2">
@@ -598,29 +594,12 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           id="btn-back-menu-from-output-return"
           type="button"
           onClick={() => setViewMode('menu')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+          title="Kembali"
+          aria-label="Kembali"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>Kembali ke Menu</span>
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
-
-        {!isEstimateMode && (
-          <div className="flex items-center gap-2">
-            <button
-              id="btn-open-form-from-output-return"
-              type="button"
-              onClick={() => {
-                resetForm();
-                setInputStep(1);
-                setViewMode('input');
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#FE2C55] text-white font-extrabold text-xs shadow-md shadow-[#FE2C55]/20 hover:bg-[#FE2C55]/90 transition cursor-pointer"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Input Retur Baru</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Filter Bar */}

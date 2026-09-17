@@ -237,11 +237,16 @@ export const IndexPerformaView: React.FC<IndexPerformaViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* Quick AI Action Banner */}
       <div className="flex items-center justify-between bg-[#161823] p-4 rounded-3xl border border-[#25F4EE]/30 shadow-xl">
-        <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5 text-[#25F4EE]" />
-          <span className="text-xs font-bold text-zinc-300">
-            Kecerdasan Buatan (Gemini AI) untuk evaluasi performa &amp; efektivitas kerja pegawai
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          </button>
         </div>
         <button
           type="button"

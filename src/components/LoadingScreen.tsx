@@ -13,7 +13,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   message = 'Memuat Sistem Akuntansi Marketplace...',
   storeName,
   userName,
-  durationMs = 5000,
+  durationMs = 5500,
 }) => {
   const [progress, setProgress] = useState(12);
   const targetName = userName || storeName || 'Seller';

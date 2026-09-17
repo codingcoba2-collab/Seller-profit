@@ -308,12 +308,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             >
               <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <Scissors className="w-4 h-4 text-[#25F4EE]" />
-                <span>Sortir QC &amp; Finishing Pakaian</span>
-              </h2>
-            </div>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -685,10 +679,11 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 handleCancelEdit();
                 setViewMode('menu');
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition border border-white/10 cursor-pointer active:scale-95"
+              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali</span>
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
 
             <div className="flex items-center gap-2">
@@ -742,21 +737,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         >
           <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-open-form-from-output-steam"
-            type="button"
-            onClick={() => {
-              handleCancelEdit();
-              setViewMode('input');
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Input Pengerjaan Baru</span>
-          </button>
-        </div>
       </div>
 
       {/* Filter Bar */}

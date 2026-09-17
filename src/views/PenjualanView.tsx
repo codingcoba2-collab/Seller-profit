@@ -674,17 +674,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               id="btn-back-dashboard-penjualan"
               type="button"
               onClick={onBackToDashboard}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali</span>
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-[#25F4EE]" />
-                <span>Transaksi Penjualan Toko</span>
-              </h2>
-            </div>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -825,39 +820,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             if (editingId) handleCancelEdit();
             setViewMode('menu');
           }}
-          className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95 flex items-center gap-2 text-xs font-bold"
-          title="Kembali ke Menu Penjualan"
+          className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
+          title="Kembali"
+          aria-label="Kembali"
         >
           <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          <span>Kembali ke Menu</span>
         </button>
-
-        {viewMode === 'rekap' && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setViewMode('input_live');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-[#FE2C55] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer"
-            >
-              <Video className="w-3.5 h-3.5" />
-              <span>+ Input Live</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setViewMode('input_non_live');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer"
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>+ Input Non-Live</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}

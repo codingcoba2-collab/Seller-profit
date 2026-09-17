@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProcessingModal } from './components/ProcessingModal';
+import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
@@ -155,7 +156,7 @@ export default function App() {
         setCurrentRoute('/dashboard');
       }
       setIsLoading(false);
-    }, 1000);
+    }, 5500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -221,7 +222,7 @@ export default function App() {
       <LoadingScreen 
         storeName={activeUser?.storeName} 
         userName={targetName} 
-        durationMs={1000} 
+        durationMs={5500} 
       />
     );
   }
@@ -557,6 +558,14 @@ export default function App() {
       <InstallGuideModal
         isOpen={showInstallGuide}
         onClose={() => setShowInstallGuide(false)}
+      />
+
+      {/* Floating Assistive Touch Nav (Lingkaran Pintasan) */}
+      <FloatingAssistiveNav
+        currentRoute={currentRoute}
+        currentUser={currentUser}
+        onNavigate={handleNavigate}
+        onOpenProfile={() => setShowProfileModal(true)}
       />
 
       {/* Futuristic Global Processing HUD Popup */}

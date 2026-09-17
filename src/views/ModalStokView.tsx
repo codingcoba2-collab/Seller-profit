@@ -40,7 +40,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   onBackToDashboard,
   onNotify,
 }) => {
-  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [viewMode, setViewMode] = useState<'menu' | 'list' | 'form'>('menu');
   const [formStep, setFormStep] = useState<number>(1);
   const [inventoryList, setInventoryList] = useState<BallInventory[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -152,7 +152,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
   const handleCancelEdit = () => {
     resetForm();
-    setViewMode('list');
+    setViewMode('menu');
   };
 
   const toggleSize = (size: string) => {
@@ -317,46 +317,129 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* HEADER UTAMA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={viewMode === 'form' ? handleCancelEdit : onBackToDashboard}
-            className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
-            title={viewMode === 'form' ? 'Kembali ke Daftar Stok' : 'Kembali ke Dashboard'}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-              <Package className="w-5 h-5 text-[#25F4EE]" />
-              <span>{viewMode === 'form' ? (editingId ? 'Edit Data Stok & HPP' : 'Input Stok Fashion & HPP') : 'Modal, Stok & Kalkulasi HPP'}</span>
-            </h2>
-            <p className="text-xs text-zinc-400">
-              {viewMode === 'form'
-                ? 'Pengisian bertahap 3 langkah agar rapi dan nyaman tanpa scroll panjang'
-                : 'Kelola riwayat pembelian stok pakaian dan pantau sisa stok fisik toko'}
-            </p>
+  if (viewMode === 'menu') {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              id="btn-back-dashboard-modal"
+              type="button"
+              onClick={onBackToDashboard}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            </button>
+          </div>
+
+          <div className="text-right text-xs text-zinc-400">
+            Total Ball/Batch: <strong className="text-[#25F4EE]">{inventoryList.length}</strong>
           </div>
         </div>
 
-        {viewMode === 'list' ? (
+        {/* Ringkasan Ringkas */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Modal Ball</div>
+            <div className="text-sm sm:text-base font-black text-white truncate">{formatRupiah(hppInfo.totalBiayaModalDanJasa)}</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Total Pcs Masuk</div>
+            <div className="text-sm sm:text-base font-black text-[#25F4EE] truncate">{formatNumber(stockInfo.totalPcsIn)} pcs</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Stok Fisik Tersedia</div>
+            <div className="text-sm sm:text-base font-black text-emerald-400 truncate">{formatNumber(stockInfo.remainingStock)} pcs</div>
+          </div>
+          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+            <div className="text-[10px] text-zinc-400 font-semibold">Rata-Rata HPP/Pcs</div>
+            <div className="text-sm sm:text-base font-black text-amber-300 truncate">{formatRupiah(hppInfo.weightedAverageHpp)}</div>
+          </div>
+        </div>
+
+        {/* Pilihan 2 Menu: Grid Kecil 2 Kesamping */}
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
+            Pilih Menu:
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {/* 1. Input Stok Baru */}
+            <div
+              onClick={() => {
+                resetForm();
+                setFormStep(1);
+                setViewMode('form');
+              }}
+              className="p-3 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/50 hover:bg-[#1f2232] transition cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="p-2 sm:p-2.5 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20 group-hover:scale-105 transition shrink-0">
+                  <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition">
+                    Input Stok Baru (HPP)
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">
+                    Form input ball/karung grosir baru, breakdown ukuran, dan hitung HPP.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-zinc-400 group-hover:text-white">
+                <span>Mulai input →</span>
+                <span className="text-[#25F4EE] font-bold">Buka</span>
+              </div>
+            </div>
+
+            {/* 2. Riwayat & Rekap Stok */}
+            <div
+              onClick={() => setViewMode('list')}
+              className="p-3 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-emerald-400/50 hover:bg-[#1f2232] transition cursor-pointer group flex flex-col justify-between"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition shrink-0">
+                  <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-400 transition">
+                    Riwayat &amp; Rekap Stok
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">
+                    Tabel riwayat seluruh ball, filter ukuran S-XL, dan sisa stok fisik.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-zinc-400 group-hover:text-white">
+                <span>Buka riwayat stok →</span>
+                <span className="text-emerald-400 font-bold">Buka</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
+      {/* HEADER UTAMA */}
+      <div className="flex items-center justify-between gap-4 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              resetForm();
-              setViewMode('form');
-              setFormStep(1);
-            }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+            onClick={viewMode === 'form' ? handleCancelEdit : () => setViewMode('menu')}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
           >
-            <Package className="w-4 h-4" />
-            <span>+ Input Stok / Ball Baru</span>
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
-        ) : (
+        </div>
+
+        {viewMode === 'form' && (
           <div className="flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
             Langkah {formStep} dari 3
           </div>
@@ -715,10 +798,11 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
+                  className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                  title="Kembali ke Daftar"
+                  aria-label="Kembali ke Daftar"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Kembali ke Daftar</span>
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
                 </button>
               )}
 

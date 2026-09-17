@@ -148,27 +148,24 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
             type="button"
             id="btn-back-to-informasi"
             onClick={() => onNavigate('/informasi')}
-            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
-            title="Kembali ke Kategori Informasi"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
+            title="Kembali"
+            aria-label="Kembali"
           >
             <ArrowLeft className="w-4 h-4 text-[#FE2C55]" />
-            <span className="hidden sm:inline">Kategori Informasi</span>
           </button>
-          <div className="w-10 h-10 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 flex items-center justify-center text-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)]">
-            <Megaphone className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 flex items-center justify-center text-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)] shrink-0">
+            <Megaphone className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-wide text-white">
-                PENGUMUMAN TOKO (LIVE INFO)
+              <h1 className="text-sm sm:text-base font-black tracking-wide text-white">
+                PENGUMUMAN TOKO
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-[#FE2C55]/20 border border-[#FE2C55]/50 text-[#FE2C55] text-[10px] font-black uppercase font-mono animate-pulse">
-                {activeCount} AKTIF DI RUNNING TEXT
+                {activeCount} AKTIF
               </span>
             </div>
-            <p className="text-xs text-zinc-400">
-              Input pengumuman penting oleh Owner yang langsung disiarkan ke teks berjalan (Live Info)
-            </p>
           </div>
         </div>
 

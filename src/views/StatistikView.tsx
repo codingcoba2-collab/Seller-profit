@@ -272,18 +272,12 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
               id="btn-back-dashboard-statistik"
               type="button"
               onClick={onBackToDashboard}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
-              title="Kembali ke Dashboard"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali"
+              aria-label="Kembali"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali</span>
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#25F4EE]" />
-                <span>Statistik &amp; Analisis Penjualan</span>
-              </h2>
-            </div>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -423,22 +417,18 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
   }
 
   // HEADER SUB-VIEW DETAIL DENGAN TOMBOL BACK KE MENU STATISTIK
-  const SubHeader = ({ title, icon: Icon, color = 'text-[#25F4EE]' }: { title: string; icon: any; color?: string }) => (
+  const SubHeader = (_props?: any) => (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setActiveSubView('menu')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition border border-white/10 cursor-pointer active:scale-95"
-          title="Kembali ke Menu Statistik"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+          title="Kembali"
+          aria-label="Kembali"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-          <span>Menu Statistik</span>
+          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
-        <span className={`text-xs sm:text-sm font-black text-white flex items-center gap-1.5 px-1`}>
-          <Icon className={`w-4 h-4 ${color}`} />
-          <span>{title}</span>
-        </span>
       </div>
 
       {/* Period Filter Selector */}
