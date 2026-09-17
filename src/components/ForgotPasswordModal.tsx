@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StorageService } from '../services/storage';
-import { StoreAccount } from '../types';
+import { StoreAccount, Employee } from '../types';
 import { 
   KeyRound, 
   Store, 
@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
-  Sparkles
+  Sparkles,
+  BadgeCheck
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 
@@ -38,6 +39,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   
   const [isVerified, setIsVerified] = useState(false);
   const [matchedStore, setMatchedStore] = useState<StoreAccount | null>(null);
+  const [matchedEmployee, setMatchedEmployee] = useState<Employee | null>(null);
+  const [isOwnerAccount, setIsOwnerAccount] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,34 +51,52 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setErrorMessage('');
 
     const cleanStore = storeNameInput.trim().toLowerCase();
-    const cleanUser = usernameInput.trim().toLowerCase();
+    const cleanUser = usernameInput.trim().toLowerCase().replace(/\s+/g, '');
 
     if (!cleanStore || !cleanUser) {
-      setErrorMessage('Nama Toko dan Username Owner wajib diisi.');
+      setErrorMessage('Nama Toko dan Username wajib diisi.');
       return;
     }
 
     setIsSubmitting(true);
-    // Sinkronisasi data cloud terbaru untuk memastikan toko yang baru terdaftar tersedia
+    // Sinkronisasi data cloud terbaru untuk memastikan toko dan pegawai yang baru terdaftar tersedia
     await StorageService.syncStoresAndEmployeesFromCloud();
     setIsSubmitting(false);
 
     const stores = StorageService.getStores();
-    const found = stores.find(s => {
-      const matchStore = s.storeName.trim().toLowerCase() === cleanStore || s.id.toLowerCase() === cleanStore;
-      const matchUser = s.ownerUsername.trim().toLowerCase() === cleanUser;
-      return matchStore && matchUser;
-    });
+    
+    // 1. Cek apakah Nama Toko terdaftar di sistem
+    const foundStore = stores.find(s => 
+      s.storeName.trim().toLowerCase() === cleanStore || 
+      s.id.toLowerCase() === cleanStore
+    );
 
-    if (found) {
-      SoundFx.playSuccessSound();
-      setMatchedStore(found);
-      setIsVerified(true);
-      setErrorMessage('');
-    } else {
+    if (!foundStore) {
       SoundFx.playRobotErrorSound();
-      setErrorMessage('Kombinasi Nama Toko dan Username Owner tidak ditemukan. Pastikan ejaan sesuai saat mendaftar.');
+      setErrorMessage('Nama toko salah atau belum terdaftar.');
+      return;
     }
+
+    // 2. Toko ditemukan. Cek apakah username terdaftar di toko ini (Owner atau Pegawai)
+    const isOwnerMatch = foundStore.ownerUsername.trim().toLowerCase().replace(/\s+/g, '') === cleanUser;
+    const employees = StorageService.getEmployees(foundStore.id);
+    const foundEmp = employees.find(e => 
+      e.username.trim().toLowerCase().replace(/\s+/g, '') === cleanUser
+    );
+
+    if (!isOwnerMatch && !foundEmp) {
+      SoundFx.playRobotErrorSound();
+      setErrorMessage('Username salah atau belum terdaftar di toko ini.');
+      return;
+    }
+
+    // Akun terverifikasi (bisa Owner atau Pegawai)
+    SoundFx.playSuccessSound();
+    setMatchedStore(foundStore);
+    setMatchedEmployee(foundEmp || null);
+    setIsOwnerAccount(isOwnerMatch);
+    setIsVerified(true);
+    setErrorMessage('');
   };
 
   const handleApplyNewPassword = (e: React.FormEvent) => {
@@ -93,17 +114,30 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     }
 
     try {
-      const updatedStore: StoreAccount = {
-        ...matchedStore,
-        ownerPassword: newPassword,
-        isPasswordChangedByOwner: true,
-        passwordLastChangedAt: new Date().toISOString(),
-      };
+      if (matchedEmployee) {
+        // Update password pegawai
+        const updatedEmp: Employee = {
+          ...matchedEmployee,
+          password: newPassword,
+        };
+        StorageService.addOrUpdateEmployee(updatedEmp);
+        SoundFx.playSuccessSound();
+        onNotify?.(`Password baru untuk pegawai @${matchedEmployee.username} berhasil dibuat!`, 'success');
+        onSuccessReset(matchedStore.storeName, matchedEmployee.username, newPassword);
+      } else if (isOwnerAccount) {
+        // Update password owner toko
+        const updatedStore: StoreAccount = {
+          ...matchedStore,
+          ownerPassword: newPassword,
+          isPasswordChangedByOwner: true,
+          passwordLastChangedAt: new Date().toISOString(),
+        };
+        StorageService.updateStore(updatedStore);
+        SoundFx.playSuccessSound();
+        onNotify?.(`Password baru untuk owner toko @${matchedStore.ownerUsername} berhasil dibuat!`, 'success');
+        onSuccessReset(matchedStore.storeName, matchedStore.ownerUsername, newPassword);
+      }
 
-      StorageService.updateStore(updatedStore);
-      SoundFx.playSuccessSound();
-      onNotify?.('Password baru berhasil dibuat! Password Anda kini dirahasiakan dan tidak dapat dilihat oleh developer.', 'success');
-      onSuccessReset(matchedStore.storeName, matchedStore.ownerUsername, newPassword);
       handleClose();
     } catch (err: any) {
       setErrorMessage('Gagal menyimpan password baru: ' + (err?.message || 'Terjadi kesalahan sistem.'));
@@ -117,6 +151,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setConfirmPassword('');
     setIsVerified(false);
     setMatchedStore(null);
+    setMatchedEmployee(null);
+    setIsOwnerAccount(false);
     setErrorMessage('');
     onClose();
   };
@@ -146,13 +182,13 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           </div>
           <div>
             <h3 className="text-base font-black text-white flex items-center gap-2">
-              <span>Lupa Password Toko</span>
+              <span>Lupa Password Akun</span>
               <span className="px-2 py-0.5 rounded-full bg-[#25F4EE]/10 border border-[#25F4EE]/30 text-[#25F4EE] text-[10px] font-bold">
-                Pemulihan Mandiri
+                Pegawai & Owner
               </span>
             </h3>
             <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
-              Buat password baru asalkan Anda mengingat Nama Toko dan Username
+              Buat password baru jika Nama Toko dan Username sudah terdaftar
             </p>
           </div>
         </div>
@@ -170,10 +206,10 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-zinc-300 space-y-1">
               <div className="font-bold text-white flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-[#25F4EE]" />
-                <span>Verifikasi Kepemilikan Toko</span>
+                <span>Verifikasi Identitas Akun</span>
               </div>
-              <p className="text-[11px] text-zinc-400">
-                Demi keamanan data, masukkan Nama Toko dan Username Owner yang terdaftar. Developer tidak dapat melihat password Anda, sehingga pembuatan password baru diverifikasi melalui data toko Anda.
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                Pembuatan password baru dapat dilakukan oleh <strong>Pegawai</strong> maupun <strong>Owner</strong> asalkan Nama Toko dan Username sudah terdaftar di sistem.
               </p>
             </div>
 
@@ -200,7 +236,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                Username Owner <span className="text-[#FE2C55]">*</span>
+                Username (Pegawai / Owner) <span className="text-[#FE2C55]">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
@@ -212,7 +248,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   required
                   value={usernameInput}
                   onChange={e => setUsernameInput(e.target.value)}
-                  placeholder="Contoh: owner / nama_owner"
+                  placeholder="Contoh: siti_host / budi_sortir / owner"
                   className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white placeholder-zinc-500 focus:border-[#25F4EE] focus:ring-1 focus:ring-[#25F4EE] transition"
                 />
               </div>
@@ -240,16 +276,21 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         ) : (
           /* TAHAP 2: BUAT PASSWORD BARU */
           <form onSubmit={handleApplyNewPassword} className="space-y-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 space-y-1">
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 space-y-1.5">
               <div className="font-bold text-white flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Akun Terverifikasi!</span>
               </div>
-              <p className="text-[11px] text-zinc-300">
-                Toko: <strong>{matchedStore?.storeName}</strong> • Username: <strong>{matchedStore?.ownerUsername}</strong>
-              </p>
+              <div className="text-[11px] text-zinc-200 space-y-0.5">
+                <p>Nama Toko: <strong className="text-white">{matchedStore?.storeName}</strong></p>
+                {matchedEmployee ? (
+                  <p>Pegawai: <strong className="text-emerald-300">{matchedEmployee.name}</strong> (@{matchedEmployee.username})</p>
+                ) : (
+                  <p>Owner Toko: <strong className="text-[#25F4EE]">@{matchedStore?.ownerUsername}</strong></p>
+                )}
+              </div>
               <p className="text-[10px] text-zinc-400 pt-0.5">
-                Silakan buat password baru di bawah ini. Password ini akan dirahasiakan dan tidak akan dapat dilihat oleh developer.
+                Silakan buat password baru di bawah ini. Password ini akan langsung disimpan dan dapat digunakan untuk login.
               </p>
             </div>
 
@@ -320,7 +361,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-md shadow-[#FE2C55]/20 active:scale-95 transition cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Simpan & Terapkan Password</span>
+                <span>Simpan Password Baru</span>
               </button>
             </div>
           </form>

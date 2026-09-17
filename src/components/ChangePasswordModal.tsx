@@ -33,6 +33,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   if (!isOpen) return null;
 
   const currentStore = StorageService.getStoreById(currentUser.storeId);
+  const isOwner = Boolean(currentUser.isOwner);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,47 +44,87 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       return;
     }
 
-    // Verify old password (unless guest mode)
-    if (!currentUser.isGuest) {
-      const actualOld = currentStore.ownerPassword || '123';
+    if (isOwner) {
+      // Owner Password Verification
+      if (!currentUser.isGuest) {
+        const actualOld = currentStore.ownerPassword || '123';
+        if (oldPassword !== actualOld) {
+          setErrorMsg('Password lama tidak sesuai.');
+          return;
+        }
+      }
+
+      if (newPassword.length < 3) {
+        setErrorMsg('Password baru minimal 3 karakter.');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setErrorMsg('Konfirmasi password baru tidak cocok.');
+        return;
+      }
+
+      // Update store
+      const updatedStore = {
+        ...currentStore,
+        storeName: storeName.trim() || currentStore.storeName,
+        ownerUsername: username.trim() || currentStore.ownerUsername,
+        ownerPassword: newPassword,
+        isPasswordChangedByOwner: true,
+        passwordLastChangedAt: new Date().toISOString(),
+      };
+
+      StorageService.updateStore(updatedStore);
+
+      // Update session
+      const updatedUser: CurrentUser = {
+        ...currentUser,
+        storeName: updatedStore.storeName,
+        username: updatedStore.ownerUsername,
+      };
+      StorageService.setCurrentUser(updatedUser);
+
+      onNotify('Password toko berhasil diubah! Password baru kini dirahasiakan dari menu developer.', 'success');
+      onClose();
+    } else {
+      // Employee Password Verification & Update
+      const employees = StorageService.getEmployees(currentUser.storeId);
+      const emp = employees.find(e => e.id === currentUser.id || e.username.toLowerCase() === (currentUser.username || '').toLowerCase());
+
+      if (!emp) {
+        setErrorMsg('Data akun pegawai tidak ditemukan.');
+        return;
+      }
+
+      const actualOld = emp.password || '123';
       if (oldPassword !== actualOld) {
         setErrorMsg('Password lama tidak sesuai.');
         return;
       }
+
+      if (newPassword.length < 3) {
+        setErrorMsg('Password baru minimal 3 karakter.');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setErrorMsg('Konfirmasi password baru tidak cocok.');
+        return;
+      }
+
+      emp.password = newPassword;
+      StorageService.addOrUpdateEmployee(emp);
+
+      // Update session
+      const updatedUser: CurrentUser = {
+        ...currentUser,
+        employeeProfile: emp,
+      };
+      StorageService.setCurrentUser(updatedUser);
+
+      onNotify('Password akun Anda berhasil diubah dan tetap dirahasiakan dari owner toko!', 'success');
+      onClose();
     }
-
-    if (newPassword.length < 3) {
-      setErrorMsg('Password baru minimal 3 karakter.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setErrorMsg('Konfirmasi password baru tidak cocok.');
-      return;
-    }
-
-    // Update store
-    const updatedStore = {
-      ...currentStore,
-      storeName: storeName.trim() || currentStore.storeName,
-      ownerUsername: username.trim() || currentStore.ownerUsername,
-      ownerPassword: newPassword,
-      isPasswordChangedByOwner: true,
-      passwordLastChangedAt: new Date().toISOString(),
-    };
-
-    StorageService.updateStore(updatedStore);
-
-    // Update session
-    const updatedUser: CurrentUser = {
-      ...currentUser,
-      storeName: updatedStore.storeName,
-      username: updatedStore.ownerUsername,
-    };
-    StorageService.setCurrentUser(updatedUser);
-
-    onNotify('Password toko berhasil diubah! Password baru kini dirahasiakan dari menu developer.', 'success');
-    onClose();
   };
 
   return (

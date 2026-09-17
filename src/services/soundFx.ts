@@ -879,20 +879,25 @@ class SoundFxService {
     }
   }
 
+  private isVoiceSpeaking: boolean = false;
+
   /**
-   * Synthesized robotic chime and voice greeting in English:
-   * "Welcome to Seller Profit, [name]! Please enjoy your sale."
-   * Engineered with triple-layer guarantee:
-   * 1. Multi-formant Web Audio robotic vocoder vowel cadence (100% offline & immune to browser restrictions)
-   * 2. Browser SpeechSynthesis with metallic pitch/rate & GC retention
-   * 3. Visual notification & replay controls
+   * Synthesized robotic chime and voice greeting:
+   * Provides a complete, uninterrupted speech greeting in Indonesian (if available) or English.
+   * Engineered with dual-layer guarantee:
+   * 1. Multi-formant Web Audio robotic vocoder intro & sci-fi chimes
+   * 2. Rock-solid SpeechSynthesis with single-execution guard & GC retention to prevent cutting off
    */
   public playRobotVoiceWelcome(userName: string = 'User') {
     if (this.isMuted) return;
 
+    // Prevent re-triggering if speech is actively speaking right now
+    if (this.isVoiceSpeaking && typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
+      return;
+    }
+
     // Normalize user name nicely
     const cleanName = (userName || 'User').replace(/^(owner\s*|pegawai\s*)/i, '').trim() || 'User';
-    const speechText = `Welcome to Seller Profit, ${cleanName}! Please enjoy your sale.`;
 
     // Step 1: Robotic synthesizer intro chime & vocoder formant cadence (100% Web Audio, always works!)
     try {
@@ -922,8 +927,7 @@ class SoundFxService {
           osc.stop(now + i * 0.06 + 0.35);
         });
 
-        // Layer B: Vocoder Speech Formant Simulation ("Wel-come to Sel-ler Pro-fit")
-        // Uses bandpass formant filters representing vowels [e], [o], [u], [e], [o], [i]
+        // Layer B: Vocoder Speech Formant Simulation
         const formants = [
           { f1: 530, f2: 1840, dur: 0.16, pitch: 180 }, // "Wel-"
           { f1: 400, f2: 1200, dur: 0.18, pitch: 175 }, // "-come"
@@ -936,18 +940,15 @@ class SoundFxService {
 
         let syllableTime = now + 0.42;
         formants.forEach((v) => {
-          // Carrier pulse
           const carrier = ctx.createOscillator();
           carrier.type = 'sawtooth';
           carrier.frequency.setValueAtTime(v.pitch, syllableTime);
 
-          // Formant Filter 1
           const bp1 = ctx.createBiquadFilter();
           bp1.type = 'bandpass';
           bp1.frequency.setValueAtTime(v.f1, syllableTime);
           bp1.Q.setValueAtTime(6.0, syllableTime);
 
-          // Formant Filter 2
           const bp2 = ctx.createBiquadFilter();
           bp2.type = 'bandpass';
           bp2.frequency.setValueAtTime(v.f2, syllableTime);
@@ -1002,86 +1003,110 @@ class SoundFxService {
       }
     } catch {}
 
-    // Step 2: Speech Synthesis with Global Utterance Retention to prevent GC audio cutoff
+    // Step 2: Speech Synthesis - Complete and Uncut speech playback
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      let speechExecuted = false;
+
       const executeSpeech = () => {
+        if (speechExecuted) return;
+        speechExecuted = true;
+
         try {
-          window.speechSynthesis.cancel(); // Flush old queue
+          // Flush any stale audio queue
+          if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+          }
           window.speechSynthesis.resume();
 
-          // Wait 60ms tick for browser audio queue to clear cancel state
+          // Wait 50ms tick for browser audio queue to stabilize
           setTimeout(() => {
             try {
               window.speechSynthesis.resume();
-              const utterance = new SpeechSynthesisUtterance(speechText);
-              utterance.lang = 'en-US';
 
-              // Select best English or Robotic voice available
-              const voices = window.speechSynthesis.getVoices();
-              if (voices && voices.length > 0) {
-                const robotVoice = voices.find(v => 
-                  v.name.toLowerCase().includes('robot') || 
-                  v.name.toLowerCase().includes('zarvox') ||
-                  v.name.toLowerCase().includes('google us english') ||
-                  v.name.toLowerCase().includes('google uk english male') ||
-                  v.name.toLowerCase().includes('daniel') ||
-                  v.name.toLowerCase().includes('david') ||
-                  (v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
-                  v.lang.startsWith('en')
-                ) || voices[0];
+              const voices = window.speechSynthesis.getVoices() || [];
+              
+              // Check if device has an Indonesian voice
+              const indonesianVoice = voices.find(v => 
+                v.lang.toLowerCase().startsWith('id') || 
+                v.name.toLowerCase().includes('indonesia') ||
+                v.name.toLowerCase().includes('bahasa')
+              );
 
-                if (robotVoice) {
-                  utterance.voice = robotVoice;
-                }
+              // Select best robot/English voice if not Indonesian
+              const englishOrRobotVoice = voices.find(v => 
+                v.name.toLowerCase().includes('robot') || 
+                v.name.toLowerCase().includes('zarvox') ||
+                v.name.toLowerCase().includes('google us english') ||
+                v.name.toLowerCase().includes('google uk english male') ||
+                v.name.toLowerCase().includes('daniel') ||
+                v.name.toLowerCase().includes('david') ||
+                (v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
+                v.lang.startsWith('en')
+              ) || voices[0];
+
+              let selectedVoice = indonesianVoice || englishOrRobotVoice;
+              let speechText = '';
+
+              if (indonesianVoice) {
+                speechText = `Selamat datang di Seller Profit, ${cleanName}! Selamat berjualan dan sukses selalu.`;
+              } else {
+                speechText = `Welcome to Seller Profit, ${cleanName}! Please enjoy your sale.`;
               }
 
-              utterance.pitch = 0.72; // Metallic robotic pitch
-              utterance.rate = 0.94;  // Deliberate robotic cadence
+              const utterance = new SpeechSynthesisUtterance(speechText);
+              if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang || (indonesianVoice ? 'id-ID' : 'en-US');
+              } else {
+                utterance.lang = 'en-US';
+              }
+
+              utterance.pitch = indonesianVoice ? 0.95 : 0.82; // Slight metallic pitch
+              utterance.rate = 0.96;  // Steady, natural cadence
               utterance.volume = 1.0;
 
-              // Prevent Chrome/WebKit garbage collection of utterance object
+              // Retain strong global reference to avoid GC cutoff during playback
               (window as any).__sellerRobotUtterance = utterance;
-
-              // Chromium keepalive while speaking (with safe hard auto-clear limit)
-              let keepaliveTicks = 0;
-              const resumeTimer = setInterval(() => {
-                keepaliveTicks++;
-                if (window.speechSynthesis && window.speechSynthesis.speaking && keepaliveTicks < 6) {
-                  window.speechSynthesis.pause();
-                  window.speechSynthesis.resume();
-                } else {
-                  clearInterval(resumeTimer);
-                }
-              }, 2000);
+              this.isVoiceSpeaking = true;
 
               utterance.onend = () => {
-                clearInterval(resumeTimer);
+                this.isVoiceSpeaking = false;
                 (window as any).__sellerRobotUtterance = null;
               };
+
               utterance.onerror = () => {
-                clearInterval(resumeTimer);
+                this.isVoiceSpeaking = false;
                 (window as any).__sellerRobotUtterance = null;
               };
 
               window.speechSynthesis.speak(utterance);
             } catch (speakErr) {
+              this.isVoiceSpeaking = false;
               console.warn('Speech speak err:', speakErr);
             }
-          }, 60);
+          }, 50);
         } catch (err) {
+          this.isVoiceSpeaking = false;
           console.warn('Speech synthesis robot voice note:', err);
         }
       };
 
-      // Ensure voices are ready
+      // Voice loading with Single-Execution guarantee
       const currentVoices = window.speechSynthesis.getVoices();
       if (currentVoices && currentVoices.length > 0) {
-        setTimeout(executeSpeech, 250);
+        setTimeout(executeSpeech, 200);
       } else {
-        window.speechSynthesis.onvoiceschanged = () => {
-          setTimeout(executeSpeech, 250);
+        const onVoices = () => {
+          window.speechSynthesis.onvoiceschanged = null;
+          executeSpeech();
         };
-        setTimeout(executeSpeech, 450);
+        window.speechSynthesis.onvoiceschanged = onVoices;
+        // Fallback if onvoiceschanged doesn't trigger
+        setTimeout(() => {
+          if (!speechExecuted) {
+            executeSpeech();
+          }
+        }, 400);
       }
     }
   }

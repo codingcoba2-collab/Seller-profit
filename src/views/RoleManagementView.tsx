@@ -11,14 +11,20 @@ import {
   KeyRound, 
   CheckCircle2, 
   ArrowLeft, 
-  ArrowRight,
-  ChevronRight,
-  UserPlus,
+  ArrowRight, 
+  ChevronRight, 
+  UserPlus, 
   Search, 
-  ShieldCheck,
-  Sparkles
+  ShieldCheck, 
+  Sparkles,
+  Lock,
+  Eye,
+  EyeOff,
+  Store,
+  X
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { SoundFx } from '../services/soundFx';
 
 interface RoleManagementViewProps {
   currentUser: CurrentUser;
@@ -60,9 +66,16 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isChangingPasswordInForm, setIsChangingPasswordInForm] = useState(false);
+  const [newPasswordInForm, setNewPasswordInForm] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['host']);
   const [salaryType, setSalaryType] = useState<SalaryType>('hourly');
   const [salaryRate, setSalaryRate] = useState<number>(30000);
+
+  // Modal Buatkan Password Baru untuk Pegawai (saat pegawai minta password baru)
+  const [resetModalEmp, setResetModalEmp] = useState<Employee | null>(null);
+  const [resetModalNewPass, setResetModalNewPass] = useState('');
+  const [showResetModalPass, setShowResetModalPass] = useState(false);
 
   // Incentive configs mapped per role with Tier and Bundling/Satuan support
   const [incentiveMap, setIncentiveMap] = useState<{
@@ -239,6 +252,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setMonthlyBonusDesc('Bonus pencapaian omzet bulanan toko');
     setEditingId(null);
     setFormStep(1);
+    setIsChangingPasswordInForm(false);
+    setNewPasswordInForm('');
   };
 
   const handleEdit = (emp: Employee) => {
@@ -246,7 +261,9 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setInitialUsername(emp.username || '');
     setName(emp.name);
     setUsername(emp.username);
-    setPassword(emp.password || '');
+    setPassword(''); // Dirahasiakan: Owner tidak dapat melihat password pegawai
+    setIsChangingPasswordInForm(false);
+    setNewPasswordInForm('');
     setSelectedRoles(emp.roles);
     setSalaryType(emp.salaryType);
     setSalaryRate(emp.salaryRate);
@@ -355,12 +372,22 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       formattedIncentiveConfigs[r] = configObj;
     });
 
+    let finalPassword = password.trim() || '123';
+    if (editingId) {
+      const existingEmp = employees.find(e => e.id === editingId);
+      if (isChangingPasswordInForm && newPasswordInForm.trim()) {
+        finalPassword = newPasswordInForm.trim();
+      } else {
+        finalPassword = existingEmp?.password || '123';
+      }
+    }
+
     const empData: Employee = {
       id: editingId || 'emp-' + Date.now(),
       storeId: currentUser.storeId,
       name: name.trim(),
       username: cleanUsername,
-      password: password || '123',
+      password: finalPassword,
       roles: selectedRoles,
       salaryType,
       salaryRate,
@@ -518,8 +545,13 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         <span className="text-sm font-black text-white">
                           {emp.name}
                         </span>
-                        <span className="text-xs text-zinc-400 font-mono bg-[#0b0c10] px-2 py-0.5 rounded-lg border border-white/5">
-                          @{emp.username}
+                        <span className="text-xs text-zinc-300 font-mono bg-[#0b0c10] px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5">
+                          <span className="text-zinc-500 font-sans text-[10px]">Username:</span>
+                          <strong className="text-[#25F4EE]">@{emp.username}</strong>
+                        </span>
+                        <span className="text-[10px] text-zinc-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/10 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          <span>Password Dirahasiakan</span>
                         </span>
                       </div>
 
@@ -576,6 +608,18 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        onClick={() => {
+                          setResetModalEmp(emp);
+                          setResetModalNewPass('');
+                          setShowResetModalPass(false);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 transition text-xs font-bold cursor-pointer"
+                        title="Buatkan password baru untuk pegawai saat pegawai lupa password"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Password Baru</span>
+                      </button>
                       <button
                         onClick={() => handleEdit(emp)}
                         className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[#25F4EE]/10 text-[#25F4EE] hover:bg-[#25F4EE]/20 transition text-xs font-bold cursor-pointer"
@@ -731,23 +775,75 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Password Login <span className="text-[#FE2C55]">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="123"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-mono focus:border-[#25F4EE]"
-                    />
-                  </div>
+                  {editingId ? (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-zinc-300">
+                        Password Login Pegawai
+                      </label>
+                      <div className="p-3.5 rounded-xl bg-[#0b0c10] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 text-zinc-300 text-xs font-mono">
+                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                            <span className="tracking-widest">••••••••</span>
+                            <span className="text-[11px] text-zinc-400 font-sans">(Dirahasiakan)</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-1">
+                            Owner hanya dapat melihat <strong>Nama Toko</strong> dan <strong>Username</strong> pegawai demi privasi keamanan.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsChangingPasswordInForm(!isChangingPasswordInForm);
+                            if (!isChangingPasswordInForm) setNewPasswordInForm('');
+                          }}
+                          className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                          <span>{isChangingPasswordInForm ? 'Batal Buat Password' : 'Buatkan Password Baru'}</span>
+                        </button>
+                      </div>
+
+                      {isChangingPasswordInForm && (
+                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                          <label className="block text-[11px] font-bold text-amber-300">
+                            Password Baru untuk Pegawai <span className="text-[#FE2C55]">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={newPasswordInForm}
+                            onChange={e => setNewPasswordInForm(e.target.value)}
+                            placeholder="Ketik password baru (minimal 3 karakter)"
+                            className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-amber-500/40 text-white font-mono focus:border-amber-400"
+                          />
+                          <p className="text-[10px] text-zinc-400">
+                            Jika pegawai lupa password, Anda dapat membuatkan password baru di sini lalu memberitahukannya kepada pegawai.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1">
+                        Password Login Awal <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="123"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-mono focus:border-[#25F4EE]"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 text-xs text-zinc-400">
-                  💡 Akun ini akan digunakan pegawai saat login. Password default dapat diisi <strong>123</strong> untuk kemudahan setup awal.
+                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 text-xs text-zinc-400 flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#25F4EE] shrink-0 mt-0.5" />
+                  <span>
+                    Owner hanya dapat melihat <strong>Nama Toko</strong> dan <strong>Username</strong> pegawai. Demi privasi, password pegawai dirahasiakan. Jika pegawai lupa password, owner dapat membuatkan password baru atau pegawai dapat memulihkan password di halaman login.
+                  </span>
                 </div>
               </div>
             )}
@@ -1215,6 +1311,125 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
               )}
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal Buatkan Password Baru untuk Pegawai (saat pegawai lupa password) */}
+      {resetModalEmp && (
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="holographic-modal relative w-full max-w-md p-6 sm:p-7 shadow-2xl text-white font-sans">
+            <div className="hologram-corner-tl" />
+            <div className="hologram-corner-tr" />
+            <div className="hologram-corner-bl" />
+            <div className="hologram-corner-br" />
+
+            <button
+              type="button"
+              onClick={() => setResetModalEmp(null)}
+              className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5 border-b border-white/10 pb-4">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <span>Buat Password Baru</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
+                    Permintaan Pegawai
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Pegawai lupa password dan meminta password baru
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!resetModalNewPass.trim() || resetModalNewPass.length < 3) {
+                  onNotify('Password baru minimal 3 karakter.', 'error');
+                  return;
+                }
+                try {
+                  const updatedEmp: Employee = {
+                    ...resetModalEmp,
+                    password: resetModalNewPass.trim(),
+                  };
+                  StorageService.addOrUpdateEmployee(updatedEmp);
+                  loadData();
+                  SoundFx.playSuccessSound();
+                  onNotify(`Password baru untuk pegawai @${resetModalEmp.username} (${resetModalEmp.name}) berhasil disimpan!`, 'success');
+                  setResetModalEmp(null);
+                } catch (err: any) {
+                  onNotify('Gagal mengubah password: ' + (err?.message || 'Kesalahan sistem'), 'error');
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-zinc-300 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Store className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Nama Toko: <strong className="text-white">{currentUser.storeName}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Pegawai: <strong className="text-white">{resetModalEmp.name}</strong> • Username: <strong className="text-[#25F4EE]">@{resetModalEmp.username}</strong></span>
+                </div>
+                <p className="text-[11px] text-zinc-400 pt-1 border-t border-white/5">
+                  🔒 Password lama pegawai dirahasiakan demi privasi. Buatkan password baru di bawah ini lalu sampaikan kepada pegawai yang bersangkutan.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Password Baru untuk Pegawai <span className="text-[#FE2C55]">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showResetModalPass ? 'text' : 'password'}
+                    required
+                    value={resetModalNewPass}
+                    onChange={e => setResetModalNewPass(e.target.value)}
+                    placeholder="Minimal 3 karakter"
+                    className="w-full pl-9 pr-10 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white placeholder-zinc-500 focus:border-amber-400 transition"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModalPass(!showResetModalPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-white cursor-pointer"
+                  >
+                    {showResetModalPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModalEmp(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black text-black bg-amber-400 hover:bg-amber-300 shadow-md shadow-amber-400/20 active:scale-95 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Simpan Password Baru</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
