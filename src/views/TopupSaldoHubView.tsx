@@ -200,17 +200,12 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
               <PlusCircle className="w-6 h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <MarqueeText
-                text="Input Top-Up Saldo"
-                as="h4"
-                className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight"
-              />
-              <MarqueeText
-                text="Tambah saldo iklan marketplace atau koin live"
-                as="p"
-                speed={12}
-                className="text-xs text-zinc-400 leading-snug mt-0.5"
-              />
+              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight">
+                Input Top-Up Saldo
+              </h4>
+              <p className="text-xs text-zinc-400 leading-snug mt-0.5">
+                Tambah saldo iklan marketplace atau koin live
+              </p>
             </div>
           </div>
 
@@ -224,17 +219,12 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
               <History className="w-6 h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <MarqueeText
-                text="Riwayat & Mutasi Saldo"
-                as="h4"
-                className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
-              />
-              <MarqueeText
-                text="Daftar transaksi, mutasi, filter tanggal & edit"
-                as="p"
-                speed={12}
-                className="text-xs text-zinc-400 leading-snug mt-0.5"
-              />
+              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight">
+                Riwayat & Mutasi Saldo
+              </h4>
+              <p className="text-xs text-zinc-400 leading-snug mt-0.5">
+                Daftar transaksi, mutasi, filter tanggal & edit
+              </p>
             </div>
           </div>
         </div>

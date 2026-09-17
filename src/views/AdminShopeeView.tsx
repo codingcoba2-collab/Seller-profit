@@ -13,7 +13,8 @@ import {
   HelpCircle,
   Calculator,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  ArrowLeft
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
@@ -25,6 +26,7 @@ interface AdminShopeeViewProps {
 
 export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
   currentUser,
+  onBackToDashboard,
   onNotify,
 }) => {
   const [channelFees, setChannelFees] = useState<ChannelFeeConfig[]>([]);
@@ -181,6 +183,16 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              id="btn-back-from-channels"
+              type="button"
+              onClick={onBackToDashboard}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
+              title="Kembali ke menu Persiapan"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span>Kembali</span>
+            </button>
             <button
               id="btn-reset-channels"
               type="button"

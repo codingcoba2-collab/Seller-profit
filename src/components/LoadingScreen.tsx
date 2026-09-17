@@ -254,11 +254,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             {[40, 75, 100, 60, 90, 45, 80, 55, 95, 70, 85, 50].map((h, i) => (
               <span
                 key={i}
-                className={`w-1 rounded-full ${audioStarted ? 'bg-[#25F4EE]' : 'bg-zinc-600'} transition-all`}
+                className={`w-1 rounded-full ${audioStarted ? 'bg-[#25F4EE]' : 'bg-zinc-600'} transition-[height] duration-150`}
                 style={{
                   height: `${Math.max(4, Math.round((h * (progress / 100)) * (audioStarted ? 0.22 : 0.08)))}px`,
-                  animation: audioStarted ? 'pulse 0.4s infinite alternate' : 'none',
-                  animationDelay: `${i * 60}ms`,
                 }}
               />
             ))}

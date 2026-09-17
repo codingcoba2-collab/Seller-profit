@@ -2717,6 +2717,9 @@ export class StorageService {
       senderRole: string;
       text: string;
       tag?: 'umum' | 'urgent' | 'live' | 'shift';
+      recipientId?: string;
+      recipientName?: string;
+      recipientRole?: string;
     }
   ): Promise<ChatMessage> {
     const newMsg: ChatMessage = {
@@ -2728,6 +2731,9 @@ export class StorageService {
       text: messageData.text.trim(),
       timestamp: Date.now(),
       tag: messageData.tag || 'umum',
+      recipientId: messageData.recipientId,
+      recipientName: messageData.recipientName,
+      recipientRole: messageData.recipientRole,
     };
 
     // 1. Optimistic instant local save for 0ms UI latency

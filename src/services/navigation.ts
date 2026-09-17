@@ -55,6 +55,7 @@ export type RoutePath =
   | '/informasi'
   | '/informasi/pengumuman'
   | '/informasi/live-chat'
+  | '/informasi/kontak'
   | '/informasi/developer'
   | '/developer';
 
@@ -129,7 +130,8 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Sortir & QC',
         icon: Scissors,
         iconColor: 'text-teal-400',
-        allowedRoles: ['owner', 'manager', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
       },
       {
         path: '/persiapan/biaya-admin',
@@ -310,12 +312,23 @@ export const CATEGORIES: CategoryDefinition[] = [
       },
       {
         path: '/informasi/live-chat',
-        title: 'Live Chat Real-Time',
-        subtitle: 'Live chat & saluran informasi koordinasi khusus Owner toko',
-        badgeText: 'Khusus Owner',
+        title: 'Chat Toko & Pesan Personal',
+        subtitle: 'Ruang obrolan grup tim dan pesan personal 1-on-1 antar pegawai',
+        badgeText: 'Chat & Personal',
         icon: MessageCircle,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
+      },
+      {
+        path: '/informasi/kontak',
+        title: 'Daftar Kontak (Contact List)',
+        subtitle: 'Pilih rekan kerja atau Owner untuk chat pribadi 1-on-1 langsung',
+        badgeText: 'Contact List',
+        icon: Users,
+        iconColor: 'text-emerald-400',
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
       },
       {
         path: '/informasi/developer',
@@ -373,6 +386,7 @@ export function normalizePath(path: string): RoutePath {
       return '/penjualan/kehadiran';
     case '/penjualan/transaksi':
     case '/penjualan/input':
+    case '/penjualan/live':
       return '/penjualan/transaksi';
     case '/penjualan/statistik':
     case '/penjualan/analisis':
@@ -421,6 +435,11 @@ export function normalizePath(path: string): RoutePath {
     case '/live-chat':
     case '/chat':
       return '/informasi/live-chat';
+    case '/informasi/kontak':
+    case '/kontak':
+    case '/contact-list':
+    case '/contacts':
+      return '/informasi/kontak';
     case '/informasi/developer':
     case '/informasi/telemetry':
     case '/informasi/kuota':
@@ -469,9 +488,14 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   const isManager = user.roles?.includes('manager');
   const isInvestor = user.roles?.includes('investor');
 
-  // Live chat and developer monitor are strictly reserved for the owner
-  if (route === '/informasi/live-chat' || route === '/informasi/developer' || route === '/developer') {
+  // Developer monitor is strictly reserved for the owner
+  if (route === '/informasi/developer' || route === '/developer') {
     return user.isOwner;
+  }
+
+  // Live chat & personal messaging are open to all store staff and owner
+  if (route === '/informasi/live-chat' || route === '/informasi/kontak') {
+    return true;
   }
 
   // Dashboard, category hubs are viewable by any authenticated user
@@ -502,7 +526,7 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
   }
 
   if (route === '/persiapan/sortir-qc') {
-    return user.isOwner || isManager || user.roles.includes('sortir') || user.roles.includes('steam');
+    return true;
   }
 
   // Penjualan
@@ -563,6 +587,7 @@ export function getPageTitle(route: RoutePath): string {
     case '/informasi': return 'Informasi';
     case '/informasi/pengumuman': return 'Pengumuman Toko (Live Info)';
     case '/informasi/live-chat': return 'Live Chat Real-Time';
+    case '/informasi/kontak': return 'Daftar Kontak (Contact List)';
     case '/informasi/developer':
     case '/developer':
       return 'Developer: Kuota & Database Firestore';

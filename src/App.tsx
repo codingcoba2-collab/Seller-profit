@@ -41,6 +41,7 @@ const TopupSaldoHubView = lazy(() => import('./views/TopupSaldoHubView').then(m 
 const TopupSaldoInputView = lazy(() => import('./views/TopupSaldoInputView').then(m => ({ default: m.TopupSaldoInputView })));
 const TopupSaldoRiwayatView = lazy(() => import('./views/TopupSaldoRiwayatView').then(m => ({ default: m.TopupSaldoRiwayatView })));
 const LiveChatView = lazy(() => import('./views/LiveChatView').then(m => ({ default: m.LiveChatView })));
+const ContactListView = lazy(() => import('./views/ContactListView').then(m => ({ default: m.ContactListView })));
 const PengumumanView = lazy(() => import('./views/PengumumanView').then(m => ({ default: m.PengumumanView })));
 const DeveloperMonitorView = lazy(() => import('./views/DeveloperMonitorView').then(m => ({ default: m.DeveloperMonitorView })));
 
@@ -68,6 +69,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [currentRoute, setCurrentRoute] = useState<RoutePath>('/dashboard');
   const [topupEditId, setTopupEditId] = useState<string | null>(null);
+  const [directChatContactId, setDirectChatContactId] = useState<string | null>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
@@ -134,7 +136,7 @@ export default function App() {
     // 2. Start immediate cloud synchronization
     StorageService.syncStoresAndEmployeesFromCloud();
 
-    // 3. 5-second initial boot sequence with sound managed by LoadingScreen
+    // 3. Fast smooth initial boot sequence
     const timer = setTimeout(() => {
       const user = StorageService.getCurrentUser();
       const initialPath = normalizePath(window.location.pathname);
@@ -149,17 +151,17 @@ export default function App() {
           setCurrentRoute('/dashboard');
           window.history.replaceState({}, '', '/dashboard');
         }
-        // Welcome banner on dashboard (sound played during loading "saat masuk")
+        // Welcome banner on dashboard
         const targetName = user.name || user.username || user.storeName || 'Seller';
         setRobotBanner({
           name: targetName,
-          text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+          text: `Selamat datang di Seller Profit, ${targetName}! Semoga penjualan hari ini berkah dan lancar.`
         });
       } else {
         setCurrentRoute('/dashboard');
       }
       setIsLoading(false);
-    }, 5000);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -201,13 +203,13 @@ export default function App() {
       SoundFx.stopLoadingAudio();
       setIsLoading(false);
 
-      // Show welcome banner in dashboard (sound already played during loading "saat masuk")
+      // Show welcome banner in dashboard
       const targetName = user.name || user.username || user.storeName || 'Seller';
       setRobotBanner({
         name: targetName,
-        text: `Welcome to Seller Profit, ${targetName}! Please enjoy your sale.`
+        text: `Selamat datang di Seller Profit, ${targetName}! Semoga penjualan hari ini berkah dan lancar.`
       });
-    }, 5000);
+    }, 1000);
   };
 
   const handleLogout = () => {
@@ -220,7 +222,7 @@ export default function App() {
     }, 250);
   };
 
-  // Loading Screen (5 seconds duration with automated sound DURING entrance)
+  // Loading Screen (smooth responsive duration)
   if (isLoading) {
     const activeUser = currentUser || StorageService.getCurrentUser();
     const targetName = activeUser?.name || activeUser?.username || activeUser?.storeName || 'Seller';
@@ -228,7 +230,7 @@ export default function App() {
       <LoadingScreen 
         storeName={activeUser?.storeName} 
         userName={targetName} 
-        durationMs={5000} 
+        durationMs={1000} 
       />
     );
   }
@@ -521,11 +523,24 @@ export default function App() {
           />
         )}
 
+        {currentRoute === '/informasi/kontak' && (
+          <ContactListView
+            currentUser={currentUser}
+            onNavigate={handleNavigate}
+            onStartDirectChat={(contactId) => {
+              setDirectChatContactId(contactId);
+              handleNavigate('/informasi/live-chat');
+            }}
+            onNotify={handleNotify}
+          />
+        )}
+
         {currentRoute === '/informasi/live-chat' && (
           <LiveChatView
             currentUser={currentUser}
             onNavigate={handleNavigate}
             onNotify={handleNotify}
+            initialContactId={directChatContactId}
           />
         )}
 

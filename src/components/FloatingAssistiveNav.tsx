@@ -11,7 +11,8 @@ import {
   Volume2, 
   X, 
   Command,
-  Database
+  Database,
+  Users
 } from 'lucide-react';
 
 interface FloatingAssistiveNavProps {
@@ -154,7 +155,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
       {/* Expanded iOS Assistive Touch Menu Modal */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[9995] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setIsOpen(false)}
         >
           <div 
@@ -182,47 +183,61 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
             </div>
 
             {/* Grid of Shortcuts */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2">
               {/* 1. Live Chat */}
               <button
                 type="button"
                 id="btn-assistive-livechat"
                 onClick={() => handleAction(() => onNavigate('/informasi/live-chat'))}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-[#25F4EE]/15 to-transparent border border-[#25F4EE]/30 hover:border-[#25F4EE] hover:bg-[#25F4EE]/20 transition group cursor-pointer text-center"
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-[#25F4EE]/15 to-transparent border border-[#25F4EE]/30 hover:border-[#25F4EE] hover:bg-[#25F4EE]/20 transition group cursor-pointer text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] mb-1.5 group-hover:scale-110 transition shadow-[0_0_15px_rgba(37,244,238,0.3)]">
-                  <MessageCircle className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(37,244,238,0.3)]">
+                  <MessageCircle className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold text-white leading-tight">Live Chat</span>
-                <span className="text-[10px] text-zinc-400">Real-time chat</span>
+                <span className="text-[9px] text-zinc-400">Grup &amp; Obrolan</span>
               </button>
 
-              {/* 2. Kalkulasi Paket */}
+              {/* 2. Kontak List (Pilih Teman Chat) */}
+              <button
+                type="button"
+                id="btn-assistive-contact-list"
+                onClick={() => handleAction(() => onNavigate('/informasi/kontak'))}
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-transparent border border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/20 transition group cursor-pointer text-center"
+              >
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                  <Users className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white leading-tight">Kontak Tim</span>
+                <span className="text-[9px] text-zinc-400">Pilih Chat 1-on-1</span>
+              </button>
+
+              {/* 3. Kalkulasi Paket */}
               <button
                 type="button"
                 id="btn-assistive-kalkulasi"
                 onClick={() => handleAction(() => onNavigate('/penjualan/kalkulasi-paket'))}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-transparent border border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/20 transition group cursor-pointer text-center"
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-sky-500/15 to-transparent border border-sky-500/30 hover:border-sky-500 hover:bg-sky-500/20 transition group cursor-pointer text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-1.5 group-hover:scale-110 transition shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                  <Calculator className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-400 mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(56,189,248,0.3)]">
+                  <Calculator className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold text-white leading-tight">Kalkulasi</span>
-                <span className="text-[10px] text-zinc-400">Harga & margin</span>
+                <span className="text-[9px] text-zinc-400">Harga &amp; Margin</span>
               </button>
 
-              {/* 3. Pengumuman Toko (Live Info) */}
+              {/* 4. Pengumuman Toko (Live Info) */}
               <button
                 type="button"
                 id="btn-assistive-pengumuman"
                 onClick={() => handleAction(() => onNavigate('/informasi/pengumuman'))}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-[#FE2C55]/15 to-transparent border border-[#FE2C55]/30 hover:border-[#FE2C55] hover:bg-[#FE2C55]/20 transition group cursor-pointer text-center"
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-[#FE2C55]/15 to-transparent border border-[#FE2C55]/30 hover:border-[#FE2C55] hover:bg-[#FE2C55]/20 transition group cursor-pointer text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55] mb-1.5 group-hover:scale-110 transition shadow-[0_0_15px_rgba(254,44,85,0.3)]">
-                  <Megaphone className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-xl bg-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55] mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(254,44,85,0.3)]">
+                  <Megaphone className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold text-white leading-tight">Pengumuman</span>
-                <span className="text-[10px] text-zinc-400">Live Info Toko</span>
+                <span className="text-[9px] text-zinc-400">Live Info Toko</span>
               </button>
 
               {/* 4. Profil Pengguna */}
@@ -293,7 +308,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
           touchAction: 'none',
           willChange: 'left, top, transform',
         }}
-        className={`fixed z-[9990] flex items-center justify-center w-14 h-14 rounded-full select-none cursor-pointer transition-transform active:scale-95 ${
+        className={`fixed z-[60] flex items-center justify-center w-14 h-14 rounded-full select-none cursor-pointer transition-transform active:scale-95 ${
           isOpen ? 'scale-90' : 'hover:scale-105'
         }`}
         title="Pintasan Mengambang iPhone (Geser atau Ketuk)"

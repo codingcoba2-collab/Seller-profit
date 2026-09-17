@@ -99,17 +99,12 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <MarqueeText
-                    text={item.title}
-                    as="h3"
-                    className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
-                  />
-                  <MarqueeText
-                    text={item.subtitle}
-                    as="p"
-                    speed={12}
-                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
-                  />
+                  <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
+                    {item.title}
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug line-clamp-1">
+                    {item.subtitle}
+                  </p>
                 </div>
               </div>
 

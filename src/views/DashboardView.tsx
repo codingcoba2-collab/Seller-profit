@@ -116,7 +116,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Omzet Hari Ini - Variasi Kabel Samping Magenta */}
         <div 
           id="card-stat-omzet-hari-ini"
-          onClick={() => onNavigate('/penjualan/live')}
+          onClick={() => onNavigate('/penjualan/transaksi')}
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="magenta" />

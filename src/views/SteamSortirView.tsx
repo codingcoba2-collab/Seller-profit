@@ -12,19 +12,18 @@ import {
   Search, 
   Package, 
   Users, 
-  Layers, 
-  AlertTriangle,
-  ArrowRight,
+  PlusCircle,
   ClipboardList,
-  PlusCircle
+  AlertCircle,
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
-import { MarqueeText } from '../components/MarqueeText';
 
 interface SteamSortirViewProps {
   currentUser: CurrentUser;
   onBackToDashboard: () => void;
-  onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 type SteamSortirViewMode = 'menu' | 'input' | 'output';
@@ -35,7 +34,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   onNotify,
 }) => {
   const [viewMode, setViewMode] = useState<SteamSortirViewMode>('menu');
-  const [inputStep, setInputStep] = useState<number>(1);
   const [editingRecord, setEditingRecord] = useState<SteamSortirRecord | null>(null);
 
   // Confirmation Modal State
@@ -55,9 +53,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   });
 
   // Filter state for Output tab
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProcessFilter, setSelectedProcessFilter] = useState<'all' | 'sortir' | 'steam' | 'sortir_dan_steam'>('all');
 
@@ -81,18 +77,25 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
 
   // Filter employees with sortir/steam/owner role
   const sortirSteamEmployees = employeeList.filter(
-    e => e.roles.includes('sortir') || e.roles.includes('steam') || e.roles.includes('owner')
+    e => e.roles?.includes('sortir') || e.roles?.includes('steam') || e.roles?.includes('owner') || e.roles?.includes('admin_toko')
   );
+
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (onNotify) {
+      onNotify(msg, type);
+    }
+  };
 
   // Handle Ball Selection to auto-fill pcs & name
   const handleSelectBall = (ballId: string) => {
     setBallInventoryId(ballId);
+    if (!ballId) return;
     const found = inventoryList.find(b => b.id === ballId);
     if (found) {
-      setPcsTotal(found.pcsCount);
-      setPcsLayakJual(found.pcsCount);
+      setPcsTotal(found.pcsCount || '');
+      setPcsLayakJual(found.pcsCount || '');
       setPcsReject(0);
-      setCustomBallName(found.ballType);
+      setCustomBallName(found.ballType || '');
     }
   };
 
@@ -101,6 +104,15 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       setSelectedEmployeeIds(selectedEmployeeIds.filter(id => id !== empId));
     } else {
       setSelectedEmployeeIds([...selectedEmployeeIds, empId]);
+    }
+  };
+
+  const handleSelectAllEmployees = () => {
+    const listToUse = sortirSteamEmployees.length > 0 ? sortirSteamEmployees : employeeList;
+    if (selectedEmployeeIds.length === listToUse.length) {
+      setSelectedEmployeeIds([]);
+    } else {
+      setSelectedEmployeeIds(listToUse.map(e => e.id));
     }
   };
 
@@ -121,17 +133,16 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   // Start editing a record
   const handleStartEdit = (record: SteamSortirRecord) => {
     setEditingRecord(record);
-    setDate(record.date);
+    setDate(record.date || new Date().toISOString().slice(0, 10));
     setBallInventoryId(record.ballInventoryId || '');
-    setCustomBallName(record.ballName);
-    setProcessType(record.processType);
+    setCustomBallName(record.ballName || '');
+    setProcessType(record.processType || 'sortir');
     setSelectedEmployeeIds(record.employeeIds || []);
     setPcsTotal(record.pcsTotal);
     setPcsLayakJual(record.pcsLayakJual);
     setPcsReject(record.pcsReject);
     setNotes(record.notes || '');
-    setStatus(record.status);
-    setInputStep(1);
+    setStatus(record.status || 'selesai');
     setViewMode('input');
   };
 
@@ -139,7 +150,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const handleCancelEdit = () => {
     setEditingRecord(null);
     resetForm();
-    setInputStep(1);
   };
 
   const resetForm = () => {
@@ -159,17 +169,16 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!ballInventoryId && !customBallName && !notes) {
-      onNotify('Pilih Ball dari stok atau tuliskan nama ball yang diproses.', 'error');
-      return;
-    }
-
     const selectedBall = inventoryList.find(b => b.id === ballInventoryId);
-    const finalBallName = selectedBall ? selectedBall.ballType : (customBallName || notes || 'Ball Pengerjaan');
+    const finalBallName = (selectedBall ? selectedBall.ballType : (customBallName.trim() || notes.trim() || 'Ball Pengerjaan Sortir/Steam')).trim();
 
     const selectedEmpNames = employeeList
       .filter(e => selectedEmployeeIds.includes(e.id))
       .map(e => e.name);
+
+    const calcTotal = typeof pcsTotal === 'number' ? pcsTotal : 0;
+    const calcReject = typeof pcsReject === 'number' ? pcsReject : 0;
+    const calcLayak = typeof pcsLayakJual === 'number' ? pcsLayakJual : Math.max(0, calcTotal - calcReject);
 
     const record: SteamSortirRecord = {
       id: editingRecord ? editingRecord.id : 'steam-sortir-' + Date.now(),
@@ -180,9 +189,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       processType,
       employeeIds: selectedEmployeeIds,
       employeeNames: selectedEmpNames.length > 0 ? selectedEmpNames : [currentUser.name],
-      pcsTotal: typeof pcsTotal === 'number' ? pcsTotal : 0,
-      pcsLayakJual: typeof pcsLayakJual === 'number' ? pcsLayakJual : 0,
-      pcsReject: typeof pcsReject === 'number' ? pcsReject : 0,
+      pcsTotal: calcTotal,
+      pcsLayakJual: calcLayak,
+      pcsReject: calcReject,
       costPerPcs: 0,
       totalCost: 0,
       status,
@@ -195,18 +204,17 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       try {
         if (editingRecord) {
           StorageService.updateSteamSortir(record);
-          onNotify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
+          notify('Perubahan data pengerjaan Ball berhasil disimpan!', 'success');
         } else {
           StorageService.addSteamSortir(record);
-          onNotify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
+          notify('Data pengerjaan Sortir & Steam berhasil ditambahkan!', 'success');
         }
 
         resetForm();
-        handleCancelEdit();
         setViewMode('output');
       } catch (err: any) {
         console.error('Error saving steam/sortir:', err);
-        onNotify('Gagal menyimpan data sortir & steam: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
+        notify('Gagal menyimpan data sortir & steam: ' + (err?.message || 'Terjadi gangguan sistem.'), 'error');
       }
     };
 
@@ -214,8 +222,8 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       isOpen: true,
       title: editingRecord ? 'Konfirmasi Simpan Perubahan Pengerjaan' : 'Konfirmasi Catat Sortir & Steam',
       message: editingRecord
-        ? `Apakah Anda yakin ingin menyimpan perubahan data pengerjaan ball "${finalBallName}"?`
-        : `Apakah Anda yakin ingin menyimpan data pengerjaan ball "${finalBallName}" (${formatNumber(record.pcsTotal)} pcs)?`,
+        ? `Apakah Anda yakin ingin menyimpan perubahan pengerjaan ball "${finalBallName}"?`
+        : `Apakah Anda yakin ingin menyimpan data pengerjaan ball "${finalBallName}" (${formatNumber(calcTotal)} pcs)?`,
       type: editingRecord ? 'edit' : 'create',
       confirmText: editingRecord ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Data',
       onConfirm: executeSave,
@@ -232,7 +240,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         StorageService.deleteSteamSortir(id);
-        onNotify('Data pengerjaan berhasil dihapus.', 'info');
+        notify('Data pengerjaan berhasil dihapus.', 'info');
         if (editingRecord?.id === id) {
           handleCancelEdit();
         }
@@ -243,52 +251,52 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   // Filter & Sort output records by date descending
   const filteredRecords = steamSortirRecords
     .filter(r => {
-      // Process type filter
       if (selectedProcessFilter !== 'all' && r.processType !== selectedProcessFilter) {
         return false;
       }
 
-      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = r.ballName.toLowerCase().includes(q);
-        const matchEmp = r.employeeNames.some(en => en.toLowerCase().includes(q));
+        const matchName = r.ballName?.toLowerCase().includes(q);
+        const matchEmp = r.employeeNames?.some(en => en.toLowerCase().includes(q));
         if (!matchName && !matchEmp) return false;
       }
 
-      // Date filters
       const todayStr = new Date().toISOString().slice(0, 10);
       if (periodFilter === 'today') {
         return r.date === todayStr;
-      }
-      if (periodFilter === 'range') {
-        return r.date >= startDate && r.date <= endDate;
-      }
-      if (periodFilter === 'weekly') {
-        const now = new Date();
-        const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
-        return r.date >= weekAgo && r.date <= todayStr;
-      }
-      if (periodFilter === 'monthly') {
-        const curMonth = todayStr.slice(0, 7);
-        return r.date.startsWith(curMonth);
+      } else if (periodFilter === 'weekly') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return r.date >= d.toISOString().slice(0, 10);
+      } else if (periodFilter === 'monthly') {
+        const currentMonth = todayStr.slice(0, 7);
+        return r.date?.startsWith(currentMonth);
       }
 
       return true;
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-  // Calculate totals
-  const totalPcsProcessed = filteredRecords.reduce((acc, r) => acc + (r.pcsTotal || 0), 0);
-  const totalPcsLayak = filteredRecords.reduce((acc, r) => acc + (r.pcsLayakJual || 0), 0);
-  const totalPcsReject = filteredRecords.reduce((acc, r) => acc + (r.pcsReject || 0), 0);
+  // Quick stats
+  const totalPcsProcessed = steamSortirRecords.reduce((acc, curr) => acc + (curr.pcsTotal || 0), 0);
+  const totalPcsLayak = steamSortirRecords.reduce((acc, curr) => acc + (curr.pcsLayakJual || 0), 0);
+  const totalPcsReject = steamSortirRecords.reduce((acc, curr) => acc + (curr.pcsReject || 0), 0);
 
-  // ================= 1. MENU HUB STATE (2 Pilihan Grid) =================
+  const ballPresets = [
+    'Ball Knit Korea',
+    'Ball Kaos Vintage',
+    'Ball Crewneck & Hoodie',
+    'Ball Kemeja Flannel',
+    'Ball Celana Cargo'
+  ];
+
+  // ================= 1. MENU UTAMA HUB =================
   if (viewMode === 'menu') {
     return (
       <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        {/* Top Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <div className="flex items-center gap-3">
             <button
               id="btn-back-dashboard-steam"
@@ -328,85 +336,76 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
           </div>
         </div>
 
-        {/* Grid Kecil 2 Kesamping: Input vs Output */}
+        {/* Pilihan Aksi Menu Card (Semantic Buttons) */}
         <div className="space-y-2">
           <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Aksi:
+            Pilih Aksi Menu:
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Card 1: Form Input */}
-            <div
+            <button
               id="menu-card-input-steam"
+              type="button"
               onClick={() => {
                 handleCancelEdit();
-                setInputStep(1);
                 setViewMode('input');
               }}
-              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+              className="w-full text-left group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/60 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
-                  <PlusCircle className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0 group-hover:border-[#25F4EE]/50 group-hover:scale-105 transition-transform">
+                  <PlusCircle className="w-6 h-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <MarqueeText
-                    text="Input Sortir & Steam"
-                    as="h3"
-                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
-                  />
-                  <MarqueeText
-                    text="Catat QC pengerjaan ball bertahap"
-                    as="p"
-                    speed={12}
-                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
-                  />
+                  <h3 className="text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight">
+                    Input Sortir &amp; Steam
+                  </h3>
+                  <p className="text-xs text-zinc-400 leading-snug mt-0.5">
+                    Catat QC pengerjaan ball, pcs layak &amp; reject
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs text-zinc-400 pt-2.5 border-t border-white/5 w-full">
                 <span>Input data baru</span>
-                <span className="text-[#25F4EE] font-bold">Buka Form</span>
+                <span className="text-[#25F4EE] font-bold group-hover:underline">Buka Form Input &rarr;</span>
               </div>
-            </div>
+            </button>
 
             {/* Card 2: Laporan & Riwayat */}
-            <div
+            <button
               id="menu-card-output-steam"
+              type="button"
               onClick={() => setViewMode('output')}
-              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+              className="w-full text-left group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/60 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
-                  <ClipboardList className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0 group-hover:border-[#FE2C55]/50 group-hover:scale-105 transition-transform">
+                  <ClipboardList className="w-6 h-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <MarqueeText
-                    text="Riwayat Pengerjaan"
-                    as="h3"
-                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
-                  />
-                  <MarqueeText
-                    text="Laporan hasil layak & reject"
-                    as="p"
-                    speed={12}
-                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
-                  />
+                  <h3 className="text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight">
+                    Riwayat Pengerjaan
+                  </h3>
+                  <p className="text-xs text-zinc-400 leading-snug mt-0.5">
+                    Laporan hasil pengerjaan, edit data &amp; rekap total
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredRecords.length} Data Tersedia</span>
-                <span className="text-[#FE2C55] font-bold">Buka Data</span>
+              <div className="flex items-center justify-between text-xs text-zinc-400 pt-2.5 border-t border-white/5 w-full">
+                <span>{steamSortirRecords.length} Catatan Tersimpan</span>
+                <span className="text-[#FE2C55] font-bold group-hover:underline">Buka Riwayat Data &rarr;</span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
+  // ================= 2. INPUT FORM STATE (Unified, Non-blocking Form) =================
   if (viewMode === 'input') {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+      <div className="max-w-4xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
         {/* Top Header with Back Button */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
@@ -423,296 +422,316 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">
-              {editingRecord ? '✏️ Edit Pengerjaan' : 'Input Sortir & Finishing'}
+            <span className="text-xs sm:text-sm font-black text-white">
+              {editingRecord ? '✏️ Edit Catatan Pengerjaan' : '➕ Input Sortir & QC Finishing'}
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-              Tahap {inputStep} dari 2
-            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode('output')}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 transition"
+            >
+              Lihat Riwayat
+            </button>
           </div>
         </div>
 
-        {/* Stepper Header Pills */}
-        <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 rounded-2xl border border-white/10 text-xs">
-          <button
-            type="button"
-            onClick={() => setInputStep(1)}
-            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-              inputStep === 1
-                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-            }`}
-          >
-            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-            <span>Ball &amp; Tim Bertugas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setInputStep(2)}
-            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-              inputStep === 2
-                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-            }`}
-          >
-            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-            <span>Hasil QC &amp; Pcs</span>
-          </button>
-        </div>
+        {/* Unified Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Bagian 1: Ball & Tim Bertugas */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="border-b border-white/10 pb-3">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                <Package className="w-4 h-4 text-[#25F4EE]" />
+                <span>Bagian 1: Informasi Ball &amp; Petugas Bertugas</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Pilih atau tulis nama ball serta pegawai yang mengerjakan.</p>
+            </div>
 
-        {/* Form Container */}
-        <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
-          {/* TAHAP 1: Info Ball & Pegawai */}
-          {inputStep === 1 && (
-            <div className="space-y-4">
-              <div className="border-b border-white/10 pb-2">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Tahap 1: Pilih Ball &amp; Petugas Bertugas</span>
-                </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">Tentukan sumber ball dan pegawai yang mengerjakan.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Tanggal Pengerjaan <span className="text-[#FE2C55]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Tanggal Pengerjaan <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Pilih Ball dari Stok Inventaris
-                  </label>
-                  <select
-                    value={ballInventoryId}
-                    onChange={e => handleSelectBall(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    <option value="">-- Pilih Ball Masuk / Manual --</option>
-                    {inventoryList.map(ball => (
-                      <option key={ball.id} value={ball.id}>
-                        {ball.ballType} ({ball.pcsCount} pcs)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {!ballInventoryId && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Atau Ketik Nama / Kode Ball Manual <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={customBallName}
-                    onChange={e => setCustomBallName(e.target.value)}
-                    placeholder="Misal: Ball Knit Korea Grade A"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-                  />
-                </div>
-              )}
 
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Jenis Proses Pengerjaan <span className="text-[#FE2C55]">*</span>
+                  Pilih Ball dari Stok Inventaris
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'sortir', label: 'Sortir QC Saja' },
-                    { id: 'steam', label: 'Steam Finishing' },
-                    { id: 'sortir_dan_steam', label: 'Sortir + Steam' },
-                  ].map(proc => (
+                <select
+                  value={ballInventoryId}
+                  onChange={e => handleSelectBall(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                >
+                  <option value="">-- Pilih Ball Masuk / Manual --</option>
+                  {inventoryList.map(ball => (
+                    <option key={ball.id} value={ball.id}>
+                      {ball.ballType} ({ball.pcsCount} pcs)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Nama Ball Manual / Teks */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-zinc-300">
+                  Nama / Jenis Ball <span className="text-[#FE2C55]">*</span>
+                </label>
+                <span className="text-[10px] text-zinc-400">Ketik manual atau pilih rekomendasi</span>
+              </div>
+              <input
+                type="text"
+                value={customBallName}
+                onChange={e => setCustomBallName(e.target.value)}
+                placeholder="Misal: Ball Knit Korea Grade A"
+                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+              />
+
+              {/* Rekomendasi Cepat Nama Ball */}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {ballPresets.map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCustomBallName(preset)}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 hover:text-[#25F4EE] border border-white/10 text-zinc-300 transition"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Jenis Proses */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Jenis Proses Pengerjaan <span className="text-[#FE2C55]">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'sortir', label: 'Sortir QC Saja' },
+                  { id: 'steam', label: 'Steam Saja' },
+                  { id: 'sortir_dan_steam', label: 'Sortir + Steam' },
+                ].map(proc => (
+                  <button
+                    key={proc.id}
+                    type="button"
+                    onClick={() => setProcessType(proc.id as any)}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                      processType === proc.id
+                        ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-[#25F4EE] shadow-sm shadow-[#25F4EE]/20'
+                        : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {proc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Petugas Pengerja */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span>Petugas yang Mengerjakan (Pilih Pegawai):</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleSelectAllEmployees}
+                  className="text-[10px] text-[#25F4EE] hover:underline font-bold"
+                >
+                  {selectedEmployeeIds.length === (sortirSteamEmployees.length > 0 ? sortirSteamEmployees : employeeList).length
+                    ? 'Batal Pilih Semua'
+                    : 'Pilih Semua'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {(sortirSteamEmployees.length > 0 ? sortirSteamEmployees : employeeList).map(emp => {
+                  const isSelected = selectedEmployeeIds.includes(emp.id);
+                  return (
                     <button
-                      key={proc.id}
+                      key={emp.id}
                       type="button"
-                      onClick={() => setProcessType(proc.id as any)}
-                      className={`p-2.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                        processType === proc.id
-                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE]'
+                      onClick={() => handleToggleEmployee(emp.id)}
+                      className={`p-2.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-2 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white'
                           : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {proc.label}
+                      <div className="truncate font-semibold">{emp.name || emp.username}</div>
+                      <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] shrink-0 ${isSelected ? 'bg-[#25F4EE] text-black font-bold' : 'border border-white/20'}`}>
+                        {isSelected ? '✓' : ''}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Bagian 2: Hasil QC Pcs Layak, Reject & Catatan */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="border-b border-white/10 pb-3">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-[#FE2C55]" />
+                <span>Bagian 2: Hasil Pcs Layak, Reject &amp; Catatan</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Masukkan jumlah pcs total yang diproses, jumlah layak jual, dan barang rusak/reject.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Total Pcs Dibuka/Diproses <span className="text-[#FE2C55]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={pcsTotal}
+                  onChange={e => handlePcsTotalChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  placeholder="Misal: 300"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                />
+                <div className="flex gap-1 mt-1.5">
+                  {[100, 200, 300, 500].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => handlePcsTotalChange(amt)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white"
+                    >
+                      {amt}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Pegawai Pengerja */}
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[#25F4EE]" />
-                  <span>Petugas yang Mengerjakan (Bisa Pilih Banyak):</span>
+                <label className="block text-xs font-bold text-emerald-400 mb-1">
+                  Pcs Layak Jual (Lolos QC) <span className="text-[#FE2C55]">*</span>
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(sortirSteamEmployees.length > 0 ? sortirSteamEmployees : employeeList).map(emp => {
-                    const isSelected = selectedEmployeeIds.includes(emp.id);
-                    return (
-                      <label
-                        key={emp.id}
-                        className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer transition ${
-                          isSelected
-                            ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white font-bold'
-                            : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleEmployee(emp.id)}
-                          className="rounded accent-[#25F4EE] cursor-pointer"
-                        />
-                        <span className="truncate">{emp.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={pcsLayakJual}
+                  onChange={e => setPcsLayakJual(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  placeholder="Misal: 280"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-emerald-500/40 text-emerald-400 font-bold focus:border-emerald-400"
+                />
+                <span className="text-[10px] text-zinc-400 mt-1 block">Otomatis dihitung (Total - Reject)</span>
               </div>
 
-              <div className="pt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!ballInventoryId && !customBallName.trim()) {
-                      onNotify('Harap pilih atau tuliskan nama ball terlebih dahulu!', 'error');
-                      return;
-                    }
-                    setInputStep(2);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-                >
-                  <span>Tahap Selanjutnya: Hasil Pcs &amp; QC</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+              <div>
+                <label className="block text-xs font-bold text-[#FE2C55] mb-1">
+                  Pcs Reject (Rusak / Cacat)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={pcsReject}
+                  onChange={e => handlePcsRejectChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-[#FE2C55]/40 text-[#FE2C55] font-bold focus:border-[#FE2C55]"
+                />
+                <div className="flex gap-1 mt-1.5">
+                  {[0, 5, 10, 20].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => handlePcsRejectChange(amt)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white"
+                    >
+                      +{amt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* TAHAP 2: Hasil Pcs Layak, Reject & Simpan */}
-          {inputStep === 2 && (
-            <div className="space-y-4">
-              <div className="border-b border-white/10 pb-2">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Tahap 2: Input Hasil Pcs Layak, Reject &amp; Catatan</span>
-                </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">Masukkan jumlah pakaian layak jual dan yang mengalami kerusakan/reject.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Total Pcs Ball <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={pcsTotal}
-                    onChange={e => handlePcsTotalChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                    placeholder="Misal: 300"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-emerald-400 mb-1">
-                    Pcs Layak Jual (Grade A/B)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={pcsLayakJual}
-                    onChange={e => setPcsLayakJual(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                    placeholder="Otomatis"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-emerald-500/30 text-emerald-300 font-bold focus:border-emerald-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#FE2C55] mb-1">
-                    Pcs Reject / Cacat
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={pcsReject}
-                    onChange={e => handlePcsRejectChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-[#FE2C55]/30 text-[#FE2C55] font-bold focus:border-[#FE2C55]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Status Pengerjaan
-                  </label>
-                  <select
-                    value={status}
-                    onChange={e => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    <option value="selesai">✅ Selesai Dikerjakan</option>
-                    <option value="proses">⏳ Sedang Dalam Proses</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Catatan Khusus (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Misal: Ball banyak dress knit bagus, reject noda 5 pcs"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 flex items-center justify-between border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setInputStep(1)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Tahap Sebelumnya</span>
-                </button>
-
-                <button
-                  id="btn-submit-steam"
-                  type="submit"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{editingRecord ? 'Simpan Perubahan' : 'Simpan Pengerjaan'}</span>
-                </button>
-              </div>
+            {/* Catatan Tambahan */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">
+                Catatan Kondisi Barang / Evaluasi Ball (Opsional)
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Contoh: Barang bagus, dominan knit tebal, sedikit noda di 5 pcs bisa dicuci..."
+                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+              />
             </div>
-          )}
+          </div>
+
+          {/* Action Buttons Bar */}
+          <div className="p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                handleCancelEdit();
+                setViewMode('menu');
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition border border-white/10 cursor-pointer active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-semibold transition"
+                title="Reset isian form"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                id="btn-submit-steam"
+                type="submit"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/30 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{editingRecord ? 'Simpan Perubahan' : 'Simpan Pengerjaan Sortir & Steam'}</span>
+              </button>
+            </div>
+          </div>
         </form>
+
+        {/* Confirmation Modal */}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type}
+          confirmText={confirmModal.confirmText}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        />
       </div>
     );
   }
 
-  // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
+  // ================= 3. OUTPUT & LAPORAN STATE =================
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header Bar with Back Button */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <button
           id="btn-back-menu-from-output-steam"
           type="button"
@@ -729,10 +748,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             type="button"
             onClick={() => {
               handleCancelEdit();
-              setInputStep(1);
               setViewMode('input');
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
           >
             <PlusCircle className="w-3.5 h-3.5" />
             <span>+ Input Pengerjaan Baru</span>
@@ -743,7 +761,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       {/* Filter Bar */}
       <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-44 sm:w-60">
+          <div className="relative w-48 sm:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
@@ -792,8 +810,21 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         </div>
 
         {filteredRecords.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 text-xs">
-            Belum ada catatan pengerjaan sortir/steam pada periode ini.
+          <div className="text-center py-12 px-4 space-y-3">
+            <p className="text-zinc-500 text-xs">
+              Belum ada catatan pengerjaan sortir/steam pada filter ini.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                handleCancelEdit();
+                setViewMode('input');
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold transition"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Catat Pengerjaan Pertama Sekarang</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -825,7 +856,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                       </span>
                     </td>
                     <td className="p-3 whitespace-nowrap text-zinc-300">
-                      {rec.employeeNames.join(', ')}
+                      {rec.employeeNames ? rec.employeeNames.join(', ') : '-'}
                     </td>
                     <td className="p-3 whitespace-nowrap text-center font-bold text-white">
                       {rec.pcsTotal} pcs
@@ -839,16 +870,24 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                     <td className="p-3 whitespace-nowrap text-right space-x-1.5">
                       <button
                         type="button"
-                        onClick={() => handleStartEdit(rec)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleStartEdit(rec);
+                        }}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] transition cursor-pointer border border-white/5"
                         title="Edit Pengerjaan"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`);
+                        }}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer border border-white/5"
                         title="Hapus Catatan"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -862,6 +901,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         )}
       </div>
 
+      {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}

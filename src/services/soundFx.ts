@@ -321,26 +321,30 @@ class SoundFxService {
     window.addEventListener('keydown', gestureResume, { capture: true, passive: true });
 
     const handleInteractiveSound = (e: Event) => {
-      this.unlockAudio();
+      try {
+        this.unlockAudio();
 
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
 
-      // Fast check for interactive elements
-      const clickable = (target.tagName === 'BUTTON' || target.tagName === 'A') 
-        ? target 
-        : target.closest('button, [role="button"], a, input[type="submit"], [data-nav]');
+        // Fast check for interactive elements
+        const clickable = (target.tagName === 'BUTTON' || target.tagName === 'A') 
+          ? target 
+          : target.closest('button, [role="button"], a, input[type="submit"], [data-nav]');
 
-      if (clickable) {
-        const now = Date.now();
-        if (now - this.lastClickTime > 80) {
-          this.lastClickTime = now;
-          if (clickable.matches('nav *, [role="tab"], [data-nav]')) {
-            this.playMenuSound();
-          } else {
-            this.playRobotButtonClick();
+        if (clickable) {
+          const now = Date.now();
+          if (now - this.lastClickTime > 80) {
+            this.lastClickTime = now;
+            if (clickable.matches('nav *, [role="tab"], [data-nav]')) {
+              this.playMenuSound();
+            } else {
+              this.playRobotButtonClick();
+            }
           }
         }
+      } catch (err) {
+        // Silently catch audio errors so clicks and buttons always work reliably
       }
     };
 

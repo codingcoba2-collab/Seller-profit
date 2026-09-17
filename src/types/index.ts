@@ -377,6 +377,9 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   tag?: 'umum' | 'urgent' | 'live' | 'shift';
+  recipientId?: string; // Optional: specific employee or 'owner' for 1-on-1 personal chat
+  recipientName?: string;
+  recipientRole?: string;
 }
 
 export interface SteamSortirRecord {
