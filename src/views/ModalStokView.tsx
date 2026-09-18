@@ -405,32 +405,25 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* HEADER UTAMA */}
-      <div className="flex items-center justify-between gap-4 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={viewMode === 'form' ? handleCancelEdit : () => setViewMode('menu')}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
-            title="Kembali ke Menu Stok"
-            aria-label="Kembali ke Menu Stok"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-            <span>Kembali ke Menu</span>
-          </button>
-        </div>
-
-        {viewMode === 'form' && (
-          <div className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
-            Langkah {formStep} dari 3
-          </div>
-        )}
-      </div>
-
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* TAMPILAN FORM WIZARD (INPUT / EDIT) */}
       {viewMode === 'form' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
+          {/* Compact Form Header */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali ke Menu</span>
+            </button>
+            <div className="text-xs font-bold text-[#25F4EE]">
+              Langkah {formStep} dari 3
+            </div>
+          </div>
+
           {/* Stepper Progress */}
           <div className="grid grid-cols-3 gap-2 bg-[#161823] p-3 rounded-2xl border border-white/10 text-xs">
             {[
@@ -814,7 +807,31 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
       {/* TAMPILAN LAPORAN & RIWAYAT STOK (LIST VIEW) */}
       {viewMode === 'list' && (
-        <div className="space-y-6">
+        <div className="space-y-3.5 sm:space-y-4">
+          {/* Compact Top Bar */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('menu')}
+              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Kembali ke Menu Stok</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setFormStep(1);
+                setViewMode('form');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>+ Input Stok Baru</span>
+            </button>
+          </div>
+
           {/* Sisa Stok Bar */}
           <div className="flex items-center justify-between bg-[#161823] p-4 rounded-3xl border border-white/10 shadow-lg">
             <div className="flex items-center gap-3">

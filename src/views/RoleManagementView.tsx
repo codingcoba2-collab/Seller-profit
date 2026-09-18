@@ -483,32 +483,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* 1. HALAMAN DAFTAR PEGAWAI (OUTPUT) */}
       {viewMode === 'list' && (
-        <div className="space-y-5">
-          {/* Header Bar Output */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-[#25F4EE]" />
-              <span className="text-sm font-black text-white">Daftar Akun Pegawai</span>
-            </div>
-
-            <button
-              onClick={() => {
-                resetForm();
-                setViewMode('form');
-                setFormStep(1);
-              }}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>+ Registrasi Pegawai Baru</span>
-            </button>
-          </div>
-
-          {/* Search Bar & Total Summary */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="space-y-3.5">
+          {/* Compact Action & Search Bar (Replaces bulky redundant header card) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
@@ -516,11 +496,25 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Cari berdasarkan nama atau username..."
-                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-2xl bg-[#161823] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] transition"
+                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] transition"
               />
             </div>
-            <div className="text-xs font-bold text-zinc-400 self-center">
-              Total Pegawai: <strong className="text-white">{filteredEmployees.length} orang</strong>
+            <div className="flex items-center justify-between sm:justify-end gap-3">
+              <div className="text-xs font-bold text-zinc-400">
+                Total: <strong className="text-white">{filteredEmployees.length} Pegawai</strong>
+              </div>
+              <button
+                id="btn-open-register-employee"
+                onClick={() => {
+                  resetForm();
+                  setViewMode('form');
+                  setFormStep(1);
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95 shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Pegawai Baru</span>
+              </button>
             </div>
           </div>
 
@@ -640,26 +634,21 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 
       {/* 2. HALAMAN FORM WIZARD (INPUT / EDIT) */}
       {viewMode === 'form' && (
-        <div className="space-y-6">
-          {/* Header Form dengan Tombol Kembali ke Daftar */}
-          <div className="flex items-center justify-between bg-[#161823] p-3.5 sm:p-4 rounded-3xl border border-white/10 shadow-xl">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
-                title="Kembali ke Daftar Pegawai"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-                <span>Kembali</span>
-              </button>
-              <div className="flex items-center gap-2">
-                {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
-              Langkah {formStep} dari 4
+        <div className="space-y-4">
+          {/* Compact Form Header (No bulky card wrapper) */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali ke Daftar</span>
+            </button>
+            <div className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
+              <span>{editingId ? 'Edit Pegawai' : 'Registrasi Baru'}</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-400">Tahap {formStep}/4</span>
             </div>
           </div>
 

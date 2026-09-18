@@ -230,27 +230,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   // ================= 1. MENU HUB STATE (2 Pilihan Grid) =================
   if (viewMode === 'menu') {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-return"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <div className="text-right text-xs text-zinc-400">
-            Total Retur: <strong className="text-[#FE2C55]">{formatRupiah(totalNominal)}</strong>
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -402,9 +382,9 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
   if (viewMode === 'input') {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+        {/* Compact Form Header */}
+        <div className="flex items-center justify-between gap-2 px-1">
           <button
             id="btn-back-menu-return"
             type="button"
@@ -412,18 +392,15 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               resetForm();
               setViewMode('menu');
             }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Batal / Kembali ke Menu</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20">
-              Tahap {inputStep} dari 2
-            </span>
-          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20">
+            Tahap {inputStep} dari 2
+          </span>
         </div>
 
         {/* Stepper Header Pills */}
@@ -587,25 +564,22 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
 
   // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header Bar with Back Button */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <button
-          id="btn-back-menu-from-output-return"
-          type="button"
-          onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-          title="Kembali"
-          aria-label="Kembali"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-        </button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Unified Action & Filter Bar */}
+      <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-44 sm:w-60">
+          <button
+            id="btn-back-menu-from-output-return"
+            type="button"
+            onClick={() => setViewMode('menu')}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali ke Menu Retur"
+            aria-label="Kembali ke Menu Retur"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+
+          <div className="relative w-40 sm:w-56">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
@@ -630,8 +604,24 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           />
         </div>
 
-        <div className="text-xs text-zinc-400 font-semibold">
-          Total: <strong className="text-white">{filteredList.length}</strong> catatan
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-zinc-400 font-semibold hidden sm:block">
+            Total: <strong className="text-white">{filteredList.length}</strong> catatan
+          </div>
+
+          <button
+            id="btn-open-form-from-output-return"
+            type="button"
+            onClick={() => {
+              resetForm();
+              setInputStep(1);
+              setViewMode('input');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Catat Retur Baru</span>
+          </button>
         </div>
       </div>
 

@@ -129,9 +129,9 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
   }, [inventory, sales, returns, store, period, selectedDate]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Filter Periode */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-zinc-300">Periode:</span>
           <div className="flex items-center gap-1">
@@ -162,24 +162,24 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
       </div>
 
       {/* Laba Kotor Hero Card */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold">
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] text-white border border-white/10 shadow-lg relative overflow-hidden">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
               <span>Total Laba Kotor Sesi Live</span>
             </div>
-            <div className={`text-3xl sm:text-4xl font-black tracking-tight ${calculation.labaKotor >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${calculation.labaKotor >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(calculation.labaKotor)}
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 min-w-[200px]">
-            <div className="text-[11px] text-zinc-400 font-semibold">Omzet Kotor Live:</div>
-            <div className="text-lg font-black text-white">
+          <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/10 space-y-1.5 min-w-[180px]">
+            <div className="text-[10px] text-zinc-400 font-semibold">Omzet Kotor Live:</div>
+            <div className="text-base font-black text-white">
               {formatRupiah(calculation.totalOmzetKotor)}
             </div>
-            <div className="text-[11px] text-zinc-400 pt-2 border-t border-white/10">
+            <div className="text-[10px] text-zinc-400 pt-1.5 border-t border-white/10">
               Volume: <strong className="text-white">{formatNumber(calculation.totalIsiTerjual)} pcs</strong> ({formatNumber(calculation.totalPaketTerjual)} paket)
             </div>
           </div>

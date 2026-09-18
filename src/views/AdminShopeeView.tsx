@@ -164,7 +164,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Action Toolbar */}
       <div className="flex items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">

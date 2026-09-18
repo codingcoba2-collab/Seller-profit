@@ -327,9 +327,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   // ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) =================
   if (viewMode === 'input') {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+        {/* Compact Form Header */}
+        <div className="flex items-center justify-between gap-2 px-1">
           <button
             id="btn-back-menu-kehadiran"
             type="button"
@@ -337,19 +337,15 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
               handleCancelEdit();
               setViewMode('menu');
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
-            title="Kembali ke Menu"
-            aria-label="Kembali ke Menu"
+            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-            <span>Kembali</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Batal / Kembali ke Menu</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-              Tahap {inputStep} dari 2
-            </span>
-          </div>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+            Tahap {inputStep} dari 2
+          </span>
         </div>
 
         {/* Stepper Header Pills */}
@@ -591,43 +587,22 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
 
   // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header Bar with Back Button */}
-      <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <NeonCorners variant="side-left" color="cyan" size="sm" />
-        <button
-          id="btn-back-menu-from-output-kehadiran"
-          type="button"
-          onClick={() => setViewMode('menu')}
-          className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold relative z-10"
-          title="Kembali ke Menu"
-          aria-label="Kembali ke Menu"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-          <span>Kembali</span>
-        </button>
-
-        <div className="flex items-center gap-2 relative z-10">
-          <button
-            id="btn-open-form-from-output-kehadiran"
-            type="button"
-            onClick={() => {
-              handleCancelEdit();
-              setInputStep(1);
-              setViewMode('input');
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Catat Presensi Baru</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Unified Action & Filter Bar */}
+      <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-44 sm:w-60">
+          <button
+            id="btn-back-menu-from-output-kehadiran"
+            type="button"
+            onClick={() => setViewMode('menu')}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+            title="Kembali ke Menu Presensi"
+            aria-label="Kembali ke Menu Presensi"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+
+          <div className="relative w-40 sm:w-56">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
@@ -652,8 +627,24 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
           />
         </div>
 
-        <div className="text-xs text-zinc-400 font-semibold">
-          Total: <strong className="text-white">{filteredList.length}</strong> catatan
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-zinc-400 font-semibold hidden sm:block">
+            Total: <strong className="text-white">{filteredList.length}</strong>
+          </div>
+
+          <button
+            id="btn-open-form-from-output-kehadiran"
+            type="button"
+            onClick={() => {
+              handleCancelEdit();
+              setInputStep(1);
+              setViewMode('input');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>+ Presensi Baru</span>
+          </button>
         </div>
       </div>
 

@@ -12,7 +12,8 @@ import {
   Edit3, 
   Coins, 
   Megaphone,
-  Filter
+  Filter,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TopupSaldoRiwayatViewProps {
@@ -95,31 +96,28 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
   const totalTopupCoins = filteredList.reduce((acc, curr) => acc + (curr.coinAmount || 0), 0);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 space-y-4 text-white font-sans">
-      {/* Segmented Switcher Header */}
-      <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#161823] border border-white/10 shadow-md">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
-          <History className="w-4 h-4 text-[#25F4EE]" />
-          <span>Riwayat Topup Saldo</span>
-        </div>
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Compact Header & Navigation */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
+          type="button"
+          id="btn-back-to-topup-hub"
+          onClick={() => onNavigate('/topup-saldo')}
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Menu Saldo</span>
+        </button>
 
-        {/* Tab Switcher between Input and Riwayat */}
-        <div className="flex items-center gap-1 bg-[#0b0c10] p-1 rounded-xl border border-white/10 shrink-0">
-          <button
-            type="button"
-            id="btn-add-new-topup-from-riwayat"
-            onClick={() => onNavigate('/topup-saldo/input')}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer flex items-center gap-1.5"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>+ Input Baru</span>
-          </button>
-
-          <div className="px-3 py-1.5 rounded-lg text-xs font-black bg-white text-zinc-950 shadow-sm flex items-center gap-1.5">
-            <History className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Riwayat Data</span>
-          </div>
-        </div>
+        <button
+          type="button"
+          id="btn-add-new-topup-from-riwayat"
+          onClick={() => onNavigate('/topup-saldo/input')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          <span>+ Input Baru</span>
+        </button>
       </div>
 
       {/* Filter & Summary Bar */}

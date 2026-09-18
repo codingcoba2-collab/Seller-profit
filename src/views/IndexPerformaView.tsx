@@ -233,7 +233,7 @@ export const IndexPerformaView: React.FC<IndexPerformaViewProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Quick AI Action Banner */}
       <div className="flex items-center justify-between bg-[#161823] p-3 sm:p-4 rounded-3xl border border-[#25F4EE]/30 shadow-xl">
         <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">

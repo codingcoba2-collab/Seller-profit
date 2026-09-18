@@ -135,7 +135,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
   }, [currentUser.storeId, inventory, sales, returns, cashflows, store]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Filter Periode */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       </div>
 
       {/* Laba Bersih Hero Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-2xl relative overflow-hidden">
+      <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-2xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold">

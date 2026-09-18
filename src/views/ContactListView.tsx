@@ -182,35 +182,26 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-xl">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onNavigate('/informasi')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          </button>
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Compact Top Navigation Bar */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
+          type="button"
+          onClick={() => onNavigate('/informasi')}
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Informasi</span>
+        </button>
 
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-            <Users className="w-4 h-4" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onNavigate('/informasi/live-chat')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 text-xs font-bold transition cursor-pointer"
-          >
-            <MessageCircle className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Buka Chat Grup Tim</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate('/informasi/live-chat')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 text-xs font-bold transition cursor-pointer"
+        >
+          <MessageCircle className="w-3.5 h-3.5 text-[#25F4EE]" />
+          <span>Buka Chat Grup Tim</span>
+        </button>
       </div>
 
       {/* Search & Role Filters */}

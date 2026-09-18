@@ -140,35 +140,18 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
   const activeCount = announcements.filter(a => a.isActive).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
-      {/* Top Header & Breadcrumb */}
-      <div className="spatial-card relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-[#FE2C55]/30 bg-[#121520] shadow-lg overflow-hidden">
-        <NeonCorners variant="side-left" color="magenta" />
-        <div className="flex items-center gap-3 relative z-10">
-          <button
-            type="button"
-            id="btn-back-to-informasi"
-            onClick={() => onNavigate('/informasi')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#FE2C55]" />
-          </button>
-          <div className="w-9 h-9 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 flex items-center justify-center text-[#FE2C55] shadow-[0_0_15px_rgba(254,44,85,0.3)] shrink-0">
-            <Megaphone className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-black tracking-wide text-white">
-                PENGUMUMAN TOKO
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-[#FE2C55]/20 border border-[#FE2C55]/50 text-[#FE2C55] text-[10px] font-black uppercase font-mono animate-pulse">
-                {activeCount} AKTIF
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Top Header & Navigation */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
+          type="button"
+          id="btn-back-to-informasi"
+          onClick={() => onNavigate('/informasi')}
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Informasi</span>
+        </button>
 
         {currentUser.isOwner && !isCreating && (
           <button
@@ -179,10 +162,10 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
               setIsCreating(true);
               SoundFx.playRobotButtonClick();
             }}
-            className="relative z-10 px-4 py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-purple-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(254,44,85,0.4)] hover:opacity-95 active:scale-95 transition cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#FE2C55] to-purple-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#FE2C55]/20 hover:opacity-95 active:scale-95 transition cursor-pointer"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Buat Pengumuman Baru</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ Buat Pengumuman</span>
           </button>
         )}
       </div>

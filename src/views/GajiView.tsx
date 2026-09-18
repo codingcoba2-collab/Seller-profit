@@ -485,7 +485,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Filter Periode & Navigation Bar */}
       <div className="spatial-card relative overflow-hidden flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <NeonCorners variant="side-left" color="cyan" size="sm" />
@@ -603,10 +603,9 @@ export const GajiView: React.FC<GajiViewProps> = ({
           }
 
           return (
-            <div className="space-y-4 max-w-2xl mx-auto">
+            <div className="space-y-3.5 sm:space-y-4 max-w-2xl mx-auto">
               {/* Bar Navigasi Kembali ke Daftar Pegawai */}
-              <div className="spatial-card relative overflow-hidden flex items-center justify-between gap-2 p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg">
-                <NeonCorners variant="side-left" color="cyan" size="sm" />
+              <div className="flex items-center justify-between gap-2 px-1">
                 <button
                   type="button"
                   id="btn-back-to-emp-grid"
@@ -614,13 +613,13 @@ export const GajiView: React.FC<GajiViewProps> = ({
                     SoundFx.playRobotButtonClick();
                     setSelectedEmployeeId(null);
                   }}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-xs font-bold text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 relative z-10"
+                  className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-                  <span>Kembali ke Daftar</span>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Kembali ke Daftar Pegawai</span>
                 </button>
 
-                <strong className="text-sm text-white font-black relative z-10">{selectedItem.emp.name}</strong>
+                <strong className="text-xs text-zinc-300 font-bold">{selectedItem.emp.name}</strong>
               </div>
 
               {/* Kartu Rincian Gaji Pegawai Terpilih (Sesuai Gambar User) */}

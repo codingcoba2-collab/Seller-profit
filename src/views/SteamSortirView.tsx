@@ -393,9 +393,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   // ================= 2. INPUT FORM STATE (Unified, Non-blocking Form) =================
   if (viewMode === 'input') {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+        {/* Compact Form Header (No bulky card wrapper) */}
+        <div className="flex items-center justify-between gap-2 px-1">
           <button
             id="btn-back-menu-steam"
             type="button"
@@ -403,23 +403,19 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               handleCancelEdit();
               setViewMode('menu');
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 flex items-center gap-1.5 text-xs font-bold"
-            title="Kembali ke Menu"
-            aria-label="Kembali ke Menu"
+            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-            <span>Kembali</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Batal / Kembali ke Menu</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setViewMode('output')}
-              className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 transition"
-            >
-              Lihat Riwayat
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setViewMode('output')}
+            className="text-xs text-[#25F4EE] hover:underline font-bold transition cursor-pointer"
+          >
+            Lihat Riwayat QC →
+          </button>
         </div>
 
         {/* Unified Form */}
@@ -715,20 +711,19 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
 
   // ================= 3. OUTPUT & LAPORAN STATE =================
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Filter Bar with Back Shortcut */}
-      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+      <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <button
             id="btn-back-menu-from-output-steam"
             type="button"
             onClick={() => setViewMode('menu')}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 flex items-center gap-1.5 text-xs font-bold shrink-0"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
             title="Kembali ke Menu"
             aria-label="Kembali ke Menu"
           >
-            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-            <span>Kembali</span>
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
           </button>
           <div className="relative w-48 sm:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />

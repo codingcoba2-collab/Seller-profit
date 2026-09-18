@@ -264,27 +264,7 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
   // MENU UTAMA STATISTIK & ANALISIS (Pilihan 4 Menu dalam Grid 2 ke Samping)
   if (activeSubView === 'menu') {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-statistik"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <div className="text-right text-xs text-zinc-400">
-            Total Omzet: <strong className="text-[#25F4EE]">{formatRupiah(metrics.totalOmzet)}</strong>
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -418,21 +398,18 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
 
   // HEADER SUB-VIEW DETAIL DENGAN TOMBOL BACK KE MENU STATISTIK
   const SubHeader = (_props?: any) => (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveSubView('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-          title="Kembali"
-          aria-label="Kembali"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-        </button>
-      </div>
+    <div className="flex flex-wrap items-center justify-between gap-2.5 px-1">
+      <button
+        type="button"
+        onClick={() => setActiveSubView('menu')}
+        className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        <span>Kembali ke Menu Statistik</span>
+      </button>
 
       {/* Period Filter Selector */}
-      <div className="flex items-center gap-1 overflow-x-auto self-start sm:self-auto bg-[#0b0c10] p-1 rounded-xl border border-white/10">
+      <div className="flex items-center gap-1 overflow-x-auto bg-[#161823] p-1 rounded-xl border border-white/10">
         {[
           { key: '7days', label: '7 Hari' },
           { key: '14days', label: '14 Hari' },
@@ -458,7 +435,7 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* 1. HALAMAN KHUSUS: GRAFIK TREN PENJUALAN */}
       {activeSubView === 'grafik' && (
         <>

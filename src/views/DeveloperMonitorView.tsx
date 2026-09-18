@@ -67,12 +67,12 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
             SoundFx.playRobotButtonClick();
             onBackToDashboard();
           }}
-          className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer active:scale-95 inline-flex items-center gap-1.5 text-xs font-bold"
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
           title="Kembali ke Beranda"
           aria-label="Kembali ke Beranda"
         >
-          <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
-          <span>Kembali</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Beranda</span>
         </button>
 
         <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] border border-amber-500/30 shadow-2xl space-y-5 text-center relative overflow-hidden">

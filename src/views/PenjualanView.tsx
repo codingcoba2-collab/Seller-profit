@@ -668,27 +668,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   // ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) =================
   if (viewMode === 'menu') {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-penjualan"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <div className="text-right text-xs text-zinc-400">
-            Total Transaksi: <strong className="text-[#25F4EE]">{salesList.length}</strong>
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -813,26 +793,25 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Header Bar (Tanpa Tab Switcher, Pakai Tombol Back) */}
-      <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Compact Top Navigation Bar */}
+      <div className="flex items-center justify-between gap-2 px-1">
         <button
           id="btn-back-menu-penjualan"
           onClick={() => {
             if (editingId) handleCancelEdit();
             setViewMode('menu');
           }}
-          className="p-2.5 rounded-2xl bg-[#161823] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer shadow-xs active:scale-95"
-          title="Kembali"
-          aria-label="Kembali"
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Menu Penjualan</span>
         </button>
       </div>
 
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
       {viewMode === 'rekap' && (
-        <div className="space-y-6">
+        <div className="space-y-3.5 sm:space-y-4">
           {/* Key Metric Highlights */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* Total Omzet */}

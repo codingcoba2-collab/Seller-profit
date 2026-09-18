@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   Sparkles,
   Edit3,
-  PlusCircle
+  PlusCircle,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TopupSaldoInputViewProps {
@@ -112,31 +113,28 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-4 space-y-4 text-white font-sans">
-      {/* Segmented Switcher Header */}
-      <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#161823] border border-white/10 shadow-md">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
-          <Wallet className="w-4 h-4 text-[#25F4EE]" />
-          <span>Topup Saldo Pemasaran</span>
-        </div>
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Compact Header & Navigation */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
+          type="button"
+          id="btn-back-to-topup-hub"
+          onClick={() => onNavigate('/topup-saldo')}
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Menu Saldo</span>
+        </button>
 
-        {/* Tab Switcher between Input and Riwayat */}
-        <div className="flex items-center gap-1 bg-[#0b0c10] p-1 rounded-xl border border-white/10 shrink-0">
-          <div className="px-3 py-1.5 rounded-lg text-xs font-black bg-white text-zinc-950 shadow-sm flex items-center gap-1.5">
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Form Input</span>
-          </div>
-
-          <button
-            type="button"
-            id="btn-goto-riwayat-from-input"
-            onClick={() => onNavigate('/topup-saldo/riwayat')}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer flex items-center gap-1.5"
-          >
-            <History className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>Riwayat</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          id="btn-goto-riwayat-from-input"
+          onClick={() => onNavigate('/topup-saldo/riwayat')}
+          className="text-xs text-[#25F4EE] hover:underline flex items-center gap-1 font-bold cursor-pointer"
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>Lihat Riwayat &gt;</span>
+        </button>
       </div>
 
       {/* Dedicated Form Input Card */}

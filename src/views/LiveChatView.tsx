@@ -267,26 +267,20 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4 text-white font-sans">
-      {/* 1. Top Header Bar */}
-      <div className="bg-[#161823] p-3.5 sm:p-4 rounded-2xl border border-white/10 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-[#25F4EE] shrink-0">
-            <Radio className="w-5 h-5 text-[#25F4EE]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-black text-white">Chat Toko</h2>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                ONLINE
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* 1. Top Compact Header & Navigation */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
+          type="button"
+          onClick={() => onNavigate('/informasi')}
+          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Informasi</span>
+        </button>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2">
           {/* Sound Toggle */}
           <button
             type="button"
@@ -311,17 +305,6 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Bersihkan</span>
-          </button>
-
-          {/* Back to Info */}
-          <button
-            type="button"
-            onClick={() => onNavigate('/informasi')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 transition cursor-pointer"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
         </div>
       </div>

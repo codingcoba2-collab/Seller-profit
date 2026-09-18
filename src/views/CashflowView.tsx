@@ -339,47 +339,27 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const netCash = totalInflow - totalOutflow;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* ================= 1. MENU HUB STATE (2 Pilihan Grid) ================= */}
       {viewMode === 'menu' && (
-        <div className="space-y-4">
-          {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-cashflow"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <div className="text-right text-xs text-zinc-400">
-            Arus Bersih: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
-          </div>
-        </div>
-
-        {/* Ringkasan Ringkas */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
-            <div className="text-[10px] text-zinc-400 font-semibold">Total Pemasukan Kas</div>
-            <div className="text-sm sm:text-base font-black text-[#25F4EE]">{formatRupiah(totalInflow)}</div>
-          </div>
-          <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
-            <div className="text-[10px] text-zinc-400 font-semibold">Total Pengeluaran Kas</div>
-            <div className="text-sm sm:text-base font-black text-[#FE2C55]">{formatRupiah(totalOutflow)}</div>
-          </div>
-          <div className="p-3 rounded-xl bg-[#161823] border border-white/10 col-span-2 sm:col-span-1">
-            <div className="text-[10px] text-zinc-400 font-semibold">Saldo Kas Bersih</div>
-            <div className={`text-sm sm:text-base font-black ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-              {formatRupiah(netCash)}
+        <div className="space-y-3.5 sm:space-y-4">
+          {/* Ringkasan Ringkas */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+              <div className="text-[10px] text-zinc-400 font-semibold">Total Pemasukan Kas</div>
+              <div className="text-sm sm:text-base font-black text-[#25F4EE]">{formatRupiah(totalInflow)}</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
+              <div className="text-[10px] text-zinc-400 font-semibold">Total Pengeluaran Kas</div>
+              <div className="text-sm sm:text-base font-black text-[#FE2C55]">{formatRupiah(totalOutflow)}</div>
+            </div>
+            <div className="p-3 rounded-xl bg-[#161823] border border-white/10 col-span-2 sm:col-span-1">
+              <div className="text-[10px] text-zinc-400 font-semibold">Saldo Kas Bersih</div>
+              <div className={`text-sm sm:text-base font-black ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+                {formatRupiah(netCash)}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Grid Kecil 2 Kesamping: Input vs Output */}
         <div className="space-y-2">
@@ -457,9 +437,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
       {/* ================= 2. INPUT FORM STATE (Wizard 2 Tahap, Tanpa Tab) ================= */}
       {viewMode === 'input' && (
-        <div className="max-w-3xl mx-auto space-y-4">
-        {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <div className="max-w-3xl mx-auto space-y-3.5 sm:space-y-4">
+        {/* Compact Form Header */}
+        <div className="flex items-center justify-between gap-2 px-1">
           <button
             id="btn-back-menu-cashflow"
             type="button"
@@ -467,11 +447,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               resetForm();
               setViewMode('menu');
             }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Batal / Kembali ke Menu</span>
           </button>
 
           <div className="flex items-center gap-2">
