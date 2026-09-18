@@ -127,9 +127,6 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
           >
             <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
-          <span className="text-sm font-black text-white px-1">
-            {isEditing ? 'Edit Data Top-Up' : 'Input Top-Up Saldo'}
-          </span>
         </div>
 
         {/* Tab Switcher between Input and Riwayat */}

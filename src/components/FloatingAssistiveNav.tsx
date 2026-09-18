@@ -12,7 +12,8 @@ import {
   X, 
   Command,
   Database,
-  Users
+  Users,
+  LogOut
 } from 'lucide-react';
 
 interface FloatingAssistiveNavProps {
@@ -20,6 +21,7 @@ interface FloatingAssistiveNavProps {
   currentUser: CurrentUser;
   onNavigate: (route: RoutePath) => void;
   onOpenProfile: () => void;
+  onOpenLogout?: () => void;
 }
 
 const clampPosition = (x: number, y: number) => {
@@ -38,6 +40,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
   currentUser,
   onNavigate,
   onOpenProfile,
+  onOpenLogout,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -240,18 +243,36 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
                 <span className="text-[9px] text-zinc-400">Live Info Toko</span>
               </button>
 
-              {/* 4. Profil Pengguna */}
+              {/* 5. Profil Pengguna */}
               <button
                 type="button"
                 id="btn-assistive-profile"
                 onClick={() => handleAction(onOpenProfile)}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-purple-500/15 to-transparent border border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/20 transition group cursor-pointer text-center"
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-purple-500/15 to-transparent border border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/20 transition group cursor-pointer text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-400 mb-1.5 group-hover:scale-110 transition shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                  <User className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(168,85,247,0.3)]">
+                  <User className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold text-white leading-tight">Profil Saya</span>
-                <span className="text-[10px] text-zinc-400">Foto, WA & Bio</span>
+                <span className="text-[9px] text-zinc-400">Foto &amp; Bio</span>
+              </button>
+
+              {/* 6. Opsi Keluar / Logout */}
+              <button
+                type="button"
+                id="btn-assistive-logout"
+                onClick={() => {
+                  if (onOpenLogout) {
+                    handleAction(onOpenLogout);
+                  }
+                }}
+                className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-[#FE2C55]/15 to-transparent border border-[#FE2C55]/30 hover:border-[#FE2C55] hover:bg-[#FE2C55]/20 transition group cursor-pointer text-center"
+              >
+                <div className="w-8 h-8 rounded-xl bg-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55] mb-1 group-hover:scale-110 transition shadow-[0_0_12px_rgba(254,44,85,0.3)]">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white leading-tight">Keluar</span>
+                <span className="text-[9px] text-zinc-400">Akhiri Sesi</span>
               </button>
             </div>
 

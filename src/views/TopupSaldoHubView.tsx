@@ -61,17 +61,12 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
             type="button"
             id="btn-back-to-persiapan-from-topup"
             onClick={() => onNavigate('/persiapan')}
-            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition border border-white/10 cursor-pointer active:scale-95 shadow-xs"
+            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition border border-white/10 cursor-pointer active:scale-95 shadow-xs shrink-0"
             title="Kembali"
             aria-label="Kembali"
           >
             <ArrowLeft className="w-5 h-5 text-[#25F4EE]" />
           </button>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-white">
-              Saldo Biaya Iklan &amp; Koin Live
-            </h2>
-          </div>
         </div>
 
         <span className="text-xs font-bold text-zinc-300 px-3 py-1 rounded-full bg-white/5 border border-white/10 self-start sm:self-auto">

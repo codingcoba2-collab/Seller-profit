@@ -94,21 +94,23 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
             type="button"
             id="btn-install-header"
             onClick={handleInstallClick}
-            className="px-3 sm:px-4 py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 border border-[#25F4EE]/40 text-[#25F4EE] hover:text-white text-xs sm:text-sm font-black tracking-wide flex items-center gap-1.5 sm:gap-2 shadow-[0_0_15px_rgba(37,244,238,0.25)] transition active:scale-95 cursor-pointer"
+            className="p-2 sm:px-3.5 sm:py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 border border-[#25F4EE]/40 text-[#25F4EE] hover:text-white text-xs sm:text-sm font-black tracking-wide flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(37,244,238,0.25)] transition active:scale-95 cursor-pointer shrink-0"
             title="Download dan Install Aplikasi Seller Profit ke HP"
+            aria-label="Install Aplikasi"
           >
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#25F4EE]" />
-            <span>Install</span>
+            <Download className="w-4 h-4 text-[#25F4EE]" />
+            <span className="hidden sm:inline">Install</span>
           </button>
 
           <button
             type="button"
             id="btn-login-header"
             onClick={handleLoginClick}
-            className="px-4 sm:px-5 py-2 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white text-xs sm:text-sm font-black tracking-wide uppercase flex items-center gap-2 shadow-[0_0_25px_rgba(254,44,85,0.45)] transition active:scale-95 cursor-pointer"
+            className="p-2 sm:p-2.5 rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#ff476d] hover:from-[#ff3d66] hover:to-[#FE2C55] text-white transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center shadow-[0_0_20px_rgba(254,44,85,0.4)]"
+            title="Masuk"
+            aria-label="Masuk"
           >
             <LogIn className="w-4 h-4 text-white" />
-            <span>Masuk</span>
           </button>
         </div>
       </header>

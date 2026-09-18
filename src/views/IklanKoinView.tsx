@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface IklanKoinViewProps {
   currentUser: CurrentUser;
@@ -233,11 +234,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             >
               <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <Megaphone className="w-4 h-4 text-[#25F4EE]" />
-                <span>Saldo Iklan &amp; Koin Live</span>
-              </h2>
+            <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0">
+              <Megaphone className="w-4 h-4" />
             </div>
           </div>
 
@@ -366,10 +364,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">
-              {editingId ? '✏️ Edit Deposit' : 'Topup Saldo Iklan & Koin'}
-            </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
               Tahap {inputStep} dari 2
             </span>
           </div>
@@ -387,7 +382,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-            <span>Tanggal &amp; Saldo Iklan</span>
+            <span className="hidden sm:inline">Tanggal &amp; Saldo Iklan</span>
+            <span className="sm:hidden">Saldo Iklan</span>
           </button>
           <button
             type="button"
@@ -399,7 +395,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-            <span>Saldo Koin &amp; Catatan</span>
+            <span className="hidden sm:inline">Saldo Koin &amp; Catatan</span>
+            <span className="sm:hidden">Koin &amp; Catatan</span>
           </button>
         </div>
 
@@ -607,16 +604,18 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             />
           </div>
 
-          <select
+          <ThemedSelect
             value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value as any)}
+            onChange={val => setPeriodFilter(val as any)}
+            title="Pilih Periode Deposit"
+            options={[
+              { value: 'all', label: 'Semua Periode' },
+              { value: 'today', label: 'Hari Ini' },
+              { value: 'weekly', label: '7 Hari Terakhir' },
+              { value: 'monthly', label: 'Bulan Ini' },
+            ]}
             className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Periode</option>
-            <option value="today">Hari Ini</option>
-            <option value="weekly">7 Hari Terakhir</option>
-            <option value="monthly">Bulan Ini</option>
-          </select>
+          />
         </div>
 
         <div className="text-xs text-zinc-400 font-semibold">

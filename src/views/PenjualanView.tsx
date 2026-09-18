@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface PenjualanViewProps {
   currentUser: CurrentUser;
@@ -917,17 +918,19 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
                   Periode Waktu
                 </label>
-                <select
+                <ThemedSelect
                   value={periodFilter}
-                  onChange={e => setPeriodFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
-                >
-                  <option value="all">Semua Waktu</option>
-                  <option value="today">Hari Ini</option>
-                  <option value="weekly">7 Hari Terakhir</option>
-                  <option value="monthly">Bulan Ini</option>
-                  <option value="range">Rentang Tanggal</option>
-                </select>
+                  onChange={val => setPeriodFilter(val as any)}
+                  title="Pilih Periode Waktu"
+                  options={[
+                    { value: 'all', label: 'Semua Waktu' },
+                    { value: 'today', label: 'Hari Ini' },
+                    { value: 'weekly', label: '7 Hari Terakhir' },
+                    { value: 'monthly', label: 'Bulan Ini' },
+                    { value: 'range', label: 'Rentang Tanggal' },
+                  ]}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Tipe Penjualan */}
@@ -935,15 +938,17 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
                   Tipe Penjualan
                 </label>
-                <select
+                <ThemedSelect
                   value={typeFilter}
-                  onChange={e => setTypeFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
-                >
-                  <option value="all">Semua Tipe (Live &amp; Non-Live)</option>
-                  <option value="live">🔴 Live Streaming Saja</option>
-                  <option value="non_live">🏪 Non-Live / Marketplace / Offline</option>
-                </select>
+                  onChange={val => setTypeFilter(val as any)}
+                  title="Pilih Tipe Penjualan"
+                  options={[
+                    { value: 'all', label: 'Semua Tipe (Live & Non-Live)' },
+                    { value: 'live', label: '🔴 Live Streaming Saja' },
+                    { value: 'non_live', label: '🏪 Non-Live / Marketplace / Offline' },
+                  ]}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Channel */}
@@ -951,18 +956,19 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
                   Channel Penjualan
                 </label>
-                <select
+                <ThemedSelect
                   value={channelFilter}
-                  onChange={e => setChannelFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
-                >
-                  <option value="all">Semua Channel</option>
-                  {Object.entries(salesChannelLabels).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setChannelFilter(val)}
+                  title="Pilih Channel Penjualan"
+                  options={[
+                    { value: 'all', label: 'Semua Channel' },
+                    ...Object.entries(salesChannelLabels).map(([key, val]) => ({
+                      value: key,
+                      label: val.label,
+                    })),
+                  ]}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Kategori Fashion */}
@@ -970,18 +976,19 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
                   Kategori Fashion
                 </label>
-                <select
+                <ThemedSelect
                   value={categoryFilter}
-                  onChange={e => setCategoryFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:outline-hidden focus:border-[#25F4EE]"
-                >
-                  <option value="all">Semua Kategori Fashion</option>
-                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val}
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setCategoryFilter(val)}
+                  title="Pilih Kategori Fashion"
+                  options={[
+                    { value: 'all', label: 'Semua Kategori Fashion' },
+                    ...Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                      value: key,
+                      label: val,
+                    })),
+                  ]}
+                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Date range picker if selected */}

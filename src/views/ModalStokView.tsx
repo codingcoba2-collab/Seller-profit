@@ -476,7 +476,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                   }`}
                 >
                   <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                  <span className="truncate text-[11px] sm:text-xs">
+                  <span className="hidden sm:inline truncate text-[11px] sm:text-xs">
                     {item.step}. {item.label}
                   </span>
                 </button>

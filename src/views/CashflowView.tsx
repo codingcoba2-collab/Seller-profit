@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface CashflowViewProps {
   currentUser: CurrentUser;
@@ -577,28 +578,24 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   <label className="block text-xs font-bold text-zinc-300 mb-1">
                     Kategori Transaksi <span className="text-[#FE2C55]">*</span>
                   </label>
-                  <select
+                  <ThemedSelect
                     value={category}
-                    onChange={e => handleCategoryChange(e.target.value as any)}
+                    onChange={val => handleCategoryChange(val as any)}
+                    title="Pilih Kategori Transaksi"
+                    options={type === 'outflow' ? [
+                      { value: 'packing', label: 'Bahan Packing (Lakban/Plastik)' },
+                      { value: 'makan_minum', label: 'Konsumsi / Makan Tim' },
+                      { value: 'listrik_wifi', label: 'Listrik, Air & Internet WiFi' },
+                      { value: 'sewa_tempat', label: 'Sewa Tempat / Ruko' },
+                      { value: 'gaji_pegawai', label: 'Gaji / Kasbon Pegawai' },
+                      { value: 'konsumsi_pribadi', label: 'Konsumsi Pribadi (Prive Owner)' },
+                      { value: 'lainnya', label: 'Operasional Lainnya' },
+                    ] : [
+                      { value: 'penarikan_shopee', label: 'Penarikan Saldo Marketplace' },
+                      { value: 'lainnya', label: 'Pemasukan Lainnya / Modal Tambahan' },
+                    ]}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    {type === 'outflow' ? (
-                      <>
-                        <option value="packing">Bahan Packing (Lakban/Plastik)</option>
-                        <option value="makan_minum">Konsumsi / Makan Tim</option>
-                        <option value="listrik_wifi">Listrik, Air &amp; Internet WiFi</option>
-                        <option value="sewa_tempat">Sewa Tempat / Ruko</option>
-                        <option value="gaji_pegawai">Gaji / Kasbon Pegawai</option>
-                        <option value="konsumsi_pribadi">Konsumsi Pribadi (Prive Owner)</option>
-                        <option value="lainnya">Operasional Lainnya</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="penarikan_shopee">Penarikan Saldo Marketplace</option>
-                        <option value="lainnya">Pemasukan Lainnya / Modal Tambahan</option>
-                      </>
-                    )}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -608,26 +605,26 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-zinc-400 mb-1">Pilih Pegawai</label>
-                      <select
+                      <ThemedSelect
                         value={employeeId}
-                        onChange={e => handleEmployeeChange(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
-                      >
-                        {employees.map(emp => (
-                          <option key={emp.id} value={emp.id}>{emp.name}</option>
-                        ))}
-                      </select>
+                        onChange={val => handleEmployeeChange(val)}
+                        title="Pilih Pegawai"
+                        options={employees.map(emp => ({ value: emp.id, label: emp.name }))}
+                        className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                      />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-zinc-400 mb-1">Tipe Pembayaran</label>
-                      <select
+                      <ThemedSelect
                         value={paymentType}
-                        onChange={e => handlePaymentTypeChange(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
-                      >
-                        <option value="gaji_insentif">Gaji / Insentif</option>
-                        <option value="kasbon">Kasbon Pegawai</option>
-                      </select>
+                        onChange={val => handlePaymentTypeChange(val as any)}
+                        title="Pilih Tipe Pembayaran"
+                        options={[
+                          { value: 'gaji_insentif', label: 'Gaji / Insentif' },
+                          { value: 'kasbon', label: 'Kasbon Pegawai' },
+                        ]}
+                        className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                      />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-zinc-400 mb-1">Periode Bulan</label>
@@ -805,16 +802,18 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 />
               </div>
 
-              <select
+              <ThemedSelect
                 value={periodFilter}
-                onChange={e => setPeriodFilter(e.target.value as any)}
+                onChange={val => setPeriodFilter(val as any)}
+                title="Pilih Periode"
+                options={[
+                  { value: 'all', label: 'Semua Periode' },
+                  { value: 'today', label: 'Hari Ini' },
+                  { value: 'weekly', label: '7 Hari Terakhir' },
+                  { value: 'monthly', label: 'Bulan Ini' },
+                ]}
                 className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              >
-                <option value="all">Semua Periode</option>
-                <option value="today">Hari Ini</option>
-                <option value="weekly">7 Hari Terakhir</option>
-                <option value="monthly">Bulan Ini</option>
-              </select>
+              />
             </div>
 
             <div className="text-xs text-zinc-400 font-semibold shrink-0">

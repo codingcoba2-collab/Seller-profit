@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface KehadiranViewProps {
   currentUser: CurrentUser;
@@ -250,11 +251,8 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             >
               <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
             </button>
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-[#25F4EE]" />
-                <span>Presensi &amp; Kehadiran Shift</span>
-              </h2>
+            <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0">
+              <CalendarCheck className="w-4 h-4" />
             </div>
           </div>
 
@@ -375,10 +373,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">
-              {editingId ? '✏️ Edit Presensi' : 'Form Presensi Kehadiran'}
-            </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
               Tahap {inputStep} dari 2
             </span>
           </div>
@@ -396,7 +391,8 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-            <span>Tanggal &amp; Pegawai</span>
+            <span className="hidden sm:inline">Tanggal &amp; Pegawai</span>
+            <span className="sm:hidden">Pegawai</span>
           </button>
           <button
             type="button"
@@ -410,7 +406,8 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-            <span>Role &amp; Jam Shift</span>
+            <span className="hidden sm:inline">Role &amp; Jam Shift</span>
+            <span className="sm:hidden">Jam Shift</span>
           </button>
         </div>
 
@@ -445,17 +442,16 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                   <label className="block text-xs font-bold text-zinc-300 mb-1">
                     Pilih Pegawai <span className="text-[#FE2C55]">*</span>
                   </label>
-                  <select
+                  <ThemedSelect
                     value={selectedEmpId}
-                    onChange={e => handleEmpChange(e.target.value)}
+                    onChange={val => handleEmpChange(val)}
+                    title="Pilih Pegawai"
+                    options={employees.map(emp => ({
+                      value: emp.id,
+                      label: `${emp.name} (${emp.roles.map(r => roleLabels[r] || r).join(', ')})`
+                    }))}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  >
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} ({emp.roles.map(r => roleLabels[r] || r).join(', ')})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -649,16 +645,18 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             />
           </div>
 
-          <select
+          <ThemedSelect
             value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value as any)}
+            onChange={val => setPeriodFilter(val as any)}
+            title="Pilih Periode Presensi"
+            options={[
+              { value: 'all', label: 'Semua Periode' },
+              { value: 'today', label: 'Hari Ini' },
+              { value: 'weekly', label: '7 Hari Terakhir' },
+              { value: 'monthly', label: 'Bulan Ini' },
+            ]}
             className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Periode</option>
-            <option value="today">Hari Ini</option>
-            <option value="weekly">7 Hari Terakhir</option>
-            <option value="monthly">Bulan Ini</option>
-          </select>
+          />
         </div>
 
         <div className="text-xs text-zinc-400 font-semibold">

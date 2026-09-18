@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface ReturnViewProps {
   currentUser: CurrentUser;
@@ -419,9 +420,6 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-white">
-              {editingId ? '✏️ Edit Data Retur' : 'Input Data Retur Paket'}
-            </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20">
               Tahap {inputStep} dari 2
             </span>
@@ -440,7 +438,8 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-            <span>Tanggal &amp; Jumlah Paket</span>
+            <span className="hidden sm:inline">Tanggal &amp; Jumlah Paket</span>
+            <span className="sm:hidden">Tahap 1</span>
           </button>
           <button
             type="button"
@@ -452,7 +451,8 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
             }`}
           >
             <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-            <span>Nominal &amp; Alasan</span>
+            <span className="hidden sm:inline">Nominal &amp; Alasan</span>
+            <span className="sm:hidden">Tahap 2</span>
           </button>
         </div>
 
@@ -616,16 +616,18 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
             />
           </div>
 
-          <select
+          <ThemedSelect
             value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value as any)}
+            onChange={val => setPeriodFilter(val as any)}
+            title="Pilih Periode Retur"
+            options={[
+              { value: 'all', label: 'Semua Periode' },
+              { value: 'today', label: 'Hari Ini' },
+              { value: 'weekly', label: '7 Hari Terakhir' },
+              { value: 'monthly', label: 'Bulan Ini' },
+            ]}
             className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Periode</option>
-            <option value="today">Hari Ini</option>
-            <option value="weekly">7 Hari Terakhir</option>
-            <option value="monthly">Bulan Ini</option>
-          </select>
+          />
         </div>
 
         <div className="text-xs text-zinc-400 font-semibold">

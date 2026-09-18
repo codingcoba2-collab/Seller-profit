@@ -483,7 +483,6 @@ export const GajiView: React.FC<GajiViewProps> = ({
           >
             <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
-          <span className="text-xs font-bold text-zinc-300">Periode:</span>
           <div className="flex items-center gap-1">
             {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
               <button

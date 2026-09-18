@@ -6,6 +6,7 @@ import { InstallGuideModal } from './components/InstallGuideModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProcessingModal } from './components/ProcessingModal';
 import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
+import { LogoutModal } from './components/LogoutModal';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
@@ -71,6 +72,7 @@ export default function App() {
   const [directChatContactId, setDirectChatContactId] = useState<string | null>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -256,7 +258,7 @@ export default function App() {
         currentUser={currentUser}
         currentRoute={currentRoute}
         onNavigate={handleNavigate}
-        onLogout={handleLogout}
+        onLogout={() => setShowLogoutModal(true)}
         onOpenInstallGuide={() => setShowInstallGuide(true)}
         onOpenProfile={() => setShowProfileModal(true)}
         onNotify={handleNotify}
@@ -567,6 +569,18 @@ export default function App() {
         currentUser={currentUser}
         onNavigate={handleNavigate}
         onOpenProfile={() => setShowProfileModal(true)}
+        onOpenLogout={() => setShowLogoutModal(true)}
+      />
+
+      {/* Themed Exit / Logout Confirmation Dialog */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        currentUser={currentUser}
       />
 
       {/* Futuristic Global Processing HUD Popup */}

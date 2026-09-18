@@ -491,16 +491,13 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={onBackToDashboard}
-                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
+                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer shrink-0"
                 title="Kembali ke Dashboard"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[#25F4EE]" />
-                  <span>Data Pegawai &amp; Akses Role</span>
-                </h2>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#25F4EE]" />
               </div>
             </div>
 
@@ -657,26 +654,23 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer"
+                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer shrink-0"
                 title="Kembali ke Daftar Pegawai"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                  {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
-                  <span>{editingId ? 'Edit Data Pegawai' : 'Form Registrasi Pegawai Baru'}</span>
-                </h2>
+              <div className="flex items-center gap-2">
+                {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
               </div>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
+            <div className="flex items-center gap-1 text-xs font-extrabold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
               Langkah {formStep} dari 4
             </div>
           </div>
 
           {/* Wizard Stepper Progress Bar */}
-          <div className="grid grid-cols-4 gap-2 bg-[#161823] p-3 rounded-2xl border border-white/10 text-xs">
+          <div className="grid grid-cols-4 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
             {[
               { step: 1, label: 'Akun Login', icon: '👤' },
               { step: 2, label: 'Hak Akses Role', icon: '🛡️' },
@@ -695,7 +689,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       setFormStep(item.step);
                     }
                   }}
-                  className={`p-2.5 rounded-xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
+                  title={`${item.step}. ${item.label}`}
+                  className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
                     isActive
                       ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] font-black'
                       : isDone
@@ -704,9 +699,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   }`}
                 >
                   <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                  <span className="truncate text-[11px] sm:text-xs">
-                    {item.step}. {item.label}
-                  </span>
                 </button>
               );
             })}
@@ -837,13 +829,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       />
                     </div>
                   )}
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/5 text-xs text-zinc-400 flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#25F4EE] shrink-0 mt-0.5" />
-                  <span>
-                    Owner hanya dapat melihat <strong>Nama Toko</strong> dan <strong>Username</strong> pegawai. Demi privasi, password pegawai dirahasiakan. Jika pegawai lupa password, owner dapat membuatkan password baru atau pegawai dapat memulihkan password di halaman login.
-                  </span>
                 </div>
               </div>
             )}

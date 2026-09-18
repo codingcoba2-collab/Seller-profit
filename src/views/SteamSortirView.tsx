@@ -19,6 +19,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface SteamSortirViewProps {
   currentUser: CurrentUser;
@@ -418,9 +419,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm font-black text-white">
-              {editingRecord ? '✏️ Edit Catatan Pengerjaan' : '➕ Input Sortir & QC Finishing'}
-            </span>
             <button
               type="button"
               onClick={() => setViewMode('output')}
@@ -753,27 +751,31 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             />
           </div>
 
-          <select
+          <ThemedSelect
             value={selectedProcessFilter}
-            onChange={e => setSelectedProcessFilter(e.target.value as any)}
+            onChange={val => setSelectedProcessFilter(val as any)}
+            title="Pilih Tipe Proses"
+            options={[
+              { value: 'all', label: 'Semua Proses' },
+              { value: 'sortir', label: 'Sortir Saja' },
+              { value: 'steam', label: 'Steam Saja' },
+              { value: 'sortir_dan_steam', label: 'Sortir + Steam' },
+            ]}
             className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Proses</option>
-            <option value="sortir">Sortir Saja</option>
-            <option value="steam">Steam Saja</option>
-            <option value="sortir_dan_steam">Sortir + Steam</option>
-          </select>
+          />
 
-          <select
+          <ThemedSelect
             value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value as any)}
+            onChange={val => setPeriodFilter(val as any)}
+            title="Pilih Periode Catatan"
+            options={[
+              { value: 'all', label: 'Semua Periode' },
+              { value: 'today', label: 'Hari Ini' },
+              { value: 'weekly', label: '7 Hari Terakhir' },
+              { value: 'monthly', label: 'Bulan Ini' },
+            ]}
             className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Periode</option>
-            <option value="today">Hari Ini</option>
-            <option value="weekly">7 Hari Terakhir</option>
-            <option value="monthly">Bulan Ini</option>
-          </select>
+          />
         </div>
 
         <div className="text-xs text-zinc-400 font-semibold">

@@ -187,18 +187,15 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('/informasi')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
             title="Kembali"
             aria-label="Kembali"
           >
             <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
 
-          <div>
-            <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-400" />
-              <span>Daftar Kontak (Contact List)</span>
-            </h2>
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Users className="w-4 h-4" />
           </div>
         </div>
 
