@@ -15,11 +15,13 @@ import {
   Sparkles,
   ArrowRight,
   ClipboardList,
-  PlusCircle
+  PlusCircle,
+  ChevronRight
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
+import { NeonCorners } from '../components/NeonCorners';
 
 interface KehadiranViewProps {
   currentUser: CurrentUser;
@@ -239,8 +241,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     return (
       <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
         {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
+        <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+          <NeonCorners variant="side-left" color="cyan" size="sm" />
+          <div className="flex items-center gap-3 relative z-10">
             <button
               id="btn-back-to-dashboard-kehadiran"
               type="button"
@@ -256,7 +259,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
             </div>
           </div>
 
-          <div className="text-right text-xs text-zinc-400">
+          <div className="text-right text-xs text-zinc-400 relative z-10">
             Shift Hari Ini: <strong className="text-[#25F4EE]">{todayCount} Pegawai</strong>
           </div>
         </div>
@@ -291,60 +294,36 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                 setInputStep(1);
                 setViewMode('input');
               }}
-              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+              className="spatial-card relative overflow-hidden group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/60 hover:shadow-[0_0_20px_rgba(37,244,238,0.22)] transition cursor-pointer flex items-center justify-between gap-2.5 shadow-md active:scale-98"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0">
+              <NeonCorners variant="side-left" color="cyan" size="sm" />
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0 group-hover:scale-105 transition-transform">
                   <PlusCircle className="w-5 h-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <MarqueeText
-                    text="Form Presensi Kehadiran"
-                    as="h3"
-                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
-                  />
-                  <MarqueeText
-                    text="Catat kehadiran shift bertahap"
-                    as="p"
-                    speed={12}
-                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
-                  />
-                </div>
+                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
+                  Form Presensi Kehadiran
+                </h3>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>Input data baru</span>
-                <span className="text-[#25F4EE] font-bold">Buka Form</span>
-              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all shrink-0 relative z-10" />
             </div>
 
             {/* Card 2: Laporan & Riwayat */}
             <div
               id="menu-card-output-kehadiran"
               onClick={() => setViewMode('output')}
-              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+              className="spatial-card relative overflow-hidden group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/60 hover:shadow-[0_0_20px_rgba(254,44,85,0.22)] transition cursor-pointer flex items-center justify-between gap-2.5 shadow-md active:scale-98"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0">
+              <NeonCorners variant="side-left" color="magenta" size="sm" />
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-[#FE2C55]/30 flex items-center justify-center text-[#FE2C55] shrink-0 group-hover:scale-105 transition-transform">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <MarqueeText
-                    text="Riwayat Presensi Tim"
-                    as="h3"
-                    className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight"
-                  />
-                  <MarqueeText
-                    text="Lihat rekap log kehadiran shift"
-                    as="p"
-                    speed={12}
-                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
-                  />
-                </div>
+                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-[#FE2C55] transition-colors leading-tight truncate">
+                  Riwayat Presensi Tim
+                </h3>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
-                <span>{filteredList.length} Data Tersedia</span>
-                <span className="text-[#FE2C55] font-bold">Buka Data</span>
-              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#FE2C55] group-hover:translate-x-0.5 transition-all shrink-0 relative z-10" />
             </div>
           </div>
         </div>
@@ -412,7 +391,10 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
         </div>
 
         {/* Form Container */}
-        <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
+        <form onSubmit={handleSubmit} className="spatial-card relative overflow-hidden bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/15 shadow-2xl space-y-5">
+          <NeonCorners variant="side-left" color="cyan" size="md" />
+          <NeonCorners variant="side-right" color="magenta" size="sm" />
+          <div className="relative z-10 space-y-5">
           {/* TAHAP 1: Tanggal & Pegawai */}
           {inputStep === 1 && (
             <div className="space-y-4">
@@ -593,6 +575,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
               </div>
             </div>
           )}
+          </div>
         </form>
       </div>
     );
@@ -602,19 +585,20 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header Bar with Back Button */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <NeonCorners variant="side-left" color="cyan" size="sm" />
         <button
           id="btn-back-menu-from-output-kehadiran"
           type="button"
           onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0 relative z-10"
           title="Kembali"
           aria-label="Kembali"
         >
           <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative z-10">
           <button
             id="btn-open-form-from-output-kehadiran"
             type="button"

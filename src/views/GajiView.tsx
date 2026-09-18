@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { NeonCorners } from '../components/NeonCorners';
 
 interface GajiViewProps {
   currentUser: CurrentUser;
@@ -486,8 +487,9 @@ export const GajiView: React.FC<GajiViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 text-white font-sans">
       {/* Filter Periode & Navigation Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
-        <div className="flex items-center gap-2">
+      <div className="spatial-card relative overflow-hidden flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
+        <NeonCorners variant="side-left" color="cyan" size="sm" />
+        <div className="flex items-center gap-2 relative z-10">
           <button
             type="button"
             onClick={selectedEmployeeId ? () => setSelectedEmployeeId(null) : onBackToDashboard}
@@ -533,7 +535,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
               Tidak ada data pegawai pada periode ini.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
               {calculatedSalaryData.map(item => {
                 const unlocked = isEmployeeUnlocked(item.emp);
 
@@ -547,12 +549,18 @@ export const GajiView: React.FC<GajiViewProps> = ({
                         SoundFx.playChatNotificationSound(false);
                         onNotify?.(`Terkunci: Bukan akun Anda.`, 'info');
                       }}
-                      className="p-4 rounded-2xl bg-[#10121a] border border-white/5 flex items-center justify-between opacity-50 cursor-not-allowed select-none"
+                      className="spatial-card relative overflow-hidden p-3.5 sm:p-4 rounded-2xl bg-[#10121a] border border-white/5 opacity-55 cursor-not-allowed select-none flex items-center justify-between group shadow-sm"
                     >
-                      <span className="font-bold text-zinc-400 text-sm truncate">
-                        {item.emp.name}
-                      </span>
-                      <Lock className="w-4 h-4 text-zinc-500 shrink-0 ml-2" />
+                      <NeonCorners variant="side-left" color="magenta" size="sm" />
+                      <div className="flex items-center gap-2.5 min-w-0 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 shrink-0">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <span className="font-bold text-zinc-400 text-xs sm:text-sm truncate">
+                          {item.emp.name}
+                        </span>
+                      </div>
+                      <Lock className="w-3.5 h-3.5 text-zinc-600 shrink-0 ml-1.5 relative z-10" />
                     </div>
                   );
                 }
@@ -566,11 +574,18 @@ export const GajiView: React.FC<GajiViewProps> = ({
                       SoundFx.playRobotButtonClick();
                       setSelectedEmployeeId(item.emp.id);
                     }}
-                    className="p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/60 cursor-pointer active:scale-97 transition flex items-center justify-between"
+                    className="spatial-card relative overflow-hidden p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/60 hover:shadow-[0_0_20px_rgba(37,244,238,0.22)] cursor-pointer active:scale-97 transition-all flex items-center justify-between group shadow-md"
                   >
-                    <span className="font-bold text-white text-sm truncate">
-                      {item.emp.name}
-                    </span>
+                    <NeonCorners variant="side-left" color="cyan" size="sm" />
+                    <div className="flex items-center gap-2.5 min-w-0 relative z-10">
+                      <div className="w-8 h-8 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] font-black text-xs shrink-0 group-hover:scale-105 group-hover:border-[#25F4EE] transition-all shadow-xs">
+                        {item.emp.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-bold text-white text-xs sm:text-sm truncate group-hover:text-[#25F4EE] transition-colors">
+                        {item.emp.name}
+                      </span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5 relative z-10" />
                   </div>
                 );
               })}
@@ -583,7 +598,8 @@ export const GajiView: React.FC<GajiViewProps> = ({
           const selectedItem = calculatedSalaryData.find(d => d.emp.id === selectedEmployeeId);
           if (!selectedItem) {
             return (
-              <div className="p-8 text-center rounded-3xl bg-[#161823] border border-white/10 space-y-3">
+              <div className="spatial-card relative overflow-hidden p-8 text-center rounded-3xl bg-[#161823] border border-white/10 space-y-3">
+                <NeonCorners variant="side-left" color="cyan" size="sm" />
                 <p className="text-zinc-400 text-xs">Pegawai tidak ditemukan.</p>
                 <button
                   onClick={() => setSelectedEmployeeId(null)}
@@ -598,7 +614,8 @@ export const GajiView: React.FC<GajiViewProps> = ({
           return (
             <div className="space-y-4 max-w-2xl mx-auto">
               {/* Bar Navigasi Kembali ke Daftar Pegawai */}
-              <div className="flex items-center justify-between gap-2 p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-md">
+              <div className="spatial-card relative overflow-hidden flex items-center justify-between gap-2 p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg">
+                <NeonCorners variant="side-left" color="cyan" size="sm" />
                 <button
                   type="button"
                   id="btn-back-to-emp-grid"
@@ -606,21 +623,23 @@ export const GajiView: React.FC<GajiViewProps> = ({
                     SoundFx.playRobotButtonClick();
                     setSelectedEmployeeId(null);
                   }}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-200 hover:text-white transition border border-white/10 cursor-pointer active:scale-95"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-200 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 relative z-10"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
                   <span>Kembali</span>
                 </button>
 
-                <strong className="text-sm text-white font-black">{selectedItem.emp.name}</strong>
+                <strong className="text-sm text-white font-black relative z-10">{selectedItem.emp.name}</strong>
               </div>
 
               {/* Kartu Rincian Gaji Pegawai Terpilih (Sesuai Gambar User) */}
               <div
                 key={selectedItem.emp.id}
-                className="bg-[#161823] rounded-3xl border border-white/10 shadow-2xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
+                className="spatial-card relative overflow-hidden bg-[#161823] rounded-3xl border border-white/15 shadow-2xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
               >
-                <div>
+                <NeonCorners variant="side-left" color="cyan" size="md" />
+                <NeonCorners variant="side-right" color="magenta" size="sm" />
+                <div className="relative z-10">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-black text-white text-base sm:text-lg">

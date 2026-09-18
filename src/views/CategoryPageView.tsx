@@ -38,12 +38,9 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                 {currentCategory.title}
               </h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
-                {currentCategory.items.length} Fitur
+                {currentCategory.items.length} Menu
               </span>
             </div>
-            <p className="text-xs text-zinc-400 line-clamp-1">
-              {currentCategory.description}
-            </p>
           </div>
         </div>
 
@@ -77,47 +74,46 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
                 }
               }}
-              className={`spatial-card relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border cursor-pointer overflow-hidden ${
+              className={`spatial-card relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex items-center justify-between gap-2.5 border cursor-pointer overflow-hidden ${
                 accessible
-                  ? 'border-white/10 hover:border-[#25F4EE]/60 shadow-sm hover:shadow-md active:scale-[0.99]'
+                  ? 'border-white/10 hover:border-[#25F4EE]/60 hover:shadow-[0_0_20px_rgba(37,244,238,0.22)] active:scale-[0.98]'
                   : 'border-white/5 opacity-50 cursor-not-allowed'
               }`}
             >
-              {accessible && (
+              {accessible ? (
                 <NeonCorners 
                   variant="side-left" 
                   color={item.iconColor?.includes('FE2C55') ? 'magenta' : item.iconColor?.includes('emerald') ? 'emerald' : item.iconColor?.includes('amber') ? 'amber' : 'cyan'} 
+                  size="sm"
                 />
+              ) : (
+                <NeonCorners variant="side-left" color="magenta" size="sm" />
               )}
-              {/* Left: Icon & Text */}
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 relative z-10">
+              {/* Left: Icon & Name Only */}
+              <div className="flex items-center gap-2.5 min-w-0 relative z-10">
                 <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 group-hover:scale-105 transition-transform ${
                     accessible ? item.iconColor : 'text-zinc-500'
                   }`}
                 >
                   <ItemIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
 
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
-                    {item.title}
-                  </h3>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug line-clamp-1">
-                    {item.subtitle}
-                  </p>
-                </div>
+                <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
+                  {item.title}
+                </h3>
               </div>
 
-              {/* Right: Lock if not accessible */}
-              {!accessible && (
-                <div className="shrink-0 flex items-center justify-end">
+              {/* Right: Chevron or Lock */}
+              <div className="shrink-0 relative z-10">
+                {accessible ? (
+                  <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all" />
+                ) : (
                   <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 bg-black/40 px-1.5 py-0.5 rounded-lg border border-zinc-700/40">
                     <Lock className="w-3 h-3" />
-                    <span>Kunci</span>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })}
