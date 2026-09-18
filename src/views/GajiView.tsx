@@ -22,8 +22,12 @@ import {
   Image as ImageIcon,
   Upload,
   ShieldAlert,
-  Plus
+  Plus,
+  Lock,
+  Users,
+  ChevronRight
 } from 'lucide-react';
+import { SoundFx } from '../services/soundFx';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
 interface GajiViewProps {
@@ -44,6 +48,7 @@ export const GajiView: React.FC<GajiViewProps> = ({
   const [cashflows, setCashflows] = useState<CashflowRecord[]>([]);
   const [period, setPeriod] = useState<PeriodFilter>('monthly');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [selectedEmpForDetail, setSelectedEmpForDetail] = useState<Employee | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
@@ -73,24 +78,20 @@ export const GajiView: React.FC<GajiViewProps> = ({
   });
 
   const loadData = () => {
-    const empList = StorageService.getEmployees(currentUser.storeId);
+    let empList = StorageService.getEmployees(currentUser.storeId);
     
-    // Non-owner role restriction: Only allow viewing personal employee data
-    if (!currentUser.isOwner) {
-      const myEmp = empList.filter(e => 
-        e.id === currentUser.id || 
-        e.username.toLowerCase() === currentUser.username.toLowerCase()
+    // Non-owner: ensure personal profile is present in list if exists
+    if (!currentUser.isOwner && currentUser.employeeProfile) {
+      const exists = empList.some(e => 
+        e.id === currentUser.employeeProfile?.id || 
+        e.username.toLowerCase() === currentUser.employeeProfile?.username.toLowerCase()
       );
-      if (myEmp.length > 0) {
-        setEmployees(myEmp);
-      } else if (currentUser.employeeProfile) {
-        setEmployees([currentUser.employeeProfile]);
-      } else {
-        setEmployees([]);
+      if (!exists) {
+        empList = [currentUser.employeeProfile, ...empList];
       }
-    } else {
-      setEmployees(empList);
     }
+    
+    setEmployees(empList);
 
     const attList = StorageService.getAttendance(currentUser.storeId);
     setAllAttendance(attList);
@@ -103,6 +104,19 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
     const cfList = StorageService.getCashflow(currentUser.storeId);
     setCashflows(cfList);
+  };
+
+  const isEmployeeUnlocked = (emp: Employee): boolean => {
+    if (currentUser.isOwner) return true;
+    const currentId = currentUser.id?.toLowerCase();
+    const currentUsername = currentUser.username?.toLowerCase();
+    const currentName = currentUser.name?.toLowerCase();
+
+    return Boolean(
+      (emp.id && currentId && emp.id.toLowerCase() === currentId) ||
+      (emp.username && currentUsername && emp.username.toLowerCase() === currentUsername) ||
+      (emp.name && currentName && emp.name.toLowerCase() === currentName)
+    );
   };
 
   useEffect(() => {
@@ -470,16 +484,16 @@ export const GajiView: React.FC<GajiViewProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Filter Periode */}
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 text-white font-sans">
+      {/* Filter Periode & Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onBackToDashboard}
+            onClick={selectedEmployeeId ? () => setSelectedEmployeeId(null) : onBackToDashboard}
             className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            title={selectedEmployeeId ? "Kembali ke Daftar Pegawai" : "Kembali ke Dashboard"}
+            aria-label={selectedEmployeeId ? "Kembali ke Daftar Pegawai" : "Kembali ke Dashboard"}
           >
             <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
           </button>
@@ -510,190 +524,260 @@ export const GajiView: React.FC<GajiViewProps> = ({
         )}
       </div>
 
-      {/* Non-Owner Privacy Notice */}
-      {!currentUser.isOwner && (
-        <div className="p-4 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE]">
-            <ShieldAlert className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-white">Privasi Gaji Karyawan</h4>
-            <p className="text-[11px] text-zinc-400">
-              Sesuai kebijakan keamanan, hanya Owner yang dapat melihat seluruh rekap gaji toko. Anda hanya dapat melihat rincian slip dan bukti transfer gaji personal milik Anda.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* TAMPILAN 1: GRID PILIH PEGAWAI (2 KE SAMPING, SISANYA KE BAWAH) */}
+      {!selectedEmployeeId ? (
+        <div>
+          {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+          {calculatedSalaryData.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-[#161823] border border-white/10 text-zinc-400 text-xs">
+              Tidak ada data pegawai pada periode ini.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {calculatedSalaryData.map(item => {
+                const unlocked = isEmployeeUnlocked(item.emp);
 
-      {/* Salary Cards Grid */}
-      {calculatedSalaryData.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-[#161823] border border-white/10 text-zinc-400 text-xs">
-          Tidak ada data gaji pada filter periode ini.
+                // KONDISI TERKUNCI (Bukan namanya dan bukan owner)
+                if (!unlocked) {
+                  return (
+                    <div
+                      key={item.emp.id}
+                      id={`card-emp-locked-${item.emp.id}`}
+                      onClick={() => {
+                        SoundFx.playChatNotificationSound(false);
+                        onNotify?.(`Terkunci: Bukan akun Anda.`, 'info');
+                      }}
+                      className="p-4 rounded-2xl bg-[#10121a] border border-white/5 flex items-center justify-between opacity-50 cursor-not-allowed select-none"
+                    >
+                      <span className="font-bold text-zinc-400 text-sm truncate">
+                        {item.emp.name}
+                      </span>
+                      <Lock className="w-4 h-4 text-zinc-500 shrink-0 ml-2" />
+                    </div>
+                  );
+                }
+
+                // KONDISI TERBUKA (Milik user sendiri atau user adalah Owner)
+                return (
+                  <div
+                    key={item.emp.id}
+                    id={`card-emp-unlocked-${item.emp.id}`}
+                    onClick={() => {
+                      SoundFx.playRobotButtonClick();
+                      setSelectedEmployeeId(item.emp.id);
+                    }}
+                    className="p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-[#25F4EE]/60 cursor-pointer active:scale-97 transition flex items-center justify-between"
+                  >
+                    <span className="font-bold text-white text-sm truncate">
+                      {item.emp.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {calculatedSalaryData.map(item => (
-            <div
-              key={item.emp.id}
-              className="bg-[#161823] rounded-3xl border border-white/10 shadow-xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-black text-white text-base">
-                      {item.emp.name}
-                    </h3>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.emp.roles.map(r => (
-                        <span
-                          key={r}
-                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
-                        >
-                          {roleLabels[r]}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+        /* TAMPILAN 2: RINCIAN HANYA NAMA YANG TERPILIH */
+        (() => {
+          const selectedItem = calculatedSalaryData.find(d => d.emp.id === selectedEmployeeId);
+          if (!selectedItem) {
+            return (
+              <div className="p-8 text-center rounded-3xl bg-[#161823] border border-white/10 space-y-3">
+                <p className="text-zinc-400 text-xs">Pegawai tidak ditemukan.</p>
+                <button
+                  onClick={() => setSelectedEmployeeId(null)}
+                  className="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-bold"
+                >
+                  Kembali ke Daftar Pegawai
+                </button>
+              </div>
+            );
+          }
 
-                  {/* Status Pembayaran Badge */}
-                  <div className="text-right">
-                    {item.paymentStatus === 'kasbon_exceeded' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
-                        <AlertCircle className="w-3 h-3 text-rose-400" />
-                        <span>Kasbon Minus ({formatRupiah(item.remainingUnpaid)})</span>
-                      </span>
-                    ) : item.paymentStatus === 'paid' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Lunas</span>
-                      </span>
-                    ) : item.paymentStatus === 'partial' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                        <Clock3 className="w-3 h-3" />
-                        <span>Sebagian</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Belum Dibayar</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
+          return (
+            <div className="space-y-4 max-w-2xl mx-auto">
+              {/* Bar Navigasi Kembali ke Daftar Pegawai */}
+              <div className="flex items-center justify-between gap-2 p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-md">
+                <button
+                  type="button"
+                  id="btn-back-to-emp-grid"
+                  onClick={() => {
+                    SoundFx.playRobotButtonClick();
+                    setSelectedEmployeeId(null);
+                  }}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-200 hover:text-white transition border border-white/10 cursor-pointer active:scale-95"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Kembali</span>
+                </button>
 
-                {/* Gaji Breakdown Cards */}
-                <div className="mt-4 space-y-2 text-xs">
-                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
-                    <span className="text-zinc-400">
-                      Gaji Pokok ({item.emp.salaryType === 'hourly' ? `${item.totalHours} jam` : `${item.totalDays} hari`}):
-                    </span>
-                    <strong className="text-white font-bold">
-                      {formatRupiah(item.totalBaseSalary)}
-                    </strong>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-emerald-500/20 flex items-center justify-between">
-                    <span className="text-emerald-400 font-medium">
-                      Total Insentif:
-                    </span>
-                    <strong className="text-emerald-400 font-bold">
-                      {formatRupiah(item.totalIncentive)}
-                    </strong>
-                  </div>
-
-                  {/* Status Pembayaran Kas & Sisa Gaji */}
-                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-zinc-400">Total Hak Gaji:</span>
-                      <strong className="text-white">{formatRupiah(item.totalGrandSalary)}</strong>
-                    </div>
-
-                    {item.totalGajiPaid > 0 && (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-emerald-400 font-medium">Terbayar (Gaji):</span>
-                        <strong className="text-emerald-400 font-bold">{formatRupiah(item.totalGajiPaid)}</strong>
-                      </div>
-                    )}
-
-                    {item.hasKasbon && (
-                      <div className="flex items-center justify-between text-[11px] text-amber-400">
-                        <span className="font-medium flex items-center gap-1">
-                          <span>💳 Kasbon Pegawai:</span>
-                        </span>
-                        <strong className="font-bold">{formatRupiah(item.totalKasbon)}</strong>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
-                      <span className={item.remainingUnpaid < 0 ? 'text-rose-400 font-bold' : item.remainingUnpaid > 0 ? 'text-[#FE2C55] font-bold' : 'text-zinc-400'}>
-                        {item.remainingUnpaid < 0 ? 'Sisa Gaji (Kasbon Melebihi):' : 'Sisa Belum Terbayar:'}
-                      </span>
-                      <strong className={item.remainingUnpaid < 0 ? 'text-rose-400 font-black' : item.remainingUnpaid > 0 ? 'text-[#FE2C55] font-black' : 'text-emerald-400 font-bold'}>
-                        {formatRupiah(item.remainingUnpaid)} {item.remainingUnpaid < 0 ? '(Minus)' : ''}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {/* Keterangan Kasbon di bawah ringkasan jika memang ada kasbon */}
-                  {item.hasKasbon && (
-                    <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-0.5">
-                      <div className="flex items-center gap-1 font-bold text-amber-400">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>Keterangan Kasbon: {formatRupiah(item.totalKasbon)}</span>
-                      </div>
-                      <p className="text-[10.5px] text-zinc-300 leading-snug">
-                        {item.remainingUnpaid < 0
-                          ? `Kasbon melebihi sisa gaji belum dibayar (${formatRupiah(item.remainingUnpaid)}). Total gaji bersih menjadi minus.`
-                          : `Total gaji bersih setelah dikurangi kasbon: ${formatRupiah(item.remainingUnpaid)}.`}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Proof photo count if any */}
-                  {item.payments.some(p => p.proofImageUrl) && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-[#25F4EE] font-bold">
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      <span>{item.payments.filter(p => p.proofImageUrl).length} Bukti Foto Transfer Terlampir</span>
-                    </div>
-                  )}
-                </div>
+                <strong className="text-sm text-white font-black">{selectedItem.emp.name}</strong>
               </div>
 
-              {/* Total Gaji & Action Buttons */}
-              <div className="pt-3 border-t border-white/10 space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-semibold text-zinc-400">
-                    {item.hasKasbon ? 'Total Gaji Bersih (Sisa):' : 'Total Gaji Bersih:'}
-                  </span>
-                  <span className={`text-xl font-black ${item.remainingUnpaid < 0 ? 'text-rose-400' : 'text-[#25F4EE]'}`}>
-                    {formatRupiah(item.hasKasbon ? item.remainingUnpaid : item.totalGrandSalary)}
-                  </span>
+              {/* Kartu Rincian Gaji Pegawai Terpilih (Sesuai Gambar User) */}
+              <div
+                key={selectedItem.emp.id}
+                className="bg-[#161823] rounded-3xl border border-white/10 shadow-2xl p-6 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-black text-white text-base sm:text-lg">
+                        {selectedItem.emp.name}
+                      </h3>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedItem.emp.roles.map(r => (
+                          <span
+                            key={r}
+                            className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30"
+                          >
+                            {roleLabels[r]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Status Pembayaran Badge */}
+                    <div className="text-right">
+                      {selectedItem.paymentStatus === 'kasbon_exceeded' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                          <AlertCircle className="w-3 h-3 text-rose-400" />
+                          <span>Kasbon Minus ({formatRupiah(selectedItem.remainingUnpaid)})</span>
+                        </span>
+                      ) : selectedItem.paymentStatus === 'paid' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Lunas</span>
+                        </span>
+                      ) : selectedItem.paymentStatus === 'partial' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          <Clock3 className="w-3 h-3" />
+                          <span>Sebagian</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Belum Dibayar</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Gaji Breakdown Cards */}
+                  <div className="mt-4 space-y-2 text-xs">
+                    <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
+                      <span className="text-zinc-400">
+                        Gaji Pokok ({selectedItem.emp.salaryType === 'hourly' ? `${selectedItem.totalHours} jam` : `${selectedItem.totalDays} hari`}):
+                      </span>
+                      <strong className="text-white font-bold">
+                        {formatRupiah(selectedItem.totalBaseSalary)}
+                      </strong>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#0b0c10] border border-emerald-500/20 flex items-center justify-between">
+                      <span className="text-emerald-400 font-medium">
+                        Total Insentif:
+                      </span>
+                      <strong className="text-emerald-400 font-bold">
+                        {formatRupiah(selectedItem.totalIncentive)}
+                      </strong>
+                    </div>
+
+                    {/* Status Pembayaran Kas & Sisa Gaji */}
+                    <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-zinc-400">Total Hak Gaji:</span>
+                        <strong className="text-white">{formatRupiah(selectedItem.totalGrandSalary)}</strong>
+                      </div>
+
+                      {selectedItem.totalGajiPaid > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-emerald-400 font-medium">Terbayar (Gaji):</span>
+                          <strong className="text-emerald-400 font-bold">{formatRupiah(selectedItem.totalGajiPaid)}</strong>
+                        </div>
+                      )}
+
+                      {selectedItem.hasKasbon && (
+                        <div className="flex items-center justify-between text-[11px] text-amber-400">
+                          <span className="font-medium flex items-center gap-1">
+                            <span>💳 Kasbon Pegawai:</span>
+                          </span>
+                          <strong className="font-bold">{formatRupiah(selectedItem.totalKasbon)}</strong>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+                        <span className={selectedItem.remainingUnpaid < 0 ? 'text-rose-400 font-bold' : selectedItem.remainingUnpaid > 0 ? 'text-[#FE2C55] font-bold' : 'text-zinc-400'}>
+                          {selectedItem.remainingUnpaid < 0 ? 'Sisa Gaji (Kasbon Melebihi):' : 'Sisa Belum Terbayar:'}
+                        </span>
+                        <strong className={selectedItem.remainingUnpaid < 0 ? 'text-rose-400 font-black' : selectedItem.remainingUnpaid > 0 ? 'text-[#FE2C55] font-black' : 'text-emerald-400 font-bold'}>
+                          {formatRupiah(selectedItem.remainingUnpaid)} {selectedItem.remainingUnpaid < 0 ? '(Minus)' : ''}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Keterangan Kasbon di bawah ringkasan jika memang ada kasbon */}
+                    {selectedItem.hasKasbon && (
+                      <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-0.5">
+                        <div className="flex items-center gap-1 font-bold text-amber-400">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Keterangan Kasbon: {formatRupiah(selectedItem.totalKasbon)}</span>
+                        </div>
+                        <p className="text-[10.5px] text-zinc-300 leading-snug">
+                          {selectedItem.remainingUnpaid < 0
+                            ? `Kasbon melebihi sisa gaji belum dibayar (${formatRupiah(selectedItem.remainingUnpaid)}). Total gaji bersih menjadi minus.`
+                            : `Total gaji bersih setelah dikurangi kasbon: ${formatRupiah(selectedItem.remainingUnpaid)}.`}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Bukti foto transfer terlampir */}
+                    {selectedItem.payments.some(p => p.proofImageUrl) && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#25F4EE] font-bold">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>{selectedItem.payments.filter(p => p.proofImageUrl).length} Bukti Foto Transfer Terlampir</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    id={`btn-detail-gaji-${item.emp.id}`}
-                    onClick={() => setSelectedEmpForDetail(item.emp)}
-                    className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold text-xs border border-white/10 transition cursor-pointer"
-                  >
-                    <Eye className="w-3.5 h-3.5 text-[#25F4EE]" />
-                    <span>Slip Gaji &amp; Bukti</span>
-                  </button>
+                {/* Total Gaji & Action Buttons */}
+                <div className="pt-3 border-t border-white/10 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs font-semibold text-zinc-400">
+                      {selectedItem.hasKasbon ? 'Total Gaji Bersih (Sisa):' : 'Total Gaji Bersih:'}
+                    </span>
+                    <span className={`text-xl sm:text-2xl font-black ${selectedItem.remainingUnpaid < 0 ? 'text-rose-400' : 'text-[#25F4EE]'}`}>
+                      {formatRupiah(selectedItem.hasKasbon ? selectedItem.remainingUnpaid : selectedItem.totalGrandSalary)}
+                    </span>
+                  </div>
 
-                  {currentUser.isOwner && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
-                      onClick={() => handleOpenQuickPay(item.emp, item.remainingUnpaid > 0 ? item.remainingUnpaid : 0)}
-                      className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white font-bold text-xs border border-[#FE2C55]/30 transition cursor-pointer"
+                      id={`btn-detail-gaji-${selectedItem.emp.id}`}
+                      onClick={() => setSelectedEmpForDetail(selectedItem.emp)}
+                      className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold text-xs border border-white/10 transition cursor-pointer active:scale-95"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Bayar / Kasbon</span>
+                      <Eye className="w-3.5 h-3.5 text-[#25F4EE]" />
+                      <span>Slip Gaji &amp; Bukti</span>
                     </button>
-                  )}
+
+                    {currentUser.isOwner && (
+                      <button
+                        onClick={() => handleOpenQuickPay(selectedItem.emp, selectedItem.remainingUnpaid > 0 ? selectedItem.remainingUnpaid : 0)}
+                        className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white font-bold text-xs border border-[#FE2C55]/30 transition cursor-pointer active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Bayar / Kasbon</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
 
       {/* Slip Gaji Modal Detail */}
