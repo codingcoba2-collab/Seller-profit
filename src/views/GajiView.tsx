@@ -490,15 +490,6 @@ export const GajiView: React.FC<GajiViewProps> = ({
       <div className="spatial-card relative overflow-hidden flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <NeonCorners variant="side-left" color="cyan" size="sm" />
         <div className="flex items-center gap-2 relative z-10">
-          <button
-            type="button"
-            onClick={selectedEmployeeId ? () => setSelectedEmployeeId(null) : onBackToDashboard}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title={selectedEmployeeId ? "Kembali ke Daftar Pegawai" : "Kembali ke Dashboard"}
-            aria-label={selectedEmployeeId ? "Kembali ke Daftar Pegawai" : "Kembali ke Dashboard"}
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          </button>
           <div className="flex items-center gap-1">
             {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (
               <button
@@ -623,10 +614,10 @@ export const GajiView: React.FC<GajiViewProps> = ({
                     SoundFx.playRobotButtonClick();
                     setSelectedEmployeeId(null);
                   }}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-200 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 relative z-10"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-xs font-bold text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 relative z-10"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Kembali</span>
+                  <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                  <span>Kembali ke Daftar</span>
                 </button>
 
                 <strong className="text-sm text-white font-black relative z-10">{selectedItem.emp.name}</strong>

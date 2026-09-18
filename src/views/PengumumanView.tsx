@@ -19,6 +19,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { NeonCorners } from '../components/NeonCorners';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface PengumumanViewProps {
   currentUser: CurrentUser;
@@ -238,15 +239,18 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1">
                   Tingkat Prioritas
                 </label>
-                <select
+                <ThemedSelect
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#161823] border border-white/10 text-white text-sm focus:outline-none focus:border-[#FE2C55] transition"
-                >
-                  <option value="normal">Normal (Informasi Rutin)</option>
-                  <option value="penting">Penting (Instruksi Tim)</option>
-                  <option value="urgent">Urgent / Darurat (Target & SOP)</option>
-                </select>
+                  onChange={(val) => setPriority(val as any)}
+                  title="Pilih Tingkat Prioritas"
+                  color="magenta"
+                  options={[
+                    { value: 'normal', label: 'Normal (Informasi Rutin)' },
+                    { value: 'penting', label: 'Penting (Instruksi Tim)' },
+                    { value: 'urgent', label: 'Urgent / Darurat (Target & SOP)' },
+                  ]}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#161823] border border-white/10 text-white text-sm"
+                />
               </div>
             </div>
 

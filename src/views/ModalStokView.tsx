@@ -28,6 +28,7 @@ import {
   Tag
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface ModalStokViewProps {
   currentUser: CurrentUser;
@@ -319,27 +320,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
   if (viewMode === 'menu') {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-modal"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <div className="text-right text-xs text-zinc-400">
-            Total Ball/Batch: <strong className="text-[#25F4EE]">{inventoryList.length}</strong>
-          </div>
-        </div>
-
+      <div className="max-w-5xl mx-auto px-4 py-4 space-y-4 text-white font-sans">
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -426,21 +407,22 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* HEADER UTAMA */}
-      <div className="flex items-center justify-between gap-4 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="flex items-center justify-between gap-4 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={viewMode === 'form' ? handleCancelEdit : () => setViewMode('menu')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
+            title="Kembali ke Menu Stok"
+            aria-label="Kembali ke Menu Stok"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali ke Menu</span>
           </button>
         </div>
 
         {viewMode === 'form' && (
-          <div className="flex items-center gap-1.5 text-xs font-black px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
+          <div className="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[#25F4EE]">
             Langkah {formStep} dari 3
           </div>
         )}
@@ -514,34 +496,34 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                     <label className="block text-xs font-bold text-zinc-300 mb-1">
                       Kategori Fashion <span className="text-[#FE2C55]">*</span>
                     </label>
-                    <select
+                    <ThemedSelect
                       value={category}
-                      onChange={e => setCategory(e.target.value as FashionCategory)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                    >
-                      {Object.entries(fashionCategoryLabels).map(([key, val]) => (
-                        <option key={key} value={key}>
-                          {val}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => setCategory(val as FashionCategory)}
+                      title="Pilih Kategori Fashion"
+                      color="cyan"
+                      options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                        value: key,
+                        label: val,
+                      }))}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1">
                       Satuan Stok <span className="text-[#FE2C55]">*</span>
                     </label>
-                    <select
+                    <ThemedSelect
                       value={unitType}
-                      onChange={e => setUnitType(e.target.value as InventoryUnitType)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                    >
-                      {Object.entries(inventoryUnitLabels).map(([key, val]) => (
-                        <option key={key} value={key}>
-                          {val}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => setUnitType(val as InventoryUnitType)}
+                      title="Pilih Satuan Stok"
+                      color="cyan"
+                      options={Object.entries(inventoryUnitLabels).map(([key, val]) => ({
+                        value: key,
+                        label: val,
+                      }))}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+                    />
                   </div>
                 </div>
 
@@ -897,30 +879,35 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
 
             <div className="flex flex-wrap items-center gap-2">
               {/* Category Filter */}
-              <select
+              <ThemedSelect
                 value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:border-[#25F4EE]"
-              >
-                <option value="all">Semua Kategori</option>
-                {Object.entries(fashionCategoryLabels).map(([key, val]) => (
-                  <option key={key} value={key}>
-                    {val}
-                  </option>
-                ))}
-              </select>
+                onChange={val => setCategoryFilter(val)}
+                title="Pilih Filter Kategori"
+                color="cyan"
+                options={[
+                  { value: 'all', label: 'Semua Kategori' },
+                  ...Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                    value: key,
+                    label: val,
+                  })),
+                ]}
+                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+              />
 
               {/* Period Filter */}
-              <select
+              <ThemedSelect
                 value={periodFilter}
-                onChange={e => setPeriodFilter(e.target.value as any)}
-                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium focus:border-[#25F4EE]"
-              >
-                <option value="all">Semua Waktu</option>
-                <option value="today">Hari Ini</option>
-                <option value="weekly">7 Hari Terakhir</option>
-                <option value="monthly">Bulan Ini</option>
-              </select>
+                onChange={val => setPeriodFilter(val as any)}
+                title="Pilih Periode Waktu"
+                color="cyan"
+                options={[
+                  { value: 'all', label: 'Semua Waktu' },
+                  { value: 'today', label: 'Hari Ini' },
+                  { value: 'weekly', label: '7 Hari Terakhir' },
+                  { value: 'monthly', label: 'Bulan Ini' },
+                ]}
+                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+              />
             </div>
           </div>
 

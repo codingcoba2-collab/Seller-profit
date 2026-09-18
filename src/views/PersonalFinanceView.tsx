@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface PersonalFinanceViewProps {
   currentUser: CurrentUser;
@@ -317,16 +318,6 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
         {/* Header Bar */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-personal"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
             <div>
               <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-[#25F4EE]" />
@@ -466,7 +457,7 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       {viewMode === 'input' && (
         <div className="max-w-3xl mx-auto space-y-4">
         {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
             id="btn-back-menu-personal"
             type="button"
@@ -474,11 +465,12 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
               handleCancelEdit();
               setViewMode('menu');
             }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
+            title="Kembali ke Menu"
+            aria-label="Kembali ke Menu"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -655,16 +647,17 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       {viewMode === 'pengaturan' && (
         <div className="max-w-2xl mx-auto space-y-4">
         {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
             id="btn-back-menu-from-pengaturan"
             type="button"
             onClick={() => setViewMode('menu')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
+            title="Kembali ke Menu"
+            aria-label="Kembali ke Menu"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali</span>
           </button>
 
           <span className="text-xs font-black text-white">⚙️ Pengaturan Rasio Anggaran</span>
@@ -777,16 +770,17 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
       {viewMode === 'output' && (
         <div className="space-y-4">
       {/* Top Header Bar with Back Button */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <button
           id="btn-back-menu-from-output-personal"
           type="button"
           onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-          title="Kembali"
-          aria-label="Kembali"
+          className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
+          title="Kembali ke Menu"
+          aria-label="Kembali ke Menu"
         >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+          <span>Kembali</span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -871,16 +865,18 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
 
       {/* Filter Bar */}
       <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-2.5">
-        <select
+        <ThemedSelect
           value={periodFilter}
-          onChange={e => setPeriodFilter(e.target.value as any)}
+          onChange={val => setPeriodFilter(val as any)}
+          title="Pilih Periode Pengeluaran"
+          options={[
+            { value: 'monthly', label: 'Bulan Ini' },
+            { value: 'today', label: 'Hari Ini' },
+            { value: 'weekly', label: '7 Hari Terakhir' },
+            { value: 'all', label: 'Semua Waktu' },
+          ]}
           className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-        >
-          <option value="monthly">Bulan Ini</option>
-          <option value="today">Hari Ini</option>
-          <option value="weekly">7 Hari Terakhir</option>
-          <option value="all">Semua Waktu</option>
-        </select>
+        />
 
         <div className="text-xs text-zinc-400 font-semibold">
           Total: <strong className="text-white">{filteredExpenses.length}</strong> catatan

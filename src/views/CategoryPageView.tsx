@@ -1,7 +1,7 @@
 import React from 'react';
 import { CurrentUser } from '../types';
 import { CATEGORIES, RoutePath, isRouteAllowed } from '../services/navigation';
-import { Lock, ArrowLeft } from 'lucide-react';
+import { Lock, ChevronRight } from 'lucide-react';
 import { MarqueeText } from '../components/MarqueeText';
 import { NeonCorners } from '../components/NeonCorners';
 
@@ -19,46 +19,11 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   onNotify,
 }) => {
   const currentCategory = CATEGORIES.find((c) => c.key === categoryKey) || CATEGORIES[0];
-  const CategoryIcon = currentCategory.icon;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header without category switcher tabs */}
-      <div className="spatial-card relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-white/10 shadow-lg overflow-hidden">
-        <NeonCorners variant="side-left" color="cyan" />
-        <div className="flex items-center gap-3 relative z-10">
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 ${currentCategory.iconColor} shrink-0`}
-          >
-            <CategoryIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-black text-white">
-                {currentCategory.title}
-              </h2>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
-                {currentCategory.items.length} Menu
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Back to Dashboard Button */}
-        <button
-          type="button"
-          id="btn-sub-menu-back-to-dashboard"
-          onClick={() => onNavigate('/dashboard')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer shadow-xs active:scale-95 self-start sm:self-auto shrink-0"
-          title="Kembali"
-          aria-label="Kembali"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-        </button>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3 text-white font-sans">
       {/* Sub-menu Feature Cards Grid: 2 ke samping pada layar mobile */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {currentCategory.items.map((item) => {
           const accessible = isRouteAllowed(item.path, currentUser);
           const ItemIcon = item.icon;
@@ -74,7 +39,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
                 }
               }}
-              className={`spatial-card relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex items-center justify-between gap-2.5 border cursor-pointer overflow-hidden ${
+              className={`spatial-card relative group p-2.5 sm:p-3 rounded-2xl transition-all duration-200 flex items-center justify-between gap-2 sm:gap-2.5 border cursor-pointer overflow-hidden ${
                 accessible
                   ? 'border-white/10 hover:border-[#25F4EE]/60 hover:shadow-[0_0_20px_rgba(37,244,238,0.22)] active:scale-[0.98]'
                   : 'border-white/5 opacity-50 cursor-not-allowed'
@@ -89,25 +54,29 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
               ) : (
                 <NeonCorners variant="side-left" color="magenta" size="sm" />
               )}
+
               {/* Left: Icon & Name Only */}
-              <div className="flex items-center gap-2.5 min-w-0 relative z-10">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 relative z-10 flex-1 overflow-hidden">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 group-hover:scale-105 transition-transform ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 group-hover:scale-105 transition-transform ${
                     accessible ? item.iconColor : 'text-zinc-500'
                   }`}
                 >
-                  <ItemIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ItemIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </div>
 
-                <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
-                  {item.title}
-                </h3>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <MarqueeText
+                    text={item.title}
+                    className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                  />
+                </div>
               </div>
 
               {/* Right: Chevron or Lock */}
-              <div className="shrink-0 relative z-10">
+              <div className="shrink-0 relative z-10 pl-0.5">
                 {accessible ? (
-                  <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all" />
+                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all" />
                 ) : (
                   <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 bg-black/40 px-1.5 py-0.5 rounded-lg border border-zinc-700/40">
                     <Lock className="w-3 h-3" />

@@ -44,6 +44,7 @@ import {
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
+import { FuturisticEmployeeCard } from '../components/FuturisticEmployeeCard';
 
 interface PenjualanViewProps {
   currentUser: CurrentUser;
@@ -1239,16 +1240,19 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Platform Live Streaming <span className="text-[#FE2C55]">*</span>
                 </label>
-                <select
+                <ThemedSelect
                   value={liveChannel}
-                  onChange={e => setLiveChannel(e.target.value as SalesChannel)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium"
-                >
-                  <option value="tiktok_live">TikTok Live</option>
-                  <option value="shopee_live">Shopee Live</option>
-                  <option value="tokopedia_live">Tokopedia Live</option>
-                  <option value="instagram_live">Instagram Live</option>
-                </select>
+                  onChange={val => setLiveChannel(val as SalesChannel)}
+                  title="Pilih Platform Live Streaming"
+                  color="magenta"
+                  options={[
+                    { value: 'tiktok_live', label: 'TikTok Live' },
+                    { value: 'shopee_live', label: 'Shopee Live' },
+                    { value: 'tokopedia_live', label: 'Tokopedia Live' },
+                    { value: 'instagram_live', label: 'Instagram Live' },
+                  ]}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Kategori Fashion */}
@@ -1256,45 +1260,46 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Kategori Produk Fashion yang Dijual
                 </label>
-                <select
+                <ThemedSelect
                   value={category}
-                  onChange={e => setCategory(e.target.value as FashionCategory)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium"
-                >
-                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val}
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setCategory(val as FashionCategory)}
+                  title="Pilih Kategori Produk Fashion"
+                  color="cyan"
+                  options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                    value: key,
+                    label: val,
+                  }))}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
             </div>
 
             {/* Pemilihan Host Live (Bisa Multi Host) */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-zinc-300">
-                Pilih Host Live yang Bertugas <span className="text-[#FE2C55]">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-300">
+                  Pilih Host Live yang Bertugas <span className="text-[#FE2C55]">*</span>
+                </label>
+                <span className="text-[10px] text-zinc-400">
+                  {selectedHostIds.length} Host Terpilih
+                </span>
+              </div>
+              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 {hostEmployees.map(emp => {
                   const isSelected = selectedHostIds.includes(emp.id);
                   return (
-                    <button
+                    <FuturisticEmployeeCard
                       key={emp.id}
-                      type="button"
+                      id={`card-host-emp-${emp.id}`}
+                      name={emp.name}
+                      username={emp.username}
+                      roleLabel="Host Live"
+                      isSelected={isSelected}
+                      color="magenta"
+                      variant="checkbox"
                       onClick={() => toggleHost(emp.id)}
-                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-white shadow-lg shadow-[#FE2C55]/10'
-                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="truncate">
-                        <div className="text-xs font-bold truncate">{emp.name}</div>
-                        <div className="text-[10px] text-zinc-400 mt-0.5">Host Live</div>
-                      </div>
-                      {isSelected && <CheckCircle2 className="w-4 h-4 text-[#FE2C55] shrink-0" />}
-                    </button>
+                    />
                   );
                 })}
               </div>
@@ -1302,29 +1307,30 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
             {/* Pemilihan Admin Toko Pendamping */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-zinc-300">
-                Pilih Admin Catat &amp; Packing (Opsional)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-300">
+                  Pilih Admin Catat &amp; Packing (Opsional)
+                </label>
+                <span className="text-[10px] text-zinc-400">
+                  {selectedAdminIds.length} Admin Terpilih
+                </span>
+              </div>
+              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 {adminEmployees.map(emp => {
                   const isSelected = selectedAdminIds.includes(emp.id);
                   return (
-                    <button
+                    <FuturisticEmployeeCard
                       key={emp.id}
-                      type="button"
+                      id={`card-admin-live-emp-${emp.id}`}
+                      name={emp.name}
+                      username={emp.username}
+                      roleLabel="Admin Toko"
+                      isSelected={isSelected}
+                      color="cyan"
+                      variant="checkbox"
                       onClick={() => toggleAdmin(emp.id)}
-                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-lg shadow-[#25F4EE]/10'
-                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="truncate">
-                        <div className="text-xs font-bold truncate">{emp.name}</div>
-                        <div className="text-[10px] text-zinc-400 mt-0.5">Admin Toko</div>
-                      </div>
-                      {isSelected && <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0" />}
-                    </button>
+                    />
                   );
                 })}
               </div>
@@ -1776,20 +1782,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Channel Penjualan <span className="text-[#FE2C55]">*</span>
                 </label>
-                <select
+                <ThemedSelect
                   value={nonLiveChannel}
-                  onChange={e => setNonLiveChannel(e.target.value as SalesChannel)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
-                >
-                  <option value="shopee_reguler">Shopee Marketplace Reguler</option>
-                  <option value="tiktok_shop_reguler">TikTok Shop Reguler</option>
-                  <option value="tokopedia_reguler">Tokopedia Reguler</option>
-                  <option value="offline_store">Toko Offline / Butik Fashion</option>
-                  <option value="whatsapp_order">WhatsApp / Chat Order</option>
-                  <option value="dm_instagram">DM Instagram / Sosmed</option>
-                  <option value="website">Website / Olshop</option>
-                  <option value="lainnya">Lainnya</option>
-                </select>
+                  onChange={val => setNonLiveChannel(val as SalesChannel)}
+                  title="Pilih Channel Penjualan"
+                  color="emerald"
+                  options={[
+                    { value: 'shopee_reguler', label: 'Shopee Marketplace Reguler' },
+                    { value: 'tiktok_shop_reguler', label: 'TikTok Shop Reguler' },
+                    { value: 'tokopedia_reguler', label: 'Tokopedia Reguler' },
+                    { value: 'offline_store', label: 'Toko Offline / Butik Fashion' },
+                    { value: 'whatsapp_order', label: 'WhatsApp / Chat Order' },
+                    { value: 'dm_instagram', label: 'DM Instagram / Sosmed' },
+                    { value: 'website', label: 'Website / Olshop' },
+                    { value: 'lainnya', label: 'Lainnya' },
+                  ]}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Kategori Fashion */}
@@ -1797,17 +1806,17 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Kategori Produk Fashion
                 </label>
-                <select
+                <ThemedSelect
                   value={category}
-                  onChange={e => setCategory(e.target.value as FashionCategory)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
-                >
-                  {Object.entries(fashionCategoryLabels).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val}
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => setCategory(val as FashionCategory)}
+                  title="Pilih Kategori Produk Fashion"
+                  color="cyan"
+                  options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                    value: key,
+                    label: val,
+                  }))}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
 
               {/* Metode Pembayaran */}
@@ -1815,46 +1824,50 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Metode Pembayaran
                 </label>
-                <select
+                <ThemedSelect
                   value={paymentMethod}
-                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium"
-                >
-                  <option value="transfer">Transfer Bank</option>
-                  <option value="qris">QRIS / E-Wallet</option>
-                  <option value="cash">Tunai / Cash Toko</option>
-                  <option value="cod">COD (Bayar di Tempat)</option>
-                  <option value="marketplace_balance">Saldo Rekening Marketplace</option>
-                  <option value="lainnya">Lainnya</option>
-                </select>
+                  onChange={val => setPaymentMethod(val as PaymentMethod)}
+                  title="Pilih Metode Pembayaran"
+                  color="emerald"
+                  options={[
+                    { value: 'transfer', label: 'Transfer Bank' },
+                    { value: 'qris', label: 'QRIS / E-Wallet' },
+                    { value: 'cash', label: 'Tunai / Cash Toko' },
+                    { value: 'cod', label: 'COD (Bayar di Tempat)' },
+                    { value: 'marketplace_balance', label: 'Saldo Rekening Marketplace' },
+                    { value: 'lainnya', label: 'Lainnya' },
+                  ]}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                />
               </div>
             </div>
 
             {/* Admin / Kasir yang Memproses */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-zinc-300">
-                Pilih Admin Toko / Kasir yang Memproses
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-300">
+                  Pilih Admin Toko / Kasir yang Memproses
+                </label>
+                <span className="text-[10px] text-zinc-400">
+                  {selectedCashierAdminIds.length} Petugas Terpilih
+                </span>
+              </div>
+              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 {adminEmployees.map(emp => {
                   const isSelected = selectedCashierAdminIds.includes(emp.id);
                   return (
-                    <button
+                    <FuturisticEmployeeCard
                       key={emp.id}
-                      type="button"
+                      id={`card-cashier-admin-emp-${emp.id}`}
+                      name={emp.name}
+                      username={emp.username}
+                      roleLabel="Admin / Kasir"
+                      isSelected={isSelected}
+                      color="emerald"
+                      variant="checkbox"
                       onClick={() => toggleCashierAdmin(emp.id)}
-                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-emerald-500/15 border-emerald-400 text-white shadow-lg shadow-emerald-500/10'
-                          : 'bg-[#0b0c10] border-white/10 text-zinc-400 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="truncate">
-                        <div className="text-xs font-bold truncate">{emp.name}</div>
-                        <div className="text-[10px] text-zinc-400 mt-0.5">Admin / Kasir</div>
-                      </div>
-                      {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
-                    </button>
+                    />
                   );
                 })}
               </div>

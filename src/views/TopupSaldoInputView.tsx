@@ -7,7 +7,6 @@ import { RoutePath } from '../services/navigation';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { 
   Wallet, 
-  ArrowLeft, 
   History, 
   CheckCircle2, 
   Sparkles,
@@ -113,24 +112,16 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
+    <div className="max-w-4xl mx-auto px-4 py-4 space-y-4 text-white font-sans">
       {/* Segmented Switcher Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-md">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            id="btn-back-to-topup-hub"
-            onClick={() => onNavigate('/topup-saldo')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          </button>
+      <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-[#161823] border border-white/10 shadow-md">
+        <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+          <Wallet className="w-4 h-4 text-[#25F4EE]" />
+          <span>Topup Saldo Pemasaran</span>
         </div>
 
         {/* Tab Switcher between Input and Riwayat */}
-        <div className="flex items-center gap-1 bg-[#0b0c10] p-1 rounded-xl border border-white/10 self-start sm:self-auto">
+        <div className="flex items-center gap-1 bg-[#0b0c10] p-1 rounded-xl border border-white/10 shrink-0">
           <div className="px-3 py-1.5 rounded-lg text-xs font-black bg-white text-zinc-950 shadow-sm flex items-center gap-1.5">
             <PlusCircle className="w-3.5 h-3.5" />
             <span>Form Input</span>

@@ -18,6 +18,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
+import { NeonCorners } from '../components/NeonCorners';
+import { MarqueeText } from '../components/MarqueeText';
 
 export interface TeamContact {
   id: string;
@@ -282,8 +284,9 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
             return (
               <div
                 key={contact.id}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition-all shadow-md flex flex-col justify-between gap-3 relative overflow-hidden"
+                className="spatial-card group p-4 rounded-2xl bg-[#161823]/90 hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition-all shadow-md flex flex-col justify-between gap-3 relative overflow-hidden"
               >
+                <NeonCorners color={contact.isOwner ? 'cyan' : contact.role.includes('host') ? 'magenta' : 'cyan'} />
                 {/* Top: Avatar & Info */}
                 <div className="flex items-start gap-3">
                   <div className="relative shrink-0">
@@ -304,11 +307,12 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
                     <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#161823]" />
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors truncate">
-                        {contact.name}
-                      </h4>
+                  <div className="min-w-0 flex-1 space-y-1 overflow-hidden">
+                    <div className="flex items-center justify-between gap-1 overflow-hidden">
+                      <MarqueeText
+                        text={contact.name}
+                        className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors"
+                      />
                     </div>
 
                     <div className="flex items-center gap-1.5">

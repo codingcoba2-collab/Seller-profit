@@ -8,7 +8,6 @@ import {
   Coins,
   Megaphone,
   TrendingUp,
-  ArrowLeft,
   PlusCircle,
   History,
   Sparkles,
@@ -53,27 +52,7 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
   }, [salesList, adsCoinInfo]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
-      {/* Top Header & Back Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            id="btn-back-to-persiapan-from-topup"
-            onClick={() => onNavigate('/persiapan')}
-            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition border border-white/10 cursor-pointer active:scale-95 shadow-xs shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-5 h-5 text-[#25F4EE]" />
-          </button>
-        </div>
-
-        <span className="text-xs font-bold text-zinc-300 px-3 py-1 rounded-full bg-white/5 border border-white/10 self-start sm:self-auto">
-          Top Up Saldo Hub
-        </span>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
       {/* ROAS & Saldo Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* ROAS Metric Card */}
@@ -177,10 +156,16 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-emerald-400 shrink-0 shadow-inner">
               <PlusCircle className="w-6 h-6" />
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight">
-                Input Top-Up Saldo
-              </h4>
+            <div className="min-w-0 flex-1 w-full overflow-hidden">
+              <MarqueeText
+                text="Input Top-Up Saldo"
+                className="text-sm sm:text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight"
+              />
+              <MarqueeText
+                text="Catat penambahan saldo modal iklan & koin live dari transfer bank atau e-wallet"
+                speed={20}
+                className="text-xs text-zinc-400 mt-1 leading-relaxed"
+              />
             </div>
           </div>
 
@@ -193,10 +178,16 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 text-[#25F4EE] shrink-0 shadow-inner">
               <History className="w-6 h-6" />
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight">
-                Riwayat & Mutasi Saldo
-              </h4>
+            <div className="min-w-0 flex-1 w-full overflow-hidden">
+              <MarqueeText
+                text="Riwayat & Mutasi Saldo"
+                className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+              />
+              <MarqueeText
+                text="Daftar histori mutasi deposit, bukti transfer, dan filter riwayat tanggal top-up"
+                speed={20}
+                className="text-xs text-zinc-400 mt-1 leading-relaxed"
+              />
             </div>
           </div>
         </div>

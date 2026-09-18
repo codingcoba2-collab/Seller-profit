@@ -17,6 +17,7 @@ import {
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { RunningTextBanner } from '../components/RunningTextBanner';
 import { NeonCorners } from '../components/NeonCorners';
+import { MarqueeText } from '../components/MarqueeText';
 
 interface DashboardViewProps {
   currentUser: CurrentUser;
@@ -120,21 +121,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#FE2C55]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="magenta" />
-          <div className="flex items-center justify-between gap-1 relative z-10">
-            <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Omzet Hari Ini
-            </span>
+          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
+            <MarqueeText
+              text="Omzet Hari Ini"
+              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
+            />
             <div className="w-6 h-6 rounded-lg bg-[#FE2C55]/10 border border-[#FE2C55]/20 flex items-center justify-center text-[#FE2C55] shrink-0">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 w-full overflow-hidden">
             <div className="text-lg sm:text-xl font-black text-[#FE2C55] tracking-tight truncate">
               {formatRupiah(todayOmzet)}
             </div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              {formatNumber(todayPcs)} pcs ({formatNumber(todayPackages)} paket)
-            </div>
+            <MarqueeText
+              text={`${formatNumber(todayPcs)} pcs (${formatNumber(todayPackages)} paket)`}
+              speed={16}
+              className="text-[11px] text-zinc-400 mt-0.5"
+            />
           </div>
         </div>
 
@@ -145,21 +149,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="cyan" />
-          <div className="flex items-center justify-between gap-1 relative z-10">
-            <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              HPP
-            </span>
+          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
+            <MarqueeText
+              text="HPP (Harga Pokok)"
+              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
+            />
             <div className="w-6 h-6 rounded-lg bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] shrink-0">
               <Layers className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 w-full overflow-hidden">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatRupiah(hppInfo.weightedAverageHpp)}
             </div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              Rata-rata /pcs
-            </div>
+            <MarqueeText
+              text="Rata-rata modal per pcs"
+              speed={16}
+              className="text-[11px] text-zinc-400 mt-0.5"
+            />
           </div>
         </div>
 
@@ -170,21 +177,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="side-left" color="emerald" />
-          <div className="flex items-center justify-between gap-1 relative z-10">
-            <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Sisa Stok Barang
-            </span>
+          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
+            <MarqueeText
+              text="Sisa Stok Barang"
+              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
+            />
             <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
               <Package className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 w-full overflow-hidden">
             <div className="text-lg sm:text-xl font-black text-white tracking-tight truncate">
               {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs</span>
             </div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              Terjual: <strong className="text-emerald-400">{formatNumber(stockInfo.totalPcsSold)} pcs</strong>
-            </div>
+            <MarqueeText
+              text={`Terjual: ${formatNumber(stockInfo.totalPcsSold)} pcs`}
+              speed={16}
+              className="text-[11px] text-zinc-400 mt-0.5"
+            />
           </div>
         </div>
 
@@ -195,21 +205,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
         >
           <NeonCorners variant="corner-top-left" color="cyan" />
-          <div className="flex items-center justify-between gap-1 relative z-10">
-            <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Net Profit Toko
-            </span>
+          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
+            <MarqueeText
+              text="Net Profit Toko"
+              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
+            />
             <div className="w-6 h-6 rounded-lg bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] shrink-0">
               <Sparkles className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 w-full overflow-hidden">
             <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(roiInfo.totalNetProfit)}
             </div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              Margin: <strong className="text-white">{roiInfo.totalOmzetKotor > 0 ? ((roiInfo.totalNetProfit / roiInfo.totalOmzetKotor) * 100).toFixed(1) : '0'}%</strong> | Omzet: {formatRupiah(roiInfo.totalOmzetKotor)}
-            </div>
+            <MarqueeText
+              text={`Margin: ${roiInfo.totalOmzetKotor > 0 ? ((roiInfo.totalNetProfit / roiInfo.totalOmzetKotor) * 100).toFixed(1) : '0'}% | Omzet: ${formatRupiah(roiInfo.totalOmzetKotor)}`}
+              speed={16}
+              className="text-[11px] text-zinc-400 mt-0.5"
+            />
           </div>
         </div>
 
@@ -220,29 +233,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
         >
           <NeonCorners variant="side-left" color="amber" />
-          <div className="flex items-center justify-between gap-1 relative z-10">
-            <span className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors truncate">
-              Sisa Balik Modal
-            </span>
+          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
+            <MarqueeText
+              text="Sisa Balik Modal"
+              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
+            />
             <div className="w-6 h-6 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
               <Wallet className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 w-full overflow-hidden">
             <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
               {formatRupiah(roiInfo.sisaBalikModal)}
             </div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-              {roiInfo.isBreakEven ? (
-                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 inline" /> Lunas (BEP 100%)
-                </span>
-              ) : (
-                <span>
-                  <strong className="text-amber-300">{roiInfo.progressPercentage}%</strong> Balik (Modal: {formatRupiah(roiInfo.totalModalInvestasi)})
-                </span>
-              )}
-            </div>
+            <MarqueeText
+              text={roiInfo.isBreakEven ? 'Lunas (BEP 100%) Modal Investasi Balik' : `${roiInfo.progressPercentage}% Balik (Modal: ${formatRupiah(roiInfo.totalModalInvestasi)})`}
+              speed={16}
+              className="text-[11px] text-zinc-400 mt-0.5"
+            />
           </div>
         </div>
       </div>
@@ -270,13 +278,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     <CatIcon className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight truncate">
-                      {cat.title}
-                    </h4>
-                    <p className="text-xs text-zinc-400 mt-0.5 leading-snug line-clamp-1">
-                      {cat.description}
-                    </p>
+                  <div className="min-w-0 flex-1 w-full overflow-hidden">
+                    <MarqueeText
+                      text={cat.title}
+                      className="text-sm sm:text-base font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                    />
+                    <MarqueeText
+                      text={cat.description}
+                      speed={20}
+                      className="text-xs text-zinc-400 mt-1 leading-relaxed"
+                    />
                   </div>
                 </div>
 

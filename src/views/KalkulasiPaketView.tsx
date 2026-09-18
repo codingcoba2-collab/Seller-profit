@@ -743,31 +743,7 @@ Alamat Lengkap:`;
 
   return (
     <div className="min-h-screen bg-[#0E1015] text-zinc-100 pb-24 font-sans selection:bg-[#25F4EE] selection:text-black">
-      {/* Top Sticky Header - Clean, Uncluttered, No Horizontal Truncation */}
-      <div className="sticky top-0 z-30 bg-[#0E1015]/95 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              id="btn-back-to-dashboard"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors border border-white/10 active:scale-95 shrink-0 cursor-pointer"
-              title="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={onBackToDashboard}
-            className="text-xs font-bold text-zinc-400 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer shrink-0 hidden sm:flex items-center gap-1.5"
-          >
-            <span>Tutup</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 sm:pt-4 space-y-4">
         
         {/* PRIMARY MODE SWITCHER: Prominent, Full-Width, Never Squeezed */}
         <div className="p-1.5 bg-[#14161F] border border-white/10 rounded-2xl grid grid-cols-2 gap-2 shadow-lg">

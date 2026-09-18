@@ -60,18 +60,19 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
   // If locked, render developer password challenge screen
   if (!isUnlocked) {
     return (
-      <div className="max-w-md mx-auto px-4 py-12 space-y-6 text-white font-sans">
+      <div className="max-w-md mx-auto px-4 py-8 space-y-5 text-white font-sans">
         <button
           type="button"
           onClick={() => {
             SoundFx.playRobotButtonClick();
             onBackToDashboard();
           }}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition cursor-pointer active:scale-95 inline-flex items-center justify-center"
+          className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer active:scale-95 inline-flex items-center gap-1.5 text-xs font-bold"
           title="Kembali ke Beranda"
           aria-label="Kembali ke Beranda"
         >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+          <span>Kembali</span>
         </button>
 
         <div className="p-6 sm:p-8 rounded-3xl bg-[#161823] border border-amber-500/30 shadow-2xl space-y-5 text-center relative overflow-hidden">
@@ -145,18 +146,7 @@ export const DeveloperMonitorView: React.FC<DeveloperMonitorViewProps> = ({
     <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6 text-white font-sans overflow-x-hidden">
       {/* View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              SoundFx.playRobotButtonClick();
-              onBackToDashboard();
-            }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-          >
-            <ArrowLeft className="w-5 h-5 text-[#25F4EE]" />
-          </button>
+        <div className="flex items-center gap-2">
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
             Mode Developer
           </span>

@@ -5,6 +5,7 @@ interface MarqueeTextProps {
   children?: React.ReactNode;
   className?: string;
   containerClassName?: string;
+  as?: React.ElementType;
   /** Force marquee always active, or only when overflowing (default: 'auto') */
   mode?: 'auto' | 'always' | 'hover';
   /** Animation speed in pixels per second (default: 35) */

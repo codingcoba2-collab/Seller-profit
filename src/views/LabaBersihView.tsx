@@ -4,7 +4,6 @@ import { CurrentUser, PeriodFilter } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString } from '../utils/formatters';
 import { 
   TrendingUp, 
-  ArrowLeft,
   ArrowUpRight, 
   Receipt, 
   Sparkles,
@@ -136,19 +135,10 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
   }, [currentUser.storeId, inventory, sales, returns, cashflows, store]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-4 py-5 space-y-5 text-white font-sans">
       {/* Filter Periode */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBackToDashboard}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          </button>
           <span className="text-xs font-bold text-zinc-300">Periode:</span>
           <div className="flex items-center gap-1">
             {(['daily', 'weekly', 'monthly', 'all'] as PeriodFilter[]).map(p => (

@@ -16,11 +16,13 @@ import {
   ArrowRight,
   ClipboardList,
   PlusCircle,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
+import { FuturisticEmployeeCard } from '../components/FuturisticEmployeeCard';
 import { NeonCorners } from '../components/NeonCorners';
 
 interface KehadiranViewProps {
@@ -244,19 +246,10 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
         <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <NeonCorners variant="side-left" color="cyan" size="sm" />
           <div className="flex items-center gap-3 relative z-10">
-            <button
-              id="btn-back-to-dashboard-kehadiran"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
             <div className="w-8 h-8 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0">
               <CalendarCheck className="w-4 h-4" />
             </div>
+            <span className="text-sm font-black text-white">Presensi &amp; Kehadiran</span>
           </div>
 
           <div className="text-right text-xs text-zinc-400 relative z-10">
@@ -336,7 +329,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     return (
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
         {/* Top Header with Back Button */}
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
           <button
             id="btn-back-menu-kehadiran"
             type="button"
@@ -344,11 +337,12 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
               handleCancelEdit();
               setViewMode('menu');
             }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali"
-            aria-label="Kembali"
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
+            title="Kembali ke Menu"
+            aria-label="Kembali ke Menu"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -406,34 +400,48 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                 <p className="text-xs text-zinc-400 mt-0.5">Tentukan tanggal shift dan pegawai yang bertugas.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Tanggal Presensi <span className="text-[#FE2C55]">*</span>
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Tanggal Presensi <span className="text-[#FE2C55]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="w-full sm:w-1/2 px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-[#25F4EE]" />
+                    <span>Pilih Kartu Pegawai Bertugas <span className="text-[#FE2C55]">*</span></span>
                   </label>
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  />
+                  <span className="text-[11px] text-zinc-400">
+                    {selectedEmpId ? '✓ Pegawai Terpilih' : 'Pilih kartu di bawah'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Pilih Pegawai <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <ThemedSelect
-                    value={selectedEmpId}
-                    onChange={val => handleEmpChange(val)}
-                    title="Pilih Pegawai"
-                    options={employees.map(emp => ({
-                      value: emp.id,
-                      label: `${emp.name} (${emp.roles.map(r => roleLabels[r] || r).join(', ')})`
-                    }))}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  />
+                {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                  {employees.map(emp => {
+                    const isSelected = selectedEmpId === emp.id;
+                    return (
+                      <FuturisticEmployeeCard
+                        key={emp.id}
+                        id={`card-kehadiran-emp-${emp.id}`}
+                        name={emp.name}
+                        username={emp.username}
+                        roleLabel={emp.roles.map(r => roleLabels[r] || r).join(', ')}
+                        isSelected={isSelected}
+                        color="cyan"
+                        variant="selectable"
+                        onClick={() => handleEmpChange(emp.id)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
@@ -585,17 +593,18 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
       {/* Top Header Bar with Back Button */}
-      <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
+      <div className="spatial-card relative overflow-hidden flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <NeonCorners variant="side-left" color="cyan" size="sm" />
         <button
           id="btn-back-menu-from-output-kehadiran"
           type="button"
           onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0 relative z-10"
-          title="Kembali"
-          aria-label="Kembali"
+          className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold relative z-10"
+          title="Kembali ke Menu"
+          aria-label="Kembali ke Menu"
         >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+          <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+          <span>Kembali</span>
         </button>
 
         <div className="flex items-center gap-2 relative z-10">

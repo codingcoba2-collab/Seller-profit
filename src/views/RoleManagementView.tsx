@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { SoundFx } from '../services/soundFx';
+import { ThemedSelect } from '../components/ThemedSelect';
 
 interface RoleManagementViewProps {
   currentUser: CurrentUser;
@@ -485,20 +486,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6 text-white font-sans">
       {/* 1. HALAMAN DAFTAR PEGAWAI (OUTPUT) */}
       {viewMode === 'list' && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Header Bar Output */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onBackToDashboard}
-                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer shrink-0"
-                title="Kembali ke Dashboard"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-[#25F4EE]" />
-              </div>
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#25F4EE]" />
+              <span className="text-sm font-black text-white">Daftar Akun Pegawai</span>
             </div>
 
             <button
@@ -649,15 +642,16 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       {viewMode === 'form' && (
         <div className="space-y-6">
           {/* Header Form dengan Tombol Kembali ke Daftar */}
-          <div className="flex items-center justify-between bg-[#161823] p-4 sm:p-5 rounded-3xl border border-white/10 shadow-xl">
+          <div className="flex items-center justify-between bg-[#161823] p-3.5 sm:p-4 rounded-3xl border border-white/10 shadow-xl">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                className="p-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-zinc-300 hover:text-white hover:border-[#25F4EE] transition cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-bold"
                 title="Kembali ke Daftar Pegawai"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                <span>Kembali</span>
               </button>
               <div className="flex items-center gap-2">
                 {editingId ? <Edit3 className="w-5 h-5 text-[#FE2C55]" /> : <UserPlus className="w-5 h-5 text-[#25F4EE]" />}
@@ -908,15 +902,18 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       <label className="block text-xs font-bold text-zinc-300 mb-1">
                         Tipe Hitungan Gaji Pokok
                       </label>
-                      <select
+                      <ThemedSelect
                         value={salaryType}
-                        onChange={e => setSalaryType(e.target.value as SalaryType)}
-                        className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                      >
-                        <option value="hourly">Per Jam (Cocok untuk Host Live)</option>
-                        <option value="daily">Per Hari / Shift (Cocok untuk Admin / Sortir / Steam)</option>
-                        <option value="monthly">Bulanan (Gaji Tetap)</option>
-                      </select>
+                        onChange={val => setSalaryType(val as SalaryType)}
+                        title="Pilih Tipe Hitungan Gaji Pokok"
+                        color="cyan"
+                        options={[
+                          { value: 'hourly', label: 'Per Jam (Cocok untuk Host Live)' },
+                          { value: 'daily', label: 'Per Hari / Shift (Cocok untuk Admin / Sortir / Steam)' },
+                          { value: 'monthly', label: 'Bulanan (Gaji Tetap)' },
+                        ]}
+                        className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold"
+                      />
                     </div>
 
                     <div>
@@ -959,29 +956,28 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                             <label className="block text-[11px] font-bold text-zinc-400 mb-1">
                               Tipe Insentif
                             </label>
-                            <select
+                            <ThemedSelect
                               value={config.type}
-                              onChange={e => handleIncentiveChange(role, e.target.value as IncentiveType)}
-                              className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                            >
-                              <option value="none">Tanpa Insentif</option>
-                              {role === 'host' && (
-                                <>
-                                  <option value="per_pcs_sold">Per Pcs Terjual Live</option>
-                                  <option value="per_package_sold">Per Paket Terjual</option>
-                                </>
-                              )}
-                              {role === 'admin_toko' && (
-                                <>
-                                  <option value="per_package_sold">Per Paket Dicatat &amp; Packing</option>
-                                  <option value="per_pcs_sold">Per Pcs Dicatat</option>
-                                </>
-                              )}
-                              {(role === 'sortir' || role === 'steam') && (
-                                <option value="per_ball_pcs">Per Pcs Layak Jual (Reject Tidak Dihitung)</option>
-                              )}
-                              <option value="fixed_amount">Nominal Tetap (Flat)</option>
-                            </select>
+                              onChange={val => handleIncentiveChange(role, val as IncentiveType)}
+                              title="Pilih Tipe Insentif"
+                              color="cyan"
+                              options={[
+                                { value: 'none', label: 'Tanpa Insentif' },
+                                ...(role === 'host' ? [
+                                  { value: 'per_pcs_sold', label: 'Per Pcs Terjual Live' },
+                                  { value: 'per_package_sold', label: 'Per Paket Terjual' },
+                                ] : []),
+                                ...(role === 'admin_toko' ? [
+                                  { value: 'per_package_sold', label: 'Per Paket Dicatat & Packing' },
+                                  { value: 'per_pcs_sold', label: 'Per Pcs Dicatat' },
+                                ] : []),
+                                ...((role === 'sortir' || role === 'steam') ? [
+                                  { value: 'per_ball_pcs', label: 'Per Pcs Layak Jual (Reject Tidak Dihitung)' },
+                                ] : []),
+                                { value: 'fixed_amount', label: 'Nominal Tetap (Flat)' },
+                              ]}
+                              className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white font-semibold"
+                            />
                           </div>
 
                           {config.type !== 'none' && !(role === 'host' && config.hasSeparateBundlingSatuan) && (
@@ -1267,11 +1263,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                   title="Kembali ke Daftar"
                   aria-label="Kembali ke Daftar"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                  <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                  <span>Batal</span>
                 </button>
               )}
 

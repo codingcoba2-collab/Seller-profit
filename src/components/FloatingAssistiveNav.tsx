@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RoutePath } from '../services/navigation';
+import { RoutePath, getParentRoute } from '../services/navigation';
 import { CurrentUser } from '../types';
 import { SoundFx } from '../services/soundFx';
 import { 
@@ -13,7 +13,9 @@ import {
   Command,
   Database,
   Users,
-  LogOut
+  LogOut,
+  ArrowLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface FloatingAssistiveNavProps {
@@ -153,6 +155,8 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
     } catch {}
   };
 
+  const parent = getParentRoute(currentRoute);
+
   return (
     <>
       {/* Expanded iOS Assistive Touch Menu Modal */}
@@ -164,7 +168,7 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
           <div 
             id="assistive-touch-panel"
             onClick={(e) => e.stopPropagation()}
-            className="spatial-card relative w-full max-w-xs rounded-3xl border border-white/20 bg-[#161823] text-white p-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-scale-up space-y-4"
+            className="spatial-card relative w-full max-w-xs rounded-3xl border border-white/20 bg-[#161823] text-white p-4 sm:p-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-scale-up space-y-3.5"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -183,6 +187,84 @@ export const FloatingAssistiveNav: React.FC<FloatingAssistiveNavProps> = ({
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Pintasan Cepat Kembali ke Submenu / Beranda */}
+            {parent && (
+              <button
+                type="button"
+                id="btn-assistive-back-to-parent"
+                onClick={() => handleAction(() => onNavigate(parent.path))}
+                className="w-full py-2 px-3 rounded-2xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/40 text-white flex items-center justify-between transition cursor-pointer shadow-md group active:scale-95"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-xl bg-[#FE2C55]/25 flex items-center justify-center text-[#FE2C55] shrink-0 group-hover:scale-105 transition">
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <div className="text-[10px] text-zinc-400 font-medium leading-tight">Pintasan Kembali</div>
+                    <div className="text-xs font-black text-[#FE2C55] group-hover:text-white truncate">
+                      {parent.path === '/dashboard' ? 'Kembali ke Beranda' : `Submenu ${parent.label}`}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#FE2C55] group-hover:text-white group-hover:translate-x-0.5 transition shrink-0" />
+              </button>
+            )}
+
+            {/* Submenu Quick Jump Pills */}
+            <div className="space-y-1">
+              <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Lompat Submenu:</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleAction(() => onNavigate('/persiapan'))}
+                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold text-center border transition cursor-pointer ${
+                    currentRoute.startsWith('/persiapan')
+                      ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/50'
+                      : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
+                  }`}
+                  title="Submenu Persiapan"
+                >
+                  Persiapan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction(() => onNavigate('/penjualan'))}
+                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold text-center border transition cursor-pointer ${
+                    currentRoute.startsWith('/penjualan')
+                      ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/50'
+                      : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
+                  }`}
+                  title="Submenu Penjualan"
+                >
+                  Penjualan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction(() => onNavigate('/keuangan'))}
+                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold text-center border transition cursor-pointer ${
+                    currentRoute.startsWith('/keuangan')
+                      ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/50'
+                      : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
+                  }`}
+                  title="Submenu Keuangan"
+                >
+                  Keuangan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction(() => onNavigate('/informasi'))}
+                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold text-center border transition cursor-pointer ${
+                    currentRoute.startsWith('/informasi')
+                      ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/50'
+                      : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/10'
+                  }`}
+                  title="Submenu Informasi"
+                >
+                  Info
+                </button>
+              </div>
             </div>
 
             {/* Grid of Shortcuts */}

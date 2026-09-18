@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
+import { FuturisticEmployeeCard } from '../components/FuturisticEmployeeCard';
 
 interface SteamSortirViewProps {
   currentUser: CurrentUser;
@@ -298,17 +299,8 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
         {/* Top Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-steam"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
-              title="Kembali"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-black text-white">Sortir &amp; Steam Pakaian</span>
           </div>
 
           <div className="text-right text-xs text-zinc-400">
@@ -411,11 +403,12 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               handleCancelEdit();
               setViewMode('menu');
             }}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
-            title="Kembali"
-            aria-label="Kembali"
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 flex items-center gap-1.5 text-xs font-bold"
+            title="Kembali ke Menu"
+            aria-label="Kembali ke Menu"
           >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -458,18 +451,21 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
                   Pilih Ball dari Stok Inventaris
                 </label>
-                <select
+                <ThemedSelect
                   value={ballInventoryId}
-                  onChange={e => handleSelectBall(e.target.value)}
+                  onChange={val => handleSelectBall(val)}
+                  title="Pilih Ball dari Stok Inventaris"
+                  placeholder="-- Pilih Ball Masuk / Manual --"
+                  options={[
+                    { value: '', label: '-- Pilih Ball Masuk / Manual --' },
+                    ...inventoryList.map(ball => ({
+                      value: ball.id,
+                      label: `${ball.ballType} (${ball.pcsCount} pcs)`,
+                      description: `Stok ball masuk inventaris`
+                    }))
+                  ]}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                >
-                  <option value="">-- Pilih Ball Masuk / Manual --</option>
-                  {inventoryList.map(ball => (
-                    <option key={ball.id} value={ball.id}>
-                      {ball.ballType} ({ball.pcsCount} pcs)
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 
@@ -549,25 +545,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 {(sortirSteamEmployees.length > 0 ? sortirSteamEmployees : employeeList).map(emp => {
                   const isSelected = selectedEmployeeIds.includes(emp.id);
                   return (
-                    <button
+                    <FuturisticEmployeeCard
                       key={emp.id}
-                      type="button"
+                      id={`card-steam-emp-${emp.id}`}
+                      name={emp.name || emp.username}
+                      username={emp.username}
+                      roleLabel={emp.roles ? emp.roles.join(', ') : 'Sortir & Steam'}
+                      isSelected={isSelected}
+                      color="cyan"
+                      variant="checkbox"
                       onClick={() => handleToggleEmployee(emp.id)}
-                      className={`p-2.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-2 cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-white'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <div className="truncate font-semibold">{emp.name || emp.username}</div>
-                      <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] shrink-0 ${isSelected ? 'bg-[#25F4EE] text-black font-bold' : 'border border-white/20'}`}>
-                        {isSelected ? '✓' : ''}
-                      </div>
-                    </button>
+                    />
                   );
                 })}
               </div>
@@ -723,23 +716,20 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   // ================= 3. OUTPUT & LAPORAN STATE =================
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4 text-white font-sans">
-      {/* Top Header Bar with Back Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <button
-          id="btn-back-menu-from-output-steam"
-          type="button"
-          onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95"
-          title="Kembali"
-          aria-label="Kembali"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-        </button>
-      </div>
-
-      {/* Filter Bar */}
+      {/* Filter Bar with Back Shortcut */}
       <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="btn-back-menu-from-output-steam"
+            type="button"
+            onClick={() => setViewMode('menu')}
+            className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] transition border border-[#FE2C55]/30 cursor-pointer active:scale-95 flex items-center gap-1.5 text-xs font-bold shrink-0"
+            title="Kembali ke Menu"
+            aria-label="Kembali ke Menu"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+            <span>Kembali</span>
+          </button>
           <div className="relative w-48 sm:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
