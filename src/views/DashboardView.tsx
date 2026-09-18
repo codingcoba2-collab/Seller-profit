@@ -248,10 +248,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 3. MENU UTAMA: TAMPILKAN 4 KATEGORI UTAMA (PERSIAPAN, PENJUALAN, KEUANGAN, INFORMASI) */}
-      <div className="space-y-2.5 pt-1">
-        <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
-          Kategori Menu
-        </h3>
+      <div className="pt-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
           {CATEGORIES.map((cat) => {
             const CatIcon = cat.icon;

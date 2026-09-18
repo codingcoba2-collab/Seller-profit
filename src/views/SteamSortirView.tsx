@@ -781,17 +781,10 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         </div>
       </div>
 
-      {/* Table of Records */}
-      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-          <h3 className="text-xs font-black text-white flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-[#25F4EE]" />
-            <span>Rekap Pengerjaan Sortir &amp; Steam Ball</span>
-          </h3>
-        </div>
-
+      {/* List of Pengerjaan Cards */}
+      <div className="space-y-2">
         {filteredRecords.length === 0 ? (
-          <div className="text-center py-12 px-4 space-y-3">
+          <div className="text-center py-12 px-4 space-y-3 bg-[#161823] rounded-2xl border border-white/10 shadow-xl">
             <p className="text-zinc-500 text-xs">
               Belum ada catatan pengerjaan sortir/steam pada filter ini.
             </p>
@@ -808,77 +801,82 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
-                <tr>
-                  <th className="p-3 font-semibold">Tanggal</th>
-                  <th className="p-3 font-semibold">Nama Ball</th>
-                  <th className="p-3 font-semibold">Jenis Proses</th>
-                  <th className="p-3 font-semibold">Petugas</th>
-                  <th className="p-3 font-semibold text-center">Total</th>
-                  <th className="p-3 font-semibold text-center text-emerald-400">Layak</th>
-                  <th className="p-3 font-semibold text-center text-[#FE2C55]">Reject</th>
-                  <th className="p-3 font-semibold text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredRecords.map(rec => (
-                  <tr key={rec.id} className="hover:bg-white/5 transition">
-                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
-                      {formatDateIndo(rec.date)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-bold text-white">
-                      {rec.ballName}
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-                        {rec.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : rec.processType === 'steam' ? 'Steam' : 'Sortir'}
-                      </span>
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-zinc-300">
-                      {rec.employeeNames ? rec.employeeNames.join(', ') : '-'}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center font-bold text-white">
-                      {rec.pcsTotal} pcs
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center font-bold text-emerald-400">
-                      {rec.pcsLayakJual} pcs
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center font-bold text-[#FE2C55]">
-                      {rec.pcsReject} pcs
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleStartEdit(rec);
-                        }}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] transition cursor-pointer border border-white/5"
-                        title="Edit Pengerjaan"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`);
-                        }}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer border border-white/5"
-                        title="Hapus Catatan"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          filteredRecords.map(rec => (
+            <div
+              key={rec.id}
+              className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+            >
+              {/* Top Row: Date Badge & Process Badge on Left, Action Buttons on Right */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                    {formatDateIndo(rec.date)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+                    {rec.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : rec.processType === 'steam' ? 'Steam' : 'Sortir'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleStartEdit(rec);
+                    }}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                    title="Edit Pengerjaan"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`);
+                    }}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                    title="Hapus Catatan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Row: Total Pcs on Left, Ball Name & Petugas on Right */}
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <div className="text-base sm:text-lg font-black text-white tracking-tight">
+                    {rec.pcsTotal} <span className="text-xs font-semibold text-zinc-400">pcs</span>
+                  </div>
+                  <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-2">
+                    <span className="text-emerald-400">Layak: {rec.pcsLayakJual} pcs</span>
+                    <span className="text-zinc-600">•</span>
+                    <span className="text-[#FE2C55]">Reject: {rec.pcsReject} pcs</span>
+                  </div>
+                </div>
+
+                <div className="text-right min-w-0 flex-1">
+                  <div className="text-xs sm:text-sm font-bold text-white truncate">
+                    {rec.ballName}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                    Petugas: {rec.employeeNames && rec.employeeNames.length > 0 ? rec.employeeNames.join(', ') : '-'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Row: Notes if present */}
+              {rec.notes && (
+                <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
+                  <span className="text-zinc-500 font-medium">Catatan: </span>
+                  <span>{rec.notes}</span>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
 

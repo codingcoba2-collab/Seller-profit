@@ -633,73 +633,70 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
         </div>
       </div>
 
-      {/* Table of Records */}
-      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-          <h3 className="text-xs font-black text-white flex items-center gap-2">
-            <RotateCcw className="w-4 h-4 text-[#FE2C55]" />
-            <span>Riwayat Paket Retur &amp; Gagal Kirim</span>
-          </h3>
-        </div>
-
+      {/* List of Return Records */}
+      <div className="space-y-2">
         {filteredList.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 text-xs">
+          <div className="text-center py-12 text-zinc-500 text-xs bg-[#161823] rounded-2xl border border-white/10 shadow-xl">
             Belum ada catatan paket retur pada periode ini.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
-                <tr>
-                  <th className="p-3 font-semibold">Tanggal</th>
-                  <th className="p-3 font-semibold text-center">Jumlah Paket</th>
-                  <th className="p-3 font-semibold text-right">Nominal Retur</th>
-                  <th className="p-3 font-semibold">Alasan Retur</th>
-                  <th className="p-3 font-semibold">Dicatat Oleh</th>
-                  <th className="p-3 font-semibold text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredList.map(item => (
-                  <tr key={item.id} className="hover:bg-white/5 transition">
-                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
-                      {formatDateIndo(item.date)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center font-bold text-white">
-                      {item.packageCount} paket
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-right font-bold text-[#FE2C55]">
-                      {formatRupiah(item.totalAmount)}
-                    </td>
-                    <td className="p-3 text-zinc-300 max-w-xs truncate">
-                      {item.reason}
-                    </td>
-                    <td className="p-3 text-zinc-400 whitespace-nowrap">
-                      {item.recordedBy || '-'}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(item)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                        title="Edit Retur"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.id, `${item.packageCount} paket - ${item.reason}`)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                        title="Hapus Catatan"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          filteredList.map(item => (
+            <div
+              key={item.id}
+              className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+            >
+              {/* Top Row: Date Badge & Package Count on Left, Action Buttons on Right */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                    {formatDateIndo(item.date)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20">
+                    {item.packageCount} Paket
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(item)}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                    title="Edit Retur"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id, `${item.packageCount} paket - ${item.reason}`)}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                    title="Hapus Catatan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Row: Nominal Retur on Left, Alasan & Pencatat on Right */}
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <div className="text-base sm:text-lg font-black text-[#FE2C55] tracking-tight">
+                    {formatRupiah(item.totalAmount)}
+                  </div>
+                </div>
+
+                <div className="text-right min-w-0 flex-1">
+                  <div className="text-xs sm:text-sm font-bold text-white truncate">
+                    {item.reason}
+                  </div>
+                  {item.recordedBy && (
+                    <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                      Pencatat: {item.recordedBy}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 

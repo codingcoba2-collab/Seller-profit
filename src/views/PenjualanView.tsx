@@ -1010,20 +1010,20 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             </div>
           </div>
 
-          {/* Table / List View */}
-          <div className="rounded-3xl bg-[#161823] border border-white/10 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
-              <h3 className="text-sm font-black text-white flex items-center gap-2">
+          {/* Card-Based Transaction List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#25F4EE]" />
                 <span>Daftar Transaksi Penjualan ({filteredSales.length})</span>
               </h3>
-              <div className="text-xs text-zinc-400">
-                Menampilkan data terurut dari tanggal terbaru
+              <div className="text-[11px] text-zinc-400">
+                Terurut dari tanggal terbaru
               </div>
             </div>
 
             {filteredSales.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
+              <div className="p-12 text-center space-y-3 bg-[#161823] rounded-3xl border border-white/10 shadow-xl">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
                   <ShoppingBag className="w-6 h-6" />
                 </div>
@@ -1031,188 +1031,153 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   Tidak Ada Data Penjualan Ditemukan
                 </div>
                 <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  Silakan ubah filter pencarian atau input data penjualan baru via tab Live / Non-Live di atas.
+                  Silakan ubah filter pencarian atau input data penjualan baru via menu Live / Non-Live.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-zinc-300">
-                  <thead className="bg-[#0b0c10] text-[11px] uppercase tracking-wider text-zinc-400 font-bold border-b border-white/10">
-                    <tr>
-                      <th className="px-4 py-3.5">Tanggal &amp; Channel</th>
-                      <th className="px-4 py-3.5">Tipe &amp; Kategori</th>
-                      <th className="px-4 py-3.5">Host / Admin</th>
-                      <th className="px-4 py-3.5 text-right">Pcs / Paket</th>
-                      <th className="px-4 py-3.5 text-right">Biaya Iklan/Koin</th>
-                      <th className="px-4 py-3.5 text-right">Omzet Total</th>
-                      <th className="px-4 py-3.5 text-center">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredSales.map(sale => {
-                      const isLive = sale.salesType === 'live' || !sale.salesType;
-                      const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
-                        label: sale.channelName || (isLive ? 'Marketplace Live' : 'Marketplace Reguler'),
-                        color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
-                      };
+              <div className="space-y-2">
+                {filteredSales.map(sale => {
+                  const isLive = sale.salesType === 'live' || !sale.salesType;
+                  const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
+                    label: sale.channelName || (isLive ? 'Marketplace Live' : 'Marketplace Reguler'),
+                    color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
+                  };
+                  const categoryLabel = fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion Umum';
+                  const hostsOrAdmins = isLive
+                    ? (sale.hostNames && sale.hostNames.length > 0 ? sale.hostNames.join(', ') : 'Host Live')
+                    : (sale.adminNames && sale.adminNames.length > 0 ? sale.adminNames.filter(Boolean).join(', ') : sale.adminName || 'Admin / Kasir');
 
-                      return (
-                        <tr key={sale.id} className="hover:bg-white/5 transition">
-                          {/* Tanggal & Channel */}
-                          <td className="px-4 py-3.5">
-                            <div className="font-bold text-white leading-tight">
-                              {formatDateIndo(sale.date)}
-                            </div>
-                            <div className="mt-1 flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-zinc-200 border border-white/10">
-                                {channelInfo.label}
-                              </span>
-                              {sale.notes && (
-                                <span className="text-[10px] text-zinc-400 truncate max-w-[120px]" title={sale.notes}>
-                                  📝 {sale.notes}
+                  return (
+                    <div
+                      key={sale.id}
+                      className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2.5"
+                    >
+                      {/* Top Row: Badges (Date & Channel / Type) on Left, Action Buttons on Right */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                            {formatDateIndo(sale.date)}
+                          </span>
+
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300">
+                            {channelInfo.label}
+                          </span>
+
+                          {isLive ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FE2C55]/15 text-[#FE2C55] border border-[#FE2C55]/30">
+                              <Video className="w-3 h-3" />
+                              <span>LIVE</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <Store className="w-3 h-3" />
+                              <span>NON-LIVE</span>
+                            </span>
+                          )}
+
+                          {isLive && sale.saleFormat && (
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              sale.saleFormat === 'satuan'
+                                ? 'bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30'
+                                : sale.saleFormat === 'campuran'
+                                ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                            }`}>
+                              {sale.saleFormat === 'satuan' ? '🏷️ Satuan' : sale.saleFormat === 'campuran' ? '🔀 Campuran' : '📦 Bundling'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setViewingDetailSale(sale)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
+                            title="Lihat Detail Transaksi"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(sale)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] transition cursor-pointer"
+                            title="Edit Data Penjualan"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {(sale.date === todayStr || currentUser.isOwner) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(sale)}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                              title="Hapus Data Penjualan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main Row: Bold Omzet on Left, Category & Details on Right */}
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div>
+                          <div className="text-base sm:text-lg font-black text-[#25F4EE] tracking-tight">
+                            {formatRupiah(sale.omzet)}
+                          </div>
+                          <div className="text-[11px] text-zinc-400 font-medium mt-0.5 flex items-center gap-2">
+                            <span>
+                              <strong className="text-white font-bold">{formatNumber(sale.pcsSold)}</strong> pcs
+                            </span>
+                            <span>•</span>
+                            <span>{formatNumber(sale.packagesSold)} paket</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right min-w-0 flex-1">
+                          <div className="text-xs sm:text-sm font-bold text-white truncate">
+                            {categoryLabel}
+                          </div>
+                          <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                            {isLive ? `🎤 ${hostsOrAdmins}` : `💼 ${hostsOrAdmins}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Optional Info: Size Breakdown or Ads/Coin */}
+                      {((sale.selectedSizes && sale.selectedSizes.length > 0) || (sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0) && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px]">
+                          {sale.selectedSizes && sale.selectedSizes.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-zinc-500">Size:</span>
+                              {sale.selectedSizes.map(sz => (
+                                <span key={sz} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-bold">
+                                  {sz}{sale.sizeBreakdown?.[sz] !== undefined ? `:${sale.sizeBreakdown[sz]}` : ''}
                                 </span>
-                              )}
+                              ))}
                             </div>
-                          </td>
+                          ) : <div />}
 
-                          {/* Tipe & Kategori */}
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-1.5">
-                              {isLive ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FE2C55]/15 text-[#FE2C55] border border-[#FE2C55]/30">
-                                  <Video className="w-3 h-3" />
-                                  <span>LIVE</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                  <Store className="w-3 h-3" />
-                                  <span>NON-LIVE</span>
-                                </span>
-                              )}
+                          {((sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0) && (
+                            <div className="text-zinc-400">
+                              Ads/Koin: <strong className="text-amber-400">Rp {formatNumber((sale.adsUsed || 0) + (sale.coinUsed || 0))}</strong>
                             </div>
-                            <div className="text-[11px] text-zinc-400 mt-1">
-                              {fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion Umum'}
-                            </div>
-                          </td>
+                          )}
+                        </div>
+                      )}
 
-                          {/* Host / Admin */}
-                          <td className="px-4 py-3.5">
-                            {isLive ? (
-                              <div>
-                                <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                                  <span>🎤 {(sale.hostNames || []).join(', ') || 'Host Live'}</span>
-                                </div>
-                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                    sale.saleFormat === 'satuan'
-                                      ? 'bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30'
-                                      : sale.saleFormat === 'campuran'
-                                      ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
-                                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                  }`}>
-                                    {sale.saleFormat === 'satuan' ? '🏷️ Satuan' : sale.saleFormat === 'campuran' ? '🔀 Campuran' : '📦 Bundling'}
-                                  </span>
-                                  <span className="text-[10px] text-zinc-400">
-                                    Admin: {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || '-'}
-                                    {sale.hoursWorked ? ` (${sale.hoursWorked} jam)` : ''}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <div className="font-semibold text-zinc-200">
-                                  💼 {(sale.adminNames || [sale.adminName || '']).filter(Boolean).join(', ') || 'Kasir / Admin'}
-                                </div>
-                                <div className="text-[10px] text-zinc-400 mt-0.5">
-                                  💳 Bayar: {paymentMethodLabels[sale.paymentMethod as PaymentMethod] || sale.paymentMethod || 'Transfer'}
-                                </div>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Pcs / Paket & Size */}
-                          <td className="px-4 py-3.5 text-right font-semibold">
-                            <div className="text-white font-black">
-                              {formatNumber(sale.pcsSold)} <span className="text-[10px] text-zinc-400">pcs</span>
-                            </div>
-                            <div className="text-[10px] text-zinc-400">
-                              {formatNumber(sale.packagesSold)} paket
-                            </div>
-                            {sale.selectedSizes && sale.selectedSizes.length > 0 && (
-                              <div className="flex flex-wrap justify-end gap-1 mt-1">
-                                {sale.selectedSizes.map(sz => (
-                                  <span key={sz} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
-                                    {sz}{sale.sizeBreakdown?.[sz] !== undefined ? `: ${sale.sizeBreakdown[sz]}` : ''}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Biaya Iklan / Koin */}
-                          <td className="px-4 py-3.5 text-right">
-                            {(sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0 ? (
-                              <div>
-                                <div className="text-zinc-300 font-bold">
-                                  Rp {formatNumber((sale.adsUsed || 0) + (sale.coinUsed || 0))}
-                                </div>
-                                <div className="text-[10px] text-zinc-500">
-                                  Ads: {formatNumber(sale.adsUsed || 0)} {sale.coinUsed ? `• Koin: ${formatNumber(sale.coinUsed)}` : ''}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-zinc-600">-</span>
-                            )}
-                          </td>
-
-                          {/* Omzet Total */}
-                          <td className="px-4 py-3.5 text-right">
-                            <div className="text-sm font-black text-[#25F4EE]">
-                              {formatRupiah(sale.omzet)}
-                            </div>
-                          </td>
-
-                          {/* Action Buttons */}
-                          <td className="px-4 py-3.5 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {/* Detail Modal */}
-                              <button
-                                type="button"
-                                onClick={() => setViewingDetailSale(sale)}
-                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
-                                title="Lihat Detail Transaksi"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Edit Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleStartEdit(sale)}
-                                className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-zinc-300 hover:text-[#25F4EE] transition cursor-pointer"
-                                title="Edit Data Penjualan"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Delete Button */}
-                              {(sale.date === todayStr || currentUser.isOwner) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(sale)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] transition cursor-pointer"
-                                  title="Hapus Data Penjualan"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      {/* Bottom Row: Notes */}
+                      {sale.notes && (
+                        <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
+                          <span className="text-zinc-500 font-medium">Catatan: </span>
+                          <span>{sale.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -779,145 +779,137 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
       {/* ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) ================= */}
       {viewMode === 'output' && (
-        <div className="space-y-4">
-          {/* Top Header Bar with Back Button */}
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <button
-          id="btn-back-menu-from-output-cashflow"
-          type="button"
-          onClick={() => setViewMode('menu')}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-          title="Kembali"
-          aria-label="Kembali"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-        </button>
-      </div>
+        <div className="space-y-3">
+          {/* Filter Bar & Back Navigation */}
+          <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
+              <button
+                id="btn-back-menu-from-output-cashflow"
+                type="button"
+                onClick={() => setViewMode('menu')}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+                title="Kembali ke Menu Kas"
+                aria-label="Kembali"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+              </button>
 
-      {/* Filter Bar */}
-      <div className="p-3.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-44 sm:w-60">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari deskripsi / kategori..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-            />
+              <div className="relative flex-1 min-w-[150px] max-w-xs">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Cari transaksi / kategori..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                />
+              </div>
+
+              <select
+                value={periodFilter}
+                onChange={e => setPeriodFilter(e.target.value as any)}
+                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+              >
+                <option value="all">Semua Periode</option>
+                <option value="today">Hari Ini</option>
+                <option value="weekly">7 Hari Terakhir</option>
+                <option value="monthly">Bulan Ini</option>
+              </select>
+            </div>
+
+            <div className="text-xs text-zinc-400 font-semibold shrink-0">
+              Total: <strong className="text-white">{filteredList.length}</strong> transaksi
+            </div>
           </div>
 
-          <select
-            value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value as any)}
-            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          >
-            <option value="all">Semua Periode</option>
-            <option value="today">Hari Ini</option>
-            <option value="weekly">7 Hari Terakhir</option>
-            <option value="monthly">Bulan Ini</option>
-          </select>
-        </div>
+          {/* List of Transaction Cards (Banking Style: Date badge, Bold Amount, Subtitle & Note, Action buttons) */}
+          <div className="space-y-2">
+            {filteredList.length === 0 ? (
+              <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
+                Belum ada transaksi arus kas pada periode ini.
+              </div>
+            ) : (
+              filteredList.map(item => {
+                const isInflow = item.type === 'inflow';
+                const formattedDate = formatDateIndo(item.date);
+                const categoryName = CATEGORY_LABELS[item.category] || item.category;
 
-        <div className="text-xs text-zinc-400 font-semibold">
-          Total: <strong className="text-white">{filteredList.length}</strong> transaksi
-        </div>
-      </div>
-
-      {/* Table of Records */}
-      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-          <h3 className="text-xs font-black text-white flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-[#25F4EE]" />
-            <span>Riwayat Mutasi Buku Kas</span>
-          </h3>
-        </div>
-
-        {filteredList.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 text-xs">
-            Belum ada transaksi arus kas pada periode ini.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
-                <tr>
-                  <th className="p-3 font-semibold">Tanggal</th>
-                  <th className="p-3 font-semibold">Jenis</th>
-                  <th className="p-3 font-semibold">Kategori</th>
-                  <th className="p-3 font-semibold">Keterangan</th>
-                  <th className="p-3 font-semibold text-right">Nominal</th>
-                  <th className="p-3 font-semibold text-center">Nota</th>
-                  <th className="p-3 font-semibold text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredList.map(item => (
-                  <tr key={item.id} className="hover:bg-white/5 transition">
-                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
-                      {formatDateIndo(item.date)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        item.type === 'inflow' 
-                          ? 'bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20'
-                          : 'bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20'
-                      }`}>
-                        {item.type === 'inflow' ? 'Masuk' : 'Keluar'}
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+                  >
+                    {/* Top Row: Date Badge on Left, Action Buttons on Right */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                        {formattedDate}
                       </span>
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-zinc-300">
-                      {CATEGORY_LABELS[item.category] || item.category}
-                    </td>
-                    <td className="p-3 text-zinc-300 max-w-xs truncate">
-                      {item.description}
-                    </td>
-                    <td className={`p-3 whitespace-nowrap text-right font-bold ${
-                      item.type === 'inflow' ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
-                    }`}>
-                      {item.type === 'inflow' ? '+' : '-'}{formatRupiah(item.amount)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center">
-                      {item.proofImageUrl ? (
+
+                      <div className="flex items-center gap-1">
+                        {item.proofImageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                            title="Lihat Bukti Nota"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                          className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                          title="Lihat Nota"
+                          onClick={() => handleStartEdit(item)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                          title="Edit Transaksi"
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-zinc-600">-</span>
-                      )}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(item)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                        title="Edit Transaksi"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.id, item.description || `${CATEGORY_LABELS[item.category] || item.category} (${formatRupiah(item.amount)})`)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                        title="Hapus Transaksi"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id, item.description || `${categoryName} (${formatRupiah(item.amount)})`)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                          title="Hapus Transaksi"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Main Row: Nominal on Left (+ / -), Category/Keterangan on Right */}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className={`text-base sm:text-lg font-black tracking-tight ${
+                          isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
+                        }`}>
+                          {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
+                        </div>
+                      </div>
+
+                      <div className="text-right min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-semibold text-white truncate">
+                          {categoryName}
+                        </div>
+                        {item.employeeName && (
+                          <div className="text-[11px] text-[#25F4EE] font-medium truncate">
+                            Pegawai: {item.employeeName}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Description / Catatan (e.g. "Catatan: ...") */}
+                    {item.description && (
+                      <div className="pt-1.5 border-t border-white/5 text-[11px] sm:text-xs text-zinc-400 leading-snug">
+                        <span className="text-zinc-500 font-medium">Catatan: </span>
+                        <span>{item.description}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-      </div>
-      </div>
+        </div>
       )}
 
       {/* Image Preview Modal */}

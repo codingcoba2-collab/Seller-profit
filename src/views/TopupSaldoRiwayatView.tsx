@@ -213,10 +213,10 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
         </div>
       </div>
 
-      {/* Riwayat List / Table */}
-      <div className="bg-[#161823] rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
+      {/* Riwayat List Cards */}
+      <div className="space-y-2">
         {filteredList.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
+          <div className="p-12 text-center space-y-3 bg-[#161823] rounded-3xl border border-white/10 shadow-xl">
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 mx-auto">
               <History className="w-6 h-6" />
             </div>
@@ -231,64 +231,74 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b0c10] text-zinc-400 border-b border-white/10 font-bold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3.5 px-4">Tanggal</th>
-                  <th className="py-3.5 px-4">Saldo Iklan</th>
-                  <th className="py-3.5 px-4">Koin Live</th>
-                  <th className="py-3.5 px-4">Total Topup</th>
-                  <th className="py-3.5 px-4">Catatan</th>
-                  <th className="py-3.5 px-4 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredList.map((item) => {
-                  const total = item.adsAmount + item.coinAmount;
-                  return (
-                    <tr key={item.id} className="hover:bg-white/5 transition">
-                      <td className="py-3.5 px-4 font-bold text-white whitespace-nowrap">
-                        {formatDateIndo(item.date)}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#25F4EE] font-black whitespace-nowrap">
-                        {formatRupiah(item.adsAmount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-amber-400 font-black whitespace-nowrap">
-                        {formatRupiah(item.coinAmount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-white font-extrabold whitespace-nowrap">
-                        {formatRupiah(total)}
-                      </td>
-                      <td className="py-3.5 px-4 text-zinc-400 max-w-xs truncate">
-                        {item.notes || '-'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onNavigate('/topup-saldo/input', item.id)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition cursor-pointer"
-                            title="Edit data ini"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-[#25F4EE]" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item.id, item.notes || `Rp ${formatRupiah(total)}`)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] border border-white/10 transition cursor-pointer"
-                            title="Hapus data"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          filteredList.map((item) => {
+            const total = item.adsAmount + item.coinAmount;
+            return (
+              <div
+                key={item.id}
+                className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+              >
+                {/* Top Row: Date badge on Left, Action buttons on Right */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                    {formatDateIndo(item.date)}
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('/topup-saldo/input', item.id)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                      title="Edit data ini"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id, item.notes || `Rp ${formatRupiah(total)}`)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                      title="Hapus data"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Main Row: Nominal Total on Left, Sub-breakdown on Right */}
+                <div className="flex items-baseline justify-between gap-3">
+                  <div>
+                    <div className="text-base sm:text-lg font-black text-white tracking-tight">
+                      {formatRupiah(total)}
+                    </div>
+                  </div>
+
+                  <div className="text-right min-w-0 flex-1 flex flex-wrap items-center justify-end gap-2 text-xs">
+                    {item.adsAmount > 0 && (
+                      <span className="text-[#25F4EE] font-bold">
+                        Iklan: {formatRupiah(item.adsAmount)}
+                      </span>
+                    )}
+                    {item.adsAmount > 0 && item.coinAmount > 0 && (
+                      <span className="text-zinc-600">•</span>
+                    )}
+                    {item.coinAmount > 0 && (
+                      <span className="text-amber-400 font-bold">
+                        Koin: {formatRupiah(item.coinAmount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Row: Description / Catatan if present */}
+                {item.notes && (
+                  <div className="pt-1.5 border-t border-white/5 text-[11px] sm:text-xs text-zinc-400 leading-snug">
+                    <span className="text-zinc-500 font-medium">Catatan: </span>
+                    <span>{item.notes}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
