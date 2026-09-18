@@ -239,6 +239,7 @@ export default function App() {
         <InstallGuideModal
           isOpen={showInstallGuide}
           onClose={() => setShowInstallGuide(false)}
+          onNotify={handleNotify}
         />
       </>
     );

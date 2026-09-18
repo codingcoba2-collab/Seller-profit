@@ -183,7 +183,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenInst
       {/* ==================================================================== */}
       {/* 1. BERANDA SEBELUM LOGIN: HEADER & HERO SECTION SELLER PROFIT        */}
       {/* ==================================================================== */}
-      <AppHeroSection onOpenLoginModal={handleOpenLogin} />
+      <AppHeroSection 
+        onOpenLoginModal={handleOpenLogin} 
+        onOpenInstallGuide={onOpenInstallGuide}
+      />
 
       {/* ==================================================================== */}
       {/* EDUKASI TENTANG APLIKASI: KEUNTUNGAN & KELEBIHAN BISNIS RITEL         */}

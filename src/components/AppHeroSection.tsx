@@ -12,20 +12,28 @@ import {
   Building2,
   Radio,
   Cpu,
-  ShieldCheck
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 import cyberCommerceHero from '../assets/images/cyber_commerce_hero_1789060348954.jpg';
 
 interface AppHeroSectionProps {
   onOpenLoginModal: () => void;
+  onOpenInstallGuide: () => void;
 }
 
-export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal }) => {
+export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal, onOpenInstallGuide }) => {
   const handleLoginClick = () => {
     SoundFx.unlockAudio();
     SoundFx.playRobotButtonClick();
     onOpenLoginModal();
+  };
+
+  const handleInstallClick = () => {
+    SoundFx.unlockAudio();
+    SoundFx.playRobotButtonClick();
+    onOpenInstallGuide();
   };
 
   const handleScrollToFeatures = () => {
@@ -72,14 +80,25 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
         </div>
 
         {/* Top Header Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <button
             type="button"
             onClick={handleScrollToFeatures}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition cursor-pointer"
           >
             <span>Fitur Utama</span>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+
+          <button
+            type="button"
+            id="btn-install-header"
+            onClick={handleInstallClick}
+            className="px-3 sm:px-4 py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 border border-[#25F4EE]/40 text-[#25F4EE] hover:text-white text-xs sm:text-sm font-black tracking-wide flex items-center gap-1.5 sm:gap-2 shadow-[0_0_15px_rgba(37,244,238,0.25)] transition active:scale-95 cursor-pointer"
+            title="Download dan Install Aplikasi Seller Profit ke HP"
+          >
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#25F4EE]" />
+            <span>Install</span>
           </button>
 
           <button
@@ -118,7 +137,7 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
         </p>
 
         {/* CTA Buttons */}
-        <div className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-center gap-3 w-full max-w-md justify-center">
+        <div className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-center gap-3 w-full max-w-lg justify-center">
           <button
             type="button"
             id="btn-login-hero-main"
@@ -132,11 +151,21 @@ export const AppHeroSection: React.FC<AppHeroSectionProps> = ({ onOpenLoginModal
 
           <button
             type="button"
+            id="btn-install-hero-main"
+            onClick={handleInstallClick}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#25F4EE]/20 to-[#00d0c7]/20 hover:from-[#25F4EE]/30 hover:to-[#00d0c7]/30 border-2 border-[#25F4EE]/50 hover:border-[#25F4EE] text-[#25F4EE] hover:text-white text-sm sm:text-base font-black tracking-wide flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(37,244,238,0.25)] transition active:scale-95 cursor-pointer"
+          >
+            <Download className="w-5 h-5 text-[#25F4EE]" />
+            <span>Install Aplikasi</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleScrollToFeatures}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-200 hover:text-white text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+            className="hidden lg:flex w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white text-sm font-bold items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
           >
             <Layers className="w-4 h-4 text-[#25F4EE]" />
-            <span>Pelajari Keunggulan</span>
+            <span>Keunggulan</span>
           </button>
         </div>
 
