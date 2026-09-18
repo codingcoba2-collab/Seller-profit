@@ -19,11 +19,32 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   onNotify,
 }) => {
   const currentCategory = CATEGORIES.find((c) => c.key === categoryKey) || CATEGORIES[0];
+  const CategoryIcon = currentCategory.icon;
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3 text-white font-sans">
-      {/* Sub-menu Feature Cards Grid: 2 ke samping pada layar mobile */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+      {/* Category Header Banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg flex items-center gap-3 sm:gap-4 relative overflow-hidden">
+        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 ${currentCategory.iconColor}`}>
+          <CategoryIcon className="w-6 h-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+              Kategori {currentCategory.title}
+            </h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+              {currentCategory.items.length} Modul
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1 sm:line-clamp-none">
+            {currentCategory.description}
+          </p>
+        </div>
+      </div>
+
+      {/* Sub-menu Feature Cards Grid: 2 ke samping */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {currentCategory.items.map((item) => {
           const accessible = isRouteAllowed(item.path, currentUser);
           const ItemIcon = item.icon;
@@ -39,7 +60,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                   onNotify?.('Akses menu ini dibatasi untuk peran Anda.', 'error');
                 }
               }}
-              className={`spatial-card relative group p-2.5 sm:p-3 rounded-2xl transition-all duration-200 flex items-center justify-between gap-2 sm:gap-2.5 border cursor-pointer overflow-hidden ${
+              className={`spatial-card relative group p-3 sm:p-3.5 rounded-2xl transition-all duration-200 flex flex-col justify-between gap-2.5 border cursor-pointer overflow-hidden ${
                 accessible
                   ? 'border-white/10 hover:border-[#25F4EE]/60 hover:shadow-[0_0_20px_rgba(37,244,238,0.22)] active:scale-[0.98]'
                   : 'border-white/5 opacity-50 cursor-not-allowed'
@@ -55,33 +76,36 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                 <NeonCorners variant="side-left" color="magenta" size="sm" />
               )}
 
-              {/* Left: Icon & Name Only */}
-              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 relative z-10 flex-1 overflow-hidden">
+              {/* Top Row: Icon & Status */}
+              <div className="flex items-center justify-between gap-2 relative z-10">
                 <div
-                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 group-hover:scale-105 transition-transform ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 group-hover:scale-105 transition-transform ${
                     accessible ? item.iconColor : 'text-zinc-500'
                   }`}
                 >
-                  <ItemIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  <ItemIcon className="w-4.5 h-4.5" />
                 </div>
 
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <MarqueeText
-                    text={item.title}
-                    className="text-xs sm:text-sm font-bold text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
-                  />
+                <div className="shrink-0">
+                  {accessible ? (
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all" />
+                  ) : (
+                    <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 bg-black/40 px-1.5 py-0.5 rounded-lg border border-zinc-700/40">
+                      <Lock className="w-3 h-3" />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Right: Chevron or Lock */}
-              <div className="shrink-0 relative z-10 pl-0.5">
-                {accessible ? (
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-500 group-hover:text-[#25F4EE] group-hover:translate-x-0.5 transition-all" />
-                ) : (
-                  <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 bg-black/40 px-1.5 py-0.5 rounded-lg border border-zinc-700/40">
-                    <Lock className="w-3 h-3" />
-                  </div>
-                )}
+              {/* Bottom: Title & Subtitle */}
+              <div className="min-w-0 relative z-10 space-y-0.5">
+                <MarqueeText
+                  text={item.title}
+                  className="text-xs sm:text-sm font-black text-white group-hover:text-[#25F4EE] transition-colors leading-tight"
+                />
+                <p className="text-[10px] sm:text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
+                  {item.subtitle}
+                </p>
               </div>
             </div>
           );

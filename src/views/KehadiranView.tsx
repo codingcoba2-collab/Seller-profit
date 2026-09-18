@@ -648,75 +648,83 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
         </div>
       </div>
 
-      {/* List of Attendance */}
-      <div className="bg-[#161823] rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-        <div className="p-3.5 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-          <h3 className="text-xs font-black text-white flex items-center gap-2">
+      {/* Card-Based Riwayat Kehadiran (Format Cashflow) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-[#25F4EE]" />
-            <span>Rekap Kehadiran Shift Tim</span>
+            <span>Rekap Riwayat Presensi Shift ({filteredList.length})</span>
           </h3>
+          <div className="text-[11px] text-zinc-400">
+            Terurut dari shift terbaru
+          </div>
         </div>
 
         {filteredList.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 text-xs">
+          <div className="text-center py-12 px-4 bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs shadow-sm">
             Belum ada catatan presensi shift pada periode ini.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b0c10]/60 text-zinc-400 border-b border-white/5">
-                <tr>
-                  <th className="p-3 font-semibold">Tanggal</th>
-                  <th className="p-3 font-semibold">Pegawai</th>
-                  <th className="p-3 font-semibold">Role Shift</th>
-                  <th className="p-3 font-semibold text-center">Durasi</th>
-                  <th className="p-3 font-semibold">Catatan</th>
-                  <th className="p-3 font-semibold text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredList.map(att => (
-                  <tr key={att.id} className="hover:bg-white/5 transition">
-                    <td className="p-3 whitespace-nowrap font-medium text-zinc-300">
-                      {formatDateIndo(att.date)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-bold text-white">
-                      {att.employeeName}
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {formatAttendanceRole(att.role || 'host')}
-                      </div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-center font-bold text-[#25F4EE]">
-                      {att.hoursWorked} jam
-                    </td>
-                    <td className="p-3 text-zinc-400 max-w-xs truncate">
-                      {att.notes || '-'}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-right space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(att)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                        title="Edit Presensi"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(att.id, `${att.employeeName} (${formatDateIndo(att.date)})`)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                        title="Hapus Presensi"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          filteredList.map(att => (
+            <div
+              key={att.id}
+              className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+            >
+              {/* Top Row: Date Badge & Duration Badge on Left, Action Buttons on Right */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                    {formatDateIndo(att.date)}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+                    ⏱️ {att.hoursWorked} Jam Shift
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(att)}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                    title="Edit Presensi"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(att.id, `${att.employeeName} (${formatDateIndo(att.date)})`)}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                    title="Hapus Presensi"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Row: Pegawai Name on Left, Role Shift Badge on Right */}
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <div className="text-base sm:text-lg font-black text-white tracking-tight">
+                    {att.employeeName}
+                  </div>
+                </div>
+
+                <div className="text-right min-w-0 flex-1 flex justify-end">
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    {formatAttendanceRole(att.role || 'host')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Row: Catatan / Keterangan if present */}
+              {att.notes && (
+                <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
+                  <span className="text-zinc-500 font-medium">Catatan: </span>
+                  <span>{att.notes}</span>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
 

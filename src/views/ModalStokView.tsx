@@ -832,15 +832,15 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             </button>
           </div>
 
-          {/* Sisa Stok Bar */}
-          <div className="flex items-center justify-between bg-[#161823] p-4 rounded-3xl border border-white/10 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-                <Layers className="w-5 h-5" />
+          {/* Sisa Stok Bar (Ringkas & Kompak) */}
+          <div className="flex items-center justify-between bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
+                <Layers className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
-                <div className="text-lg font-black text-white">
+                <div className="text-[10px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
+                <div className="text-sm sm:text-base font-black text-white">
                   {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs pakaian</span>
                 </div>
               </div>
@@ -850,47 +850,47 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             </div>
           </div>
 
-          {/* Summary metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-1">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Pcs Masuk</div>
-              <div className="text-xl font-black text-white">
+          {/* Summary metrics (Kompak sesuai standar) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-0.5">
+              <div className="text-[10px] font-semibold text-zinc-400">Total Pcs Masuk</div>
+              <div className="text-sm sm:text-base font-black text-white">
                 {formatNumber(stockInfo.totalPcsIn)} <span className="text-xs font-normal text-zinc-400">pcs</span>
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-1">
-              <div className="text-[11px] font-semibold text-zinc-400">Total Pcs Terjual</div>
-              <div className="text-xl font-black text-emerald-400">
+            <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-0.5">
+              <div className="text-[10px] font-semibold text-zinc-400">Total Pcs Terjual</div>
+              <div className="text-sm sm:text-base font-black text-emerald-400">
                 {formatNumber(stockInfo.totalPcsSold)} <span className="text-xs font-normal text-zinc-400">pcs</span>
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-1">
-              <div className="text-[11px] font-semibold text-zinc-400">Sisa Stok Fisik</div>
-              <div className="text-xl font-black text-[#25F4EE]">
+            <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-0.5">
+              <div className="text-[10px] font-semibold text-zinc-400">Sisa Stok Fisik</div>
+              <div className="text-sm sm:text-base font-black text-[#25F4EE]">
                 {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs</span>
               </div>
             </div>
 
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-1">
-              <div className="text-[11px] font-semibold text-zinc-400">Rata-Rata HPP / Pcs</div>
-              <div className="text-xl font-black text-amber-300">
+            <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-0.5">
+              <div className="text-[10px] font-semibold text-zinc-400">Rata-Rata HPP / Pcs</div>
+              <div className="text-sm sm:text-base font-black text-amber-300">
                 {formatRupiah(hppInfo.weightedAverageHpp)}
               </div>
             </div>
           </div>
 
           {/* Filter Bar */}
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-2.5">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Cari nama stok / kode seri / supplier..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:border-[#25F4EE]"
               />
             </div>
 
@@ -908,7 +908,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                     label: val,
                   })),
                 ]}
-                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                className="px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
               />
 
               {/* Period Filter */}
@@ -923,110 +923,119 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                   { value: 'weekly', label: '7 Hari Terakhir' },
                   { value: 'monthly', label: 'Bulan Ini' },
                 ]}
-                className="px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                className="px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
               />
             </div>
           </div>
 
-          {/* Table List */}
-          <div className="rounded-3xl bg-[#161823] border border-white/10 shadow-2xl overflow-hidden">
-            <div className="p-4 bg-[#0b0c10] border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+          {/* Card-Based Riwayat Pembelian Stok & HPP (Format Cashflow) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#25F4EE]" />
                 <span>Riwayat Pembelian Stok &amp; HPP ({filteredList.length})</span>
               </h3>
+              <div className="text-[11px] text-zinc-400">
+                Terurut dari transaksi terbaru
+              </div>
             </div>
 
             {filteredList.length === 0 ? (
-              <div className="p-8 text-center text-xs text-zinc-500">
-                Belum ada data stok fashion yang tersimpan.
+              <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs shadow-sm">
+                Belum ada data stok fashion yang tersimpan pada filter ini.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-zinc-300">
-                  <thead className="bg-[#0b0c10] text-[11px] uppercase tracking-wider text-zinc-400 font-bold border-b border-white/10">
-                    <tr>
-                      <th className="px-4 py-3.5">Tanggal &amp; Nama Stok</th>
-                      <th className="px-4 py-3.5">Kategori &amp; Satuan</th>
-                      <th className="px-4 py-3.5 text-right">Modal Beli</th>
-                      <th className="px-4 py-3.5 text-right">Ongkir &amp; Finishing</th>
-                      <th className="px-4 py-3.5 text-right">Isi (Pcs)</th>
-                      <th className="px-4 py-3.5 text-right">HPP / Pcs</th>
-                      <th className="px-4 py-3.5 text-center">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredList.map(item => (
-                      <tr key={item.id} className="hover:bg-white/5 transition">
-                        <td className="px-4 py-3.5">
-                          <div className="font-bold text-white">{item.ballType}</div>
-                          <div className="text-[10px] text-zinc-400 mt-0.5">{formatDateIndo(item.date)}</div>
-                          {item.notes && (
-                            <div className="text-[10px] text-zinc-500 mt-0.5">📝 {item.notes}</div>
-                          )}
-                        </td>
+              filteredList.map(item => {
+                const totalAdditionalCost = (item.shippingCost || 0) + (item.steamCost || 0) + (item.sortirCost || 0);
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+                  >
+                    {/* Top Row: Date Badge & Category Tag on Left, Action Buttons on Right */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                          {formatDateIndo(item.date)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+                          {fashionCategoryLabels[item.category as FashionCategory] || item.category || 'Fashion'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-400">
+                          {inventoryUnitLabels[item.unitType as InventoryUnitType] || item.unitType || 'Ball'}
+                        </span>
+                      </div>
 
-                        <td className="px-4 py-3.5">
-                          <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
-                            {fashionCategoryLabels[item.category as FashionCategory] || item.category || 'Fashion'}
-                          </span>
-                          <div className="text-[10px] text-zinc-400 mt-1">
-                            {inventoryUnitLabels[item.unitType as InventoryUnitType] || item.unitType || 'Ball Karung'}
-                          </div>
-                        </td>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(item)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                          title="Edit Data Stok"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id, item.ballType)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                          title="Hapus Data Stok"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
 
-                        <td className="px-4 py-3.5 text-right font-bold text-white">
+                    {/* Main Row: Modal Beli on Left, Nama Stok & HPP info on Right */}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div>
+                        <div className="text-base sm:text-lg font-black text-[#25F4EE] tracking-tight">
                           {formatRupiah(item.modalPrice)}
-                        </td>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                          Total Qty: <strong className="text-white font-bold">{formatNumber(item.pcsCount)} pcs</strong>
+                        </div>
+                      </div>
 
-                        <td className="px-4 py-3.5 text-right text-zinc-400">
-                          {formatRupiah((item.shippingCost || 0) + (item.steamCost || 0) + (item.sortirCost || 0))}
-                        </td>
+                      <div className="text-right min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-bold text-white truncate">
+                          {item.ballType}
+                        </div>
+                        <div className="text-[11px] text-amber-300 font-bold mt-0.5">
+                          HPP: {formatRupiah(item.hppPerPcs)} / pcs
+                        </div>
+                      </div>
+                    </div>
 
-                        <td className="px-4 py-3.5 text-right font-bold text-white">
-                          <div>{formatNumber(item.pcsCount)} pcs</div>
-                          {item.sizes && item.sizes.length > 0 && (
-                            <div className="flex flex-wrap justify-end gap-1 mt-1">
-                              {item.sizes.map(sz => (
-                                <span key={sz} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
-                                  {sz}{item.sizeBreakdown?.[sz] !== undefined ? `: ${item.sizeBreakdown[sz]}` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right">
-                          <span className="font-black text-[#25F4EE]">
-                            {formatRupiah(item.hppPerPcs)}
+                    {/* Bottom Row: Additional Cost, Sizes & Notes */}
+                    <div className="pt-1.5 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-zinc-400 leading-snug">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {totalAdditionalCost > 0 && (
+                          <span>
+                            Ongkir &amp; Finishing: <b className="text-zinc-300">{formatRupiah(totalAdditionalCost)}</b>
                           </span>
-                        </td>
+                        )}
+                        {item.sizes && item.sizes.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span>• Size:</span>
+                            {item.sizes.map(sz => (
+                              <span key={sz} className="px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-[10px] text-zinc-300">
+                                {sz}{item.sizeBreakdown?.[sz] !== undefined ? `:${item.sizeBreakdown[sz]}` : ''}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </div>
 
-                        <td className="px-4 py-3.5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleStartEdit(item)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-zinc-300 hover:text-[#25F4EE] transition cursor-pointer"
-                              title="Edit Data Stok"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(item.id, item.ballType)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-zinc-400 hover:text-[#FE2C55] transition cursor-pointer"
-                              title="Hapus Data Stok"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      {item.notes && (
+                        <div className="text-zinc-500 italic truncate max-w-xs">
+                          📝 {item.notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

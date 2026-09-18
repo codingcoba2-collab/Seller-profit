@@ -124,6 +124,10 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [sizeBreakdown, setSizeBreakdown] = useState<{ [size: string]: number }>({ S: 10, M: 15, L: 15, XL: 10 });
   const [sizeNotes, setSizeNotes] = useState<string>('');
 
+  // FORM STEPPERS: Standardisasi Navigasi 'Selanjutnya'
+  const [liveFormStep, setLiveFormStep] = useState<number>(1);
+  const [nonLiveFormStep, setNonLiveFormStep] = useState<number>(1);
+
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const todayStr = getTodayString();
 
@@ -231,6 +235,8 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     const admins = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
     setSelectedAdminIds(admins.length > 0 ? [admins[0].id] : []);
     setSelectedCashierAdminIds(admins.length > 0 ? [admins[0].id] : []);
+    setLiveFormStep(1);
+    setNonLiveFormStep(1);
     setErrorMessage('');
   };
 
@@ -240,6 +246,8 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       return;
     }
 
+    setLiveFormStep(1);
+    setNonLiveFormStep(1);
     setEditingId(sale.id);
     setDate(sale.date);
     setCategory((sale.category as FashionCategory) || 'pakaian_jadi');
@@ -319,6 +327,44 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       };
     }).filter(Boolean) as { emp: Employee; res: ReturnType<typeof calculateHostIncentiveForSale>; hostCfg: any }[];
   }, [viewMode, selectedHostIds, saleFormat, pcsSold, packagesSold, omzet, satuanPcs, satuanPackages, bundlingPcs, bundlingPackages, employees]);
+
+  const handleNextLiveStep = () => {
+    setErrorMessage('');
+    if (liveFormStep === 1) {
+      if (selectedHostIds.length === 0) {
+        setErrorMessage('Pilih minimal 1 host live yang bertugas!');
+        return;
+      }
+      setLiveFormStep(2);
+    } else if (liveFormStep === 2) {
+      if (omzet <= 0) {
+        setErrorMessage('Nominal omzet penjualan live harus lebih dari Rp 0!');
+        return;
+      }
+      setLiveFormStep(3);
+    }
+  };
+
+  const handlePrevLiveStep = () => {
+    setErrorMessage('');
+    if (liveFormStep > 1) {
+      setLiveFormStep(prev => prev - 1);
+    }
+  };
+
+  const handleNextNonLiveStep = () => {
+    setErrorMessage('');
+    if (nonLiveFormStep === 1) {
+      setNonLiveFormStep(2);
+    }
+  };
+
+  const handlePrevNonLiveStep = () => {
+    setErrorMessage('');
+    if (nonLiveFormStep > 1) {
+      setNonLiveFormStep(prev => prev - 1);
+    }
+  };
 
   const handleSubmitLive = (e: React.FormEvent) => {
     e.preventDefault();
@@ -812,62 +858,62 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
       {viewMode === 'rekap' && (
         <div className="space-y-3.5 sm:space-y-4">
-          {/* Key Metric Highlights */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Key Metric Highlights (Compact Modern) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* Total Omzet */}
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1 relative overflow-hidden">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1 relative overflow-hidden">
               <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
                 <span>Total Omzet Penjualan</span>
-                <TrendingUp className="w-4 h-4 text-[#25F4EE]" />
+                <TrendingUp className="w-3.5 h-3.5 text-[#25F4EE]" />
               </div>
-              <div className="text-xl sm:text-2xl font-black text-white">
+              <div className="text-base sm:text-lg font-black text-white">
                 {formatRupiah(metrics.totalOmzet)}
               </div>
-              <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-400 font-medium">
-                <span className="text-[#FE2C55] font-bold">🔴 Live: {formatRupiah(metrics.liveOmzet)}</span>
+              <div className="flex items-center gap-1.5 pt-0.5 text-[10px] text-zinc-400 font-medium truncate">
+                <span className="text-[#FE2C55] font-bold">Live: {formatRupiah(metrics.liveOmzet)}</span>
                 <span>•</span>
-                <span className="text-emerald-400 font-bold">🏪 Non-Live: {formatRupiah(metrics.nonLiveOmzet)}</span>
+                <span className="text-emerald-400 font-bold">Non-Live: {formatRupiah(metrics.nonLiveOmzet)}</span>
               </div>
             </div>
 
             {/* Total Pcs Terjual */}
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
               <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Total Pcs Barang Terjual</span>
-                <PackageCheck className="w-4 h-4 text-emerald-400" />
+                <span>Pcs Terjual</span>
+                <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />
               </div>
-              <div className="text-xl sm:text-2xl font-black text-white">
+              <div className="text-base sm:text-lg font-black text-white">
                 {formatNumber(metrics.totalPcs)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
               </div>
-              <div className="text-[10px] text-zinc-400 pt-1">
-                Dari total <strong className="text-zinc-200">{formatNumber(metrics.totalPackages)}</strong> paket / order
+              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
+                Total <strong className="text-zinc-200">{formatNumber(metrics.totalPackages)}</strong> paket / order
               </div>
             </div>
 
             {/* Rata-Rata Order */}
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
               <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Rata-Rata per Order (AOV)</span>
-                <CreditCard className="w-4 h-4 text-amber-400" />
+                <span>Rata-Rata AOV</span>
+                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
               </div>
-              <div className="text-xl sm:text-2xl font-black text-amber-300">
+              <div className="text-base sm:text-lg font-black text-amber-300">
                 {formatRupiah(metrics.avgBasketSize)}
               </div>
-              <div className="text-[10px] text-zinc-400 pt-1">
-                Rata-rata volume: <strong className="text-zinc-200">{metrics.avgPcsPerOrder} pcs/paket</strong>
+              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
+                Rata-rata: <strong className="text-zinc-200">{metrics.avgPcsPerOrder} pcs/paket</strong>
               </div>
             </div>
 
             {/* Biaya Iklan & Koin */}
-            <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-1">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
               <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Biaya Iklan &amp; Koin/Diskon</span>
-                <Megaphone className="w-4 h-4 text-[#FE2C55]" />
+                <span>Iklan &amp; Koin</span>
+                <Megaphone className="w-3.5 h-3.5 text-[#FE2C55]" />
               </div>
-              <div className="text-xl sm:text-2xl font-black text-[#FE2C55]">
+              <div className="text-base sm:text-lg font-black text-[#FE2C55]">
                 {formatRupiah(metrics.totalAds + metrics.totalCoin)}
               </div>
-              <div className="text-[10px] text-zinc-400 pt-1">
+              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
                 Ads: {formatRupiah(metrics.totalAds)} • Koin: {formatRupiah(metrics.totalCoin)}
               </div>
             </div>
@@ -1171,856 +1217,1038 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         </div>
       )}
 
-      {/* ================= TAB 2: INPUT PENJUALAN LIVE ================= */}
+      {/* ================= TAB 2: INPUT PENJUALAN LIVE (WIZARD STEPPER) ================= */}
       {viewMode === 'input_live' && (
-        <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <Video className="w-5 h-5 text-[#FE2C55]" />
-              <span>{editingId ? 'Edit Data Sesi Live Streaming' : 'Input Penjualan Live Marketplace'}</span>
-            </h3>
-            {editingId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
-              >
-                Batal Edit
-              </button>
-            )}
+        <div className="space-y-4 max-w-4xl mx-auto">
+          {/* Header & Sub-step Info */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali ke Rekap</span>
+            </button>
+            <div className="text-xs font-bold text-[#FE2C55] flex items-center gap-1.5">
+              <span>{editingId ? 'Edit Data Sesi Live' : 'Input Penjualan Live'}</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-400">Tahap {liveFormStep}/3</span>
+            </div>
           </div>
 
-          {errorMessage && (
-            <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmitLive} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Tanggal */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Tanggal Live <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium disabled:opacity-50"
-                  required
-                />
-              </div>
-
-              {/* Channel Live */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Platform Live Streaming <span className="text-[#FE2C55]">*</span>
-                </label>
-                <ThemedSelect
-                  value={liveChannel}
-                  onChange={val => setLiveChannel(val as SalesChannel)}
-                  title="Pilih Platform Live Streaming"
-                  color="magenta"
-                  options={[
-                    { value: 'tiktok_live', label: 'TikTok Live' },
-                    { value: 'shopee_live', label: 'Shopee Live' },
-                    { value: 'tokopedia_live', label: 'Tokopedia Live' },
-                    { value: 'instagram_live', label: 'Instagram Live' },
-                  ]}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Kategori Fashion */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Kategori Produk Fashion yang Dijual
-                </label>
-                <ThemedSelect
-                  value={category}
-                  onChange={val => setCategory(val as FashionCategory)}
-                  title="Pilih Kategori Produk Fashion"
-                  color="cyan"
-                  options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
-                    value: key,
-                    label: val,
-                  }))}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-            </div>
-
-            {/* Pemilihan Host Live (Bisa Multi Host) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-zinc-300">
-                  Pilih Host Live yang Bertugas <span className="text-[#FE2C55]">*</span>
-                </label>
-                <span className="text-[10px] text-zinc-400">
-                  {selectedHostIds.length} Host Terpilih
-                </span>
-              </div>
-              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-                {hostEmployees.map(emp => {
-                  const isSelected = selectedHostIds.includes(emp.id);
-                  return (
-                    <FuturisticEmployeeCard
-                      key={emp.id}
-                      id={`card-host-emp-${emp.id}`}
-                      name={emp.name}
-                      username={emp.username}
-                      roleLabel="Host Live"
-                      isSelected={isSelected}
-                      color="magenta"
-                      variant="checkbox"
-                      onClick={() => toggleHost(emp.id)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Pemilihan Admin Toko Pendamping */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-zinc-300">
-                  Pilih Admin Catat &amp; Packing (Opsional)
-                </label>
-                <span className="text-[10px] text-zinc-400">
-                  {selectedAdminIds.length} Admin Terpilih
-                </span>
-              </div>
-              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-                {adminEmployees.map(emp => {
-                  const isSelected = selectedAdminIds.includes(emp.id);
-                  return (
-                    <FuturisticEmployeeCard
-                      key={emp.id}
-                      id={`card-admin-live-emp-${emp.id}`}
-                      name={emp.name}
-                      username={emp.username}
-                      roleLabel="Admin Toko"
-                      isSelected={isSelected}
-                      color="cyan"
-                      variant="checkbox"
-                      onClick={() => toggleAdmin(emp.id)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Opsi Jual Satuan atau Bundling (Penentu Perhitungan Insentif) */}
-            <div className="space-y-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <label className="block text-xs font-black text-white flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Format Penjualan Live (Opsi Satuan / Bundling)</span>
-                  <span className="text-[#FE2C55]">*</span>
-                </label>
-                <span className="text-[10px] text-zinc-400 font-medium">
-                  Insentif Host Live dihitung otomatis berdasarkan opsi yang dipilih
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* Opsi Bundling */}
+          {/* Stepper Progress Bar */}
+          <div className="grid grid-cols-3 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
+            {[
+              { step: 1, label: 'Platform & Tim Host', icon: '🎤' },
+              { step: 2, label: 'Hasil Penjualan Live', icon: '💰' },
+              { step: 3, label: 'Ukuran & Insentif', icon: '🏷️' },
+            ].map(item => {
+              const isActive = liveFormStep === item.step;
+              const isDone = liveFormStep > item.step;
+              return (
                 <button
+                  key={item.step}
                   type="button"
-                  onClick={() => setSaleFormat('bundling')}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                    saleFormat === 'bundling'
-                      ? 'bg-amber-500/15 border-amber-400 text-white shadow-lg shadow-amber-500/10 ring-1 ring-amber-400'
-                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                  onClick={() => {
+                    if (isDone || item.step <= liveFormStep) {
+                      setLiveFormStep(item.step);
+                    }
+                  }}
+                  title={`${item.step}. ${item.label}`}
+                  className={`p-2 sm:p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
+                    isActive
+                      ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-[#FE2C55] font-black'
+                      : isDone
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
-                      📦 Jual Bundling (Paket)
-                    </span>
-                    {saleFormat === 'bundling' && <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />}
-                  </div>
-                  <p className="text-[10px] text-zinc-400 leading-relaxed">
-                    Sesi live menjual paket bundling. Insentif host dihitung per paket dan tarif berjenjang bundling.
-                  </p>
+                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
+                  <span className="hidden sm:inline font-bold">{item.label}</span>
                 </button>
+              );
+            })}
+          </div>
 
-                {/* Opsi Satuan */}
+          <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Video className="w-5 h-5 text-[#FE2C55]" />
+                <span>
+                  {liveFormStep === 1 && 'Tahap 1: Platform & Petugas Live Bertugas'}
+                  {liveFormStep === 2 && 'Tahap 2: Hasil Sesi Penjualan & Biaya Live'}
+                  {liveFormStep === 3 && 'Tahap 3: Rincian Ukuran Terjual & Sinkronisasi Insentif'}
+                </span>
+              </h3>
+              {editingId && (
                 <button
                   type="button"
-                  onClick={() => setSaleFormat('satuan')}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                    saleFormat === 'satuan'
-                      ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-lg shadow-[#25F4EE]/10 ring-1 ring-[#25F4EE]'
-                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
-                  }`}
+                  onClick={handleCancelEdit}
+                  className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-black text-[#25F4EE] flex items-center gap-1.5">
-                      🏷️ Jual Satuan (Pcs)
-                    </span>
-                    {saleFormat === 'satuan' && <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0" />}
-                  </div>
-                  <p className="text-[10px] text-zinc-400 leading-relaxed">
-                    Sesi live menjual produk eceran/satuan. Insentif host dihitung per pcs dan tarif berjenjang satuan.
-                  </p>
+                  Batal Edit
                 </button>
+              )}
+            </div>
 
-                {/* Opsi Campuran */}
-                <button
-                  type="button"
-                  onClick={() => setSaleFormat('campuran')}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                    saleFormat === 'campuran'
-                      ? 'bg-purple-500/15 border-purple-400 text-white shadow-lg shadow-purple-500/10 ring-1 ring-purple-400'
-                      : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
-                      🔀 Campuran Satuan &amp; Bundling
-                    </span>
-                    {saleFormat === 'campuran' && <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />}
-                  </div>
-                  <p className="text-[10px] text-zinc-400 leading-relaxed">
-                    Sesi live menjual kombinasi produk satuan dan paket bundling sekaligus.
-                  </p>
-                </button>
+            {errorMessage && (
+              <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
+            )}
 
-              {/* Rincian Porsi jika Campuran */}
-              {saleFormat === 'campuran' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10">
-                  <div className="p-3.5 rounded-2xl bg-black/40 border border-[#25F4EE]/20 space-y-2">
-                    <span className="text-xs font-bold text-[#25F4EE]">🏷️ Porsi Jual Satuan</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-zinc-400 block mb-1">Pcs Satuan</label>
-                        <CommaNumberInput
-                          value={satuanPcs}
-                          onChange={setSatuanPcs}
-                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-400 block mb-1">Paket/Order Satuan</label>
-                        <CommaNumberInput
-                          value={satuanPackages}
-                          onChange={setSatuanPackages}
-                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
-                          placeholder="0"
-                        />
-                      </div>
+            <form onSubmit={handleSubmitLive} className="space-y-6">
+              {/* TAHAP 1: PLATFORM & PETUGAS */}
+              {liveFormStep === 1 && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Tanggal */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Tanggal Live <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                        disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-[#25F4EE] font-medium disabled:opacity-50"
+                        required
+                      />
+                    </div>
+
+                    {/* Channel Live */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Platform Live Streaming <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <ThemedSelect
+                        value={liveChannel}
+                        onChange={val => setLiveChannel(val as SalesChannel)}
+                        title="Pilih Platform Live Streaming"
+                        color="magenta"
+                        options={[
+                          { value: 'tiktok_live', label: 'TikTok Live' },
+                          { value: 'shopee_live', label: 'Shopee Live' },
+                          { value: 'tokopedia_live', label: 'Tokopedia Live' },
+                          { value: 'instagram_live', label: 'Instagram Live' },
+                        ]}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                      />
+                    </div>
+
+                    {/* Kategori Fashion */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Kategori Produk Fashion yang Dijual
+                      </label>
+                      <ThemedSelect
+                        value={category}
+                        onChange={val => setCategory(val as FashionCategory)}
+                        title="Pilih Kategori Produk Fashion"
+                        color="cyan"
+                        options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                          value: key,
+                          label: val,
+                        }))}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                      />
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl bg-black/40 border border-amber-500/20 space-y-2">
-                    <span className="text-xs font-bold text-amber-300">📦 Porsi Jual Bundling</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-zinc-400 block mb-1">Pcs Bundling</label>
-                        <CommaNumberInput
-                          value={bundlingPcs}
-                          onChange={setBundlingPcs}
-                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
-                          placeholder="0"
-                        />
+                  {/* Pemilihan Host Live (Bisa Multi Host) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-zinc-300">
+                        Pilih Host Live yang Bertugas <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <span className="text-[10px] text-zinc-400">
+                        {selectedHostIds.length} Host Terpilih
+                      </span>
+                    </div>
+                    {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                      {hostEmployees.map(emp => {
+                        const isSelected = selectedHostIds.includes(emp.id);
+                        return (
+                          <FuturisticEmployeeCard
+                            key={emp.id}
+                            id={`card-host-emp-${emp.id}`}
+                            name={emp.name}
+                            username={emp.username}
+                            roleLabel="Host Live"
+                            isSelected={isSelected}
+                            color="magenta"
+                            variant="checkbox"
+                            onClick={() => toggleHost(emp.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Pemilihan Admin Toko Pendamping */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-zinc-300">
+                        Pilih Admin Catat &amp; Packing (Opsional)
+                      </label>
+                      <span className="text-[10px] text-zinc-400">
+                        {selectedAdminIds.length} Admin Terpilih
+                      </span>
+                    </div>
+                    {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                      {adminEmployees.map(emp => {
+                        const isSelected = selectedAdminIds.includes(emp.id);
+                        return (
+                          <FuturisticEmployeeCard
+                            key={emp.id}
+                            id={`card-admin-live-emp-${emp.id}`}
+                            name={emp.name}
+                            username={emp.username}
+                            roleLabel="Admin Toko"
+                            isSelected={isSelected}
+                            color="cyan"
+                            variant="checkbox"
+                            onClick={() => toggleAdmin(emp.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Opsi Jual Satuan atau Bundling (Penentu Perhitungan Insentif) */}
+                  <div className="space-y-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <label className="block text-xs font-black text-white flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-[#25F4EE]" />
+                        <span>Format Penjualan Live (Opsi Satuan / Bundling)</span>
+                        <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <span className="text-[10px] text-zinc-400 font-medium">
+                        Insentif Host Live dihitung otomatis berdasarkan opsi yang dipilih
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Opsi Bundling */}
+                      <button
+                        type="button"
+                        onClick={() => setSaleFormat('bundling')}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                          saleFormat === 'bundling'
+                            ? 'bg-amber-500/15 border-amber-400 text-white shadow-lg shadow-amber-500/10 ring-1 ring-amber-400'
+                            : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                            📦 Jual Bundling (Paket)
+                          </span>
+                          {saleFormat === 'bundling' && <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed">
+                          Sesi live menjual paket bundling. Insentif host dihitung per paket dan tarif berjenjang bundling.
+                        </p>
+                      </button>
+
+                      {/* Opsi Satuan */}
+                      <button
+                        type="button"
+                        onClick={() => setSaleFormat('satuan')}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                          saleFormat === 'satuan'
+                            ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-white shadow-lg shadow-[#25F4EE]/10 ring-1 ring-[#25F4EE]'
+                            : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-black text-[#25F4EE] flex items-center gap-1.5">
+                            🏷️ Jual Satuan (Pcs)
+                          </span>
+                          {saleFormat === 'satuan' && <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed">
+                          Sesi live menjual produk eceran/satuan. Insentif host dihitung per pcs dan tarif berjenjang satuan.
+                        </p>
+                      </button>
+
+                      {/* Opsi Campuran */}
+                      <button
+                        type="button"
+                        onClick={() => setSaleFormat('campuran')}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                          saleFormat === 'campuran'
+                            ? 'bg-purple-500/15 border-purple-400 text-white shadow-lg shadow-purple-500/10 ring-1 ring-purple-400'
+                            : 'bg-[#161823] border-white/10 text-zinc-400 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                            🔀 Campuran Satuan &amp; Bundling
+                          </span>
+                          {saleFormat === 'campuran' && <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed">
+                          Sesi live menjual kombinasi produk satuan dan paket bundling sekaligus.
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Rincian Porsi jika Campuran */}
+                    {saleFormat === 'campuran' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                        <div className="p-3.5 rounded-2xl bg-black/40 border border-[#25F4EE]/20 space-y-2">
+                          <span className="text-xs font-bold text-[#25F4EE]">🏷️ Porsi Jual Satuan</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1">Pcs Satuan</label>
+                              <CommaNumberInput
+                                value={satuanPcs}
+                                onChange={setSatuanPcs}
+                                className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1">Paket/Order Satuan</label>
+                              <CommaNumberInput
+                                value={satuanPackages}
+                                onChange={setSatuanPackages}
+                                className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-black/40 border border-amber-500/20 space-y-2">
+                          <span className="text-xs font-bold text-amber-300">📦 Porsi Jual Bundling</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1">Pcs Bundling</label>
+                              <CommaNumberInput
+                                value={bundlingPcs}
+                                onChange={setBundlingPcs}
+                                className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-zinc-400 block mb-1">Paket Bundling</label>
+                              <CommaNumberInput
+                                value={bundlingPackages}
+                                onChange={setBundlingPackages}
+                                className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-400 block mb-1">Paket Bundling</label>
-                        <CommaNumberInput
-                          value={bundlingPackages}
-                          onChange={setBundlingPackages}
-                          className="w-full px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white"
-                          placeholder="0"
-                        />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAHAP 2: HASIL SESI PENJUALAN & BIAYA */}
+              {liveFormStep === 2 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Omzet */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Total Omzet Live (Rp) <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={omzet}
+                        onChange={setOmzet}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-[#25F4EE] focus:outline-hidden focus:border-[#25F4EE]"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Pcs Terjual */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={pcsSold}
+                        onChange={setPcsSold}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Paket Terjual */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Jumlah Paket Terjual <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={packagesSold}
+                        onChange={setPackagesSold}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Durasi Jam Live */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Durasi Live (Jam)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        value={hoursWorked}
+                        onChange={e => setHoursWorked(parseFloat(e.target.value) || 0)}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                      />
+                    </div>
+
+                    {/* Saldo Iklan Terpakai */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Biaya Iklan Live (Rp)
+                      </label>
+                      <CommaNumberInput
+                        value={adsUsed}
+                        onChange={setAdsUsed}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                        placeholder="0"
+                      />
+                      <div className="text-[10px] text-zinc-500 mt-1">
+                        Sisa saldo ads: {formatRupiah(adsCoinInfo.remainingAds)}
+                      </div>
+                    </div>
+
+                    {/* Saldo Koin Terpakai */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Biaya Koin Live (Rp)
+                      </label>
+                      <CommaNumberInput
+                        value={coinUsed}
+                        onChange={setCoinUsed}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
+                        placeholder="0"
+                      />
+                      <div className="text-[10px] text-zinc-500 mt-1">
+                        Sisa saldo koin: {formatRupiah(adsCoinInfo.remainingCoin)}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Metrics Form Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
-              {/* Omzet */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Total Omzet Live (Rp) <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={omzet}
-                  onChange={setOmzet}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-[#25F4EE] focus:outline-hidden focus:border-[#25F4EE]"
-                  placeholder="0"
-                />
-              </div>
+              {/* TAHAP 3: VARIAN UKURAN & SINKRONISASI INSENTIF */}
+              {liveFormStep === 3 && (
+                <div className="space-y-4">
+                  {/* Varian Ukuran & Breakdown Size Terjual Live */}
+                  <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <span className="text-[#25F4EE]">🏷️</span>
+                          <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Pilih varian ukuran yang laku terjual pada sesi Live ini &amp; alokasikan jumlah pcs per size
+                        </p>
+                      </div>
 
-              {/* Pcs Terjual */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={pcsSold}
-                  onChange={setPcsSold}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
-                  placeholder="0"
-                />
-              </div>
-
-              {/* Paket Terjual */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Jumlah Paket Terjual <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={packagesSold}
-                  onChange={setPackagesSold}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
-                  placeholder="0"
-                />
-              </div>
-
-              {/* Durasi Jam Live */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Durasi Live (Jam)
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  value={hoursWorked}
-                  onChange={e => setHoursWorked(parseFloat(e.target.value) || 0)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
-                />
-              </div>
-
-              {/* Saldo Iklan Terpakai */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Biaya Iklan Live (Rp)
-                </label>
-                <CommaNumberInput
-                  value={adsUsed}
-                  onChange={setAdsUsed}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
-                  placeholder="0"
-                />
-                <div className="text-[10px] text-zinc-500 mt-1">
-                  Sisa saldo ads: {formatRupiah(adsCoinInfo.remainingAds)}
-                </div>
-              </div>
-
-              {/* Saldo Koin Terpakai */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Biaya Koin Live (Rp)
-                </label>
-                <CommaNumberInput
-                  value={coinUsed}
-                  onChange={setCoinUsed}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-[#25F4EE]"
-                  placeholder="0"
-                />
-                <div className="text-[10px] text-zinc-500 mt-1">
-                  Sisa saldo koin: {formatRupiah(adsCoinInfo.remainingCoin)}
-                </div>
-              </div>
-            </div>
-
-            {/* Varian Ukuran & Breakdown Size Terjual Live */}
-            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <span className="text-[#25F4EE]">🏷️</span>
-                    <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
-                  </div>
-                  <p className="text-[11px] text-zinc-400">
-                    Pilih varian ukuran yang laku terjual pada sesi Live ini &amp; alokasikan jumlah pcs per size
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={distributeSizesEvenly}
-                    className="text-[11px] font-bold text-[#25F4EE] hover:underline bg-[#25F4EE]/10 px-2.5 py-1 rounded-lg border border-[#25F4EE]/30 cursor-pointer"
-                  >
-                    ⚡ Bagi Rata Sesuai {pcsSold} Pcs
-                  </button>
-                </div>
-              </div>
-
-              {/* Size Tag Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
-                  const isChecked = selectedSizes.includes(sz);
-                  return (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => toggleSize(sz)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
-                        isChecked
-                          ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-sm'
-                          : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
-                      }`}
-                    >
-                      {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Numeric breakdown per size */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-                {selectedSizes.map(sz => (
-                  <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-[#25F4EE]">Size {sz}</span>
-                      <span className="text-zinc-400">pcs</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={distributeSizesEvenly}
+                          className="text-[11px] font-bold text-[#25F4EE] hover:underline bg-[#25F4EE]/10 px-2.5 py-1 rounded-lg border border-[#25F4EE]/30 cursor-pointer"
+                        >
+                          ⚡ Bagi Rata Sesuai {pcsSold} Pcs
+                        </button>
+                      </div>
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={sizeBreakdown[sz] ?? 0}
-                      onChange={e => setSizeBreakdown({
-                        ...sizeBreakdown,
-                        [sz]: Math.max(0, parseInt(e.target.value) || 0)
+
+                    {/* Size Tag Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
+                        const isChecked = selectedSizes.includes(sz);
+                        return (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => toggleSize(sz)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                              isChecked
+                                ? 'bg-[#25F4EE] text-zinc-950 border-[#25F4EE] shadow-sm'
+                                : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
+                            }`}
+                          >
+                            {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
+                          </button>
+                        );
                       })}
-                      className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-[#25F4EE]"
+                    </div>
+
+                    {/* Numeric breakdown per size */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                      {selectedSizes.map(sz => (
+                        <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-bold">
+                            <span className="text-[#25F4EE]">Size {sz}</span>
+                            <span className="text-zinc-400">pcs</span>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            value={sizeBreakdown[sz] ?? 0}
+                            onChange={e => setSizeBreakdown({
+                              ...sizeBreakdown,
+                              [sz]: Math.max(0, parseInt(e.target.value) || 0)
+                            })}
+                            className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-[#25F4EE]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total allocation indicator */}
+                    <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+                      <span>
+                        Total size teralokasi:{' '}
+                        <strong className="text-white">
+                          {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                        </strong>
+                      </span>
+                      <span>
+                        Target total pcs live:{' '}
+                        <strong className="text-[#25F4EE]">{pcsSold} pcs</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Catatan Sesi */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Catatan Sesi Live (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder="Misal: Tema Flash Sale Baju Rajut, Launching Koleksi Baru, dll."
+                      className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
                     />
                   </div>
-                ))}
-              </div>
 
-              {/* Total allocation indicator */}
-              <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
-                <span>
-                  Total size teralokasi:{' '}
-                  <strong className="text-white">
-                    {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
-                  </strong>
-                </span>
-                <span>
-                  Target total pcs live:{' '}
-                  <strong className="text-[#25F4EE]">{pcsSold} pcs</strong>
-                </span>
-              </div>
-            </div>
-
-            {/* Catatan Sesi */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                Catatan Sesi Live (Opsional)
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Misal: Tema Flash Sale Baju Rajut, Launching Koleksi Baru, dll."
-                className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
-              />
-            </div>
-
-            {/* Live Preview Estimasi Insentif Host Sinkron dengan Setting Pegawai */}
-            {liveIncentivePreview.length > 0 && (
-              <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#25F4EE]" />
-                    <span className="text-xs font-black text-white">
-                      Sinkronisasi Insentif Host Live
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
-                    {saleFormat === 'satuan' ? '🏷️ Format Satuan' : saleFormat === 'bundling' ? '📦 Format Bundling' : '🔀 Format Campuran'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {liveIncentivePreview.map(({ emp, res, hostCfg }) => {
-                    const hasSeparate = Boolean(hostCfg?.hasSeparateBundlingSatuan);
-                    const activeRate = saleFormat === 'satuan' 
-                      ? (hasSeparate ? (hostCfg?.satuanRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0))
-                      : (hasSeparate ? (hostCfg?.bundlingRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0));
-
-                    return (
-                      <div key={emp.id} className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-[#25F4EE]">{emp.name}</span>
-                          <span className="text-xs font-black text-emerald-400">
-                            + {formatRupiah(res.totalIncentive)}
+                  {/* Live Preview Estimasi Insentif Host Sinkron dengan Setting Pegawai */}
+                  {liveIncentivePreview.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-[#25F4EE]" />
+                          <span className="text-xs font-black text-white">
+                            Sinkronisasi Insentif Host Live
                           </span>
                         </div>
-
-                        <div className="text-[11px] text-zinc-300 space-y-1">
-                          <div className="flex items-center justify-between text-zinc-400 text-[10px]">
-                            <span>Tarif Profil Pegawai:</span>
-                            <span className="text-white font-bold">
-                              {saleFormat === 'satuan'
-                                ? `Satuan: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.satuanIncentiveType === 'per_package_sold' ? 'paket' : 'pcs'}`
-                                : saleFormat === 'bundling'
-                                ? `Bundling: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.bundlingIncentiveType === 'per_pcs_sold' ? 'pcs' : 'paket'}`
-                                : `Satuan @ Rp ${(hostCfg?.satuanRate || 0).toLocaleString('id-ID')} • Bundling @ Rp ${(hostCfg?.bundlingRate || 0).toLocaleString('id-ID')}`}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-zinc-400">
-                            {res.desc}
-                          </div>
-                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
+                          {saleFormat === 'satuan' ? '🏷️ Format Satuan' : saleFormat === 'bundling' ? '📦 Format Bundling' : '🔀 Format Campuran'}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
 
-                <div className="text-[10px] text-zinc-400 flex items-center gap-1.5 pt-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#25F4EE] shrink-0" />
-                  <span>
-                    Tarif di atas disinkronkan secara otomatis dari <b>Menu Pendaftaran Pegawai &amp; Akses</b>. Gaji dan rekap laporan akan menghitung nilai yang sama persis.
-                  </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {liveIncentivePreview.map(({ emp, res, hostCfg }) => {
+                          const hasSeparate = Boolean(hostCfg?.hasSeparateBundlingSatuan);
+                          const activeRate = saleFormat === 'satuan' 
+                            ? (hasSeparate ? (hostCfg?.satuanRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0))
+                            : (hasSeparate ? (hostCfg?.bundlingRate || hostCfg?.rate || 0) : (hostCfg?.rate || 0));
+
+                          return (
+                            <div key={emp.id} className="p-3.5 rounded-xl bg-[#161823] border border-white/10 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-[#25F4EE]">{emp.name}</span>
+                                <span className="text-xs font-black text-emerald-400">
+                                  + {formatRupiah(res.totalIncentive)}
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] text-zinc-300 space-y-1">
+                                <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                                  <span>Tarif Profil Pegawai:</span>
+                                  <span className="text-white font-bold">
+                                    {saleFormat === 'satuan'
+                                      ? `Satuan: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.satuanIncentiveType === 'per_package_sold' ? 'paket' : 'pcs'}`
+                                      : saleFormat === 'bundling'
+                                      ? `Bundling: Rp ${activeRate.toLocaleString('id-ID')} / ${hostCfg?.bundlingIncentiveType === 'per_pcs_sold' ? 'pcs' : 'paket'}`
+                                      : `Satuan @ Rp ${(hostCfg?.satuanRate || 0).toLocaleString('id-ID')} • Bundling @ Rp ${(hostCfg?.bundlingRate || 0).toLocaleString('id-ID')}`}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-zinc-400">
+                                  {res.desc}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="text-[10px] text-zinc-400 flex items-center gap-1.5 pt-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#25F4EE] shrink-0" />
+                        <span>
+                          Tarif di atas disinkronkan secara otomatis dari <b>Menu Pendaftaran Pegawai &amp; Akses</b>. Gaji dan rekap laporan akan menghitung nilai yang sama persis.
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Standardized Bottom Stepper Navigation Buttons */}
+              <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+                {liveFormStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={handlePrevLiveStep}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Tahap Sebelumnya</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Reset Form
+                  </button>
+                )}
+
+                {liveFormStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={handleNextLiveStep}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-95 transition cursor-pointer"
+                  >
+                    <span>Lanjut: {liveFormStep === 1 ? 'Hasil & Biaya Live' : 'Ukuran & Insentif'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-[#FE2C55]/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{editingId ? 'Simpan Perubahan Live' : 'Simpan Penjualan Live'}</span>
+                  </button>
+                )}
               </div>
-            )}
-
-            {/* Submit Button */}
-            <div className="pt-4 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition cursor-pointer"
-              >
-                Reset Form
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-[#FE2C55]/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{editingId ? 'Simpan Perubahan Live' : 'Simpan Penjualan Live'}</span>
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* ================= TAB 3: INPUT PENJUALAN NON-LIVE (MARKETPLACE REGULER / OFFLINE) ================= */}
+      {/* ================= TAB 3: INPUT PENJUALAN NON-LIVE (WIZARD STEPPER) ================= */}
       {viewMode === 'input_non_live' && (
-        <div className="bg-[#161823] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl max-w-4xl mx-auto space-y-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <h3 className="text-base font-black text-white flex items-center gap-2">
-              <Store className="w-5 h-5 text-emerald-400" />
-              <span>{editingId ? 'Edit Data Penjualan Non-Live' : 'Input Penjualan Non-Live (Marketplace / Offline / WA)'}</span>
-            </h3>
-            {editingId && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
-              >
-                Batal Edit
-              </button>
-            )}
+        <div className="space-y-4 max-w-4xl mx-auto">
+          {/* Header & Sub-step Info */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-xs text-zinc-400 hover:text-emerald-400 transition flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali ke Rekap</span>
+            </button>
+            <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>{editingId ? 'Edit Data Non-Live' : 'Input Penjualan Non-Live'}</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-400">Tahap {nonLiveFormStep}/2</span>
+            </div>
           </div>
 
-          {errorMessage && (
-            <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+          {/* Stepper Progress Bar */}
+          <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
+            {[
+              { step: 1, label: 'Channel & Petugas Kasir', icon: '🏪' },
+              { step: 2, label: 'Nominal & Rincian Ukuran', icon: '🏷️' },
+            ].map(item => {
+              const isActive = nonLiveFormStep === item.step;
+              const isDone = nonLiveFormStep > item.step;
+              return (
+                <button
+                  key={item.step}
+                  type="button"
+                  onClick={() => {
+                    if (isDone || item.step <= nonLiveFormStep) {
+                      setNonLiveFormStep(item.step);
+                    }
+                  }}
+                  title={`${item.step}. ${item.label}`}
+                  className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
+                    isActive
+                      ? 'bg-emerald-500/15 border-emerald-400 text-emerald-400 font-black'
+                      : isDone
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
+                  <span className="font-bold">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-          <form onSubmit={handleSubmitNonLive} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Tanggal */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium disabled:opacity-50"
-                  required
-                />
-              </div>
-
-              {/* Channel Non-Live */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Channel Penjualan <span className="text-[#FE2C55]">*</span>
-                </label>
-                <ThemedSelect
-                  value={nonLiveChannel}
-                  onChange={val => setNonLiveChannel(val as SalesChannel)}
-                  title="Pilih Channel Penjualan"
-                  color="emerald"
-                  options={[
-                    { value: 'shopee_reguler', label: 'Shopee Marketplace Reguler' },
-                    { value: 'tiktok_shop_reguler', label: 'TikTok Shop Reguler' },
-                    { value: 'tokopedia_reguler', label: 'Tokopedia Reguler' },
-                    { value: 'offline_store', label: 'Toko Offline / Butik Fashion' },
-                    { value: 'whatsapp_order', label: 'WhatsApp / Chat Order' },
-                    { value: 'dm_instagram', label: 'DM Instagram / Sosmed' },
-                    { value: 'website', label: 'Website / Olshop' },
-                    { value: 'lainnya', label: 'Lainnya' },
-                  ]}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Kategori Fashion */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Kategori Produk Fashion
-                </label>
-                <ThemedSelect
-                  value={category}
-                  onChange={val => setCategory(val as FashionCategory)}
-                  title="Pilih Kategori Produk Fashion"
-                  color="cyan"
-                  options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
-                    value: key,
-                    label: val,
-                  }))}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Metode Pembayaran */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Metode Pembayaran
-                </label>
-                <ThemedSelect
-                  value={paymentMethod}
-                  onChange={val => setPaymentMethod(val as PaymentMethod)}
-                  title="Pilih Metode Pembayaran"
-                  color="emerald"
-                  options={[
-                    { value: 'transfer', label: 'Transfer Bank' },
-                    { value: 'qris', label: 'QRIS / E-Wallet' },
-                    { value: 'cash', label: 'Tunai / Cash Toko' },
-                    { value: 'cod', label: 'COD (Bayar di Tempat)' },
-                    { value: 'marketplace_balance', label: 'Saldo Rekening Marketplace' },
-                    { value: 'lainnya', label: 'Lainnya' },
-                  ]}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-            </div>
-
-            {/* Admin / Kasir yang Memproses */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-zinc-300">
-                  Pilih Admin Toko / Kasir yang Memproses
-                </label>
-                <span className="text-[10px] text-zinc-400">
-                  {selectedCashierAdminIds.length} Petugas Terpilih
+          <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Store className="w-5 h-5 text-emerald-400" />
+                <span>
+                  {nonLiveFormStep === 1 && 'Tahap 1: Saluran Penjualan & Petugas Kasir'}
+                  {nonLiveFormStep === 2 && 'Tahap 2: Hasil Transaksi, Ukuran & Catatan'}
                 </span>
-              </div>
-              {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-                {adminEmployees.map(emp => {
-                  const isSelected = selectedCashierAdminIds.includes(emp.id);
-                  return (
-                    <FuturisticEmployeeCard
-                      key={emp.id}
-                      id={`card-cashier-admin-emp-${emp.id}`}
-                      name={emp.name}
-                      username={emp.username}
-                      roleLabel="Admin / Kasir"
-                      isSelected={isSelected}
-                      color="emerald"
-                      variant="checkbox"
-                      onClick={() => toggleCashierAdmin(emp.id)}
-                    />
-                  );
-                })}
-              </div>
+              </h3>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
+                >
+                  Batal Edit
+                </button>
+              )}
             </div>
 
-            {/* Metrics Form Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
-              {/* Omzet */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Total Omzet Penjualan (Rp) <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={omzet}
-                  onChange={setOmzet}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-emerald-400 focus:outline-hidden focus:border-emerald-400"
-                  placeholder="0"
-                />
+            {errorMessage && (
+              <div className="p-3.5 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
+            )}
 
-              {/* Pcs Terjual */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={pcsSold}
-                  onChange={setPcsSold}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
-                  placeholder="0"
-                />
-              </div>
+            <form onSubmit={handleSubmitNonLive} className="space-y-6">
+              {/* TAHAP 1: CHANNEL & PETUGAS */}
+              {nonLiveFormStep === 1 && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Tanggal */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                        disabled={!currentUser.isOwner && editingId !== null && date !== todayStr}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white focus:outline-hidden focus:border-emerald-400 font-medium disabled:opacity-50"
+                        required
+                      />
+                    </div>
 
-              {/* Paket / Resi */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Jumlah Paket / Transaksi <span className="text-[#FE2C55]">*</span>
-                </label>
-                <CommaNumberInput
-                  value={packagesSold}
-                  onChange={setPackagesSold}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
-                  placeholder="0"
-                />
-              </div>
+                    {/* Channel Non-Live */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Channel Penjualan <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <ThemedSelect
+                        value={nonLiveChannel}
+                        onChange={val => setNonLiveChannel(val as SalesChannel)}
+                        title="Pilih Channel Penjualan"
+                        color="emerald"
+                        options={[
+                          { value: 'shopee_reguler', label: 'Shopee Marketplace Reguler' },
+                          { value: 'tiktok_shop_reguler', label: 'TikTok Shop Reguler' },
+                          { value: 'tokopedia_reguler', label: 'Tokopedia Reguler' },
+                          { value: 'offline_store', label: 'Toko Offline / Butik Fashion' },
+                          { value: 'whatsapp_order', label: 'WhatsApp / Chat Order' },
+                          { value: 'dm_instagram', label: 'DM Instagram / Sosmed' },
+                          { value: 'website', label: 'Website / Olshop' },
+                          { value: 'lainnya', label: 'Lainnya' },
+                        ]}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                      />
+                    </div>
 
-              {/* Biaya Iklan Marketplace Reguler */}
-              <div className="sm:col-span-3">
-                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                  Biaya Iklan / Ads Marketplace (Opsional, jika ada)
-                </label>
-                <CommaNumberInput
-                  value={nonLiveAdsUsed}
-                  onChange={setNonLiveAdsUsed}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
-                  placeholder="0"
-                />
-              </div>
-            </div>
+                    {/* Kategori Fashion */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Kategori Produk Fashion
+                      </label>
+                      <ThemedSelect
+                        value={category}
+                        onChange={val => setCategory(val as FashionCategory)}
+                        title="Pilih Kategori Produk Fashion"
+                        color="cyan"
+                        options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
+                          value: key,
+                          label: val,
+                        }))}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                      />
+                    </div>
 
-            {/* Varian Ukuran & Breakdown Size Terjual Non-Live */}
-            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <span className="text-emerald-400">🏷️</span>
-                    <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
+                    {/* Metode Pembayaran */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Metode Pembayaran
+                      </label>
+                      <ThemedSelect
+                        value={paymentMethod}
+                        onChange={val => setPaymentMethod(val as PaymentMethod)}
+                        title="Pilih Metode Pembayaran"
+                        color="emerald"
+                        options={[
+                          { value: 'transfer', label: 'Transfer Bank' },
+                          { value: 'qris', label: 'QRIS / E-Wallet' },
+                          { value: 'cash', label: 'Tunai / Cash Toko' },
+                          { value: 'cod', label: 'COD (Bayar di Tempat)' },
+                          { value: 'marketplace_balance', label: 'Saldo Rekening Marketplace' },
+                          { value: 'lainnya', label: 'Lainnya' },
+                        ]}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
+                      />
+                    </div>
                   </div>
-                  <p className="text-[11px] text-zinc-400">
-                    Pilih ukuran produk pesanan non-live / marketplace &amp; masukkan rincian pcs per size
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-2">
+                  {/* Admin / Kasir yang Memproses */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-zinc-300">
+                        Pilih Admin Toko / Kasir yang Memproses
+                      </label>
+                      <span className="text-[10px] text-zinc-400">
+                        {selectedCashierAdminIds.length} Petugas Terpilih
+                      </span>
+                    </div>
+                    {/* Grid Card Kecil Nama Pegawai: 2 ke samping, sisanya ke bawah */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                      {adminEmployees.map(emp => {
+                        const isSelected = selectedCashierAdminIds.includes(emp.id);
+                        return (
+                          <FuturisticEmployeeCard
+                            key={emp.id}
+                            id={`card-cashier-admin-emp-${emp.id}`}
+                            name={emp.name}
+                            username={emp.username}
+                            roleLabel="Admin / Kasir"
+                            isSelected={isSelected}
+                            color="emerald"
+                            variant="checkbox"
+                            onClick={() => toggleCashierAdmin(emp.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAHAP 2: METRICS & UKURAN */}
+              {nonLiveFormStep === 2 && (
+                <div className="space-y-5">
+                  {/* Metrics Form Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Omzet */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Total Omzet Penjualan (Rp) <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={omzet}
+                        onChange={setOmzet}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-black text-emerald-400 focus:outline-hidden focus:border-emerald-400"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Pcs Terjual */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Jumlah Pcs Terjual <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={pcsSold}
+                        onChange={setPcsSold}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Paket / Resi */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Jumlah Paket / Transaksi <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <CommaNumberInput
+                        value={packagesSold}
+                        onChange={setPackagesSold}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Biaya Iklan Marketplace Reguler */}
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Biaya Iklan / Ads Marketplace (Opsional, jika ada)
+                      </label>
+                      <CommaNumberInput
+                        value={nonLiveAdsUsed}
+                        onChange={setNonLiveAdsUsed}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Varian Ukuran & Breakdown Size Terjual Non-Live */}
+                  <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <span className="text-emerald-400">🏷️</span>
+                          <span>Rincian Ukuran / Size Terjual (S, M, L, XL, dll.)</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Pilih ukuran produk pesanan non-live / marketplace &amp; masukkan rincian pcs per size
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={distributeSizesEvenly}
+                          className="text-[11px] font-bold text-emerald-400 hover:underline bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30 cursor-pointer"
+                        >
+                          ⚡ Bagi Rata Sesuai {pcsSold} Pcs
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Size Tag Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
+                        const isChecked = selectedSizes.includes(sz);
+                        return (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => toggleSize(sz)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                              isChecked
+                                ? 'bg-emerald-400 text-zinc-950 border-emerald-400 shadow-sm'
+                                : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
+                            }`}
+                          >
+                            {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Numeric breakdown per size */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                      {selectedSizes.map(sz => (
+                        <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-bold">
+                            <span className="text-emerald-400">Size {sz}</span>
+                            <span className="text-zinc-400">pcs</span>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            value={sizeBreakdown[sz] ?? 0}
+                            onChange={e => setSizeBreakdown({
+                              ...sizeBreakdown,
+                              [sz]: Math.max(0, parseInt(e.target.value) || 0)
+                            })}
+                            className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-emerald-400"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total allocation indicator */}
+                    <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+                      <span>
+                        Total size teralokasi:{' '}
+                        <strong className="text-white">
+                          {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
+                        </strong>
+                      </span>
+                      <span>
+                        Target total pcs terjual:{' '}
+                        <strong className="text-emerald-400">{pcsSold} pcs</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Catatan / No Invoice */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Catatan / Nomor Invoice / Nama Pelanggan (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder="Misal: Pesanan Grosir Butik Bandung, No. Resi #INV-9821, dll."
+                      className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Standardized Bottom Stepper Navigation Buttons */}
+              <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+                {nonLiveFormStep > 1 ? (
                   <button
                     type="button"
-                    onClick={distributeSizesEvenly}
-                    className="text-[11px] font-bold text-emerald-400 hover:underline bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30 cursor-pointer"
+                    onClick={handlePrevNonLiveStep}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
                   >
-                    ⚡ Bagi Rata Sesuai {pcsSold} Pcs
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Tahap Sebelumnya</span>
                   </button>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    Reset Form
+                  </button>
+                )}
+
+                {nonLiveFormStep < 2 ? (
+                  <button
+                    type="button"
+                    onClick={handleNextNonLiveStep}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 text-black text-xs font-black shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition cursor-pointer"
+                  >
+                    <span>Lanjut: Nominal &amp; Rincian Ukuran</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] text-xs font-black transition cursor-pointer shadow-lg shadow-emerald-400/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{editingId ? 'Simpan Perubahan Non-Live' : 'Simpan Penjualan Non-Live'}</span>
+                  </button>
+                )}
               </div>
-
-              {/* Size Tag Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                {['S', 'M', 'L', 'XL', 'XXL', 'All Size'].map(sz => {
-                  const isChecked = selectedSizes.includes(sz);
-                  return (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => toggleSize(sz)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
-                        isChecked
-                          ? 'bg-emerald-400 text-zinc-950 border-emerald-400 shadow-sm'
-                          : 'bg-white/5 hover:bg-white/10 text-zinc-400 border-white/10'
-                      }`}
-                    >
-                      {isChecked ? `✓ Size ${sz}` : `+ ${sz}`}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Numeric breakdown per size */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-                {selectedSizes.map(sz => (
-                  <div key={sz} className="p-2.5 rounded-xl bg-[#161823] border border-white/5 space-y-1">
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-emerald-400">Size {sz}</span>
-                      <span className="text-zinc-400">pcs</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={sizeBreakdown[sz] ?? 0}
-                      onChange={e => setSizeBreakdown({
-                        ...sizeBreakdown,
-                        [sz]: Math.max(0, parseInt(e.target.value) || 0)
-                      })}
-                      className="w-full px-2.5 py-1.5 text-xs font-black text-white bg-[#0b0c10] border border-white/10 rounded-lg focus:border-emerald-400"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Total allocation indicator */}
-              <div className="flex items-center justify-between text-[11px] px-1 text-zinc-400">
-                <span>
-                  Total size teralokasi:{' '}
-                  <strong className="text-white">
-                    {Object.values(sizeBreakdown).reduce((a: number, b: number) => a + (b || 0), 0)} pcs
-                  </strong>
-                </span>
-                <span>
-                  Target total pcs terjual:{' '}
-                  <strong className="text-emerald-400">{pcsSold} pcs</strong>
-                </span>
-              </div>
-            </div>
-
-            {/* Catatan / No Invoice */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                Catatan / Nomor Invoice / Nama Pelanggan (Opsional)
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Misal: Pesanan Grosir Butik Bandung, No. Resi #INV-9821, dll."
-                className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:border-emerald-400"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-4 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition cursor-pointer"
-              >
-                Reset Form
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] text-xs font-black transition cursor-pointer shadow-lg shadow-emerald-400/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{editingId ? 'Simpan Perubahan Non-Live' : 'Simpan Penjualan Non-Live'}</span>
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 

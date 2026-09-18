@@ -167,76 +167,78 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
         )}
       </div>
 
-      {/* Laba Bersih Hero Banner */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] text-white border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold">
-              <Sparkles className="w-3.5 h-3.5 text-[#25F4EE]" />
+      {/* Laba Bersih Hero Banner - Kompak */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] text-white border border-white/10 shadow-lg relative overflow-hidden">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0b0c10] text-[#25F4EE] border border-[#25F4EE]/30 text-[11px] font-bold">
+              <Sparkles className="w-3 h-3 text-[#25F4EE]" />
               <span>Net Profit Toko</span>
             </div>
-            <div className={`text-3xl sm:text-4xl font-black tracking-tight ${report.labaBersihAkhir >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${report.labaBersihAkhir >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(report.labaBersihAkhir)}
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2 min-w-[200px]">
-            <div className="text-[11px] text-zinc-400 font-semibold">Net Profit Margin:</div>
-            <div className="text-2xl font-black text-[#25F4EE]">
-              {report.profitMargin}%
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#0b0c10] border border-white/10 space-y-1 sm:min-w-[190px]">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] text-zinc-400 font-semibold">Net Profit Margin:</span>
+              <span className="text-base sm:text-lg font-black text-[#25F4EE]">
+                {report.profitMargin}%
+              </span>
             </div>
-            <div className="text-[11px] text-zinc-400 pt-2 border-t border-white/10">
+            <div className="text-[10px] text-zinc-400 pt-1 border-t border-white/10">
               Dari Omzet Kotor: <strong className="text-white">{formatRupiah(report.totalOmzetKotor)}</strong>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sisa Balik Modal (ROI & BEP Toko) */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
-              <Target className="w-5 h-5" />
+      {/* Sisa Balik Modal (ROI & BEP Toko) - Kompak */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-md space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shrink-0">
+              <Target className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
                 <span>Perhitungan Sisa Balik Modal Toko</span>
                 {roi.isBreakEven ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    BEP Tercapai 100%
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    BEP 100%
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                    Proses Balik Modal
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    Proses BEP
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Evaluasi total modal investasi toko vs akumulasi laba bersih yang sudah dihasilkan.
+              <p className="text-[10px] text-zinc-400">
+                Total modal investasi vs akumulasi laba bersih yang dihasilkan.
               </p>
             </div>
           </div>
 
-          <div className="text-right">
-            <span className="text-[11px] text-zinc-400 block font-semibold">Sisa Belum Balik Modal:</span>
-            <span className={`text-xl sm:text-2xl font-black tracking-tight ${roi.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
+          <div className="text-left sm:text-right">
+            <span className="text-[10px] text-zinc-400 block font-semibold">Sisa Belum Balik Modal:</span>
+            <span className={`text-base sm:text-lg font-black tracking-tight ${roi.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
               {formatRupiah(roi.sisaBalikModal)}
             </span>
           </div>
         </div>
 
         {/* Progress Bar Balik Modal */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-bold">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-bold">
             <span className="text-zinc-300">
-              Progress Balik Modal: <strong className="text-[#25F4EE]">{roi.progressPercentage}%</strong>
+              Progress: <strong className="text-[#25F4EE]">{roi.progressPercentage}%</strong>
             </span>
             <span className="text-zinc-400">
-              Total Investasi: <strong className="text-white">{formatRupiah(roi.totalModalInvestasi)}</strong>
+              Investasi: <strong className="text-white">{formatRupiah(roi.totalModalInvestasi)}</strong>
             </span>
           </div>
-          <div className="w-full h-3.5 rounded-full bg-[#0b0c10] border border-white/10 overflow-hidden p-0.5">
+          <div className="w-full h-2.5 rounded-full bg-[#0b0c10] border border-white/10 overflow-hidden p-0.5">
             <div 
               className={`h-full rounded-full transition-all duration-500 ${
                 roi.isBreakEven 
@@ -249,139 +251,139 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
         </div>
 
         {/* 4 Detail Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
-            <span className="text-[11px] text-zinc-400 block">Total Modal Masuk</span>
-            <span className="text-sm font-black text-white">{formatRupiah(roi.totalModalInvestasi)}</span>
-            <span className="text-[10px] text-zinc-500 block">
-              {roi.modalSumber === 'pengaturan' ? 'Modal Tetap Awal' : 'Dari Stok Ball Pakaian'}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Modal Masuk</span>
+            <span className="text-xs sm:text-sm font-black text-white">{formatRupiah(roi.totalModalInvestasi)}</span>
+            <span className="text-[9px] text-zinc-500 block truncate">
+              {roi.modalSumber === 'pengaturan' ? 'Modal Tetap Awal' : 'Stok Ball Pakaian'}
             </span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
-            <span className="text-[11px] text-zinc-400 block">Akumulasi Net Profit</span>
-            <span className={`text-sm font-black ${roi.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Akumulasi Net Profit</span>
+            <span className={`text-xs sm:text-sm font-black ${roi.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(roi.totalNetProfit)}
             </span>
-            <span className="text-[10px] text-zinc-500 block">Semua waktu (All-Time)</span>
+            <span className="text-[9px] text-zinc-500 block truncate">All-Time</span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
-            <span className="text-[11px] text-zinc-400 block">Sisa Modal Tersisa</span>
-            <span className="text-sm font-black text-amber-400">{formatRupiah(roi.sisaBalikModal)}</span>
-            <span className="text-[10px] text-zinc-500 block">
-              {roi.isBreakEven ? 'Sudah Lunas' : `${100 - roi.progressPercentage}% lagi ke BEP`}
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Sisa Modal</span>
+            <span className="text-xs sm:text-sm font-black text-amber-400">{formatRupiah(roi.sisaBalikModal)}</span>
+            <span className="text-[9px] text-zinc-500 block truncate">
+              {roi.isBreakEven ? 'Lunas' : `${100 - roi.progressPercentage}% ke BEP`}
             </span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-1">
-            <span className="text-[11px] text-zinc-400 block">Surplus Profit (Setelah BEP)</span>
-            <span className="text-sm font-black text-emerald-400">{formatRupiah(roi.surplusProfit)}</span>
-            <span className="text-[10px] text-zinc-500 block">Profit murni di atas modal</span>
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Surplus Profit</span>
+            <span className="text-xs sm:text-sm font-black text-emerald-400">{formatRupiah(roi.surplusProfit)}</span>
+            <span className="text-[9px] text-zinc-500 block truncate">Di atas modal</span>
           </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="p-6 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-2">
+      {/* Summary Cards - Kompak */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400">1. Laba Kotor Penjualan</span>
-            <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-              <TrendingUp className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-zinc-400">1. Laba Kotor Penjualan</span>
+            <div className="p-1.5 rounded-lg bg-[#0b0c10] text-[#25F4EE] border border-white/10">
+              <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#25F4EE]">
+          <div className="text-base sm:text-lg font-black text-[#25F4EE]">
             {formatRupiah(report.labaKotor)}
           </div>
-          <p className="text-[11px] text-zinc-500">
-            Hasil penjualan live bersih dikurangi modal HPP &amp; biaya Shopee
+          <p className="text-[10px] text-zinc-500 leading-tight">
+            Penjualan live dikurangi modal HPP &amp; biaya admin
           </p>
         </div>
 
-        <div className="p-6 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-2">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400">2. Beban Operasional Kas</span>
-            <div className="p-2 rounded-xl bg-[#0b0c10] text-[#FE2C55] border border-white/10">
-              <Wallet className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-zinc-400">2. Beban Operasional Kas</span>
+            <div className="p-1.5 rounded-lg bg-[#0b0c10] text-[#FE2C55] border border-white/10">
+              <Wallet className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#FE2C55]">
+          <div className="text-base sm:text-lg font-black text-[#FE2C55]">
             {formatRupiah(report.pengeluaranOperasional)}
           </div>
-          <p className="text-[11px] text-zinc-500">
-            Pengeluaran packing, lakban, makan/minum tim, sewa &amp; listrik
+          <p className="text-[10px] text-zinc-500 leading-tight">
+            Packing, lakban, makan/minum tim, sewa &amp; listrik
           </p>
         </div>
 
-        <div className="p-6 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-2">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400">3. Beban Gaji &amp; Insentif Tim</span>
-            <div className="p-2 rounded-xl bg-[#0b0c10] text-amber-400 border border-white/10">
-              <Receipt className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-zinc-400">3. Beban Gaji &amp; Insentif</span>
+            <div className="p-1.5 rounded-lg bg-[#0b0c10] text-amber-400 border border-white/10">
+              <Receipt className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white">
+          <div className="text-base sm:text-lg font-black text-white">
             {formatRupiah(report.totalBebanGaji)}
           </div>
-          <p className="text-[11px] text-zinc-500">
-            Gaji pokok, insentif live host &amp; admin, bonus rangkap, &amp; bonus omzet
+          <p className="text-[10px] text-zinc-500 leading-tight">
+            Gaji pokok shift, insentif live, bonus rangkap &amp; omzet
           </p>
         </div>
       </div>
 
-      {/* Rincian Komponen Beban Gaji & HPP Final */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {/* Rincian Komponen Beban Gaji & HPP Final - Kompak */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
         {/* Rincian Payroll */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-2">
+          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+            <h4 className="text-[11px] font-black text-white uppercase tracking-wider">
               Rincian Beban Gaji &amp; Insentif Tim
             </h4>
-            <span className="text-xs font-bold text-amber-400">
-              Total: {formatRupiah(report.totalBebanGaji)}
+            <span className="text-[11px] font-bold text-amber-400">
+              {formatRupiah(report.totalBebanGaji)}
             </span>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">Gaji Pokok Jam / Shift (Semua Tim)</span>
-              <span className="font-bold text-white">{formatRupiah(report.totalGajiPokok)}</span>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">Gaji Pokok Jam / Shift (Semua Tim)</span>
+              <span className="font-bold text-white text-[11px]">{formatRupiah(report.totalGajiPokok)}</span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">Total Insentif Penjualan Live (Host &amp; Admin)</span>
-              <span className="font-bold text-[#25F4EE]">{formatRupiah(report.totalInsentifLive)}</span>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">Total Insentif Live (Host &amp; Admin)</span>
+              <span className="font-bold text-[#25F4EE] text-[11px]">{formatRupiah(report.totalInsentifLive)}</span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">Bonus Rangkap Role &amp; Target Omzet</span>
-              <span className="font-bold text-purple-400">{formatRupiah(report.totalBonusTambahan)}</span>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">Bonus Rangkap Role &amp; Target Omzet</span>
+              <span className="font-bold text-purple-400 text-[11px]">{formatRupiah(report.totalBonusTambahan)}</span>
             </div>
           </div>
         </div>
 
         {/* Rincian Modal HPP */}
-        <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-2">
+          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+            <h4 className="text-[11px] font-black text-white uppercase tracking-wider">
               Rincian Modal HPP Barang Terjual
             </h4>
-            <span className="text-xs font-bold text-[#25F4EE]">
+            <span className="text-[11px] font-bold text-[#25F4EE]">
               {formatRupiah(report.modalBarangTerjual)}
             </span>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">HPP Final Rata-Rata per Pcs</span>
-              <span className="font-bold text-white">{formatRupiah(report.averageHpp)} / pcs</span>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">HPP Final Rata-Rata</span>
+              <span className="font-bold text-white text-[11px]">{formatRupiah(report.averageHpp)} / pcs</span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">Komponen Termasuk dalam HPP</span>
-              <span className="font-semibold text-emerald-400">Modal + Ongkir + Steam + Sortir + Presensi Sortir/Steam</span>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">Komponen HPP</span>
+              <span className="font-semibold text-emerald-400 text-[10px] truncate max-w-[200px]">Modal+Ongkir+Steam+Sortir</span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
-              <span className="text-zinc-400">Formula Laba Bersih</span>
-              <span className="text-[11px] text-zinc-300">Laba Kotor - Beban Operasional Kas</span>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[#0b0c10] border border-white/5">
+              <span className="text-zinc-400 text-[11px]">Formula Laba Bersih</span>
+              <span className="text-[10px] text-zinc-300">Laba Kotor - Beban Kas</span>
             </div>
           </div>
         </div>
