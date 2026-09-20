@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal, Volume2 } from 'lucide-react';
+import { ShoppingBag, Cpu, ShieldCheck, Activity, Terminal, Volume2, WifiOff, RefreshCw } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
 
 interface LoadingScreenProps {
@@ -7,6 +7,10 @@ interface LoadingScreenProps {
   storeName?: string;
   userName?: string;
   durationMs?: number;
+  isOffline?: boolean;
+  showOfflineNotification?: boolean;
+  onRetryConnection?: () => void;
+  isRetryingConnection?: boolean;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
@@ -14,6 +18,10 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   storeName,
   userName,
   durationMs = 5500,
+  isOffline = false,
+  showOfflineNotification = false,
+  onRetryConnection,
+  isRetryingConnection = false,
 }) => {
   const [progress, setProgress] = useState(12);
   const targetName = userName || storeName || 'Seller';
@@ -89,6 +97,14 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
     const startTime = performance.now();
     const interval = setInterval(() => {
+      if (isOffline) {
+        setProgress(35);
+        if (audioElRef.current) {
+          audioElRef.current.pause();
+        }
+        SoundFx.stopLoadingAudio();
+        return;
+      }
       const elapsed = performance.now() - startTime;
       const pct = Math.min(100, Math.floor((elapsed / durationMs) * 100));
       setProgress(pct);
@@ -236,12 +252,16 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           {/* Sci-Fi Live Telemetry Metrics */}
           <div className="grid grid-cols-3 gap-2 pt-1 text-center font-mono">
             <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] text-zinc-500">SYS.CLOCK</div>
-              <div className="text-[10px] font-bold text-[#25F4EE]">0.024 MS</div>
+              <div className="text-[9px] text-zinc-500">NET.STATUS</div>
+              <div className={`text-[10px] font-bold ${isOffline ? 'text-[#FE2C55] animate-pulse' : 'text-[#25F4EE]'}`}>
+                {isOffline ? 'DISCONNECTED' : 'ONLINE SYNC'}
+              </div>
             </div>
             <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] text-zinc-500">MEM.FLUX</div>
-              <div className="text-[10px] font-bold text-amber-300">99.4% STABLE</div>
+              <div className="text-[9px] text-zinc-500">SYS.MODE</div>
+              <div className={`text-[10px] font-bold ${isOffline ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {isOffline ? 'ONLINE REQUIRED' : 'CONNECTED'}
+              </div>
             </div>
             <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
               <div className="text-[9px] text-zinc-500">SECURITY</div>
@@ -254,9 +274,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             {[40, 75, 100, 60, 90, 45, 80, 55, 95, 70, 85, 50].map((h, i) => (
               <span
                 key={i}
-                className={`w-1 rounded-full ${audioStarted ? 'bg-[#25F4EE]' : 'bg-zinc-600'} transition-[height] duration-150`}
+                className={`w-1 rounded-full ${isOffline ? 'bg-rose-500/40' : audioStarted ? 'bg-[#25F4EE]' : 'bg-zinc-600'} transition-[height] duration-150`}
                 style={{
-                  height: `${Math.max(4, Math.round((h * (progress / 100)) * (audioStarted ? 0.22 : 0.08)))}px`,
+                  height: `${isOffline ? 4 : Math.max(4, Math.round((h * (progress / 100)) * (audioStarted ? 0.22 : 0.08)))}px`,
                 }}
               />
             ))}
@@ -264,7 +284,12 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
           {/* Audio Status & Interactive Unlock Indicator */}
           <div className="pt-1 flex items-center justify-center">
-            {audioStarted ? (
+            {isOffline ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] font-mono tracking-wide animate-pulse">
+                <WifiOff className="w-3.5 h-3.5" />
+                <span>MENUNGGU KONEKSI ONLINE</span>
+              </div>
+            ) : audioStarted ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono tracking-wide">
                 <Volume2 className="w-3.5 h-3.5 animate-pulse" />
                 <span>SUARA MASUK AKTIF</span>
@@ -287,9 +312,62 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
         {/* Status Prompt */}
         <div className="text-[11px] font-mono text-zinc-400">
-          &gt; Memuat modul sistem &amp; realtime data...
+          {isOffline ? (
+            <span className="text-[#FE2C55] font-bold inline-flex items-center gap-1.5 animate-pulse">
+              &gt; JARINGAN TERPUTUS: MENUNGGU KONEKSI ONLINE... [STUCK]
+            </span>
+          ) : (
+            <span>&gt; Memuat modul sistem &amp; realtime data...</span>
+          )}
         </div>
       </div>
+
+      {/* Offline Alert Modal: Gak lama kemudian jika tidak ada koneksi */}
+      {showOfflineNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-md w-full bg-[#161823] border-2 border-[#FE2C55]/60 rounded-3xl p-6 sm:p-7 text-center space-y-4 shadow-[0_0_50px_rgba(254,44,85,0.4)]"
+          >
+            {/* Offline Icon Badging */}
+            <div className="w-16 h-16 rounded-2xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 flex items-center justify-center mx-auto text-[#FE2C55] shadow-[0_0_30px_rgba(254,44,85,0.5)]">
+              <WifiOff className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg sm:text-xl font-black tracking-wide text-white uppercase drop-shadow">
+                Tidak Ada Koneksi Internet
+              </h3>
+              <div className="inline-block px-3 py-1 rounded-full bg-[#FE2C55]/20 text-[#FE2C55] text-[11px] font-mono font-bold tracking-wider border border-[#FE2C55]/30">
+                AKSES HANYA ONLINE
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+              Aplikasi <strong className="text-white font-bold">Seller Profit</strong> hanya dapat diakses secara online. Sambungkan perangkat Anda ke jaringan internet (Wi-Fi atau Data Seluler) untuk membuka aplikasi dan sinkronisasi data.
+            </p>
+
+            <div className="pt-2 space-y-2.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetryConnection?.();
+                }}
+                disabled={isRetryingConnection}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#FE2C55] to-[#ff5b79] text-white text-xs sm:text-sm font-bold font-mono tracking-wider flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition cursor-pointer shadow-[0_0_25px_rgba(254,44,85,0.45)] disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRetryingConnection ? 'animate-spin' : ''}`} />
+                <span>{isRetryingConnection ? 'MEMERIKSA KONEKSI...' : 'PERIKSA KONEKSI LAGI'}</span>
+              </button>
+
+              <div className="text-[11px] font-mono text-zinc-500 animate-pulse">
+                • Layar akan otomatis lanjut begitu internet kembali aktif
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

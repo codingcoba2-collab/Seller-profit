@@ -617,11 +617,6 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   };
 
   const handleDelete = (sale: SalesRecord) => {
-    if (sale.date !== todayStr && !isOwnerOrManager) {
-      onNotify('Hanya Owner atau Manager Toko yang dapat menghapus data penjualan tanggal lampau!', 'error');
-      return;
-    }
-
     setConfirmModal({
       isOpen: true,
       title: 'Konfirmasi Hapus Data Penjualan',
@@ -634,6 +629,30 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         loadData();
         onNotify('Data penjualan berhasil dihapus.', 'info');
         if (editingId === sale.id) {
+          handleCancelEdit();
+        }
+      },
+    });
+  };
+
+  const handleDeleteAll = () => {
+    if (salesList.length === 0) {
+      onNotify('Tidak ada riwayat penjualan untuk dihapus.', 'info');
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Seluruh Riwayat Penjualan',
+      message: `Apakah Anda yakin ingin menghapus permanen SEMUA (${salesList.length}) data riwayat transaksi penjualan? Sampel tidak akan dipaksakan lagi jika Anda menghapus semuanya.`,
+      type: 'delete',
+      confirmText: 'Ya, Hapus Semua Riwayat',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        await StorageService.deleteAllSales(currentUser.storeId);
+        loadData();
+        onNotify('Seluruh data riwayat penjualan berhasil dihapus.', 'info');
+        if (editingId) {
           handleCancelEdit();
         }
       },
@@ -1110,6 +1129,18 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <Printer className="w-3.5 h-3.5 text-sky-400" />
                   <span>Print</span>
                 </button>
+
+                {salesList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAll}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FE2C55]/10 hover:bg-[#FE2C55]/20 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                    title="Hapus seluruh riwayat penjualan toko"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus Semua ({salesList.length})</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1378,16 +1409,14 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
 
-                          {(sale.date === todayStr || isOwnerOrManager) && (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(sale)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                              title="Hapus Data Penjualan"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(sale)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                            title="Hapus Data Penjualan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
 

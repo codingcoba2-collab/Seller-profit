@@ -13,6 +13,11 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
+  // Network health check endpoint for online-only connectivity verification
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', online: true, timestamp: Date.now() });
+  });
+
   // Initialize Gemini client lazily/safely
   let genAI: GoogleGenAI | null = null;
   function getAI() {

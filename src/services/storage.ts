@@ -1238,25 +1238,14 @@ export class StorageService {
   // SALES
   static getSales(storeId: string): SalesRecord[] {
     const raw = this.safeGetItem(STORAGE_KEYS.SALES);
-    let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
-    if (!raw || all.length === 0) {
-      all = DEFAULT_SALES;
-      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+    if (!raw) return [];
+    try {
+      const all: SalesRecord[] = JSON.parse(raw);
+      if (!Array.isArray(all)) return [];
+      return all.filter(s => s.storeId === storeId);
+    } catch {
+      return [];
     }
-    const storeSales = all.filter(s => s.storeId === storeId);
-    if (storeSales.length === 0 && storeId) {
-      const today = getTodayString();
-      const seeded = DEFAULT_SALES.map((s, idx) => ({
-        ...s,
-        id: `sale-seed-${idx + 1}-${storeId}`,
-        storeId,
-        date: idx === 0 ? today : new Date(Date.now() - 86400000 * idx).toISOString().slice(0, 10),
-      }));
-      all = [...seeded, ...all];
-      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
-      return seeded;
-    }
-    return storeSales;
   }
 
   static addSale(sale: SalesRecord) {
@@ -1303,6 +1292,39 @@ export class StorageService {
       return true;
     } catch (e) {
       console.error('Error in deleteSale:', e);
+      return false;
+    }
+  }
+
+  static async deleteAllSales(storeId: string): Promise<boolean> {
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.SALES);
+      let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+      const toDelete = all.filter(s => s.storeId === storeId);
+      all = all.filter(s => s.storeId !== storeId);
+      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+
+      // Remove from cloud
+      for (const item of toDelete) {
+        await this.deleteFromCloud('sales', item.id);
+      }
+
+      // Batch query cloud to eliminate any remaining sales for this store
+      if (db) {
+        try {
+          const snap = await getDocs(query(collection(db, 'sales'), where('storeId', '==', storeId)));
+          for (const docItem of snap.docs) {
+            await deleteDoc(docItem.ref);
+          }
+        } catch (cloudErr) {
+          console.warn('Cloud batch delete notice:', cloudErr);
+        }
+      }
+
+      this.notifyListeners('sales');
+      return true;
+    } catch (e) {
+      console.error('Error in deleteAllSales:', e);
       return false;
     }
   }

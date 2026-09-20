@@ -9,6 +9,7 @@ import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
 import { LogoutModal } from './components/LogoutModal';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
+import { networkService } from './services/networkService';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { 
   RoutePath, 
@@ -75,6 +76,10 @@ export default function App() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOfflineStuck, setIsOfflineStuck] = useState<boolean>(false);
+  const [showOfflineAlert, setShowOfflineAlert] = useState<boolean>(false);
+  const [isRetryingConnection, setIsRetryingConnection] = useState<boolean>(false);
 
   // Helper toast notification
   const handleNotify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -128,40 +133,121 @@ export default function App() {
     [currentUser, handleNotify]
   );
 
-  // Initialize store, session & URL route on mount with 5-second loading sequence
+  // Realtime network monitoring (Strict Online-Only App Policy)
   useEffect(() => {
-    // 1. Initialize global tactile robot click sounds on buttons
+    let offlineTimer: NodeJS.Timeout | null = null;
+
+    const unsub = networkService.subscribe((online) => {
+      setIsOnline(online);
+      if (!online) {
+        setIsLoading(true);
+        setIsOfflineStuck(true);
+        if (offlineTimer) clearTimeout(offlineTimer);
+        // Notif tidak ada koneksi muncul gak lama kemudian (~2.5 detik)
+        offlineTimer = setTimeout(() => {
+          setShowOfflineAlert(true);
+        }, 2500);
+      } else {
+        if (offlineTimer) clearTimeout(offlineTimer);
+        setShowOfflineAlert(false);
+        setIsOfflineStuck(false);
+      }
+    });
+
+    return () => {
+      unsub();
+      if (offlineTimer) clearTimeout(offlineTimer);
+    };
+  }, []);
+
+  // Initialize store, session & URL route on mount with online network check
+  useEffect(() => {
     SoundFx.initGlobalButtonSound();
 
-    // 2. Start immediate cloud synchronization
-    StorageService.syncStoresAndEmployeesFromCloud();
+    let bootTimer: NodeJS.Timeout | null = null;
+    let offlineAlertTimer: NodeJS.Timeout | null = null;
 
-    // 3. Fast smooth initial boot sequence
-    const timer = setTimeout(() => {
+    const initializeApp = async () => {
+      // Step 1: Online-only check
+      const online = await networkService.checkConnection();
+      setIsOnline(online);
+
+      if (!online) {
+        setIsLoading(true);
+        setIsOfflineStuck(true);
+        // Tampilkan notifikasi tidak ada koneksi gak lama kemudian
+        offlineAlertTimer = setTimeout(() => {
+          setShowOfflineAlert(true);
+        }, 2500);
+        return;
+      }
+
+      // Step 2: Start immediate cloud synchronization if online
+      StorageService.syncStoresAndEmployeesFromCloud();
+
+      // Step 3: Complete boot sequence
+      bootTimer = setTimeout(() => {
+        const user = StorageService.getCurrentUser();
+        const initialPath = normalizePath(window.location.pathname);
+
+        if (user) {
+          setCurrentUser(user);
+          StorageService.syncAllFromCloud(user.storeId);
+          if (isRouteAllowed(initialPath, user)) {
+            setCurrentRoute(initialPath);
+            window.history.replaceState({}, '', initialPath);
+          } else {
+            setCurrentRoute('/dashboard');
+            window.history.replaceState({}, '', '/dashboard');
+          }
+          const targetName = user.name || user.username || user.storeName || 'Seller';
+          SoundFx.playRobotVoiceWelcome(targetName);
+        } else {
+          setCurrentRoute('/dashboard');
+        }
+        setIsLoading(false);
+      }, 3500);
+    };
+
+    initializeApp();
+
+    return () => {
+      if (bootTimer) clearTimeout(bootTimer);
+      if (offlineAlertTimer) clearTimeout(offlineAlertTimer);
+    };
+  }, []);
+
+  // Manual retry connection handler
+  const handleRetryConnection = async () => {
+    setIsRetryingConnection(true);
+    handleNotify('Memeriksa sinyal & koneksi internet...', 'info');
+    const online = await networkService.checkConnection();
+    setIsRetryingConnection(false);
+
+    if (online) {
+      setIsOnline(true);
+      setIsOfflineStuck(false);
+      setShowOfflineAlert(false);
+      handleNotify('Koneksi internet terhubung! Memuat sistem...', 'success');
+
+      StorageService.syncStoresAndEmployeesFromCloud();
       const user = StorageService.getCurrentUser();
-      const initialPath = normalizePath(window.location.pathname);
-
       if (user) {
         setCurrentUser(user);
         StorageService.syncAllFromCloud(user.storeId);
-        if (isRouteAllowed(initialPath, user)) {
-          setCurrentRoute(initialPath);
-          window.history.replaceState({}, '', initialPath);
-        } else {
-          setCurrentRoute('/dashboard');
-          window.history.replaceState({}, '', '/dashboard');
-        }
-        // Play robot AI welcome sound
         const targetName = user.name || user.username || user.storeName || 'Seller';
         SoundFx.playRobotVoiceWelcome(targetName);
-      } else {
-        setCurrentRoute('/dashboard');
       }
-      setIsLoading(false);
-    }, 5500);
-
-    return () => clearTimeout(timer);
-  }, []);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 800);
+    } else {
+      setIsOnline(false);
+      setIsOfflineStuck(true);
+      setShowOfflineAlert(true);
+      handleNotify('Koneksi internet belum terdeteksi. Silakan aktifkan internet Anda.', 'error');
+    }
+  };
 
   // Realtime Firestore synchronization across all collections & devices
   useEffect(() => {
@@ -216,7 +302,7 @@ export default function App() {
     }, 250);
   };
 
-  // Loading Screen (smooth responsive duration)
+  // Loading Screen (smooth responsive duration with online-only lock)
   if (isLoading) {
     const activeUser = currentUser || StorageService.getCurrentUser();
     const targetName = activeUser?.name || activeUser?.username || activeUser?.storeName || 'Seller';
@@ -224,7 +310,11 @@ export default function App() {
       <LoadingScreen 
         storeName={activeUser?.storeName} 
         userName={targetName} 
-        durationMs={5500} 
+        durationMs={3500} 
+        isOffline={isOfflineStuck || !isOnline}
+        showOfflineNotification={showOfflineAlert}
+        onRetryConnection={handleRetryConnection}
+        isRetryingConnection={isRetryingConnection}
       />
     );
   }
