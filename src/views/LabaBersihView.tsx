@@ -312,7 +312,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             {formatRupiah(report.pengeluaranOperasional)}
           </div>
           <p className="text-[10px] text-zinc-500 leading-tight">
-            Packing, lakban, makan/minum tim, sewa &amp; listrik
+            Top-up iklan &amp; koin, packing, lakban, makan/minum tim, sewa &amp; listrik
           </p>
         </div>
 

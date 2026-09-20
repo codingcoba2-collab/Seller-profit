@@ -525,8 +525,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Compact Top Action Bar */}
-      <div className="flex items-center justify-between gap-2 px-1">
       {/* Sub-menu Navigation Bar */}
       <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
         <div className="flex items-center gap-2">

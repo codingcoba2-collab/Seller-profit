@@ -34,6 +34,7 @@ interface CashflowViewProps {
 type CashflowViewMode = 'menu' | 'input' | 'output';
 
 const CATEGORY_LABELS: Record<string, string> = {
+  topup_iklan: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)',
   packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
   makan_minum: 'Konsumsi / Makan & Minum Tim',
   listrik_wifi: 'Listrik, Air & Internet WiFi',
@@ -42,6 +43,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   konsumsi_pribadi: 'Konsumsi Pribadi (Prive Owner)',
   lainnya: 'Operasional Lainnya',
   penarikan_shopee: 'Penarikan Saldo Marketplace',
+  penarikan_marketplace: 'Penarikan Saldo Marketplace',
 };
 
 export const CashflowView: React.FC<CashflowViewProps> = ({
@@ -154,7 +156,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   const handleCategoryChange = (newCat: CashflowRecord['category']) => {
     setCategory(newCat);
-    if (newCat === 'gaji_pegawai') {
+    if (newCat === 'topup_iklan') {
+      setDescription('Top-Up Saldo Iklan & Promosi Marketplace');
+      setAmount(500000);
+    } else if (newCat === 'gaji_pegawai') {
       const selectedEmp = employees.find(e => e.id === employeeId) || employees[0];
       if (selectedEmp) {
         setEmployeeId(selectedEmp.id);
@@ -164,7 +169,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       }
     } else if (newCat === 'konsumsi_pribadi') {
       setDescription('Prive / Pengeluaran konsumsi pribadi owner');
-    } else if (newCat === 'packing' && (description.includes('Gaji') || description.includes('Kasbon') || description.includes('Prive'))) {
+    } else if (newCat === 'packing' && (description.includes('Gaji') || description.includes('Kasbon') || description.includes('Prive') || description.includes('Top-Up'))) {
       setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
     }
   };
@@ -562,6 +567,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     onChange={val => handleCategoryChange(val as any)}
                     title="Pilih Kategori Transaksi"
                     options={type === 'outflow' ? [
+                      { value: 'topup_iklan', label: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)' },
                       { value: 'packing', label: 'Bahan Packing (Lakban/Plastik)' },
                       { value: 'makan_minum', label: 'Konsumsi / Makan Tim' },
                       { value: 'listrik_wifi', label: 'Listrik, Air & Internet WiFi' },

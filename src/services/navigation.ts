@@ -183,7 +183,8 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Input Order',
         icon: TrendingUp,
         iconColor: 'text-[#FE2C55]',
-        allowedRoles: ['owner', 'manager', 'admin_toko'],
+        allowedRoles: ['owner', 'manager', 'admin_toko', 'host'],
+        allEmployeesCanView: true,
       },
       {
         path: '/penjualan/statistik',

@@ -30,6 +30,7 @@ import {
   type Unsubscribe 
 } from './firebase';
 import { FirestoreTelemetry } from './firestoreTelemetry';
+import { formatNumber, getTodayString } from '../utils/formatters';
 
 const STORAGE_KEYS = {
   STORES: 'shopee_lr_stores',
@@ -1242,7 +1243,20 @@ export class StorageService {
       all = DEFAULT_SALES;
       this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
     }
-    return all.filter(s => s.storeId === storeId);
+    const storeSales = all.filter(s => s.storeId === storeId);
+    if (storeSales.length === 0 && storeId) {
+      const today = getTodayString();
+      const seeded = DEFAULT_SALES.map((s, idx) => ({
+        ...s,
+        id: `sale-seed-${idx + 1}-${storeId}`,
+        storeId,
+        date: idx === 0 ? today : new Date(Date.now() - 86400000 * idx).toISOString().slice(0, 10),
+      }));
+      all = [...seeded, ...all];
+      this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
+      return seeded;
+    }
+    return storeSales;
   }
 
   static addSale(sale: SalesRecord) {
@@ -1350,6 +1364,70 @@ export class StorageService {
     }
   }
 
+  // Helper to sync Ads & Coin deposits to Cashflow Outflow (biaya top up iklan masuk ke pengeluaran)
+  private static syncAdsDepositToCashflow(item: AdsCoinDeposit) {
+    try {
+      const totalAmount = (item.adsAmount || 0) + (item.coinAmount || 0);
+      const cashflowId = `cf-topup-${item.id}`;
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+
+      if (totalAmount > 0) {
+        const parts: string[] = [];
+        if ((item.adsAmount || 0) > 0) parts.push(`Iklan Rp ${formatNumber(item.adsAmount)}`);
+        if ((item.coinAmount || 0) > 0) parts.push(`Koin Rp ${formatNumber(item.coinAmount)}`);
+        const desc = `Top-Up Saldo Iklan & Promosi (${parts.join(', ')})${item.notes ? ` - ${item.notes}` : ''}`.trim();
+
+        const existingIdx = all.findIndex(c => c.id === cashflowId || c.id === `cashflow-topup-${item.id}`);
+        const cfRecord: CashflowRecord = {
+          id: existingIdx !== -1 ? all[existingIdx].id : cashflowId,
+          storeId: item.storeId,
+          date: item.date,
+          type: 'outflow',
+          amount: totalAmount,
+          category: 'topup_iklan',
+          description: desc,
+          recordedBy: 'Sistem Top-Up Saldo',
+          createdAt: item.createdAt || new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          all[existingIdx] = cfRecord;
+        } else {
+          all.unshift(cfRecord);
+        }
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+        this.syncToCloud('cashflow', cfRecord.id, cfRecord);
+        this.notifyListeners('cashflow');
+      } else {
+        const nextAll = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-topup-${item.id}`);
+        if (nextAll.length !== all.length) {
+          this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(nextAll));
+          this.deleteFromCloud('cashflow', cashflowId);
+          this.notifyListeners('cashflow');
+        }
+      }
+    } catch (e) {
+      console.error('Error in syncAdsDepositToCashflow:', e);
+    }
+  }
+
+  private static removeAdsDepositFromCashflow(adDepositId: string) {
+    try {
+      const cashflowId = `cf-topup-${adDepositId}`;
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      const filtered = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-topup-${adDepositId}`);
+      if (filtered.length !== all.length) {
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(filtered));
+        this.deleteFromCloud('cashflow', cashflowId);
+        this.notifyListeners('cashflow');
+      }
+    } catch (e) {
+      console.error('Error in removeAdsDepositFromCashflow:', e);
+    }
+  }
+
   // ADS & COINS
   static getAdsCoins(storeId: string): AdsCoinDeposit[] {
     const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
@@ -1363,7 +1441,10 @@ export class StorageService {
   static saveAdsCoins(list: AdsCoinDeposit[]) {
     try {
       this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(list));
-      list.forEach(item => this.syncToCloud('ads_coins', item.id, item));
+      list.forEach(item => {
+        this.syncToCloud('ads_coins', item.id, item);
+        this.syncAdsDepositToCashflow(item);
+      });
       this.notifyListeners('ads_coins');
       return true;
     } catch (e) {
@@ -1377,7 +1458,10 @@ export class StorageService {
       const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
       let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : DEFAULT_ADS_COIN;
       all.unshift(item);
-      this.saveAdsCoins(all);
+      this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(all));
+      this.syncToCloud('ads_coins', item.id, item);
+      this.syncAdsDepositToCashflow(item);
+      this.notifyListeners('ads_coins');
       return true;
     } catch (e) {
       console.error('Error in addAdsCoin:', e);
@@ -1390,8 +1474,10 @@ export class StorageService {
       const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
       let all: AdsCoinDeposit[] = raw ? JSON.parse(raw) : [];
       all = all.filter(a => a.id !== id);
-      this.saveAdsCoins(all);
+      this.safeSetItem(STORAGE_KEYS.ADS_COINS, JSON.stringify(all));
       this.deleteFromCloud('ads_coins', id);
+      this.removeAdsDepositFromCashflow(id);
+      this.notifyListeners('ads_coins');
       return true;
     } catch (e) {
       console.error('Error in deleteAdsCoin:', e);
@@ -1402,7 +1488,44 @@ export class StorageService {
   // CASHFLOW
   static getCashflow(storeId: string): CashflowRecord[] {
     const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
-    const all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+    let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+    
+    // Pastikan semua top-up iklan & koin juga tersinkronisasi ke cashflow pengeluaran toko ini
+    try {
+      const deposits = this.getAdsCoins(storeId);
+      let modified = false;
+      for (const dep of deposits) {
+        const total = (dep.adsAmount || 0) + (dep.coinAmount || 0);
+        if (total > 0) {
+          const cfId = `cf-topup-${dep.id}`;
+          const hasRecord = all.some(c => c.id === cfId || c.id === `cashflow-topup-${dep.id}`);
+          if (!hasRecord) {
+            const parts: string[] = [];
+            if ((dep.adsAmount || 0) > 0) parts.push(`Iklan Rp ${formatNumber(dep.adsAmount)}`);
+            if ((dep.coinAmount || 0) > 0) parts.push(`Koin Rp ${formatNumber(dep.coinAmount)}`);
+            const desc = `Top-Up Saldo Iklan & Promosi (${parts.join(', ')})${dep.notes ? ` - ${dep.notes}` : ''}`.trim();
+            all.unshift({
+              id: cfId,
+              storeId: dep.storeId,
+              date: dep.date,
+              type: 'outflow',
+              amount: total,
+              category: 'topup_iklan',
+              description: desc,
+              recordedBy: 'Sistem Top-Up Saldo',
+              createdAt: dep.createdAt || new Date().toISOString(),
+            });
+            modified = true;
+          }
+        }
+      }
+      if (modified) {
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+      }
+    } catch (e) {
+      console.error('Error syncing deposits into getCashflow:', e);
+    }
+
     return all.filter(c => c.storeId === storeId);
   }
 

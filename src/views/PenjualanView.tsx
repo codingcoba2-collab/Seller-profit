@@ -24,6 +24,7 @@ import {
   CheckCircle2, 
   Edit3, 
   ArrowLeft, 
+  ArrowRight,
   Filter, 
   Search,
   Store,
@@ -83,12 +84,16 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   });
 
   // Filter states for Rekap tab
+  const [searchQuery, setSearchQuery] = useState('');
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'live' | 'non_live'>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
+
+  // Permission helper
+  const isOwnerOrManager = Boolean(currentUser.isOwner || currentUser.roles?.includes('owner') || currentUser.roles?.includes('manager'));
 
   // FORM STATES: Common & Live
   const [date, setDate] = useState(getTodayString());
@@ -131,6 +136,45 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const adsCoinInfo = StorageService.calculateAdsAndCoins(currentUser.storeId);
   const todayStr = getTodayString();
 
+  // Fallback lists to ensure host and admin options are never empty
+  const availableHosts = useMemo(() => {
+    const list = employees.filter(e => e.roles?.includes('host') || e.roles?.includes('owner'));
+    if (!list.some(e => e.id === currentUser.id)) {
+      list.unshift({
+        id: currentUser.id || 'curr-host',
+        storeId: currentUser.storeId,
+        name: currentUser.name || currentUser.username || 'Host Toko (Saya)',
+        username: currentUser.username || 'host',
+        roles: currentUser.roles?.length ? currentUser.roles : ['host'],
+        salaryType: 'hourly',
+        salaryRate: 0,
+        incentiveConfigs: {},
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    return list;
+  }, [employees, currentUser]);
+
+  const availableAdmins = useMemo(() => {
+    const list = employees.filter(e => e.roles?.includes('admin_toko') || e.roles?.includes('owner'));
+    if (!list.some(e => e.id === currentUser.id)) {
+      list.unshift({
+        id: currentUser.id || 'curr-admin',
+        storeId: currentUser.storeId,
+        name: currentUser.name || currentUser.username || 'Admin / Kasir (Saya)',
+        username: currentUser.username || 'admin',
+        roles: currentUser.roles?.length ? currentUser.roles : ['admin_toko'],
+        salaryType: 'hourly',
+        salaryRate: 0,
+        incentiveConfigs: {},
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    return list;
+  }, [employees, currentUser]);
+
   const loadData = () => {
     const list = StorageService.getSales(currentUser.storeId);
     setSalesList(list);
@@ -139,21 +183,29 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setEmployees(empList);
 
     // Default select first host if available
-    const hosts = empList.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
-    if (hosts.length > 0 && selectedHostIds.length === 0) {
-      setSelectedHostIds([hosts[0].id]);
+    const hosts = empList.filter(e => e.roles?.includes('host') || e.roles?.includes('owner'));
+    const defaultHostId = hosts.length > 0 ? hosts[0].id : currentUser.id;
+    if (defaultHostId) {
+      setSelectedHostIds(prev => prev.length === 0 ? [defaultHostId] : prev);
     }
 
     // Default select first admin_toko if available
-    const admins = empList.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
-    if (admins.length > 0 && selectedAdminIds.length === 0) {
-      setSelectedAdminIds([admins[0].id]);
-      setSelectedCashierAdminIds([admins[0].id]);
+    const admins = empList.filter(e => e.roles?.includes('admin_toko') || e.roles?.includes('owner'));
+    const defaultAdminId = admins.length > 0 ? admins[0].id : currentUser.id;
+    if (defaultAdminId) {
+      setSelectedAdminIds(prev => prev.length === 0 ? [defaultAdminId] : prev);
+      setSelectedCashierAdminIds(prev => prev.length === 0 ? [defaultAdminId] : prev);
     }
   };
 
   useEffect(() => {
     loadData();
+    const unsubscribe = StorageService.subscribe(collection => {
+      if (collection === 'sales' || collection === 'employees' || collection === 'all') {
+        loadData();
+      }
+    });
+    return () => unsubscribe();
   }, [currentUser.storeId]);
 
   const toggleHost = (hostId: string) => {
@@ -229,20 +281,20 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     setLiveChannel('tiktok_live');
     setNonLiveChannel('shopee_reguler');
 
-    const hosts = employees.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
-    setSelectedHostIds(hosts.length > 0 ? [hosts[0].id] : (currentUser.isOwner ? [currentUser.id] : []));
+    const defaultHostId = availableHosts[0]?.id || currentUser.id;
+    setSelectedHostIds(defaultHostId ? [defaultHostId] : []);
 
-    const admins = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
-    setSelectedAdminIds(admins.length > 0 ? [admins[0].id] : []);
-    setSelectedCashierAdminIds(admins.length > 0 ? [admins[0].id] : []);
+    const defaultAdminId = availableAdmins[0]?.id || currentUser.id;
+    setSelectedAdminIds(defaultAdminId ? [defaultAdminId] : []);
+    setSelectedCashierAdminIds(defaultAdminId ? [defaultAdminId] : []);
     setLiveFormStep(1);
     setNonLiveFormStep(1);
     setErrorMessage('');
   };
 
   const handleStartEdit = (sale: SalesRecord) => {
-    if (sale.date !== todayStr && !currentUser.isOwner) {
-      onNotify('Hanya Owner Toko yang dapat mengedit data penjualan tanggal lampau!', 'error');
+    if (sale.date !== todayStr && !isOwnerOrManager) {
+      onNotify('Hanya Owner atau Manager Toko yang dapat mengedit data penjualan tanggal lampau!', 'error');
       return;
     }
 
@@ -565,8 +617,8 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   };
 
   const handleDelete = (sale: SalesRecord) => {
-    if (sale.date !== todayStr && !currentUser.isOwner) {
-      onNotify('Hanya Owner Toko yang dapat menghapus data penjualan tanggal lampau!', 'error');
+    if (sale.date !== todayStr && !isOwnerOrManager) {
+      onNotify('Hanya Owner atau Manager Toko yang dapat menghapus data penjualan tanggal lampau!', 'error');
       return;
     }
 
@@ -592,6 +644,21 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const filteredSales = useMemo(() => {
     return salesList
       .filter(s => {
+        // Search query filter (Invoice / ID, notes, channel, host, admin, category, recordedBy)
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchNotes = (s.notes || '').toLowerCase().includes(q);
+          const matchChannel = (s.channelName || s.salesChannel || '').toLowerCase().includes(q);
+          const matchHosts = s.hostNames?.some(h => h.toLowerCase().includes(q));
+          const matchAdmins = s.adminNames?.some(a => a.toLowerCase().includes(q));
+          const matchCategory = (fashionCategoryLabels[s.category as FashionCategory] || s.category || '').toLowerCase().includes(q);
+          const matchId = s.id.toLowerCase().includes(q);
+          const matchRecordedBy = (s.recordedBy || '').toLowerCase().includes(q);
+          if (!matchNotes && !matchChannel && !matchHosts && !matchAdmins && !matchCategory && !matchId && !matchRecordedBy) {
+            return false;
+          }
+        }
+
         // Type filter (Live vs Non-Live)
         if (typeFilter === 'live' && s.salesType === 'non_live') return false;
         if (typeFilter === 'non_live' && (s.salesType === 'live' || !s.salesType)) return false;
@@ -614,7 +681,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [salesList, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
+  }, [salesList, searchQuery, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -708,13 +775,33 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     window.print();
   };
 
-  const hostEmployees = employees.filter(e => e.roles.includes('host') || e.roles.includes('owner'));
-  const adminEmployees = employees.filter(e => e.roles.includes('admin_toko') || e.roles.includes('owner'));
+  const hostEmployees = availableHosts;
+  const adminEmployees = availableAdmins;
 
   // ================= 1. MENU HUB STATE (Grid Kecil 2 Kesamping) =================
   if (viewMode === 'menu') {
     return (
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+        {/* Top Header Navigation */}
+        <div className="flex items-center justify-between gap-2 px-1">
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="text-xs text-zinc-400 hover:text-white transition flex items-center gap-1.5 font-bold cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            <span>Kembali ke Kategori Menu</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('rekap')}
+            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-[#25F4EE] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex items-center gap-1.5"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Lihat Riwayat ({salesList.length})</span>
+          </button>
+        </div>
+
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -840,19 +927,80 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Compact Top Navigation Bar */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <button
-          id="btn-back-menu-penjualan"
-          onClick={() => {
-            if (editingId) handleCancelEdit();
-            setViewMode('menu');
-          }}
-          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Menu Penjualan</span>
-        </button>
+      {/* Compact Top Navigation Bar with Quick Mode Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-back-menu-penjualan"
+            onClick={() => {
+              if (editingId) handleCancelEdit();
+              setViewMode('menu');
+            }}
+            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Menu Hub</span>
+          </button>
+          <span className="text-zinc-600">/</span>
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="text-xs text-zinc-400 hover:text-white transition font-medium cursor-pointer"
+          >
+            Kategori
+          </button>
+        </div>
+
+        {/* Quick Mode Switcher Tabs */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (editingId) handleCancelEdit();
+              setViewMode('rekap');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'rekap'
+                ? 'bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/40 shadow-xs'
+                : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Riwayat ({salesList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setViewMode('input_live');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'input_live'
+                ? 'bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/40 shadow-xs'
+                : 'bg-white/5 hover:bg-[#FE2C55]/10 text-zinc-400 hover:text-[#FE2C55] border border-white/5'
+            }`}
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>+ Live</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setViewMode('input_non_live');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'input_non_live'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
+                : 'bg-white/5 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 border border-white/5'
+            }`}
+          >
+            <Store className="w-3.5 h-3.5" />
+            <span>+ Non-Live</span>
+          </button>
+        </div>
       </div>
 
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
@@ -920,21 +1068,71 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           </div>
 
           {/* Filter Bar */}
-          <div className="p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-[#25F4EE]" />
-                <span className="text-xs font-black text-white">Filter Data Penjualan</span>
+                <span className="text-xs font-black text-white">Filter &amp; Pencarian Penjualan</span>
               </div>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                title="Cetak Laporan Penjualan"
-              >
-                <Printer className="w-3.5 h-3.5 text-sky-400" />
-                <span>Print</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {(periodFilter !== 'all' || typeFilter !== 'all' || channelFilter !== 'all' || categoryFilter !== 'all' || searchQuery.trim() !== '') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter('all');
+                      setTypeFilter('all');
+                      setChannelFilter('all');
+                      setCategoryFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-400 text-xs font-bold transition cursor-pointer"
+                    title="Reset semua filter dan pencarian"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reset</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={exportToCSV}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                  title="Ekspor Data ke CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
+                  title="Cetak Laporan Penjualan"
+                >
+                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Print</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Input Bar */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari transaksi berdasarkan catatan, channel, nama host, admin, nomor ID..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#25F4EE]/60 transition"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs cursor-pointer p-0.5"
+                  title="Hapus kata kunci pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Filter Pills */}
@@ -1056,16 +1254,55 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             </div>
 
             {filteredSales.length === 0 ? (
-              <div className="p-12 text-center space-y-3 bg-[#161823] rounded-3xl border border-white/10 shadow-xl">
+              <div className="p-8 sm:p-12 text-center space-y-3 bg-[#161823] rounded-3xl border border-white/10 shadow-xl">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
                   <ShoppingBag className="w-6 h-6" />
                 </div>
                 <div className="text-sm font-bold text-zinc-300">
-                  Tidak Ada Data Penjualan Ditemukan
+                  {salesList.length === 0 ? 'Belum Ada Data Penjualan Tercatat' : 'Tidak Ada Data Penjualan yang Cocok'}
                 </div>
                 <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  Silakan ubah filter pencarian atau input data penjualan baru via menu Live / Non-Live.
+                  {salesList.length === 0
+                    ? 'Mulai catat transaksi penjualan sesi Live streaming atau pesanan reguler/offline sekarang.'
+                    : 'Coba sesuaikan kata kunci pencarian atau reset filter di atas.'}
                 </p>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {salesList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter('all');
+                        setTypeFilter('all');
+                        setChannelFilter('all');
+                        setCategoryFilter('all');
+                        setSearchQuery('');
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
+                    >
+                      Reset Filter Pencarian
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm();
+                      setViewMode('input_live');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/40 text-xs font-bold text-[#FE2C55] transition cursor-pointer"
+                  >
+                    + Catat Penjualan Live
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm();
+                      setViewMode('input_non_live');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-bold text-emerald-400 transition cursor-pointer"
+                  >
+                    + Catat Non-Live
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1141,7 +1378,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
 
-                          {(sale.date === todayStr || currentUser.isOwner) && (
+                          {(sale.date === todayStr || isOwnerOrManager) && (
                             <button
                               type="button"
                               onClick={() => handleDelete(sale)}
