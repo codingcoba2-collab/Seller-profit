@@ -51,12 +51,12 @@ const STORAGE_KEYS = {
 };
 
 export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
-  { id: 'ch-shopee', channel: 'shopee', name: 'Shopee (Live & Reguler)', adminPercentage: 8.5, serviceFeePerOrder: 1250, isActive: true },
-  { id: 'ch-tiktok', channel: 'tiktok', name: 'TikTok Shop & Live', adminPercentage: 7.5, serviceFeePerOrder: 2000, isActive: true },
+  { id: 'ch-shopee', channel: 'shopee', name: 'Shopee', adminPercentage: 8.5, serviceFeePerOrder: 1250, isActive: true },
+  { id: 'ch-tiktok', channel: 'tiktok', name: 'TikTok', adminPercentage: 7.5, serviceFeePerOrder: 2000, isActive: true },
   { id: 'ch-tokopedia', channel: 'tokopedia', name: 'Tokopedia', adminPercentage: 6.5, serviceFeePerOrder: 1000, isActive: true },
-  { id: 'ch-offline', channel: 'offline', name: 'Toko Offline / Toko Fisik', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
-  { id: 'ch-whatsapp', channel: 'whatsapp', name: 'WhatsApp / Chat Order', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
-  { id: 'ch-lainnya', channel: 'lainnya', name: 'Marketplace Lainnya (Lazada, dll)', adminPercentage: 6.0, serviceFeePerOrder: 1000, isActive: true },
+  { id: 'ch-offline', channel: 'offline', name: 'Offline', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
+  { id: 'ch-whatsapp', channel: 'whatsapp', name: 'WhatsApp', adminPercentage: 0, serviceFeePerOrder: 0, isActive: true },
+  { id: 'ch-lainnya', channel: 'lainnya', name: 'Lainnya', adminPercentage: 6.0, serviceFeePerOrder: 1000, isActive: true },
 ];
 
 // Default initial dummy data for realistic store demonstration
@@ -950,13 +950,175 @@ export class StorageService {
   static getChannelFees(storeId: string): ChannelFeeConfig[] {
     const store = this.getStoreById(storeId);
     if (store?.settings?.channelFees && store.settings.channelFees.length > 0) {
-      return store.settings.channelFees;
+      return store.settings.channelFees.map(cf => {
+        let cleanName = cf.name;
+        if (cleanName.includes('(Live & Reguler)') || cleanName.toLowerCase().includes('shopee live')) {
+          cleanName = 'Shopee';
+        } else if (cleanName.includes('Shop & Live') || cleanName.toLowerCase().includes('tiktok live')) {
+          cleanName = 'TikTok';
+        } else if (cleanName.includes('Toko Offline') || cleanName.toLowerCase().includes('offline store') || cleanName.toLowerCase().includes('toko fisik')) {
+          cleanName = 'Offline';
+        } else if (cleanName.includes('WhatsApp / Chat')) {
+          cleanName = 'WhatsApp';
+        } else if (cleanName.toLowerCase().includes('lazada, dll')) {
+          cleanName = 'Lainnya';
+        }
+        return {
+          ...cf,
+          name: cleanName,
+        };
+      });
     }
     return DEFAULT_CHANNEL_FEES;
   }
 
   static saveChannelFees(storeId: string, channelFees: ChannelFeeConfig[]) {
     this.updateStoreSettings(storeId, { channelFees });
+  }
+
+  static normalizeChannelKey(channelStr?: string): string {
+    if (!channelStr) return 'lainnya';
+    const c = channelStr.toLowerCase().trim();
+    if (c.includes('shopee')) return 'shopee';
+    if (c.includes('tiktok')) return 'tiktok';
+    if (c.includes('tokopedia') || c.includes('tokped')) return 'tokopedia';
+    if (c.includes('offline') || c.includes('butik') || c.includes('toko fisik') || c.includes('store')) return 'offline';
+    if (c.includes('whatsapp') || c.includes('wa')) return 'whatsapp';
+    if (c.includes('instagram') || c.includes('ig') || c.includes('dm')) return 'instagram';
+    if (c.includes('website') || c.includes('web')) return 'website';
+    return c;
+  }
+
+  static getCleanChannelName(channelStr?: string): string {
+    const key = this.normalizeChannelKey(channelStr);
+    switch (key) {
+      case 'shopee': return 'Shopee';
+      case 'tiktok': return 'TikTok';
+      case 'tokopedia': return 'Tokopedia';
+      case 'offline': return 'Offline';
+      case 'whatsapp': return 'WhatsApp';
+      case 'instagram': return 'Instagram';
+      case 'website': return 'Website';
+      default: return 'Lainnya';
+    }
+  }
+
+  static getFeeForChannel(storeId: string, channelKeyOrName?: string): {
+    adminPercentage: number;
+    serviceFeePerOrder: number;
+    channelKey: string;
+    channelName: string;
+  } {
+    const store = this.getStoreById(storeId);
+    const fees = this.getChannelFees(storeId);
+    const normKey = this.normalizeChannelKey(channelKeyOrName);
+    const cleanName = this.getCleanChannelName(channelKeyOrName);
+
+    // Find configured channel fee
+    const matched = fees.find(cf => {
+      if (!cf.isActive) return false;
+      const cfKey = this.normalizeChannelKey(cf.channel);
+      const cfNameKey = this.normalizeChannelKey(cf.name);
+      return cfKey === normKey || cfNameKey === normKey;
+    });
+
+    if (matched) {
+      return {
+        adminPercentage: Number(matched.adminPercentage) || 0,
+        serviceFeePerOrder: Number(matched.serviceFeePerOrder) || 0,
+        channelKey: normKey,
+        channelName: matched.name || cleanName,
+      };
+    }
+
+    // Zero fee for offline or direct chat channels by default if not set
+    if (normKey === 'offline' || normKey === 'whatsapp') {
+      return {
+        adminPercentage: 0,
+        serviceFeePerOrder: 0,
+        channelKey: normKey,
+        channelName: cleanName,
+      };
+    }
+
+    // Default to store settings
+    return {
+      adminPercentage: store?.settings?.adminPromoPercentage ?? 8.5,
+      serviceFeePerOrder: store?.settings?.serviceFeePerOrder ?? 1250,
+      channelKey: normKey,
+      channelName: cleanName,
+    };
+  }
+
+  static calculateSalesAdminFees(storeId: string, sales: SalesRecord[]): {
+    totalAdminFee: number;
+    totalServiceFee: number;
+    channelBreakdown: Record<string, {
+      name: string;
+      channelKey: string;
+      omzet: number;
+      pcs: number;
+      packages: number;
+      adminPercentage: number;
+      serviceFeePerOrder: number;
+      adminFee: number;
+      serviceFee: number;
+    }>;
+  } {
+    let totalAdminFee = 0;
+    let totalServiceFee = 0;
+    const channelBreakdown: Record<string, {
+      name: string;
+      channelKey: string;
+      omzet: number;
+      pcs: number;
+      packages: number;
+      adminPercentage: number;
+      serviceFeePerOrder: number;
+      adminFee: number;
+      serviceFee: number;
+    }> = {};
+
+    sales.forEach(sale => {
+      const channelIdent = sale.salesChannel || sale.channelName;
+      const feeInfo = this.getFeeForChannel(storeId, channelIdent);
+      const saleOmzet = sale.omzet || 0;
+      const salePackages = sale.packagesSold || 0;
+      const salePcs = sale.pcsSold || 0;
+
+      const adminFee = Math.round(((feeInfo.adminPercentage || 0) / 100) * saleOmzet);
+      const serviceFee = salePackages * (feeInfo.serviceFeePerOrder || 0);
+
+      totalAdminFee += adminFee;
+      totalServiceFee += serviceFee;
+
+      const key = feeInfo.channelKey;
+      if (!channelBreakdown[key]) {
+        channelBreakdown[key] = {
+          name: feeInfo.channelName,
+          channelKey: key,
+          omzet: 0,
+          pcs: 0,
+          packages: 0,
+          adminPercentage: feeInfo.adminPercentage,
+          serviceFeePerOrder: feeInfo.serviceFeePerOrder,
+          adminFee: 0,
+          serviceFee: 0,
+        };
+      }
+
+      channelBreakdown[key].omzet += saleOmzet;
+      channelBreakdown[key].pcs += salePcs;
+      channelBreakdown[key].packages += salePackages;
+      channelBreakdown[key].adminFee += adminFee;
+      channelBreakdown[key].serviceFee += serviceFee;
+    });
+
+    return {
+      totalAdminFee,
+      totalServiceFee,
+      channelBreakdown,
+    };
   }
 
   // CURRENT USER
@@ -2441,16 +2603,16 @@ export class StorageService {
     const avgHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
     const modalTerjual = totalStorePcs * avgHpp;
     const store = this.getStoreById(storeId);
-    const adminPct = store?.settings?.adminPromoPercentage ?? 8.5;
-    const totalAdminShopee = Math.round((adminPct / 100) * totalStoreOmzet);
-    const serviceFee = totalStorePackages * (store?.settings?.serviceFeePerOrder ?? 1250);
+    
+    // Per-channel dynamic admin and service fees calculation
+    const { totalAdminFee, totalServiceFee } = this.calculateSalesAdminFees(storeId, sales);
     const totalAds = sales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
     const totalCoin = sales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
     const allReturns = this.getReturns(storeId).filter(r => !filterDateFn || filterDateFn(r.date));
     const returnAmount = store?.settings?.returnMechanism === 'estimate' 
       ? Math.round(((store?.settings?.estimateReturnPercentage ?? 3) / 100) * totalStoreOmzet)
       : allReturns.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
-    const labaKotor = totalStoreOmzet - modalTerjual - totalAdminShopee - serviceFee - totalAds - totalCoin - returnAmount;
+    const labaKotor = totalStoreOmzet - modalTerjual - totalAdminFee - totalServiceFee - totalAds - totalCoin - returnAmount;
     const allCashflows = this.getCashflow(storeId).filter(c => !filterDateFn || filterDateFn(c.date));
     const pengeluaranKas = allCashflows.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
     const estimatedStoreNetProfit = Math.max(0, labaKotor - pengeluaranKas - (subtotalOperBaseSalary + subtotalOperIncentives + subtotalMultiRoleBonus));
@@ -2641,10 +2803,8 @@ export class StorageService {
     const averageHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
     const modalBarangTerjual = totalPcsTerjual * averageHpp;
 
-    // Biaya Admin & Layanan
-    const adminPct = store?.settings?.adminPromoPercentage ?? 8.5;
-    const totalAdminShopee = Math.round((adminPct / 100) * totalOmzetKotor);
-    const serviceFee = totalPaketTerjual * (store?.settings?.serviceFeePerOrder ?? 1250);
+    // Biaya Admin & Layanan Channel Dinamis sesuai channel tiap transaksi
+    const { totalAdminFee, totalServiceFee } = this.calculateSalesAdminFees(storeId, sales);
 
     // Iklan & Koin
     const totalIklanTerpakai = sales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
@@ -2659,7 +2819,7 @@ export class StorageService {
     }
 
     // Laba Kotor
-    const labaKotor = totalOmzetKotor - modalBarangTerjual - totalAdminShopee - serviceFee - totalIklanTerpakai - totalKoinTerpakai - totalReturn;
+    const labaKotor = totalOmzetKotor - modalBarangTerjual - totalAdminFee - totalServiceFee - totalIklanTerpakai - totalKoinTerpakai - totalReturn;
 
     // Pengeluaran Operasional Cashflow
     const pengeluaranOperasional = cashflows

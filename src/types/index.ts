@@ -128,6 +128,14 @@ export type InventoryUnitType =
 export type SalesType = 'live' | 'non_live';
 
 export type SalesChannel = 
+  | 'shopee'
+  | 'tiktok'
+  | 'tokopedia'
+  | 'offline'
+  | 'whatsapp'
+  | 'instagram'
+  | 'website'
+  | 'lainnya'
   | 'tiktok_live'
   | 'shopee_live'
   | 'tokopedia_live'
@@ -137,9 +145,7 @@ export type SalesChannel =
   | 'tokopedia_reguler'
   | 'offline_store'
   | 'whatsapp_order'
-  | 'dm_instagram'
-  | 'website'
-  | 'lainnya';
+  | 'dm_instagram';
 
 export type PaymentMethod = 'transfer' | 'qris' | 'cash' | 'cod' | 'marketplace_balance' | 'lainnya';
 

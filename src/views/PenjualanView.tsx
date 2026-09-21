@@ -111,7 +111,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [bundlingPackages, setBundlingPackages] = useState<number>(0);
 
   // FORM STATES: Live specific
-  const [liveChannel, setLiveChannel] = useState<SalesChannel>('tiktok_live');
+  const [liveChannel, setLiveChannel] = useState<SalesChannel>('tiktok');
   const [selectedHostIds, setSelectedHostIds] = useState<string[]>([]);
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [hoursWorked, setHoursWorked] = useState<number>(4);
@@ -119,7 +119,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [adsUsed, setAdsUsed] = useState<number>(0);
 
   // FORM STATES: Non-Live specific
-  const [nonLiveChannel, setNonLiveChannel] = useState<SalesChannel>('shopee_reguler');
+  const [nonLiveChannel, setNonLiveChannel] = useState<SalesChannel>('shopee');
   const [selectedCashierAdminIds, setSelectedCashierAdminIds] = useState<string[]>([]);
   const [nonLiveAdsUsed, setNonLiveAdsUsed] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('transfer');
@@ -319,13 +319,15 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     const isNonLive = sale.salesType === 'non_live';
 
     if (isNonLive) {
-      setNonLiveChannel((sale.salesChannel as SalesChannel) || 'shopee_reguler');
+      const normKey = StorageService.normalizeChannelKey(sale.salesChannel || sale.channelName);
+      setNonLiveChannel((normKey as SalesChannel) || 'shopee');
       setSelectedCashierAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
       setNonLiveAdsUsed(sale.adsUsed || 0);
       setPaymentMethod((sale.paymentMethod as PaymentMethod) || 'transfer');
       setViewMode('input_non_live');
     } else {
-      setLiveChannel((sale.salesChannel as SalesChannel) || 'tiktok_live');
+      const normKey = StorageService.normalizeChannelKey(sale.salesChannel || sale.channelName);
+      setLiveChannel((normKey as SalesChannel) || 'tiktok');
       setSelectedHostIds(sale.hostIds || []);
       setSelectedAdminIds(sale.adminIds || (sale.adminId ? [sale.adminId] : []));
       setHoursWorked(sale.hoursWorked || 4);
@@ -467,7 +469,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       return emp ? emp.name : (currentUser.id === id ? currentUser.name : 'Admin Toko');
     });
 
-    const channelMeta = salesChannelLabels[liveChannel] || { label: 'Marketplace Live' };
+    const cleanLabel = StorageService.getCleanChannelName(liveChannel);
 
     const finalSatuanPcs = saleFormat === 'satuan' ? pcsSold : (saleFormat === 'bundling' ? 0 : satuanPcs);
     const finalSatuanPkgs = saleFormat === 'satuan' ? packagesSold : (saleFormat === 'bundling' ? 0 : satuanPackages);
@@ -483,7 +485,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       date,
       salesType: 'live',
       salesChannel: liveChannel,
-      channelName: channelMeta.label,
+      channelName: cleanLabel,
       category,
       saleFormat,
       satuanPcs: finalSatuanPcs,
@@ -535,7 +537,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       isOpen: true,
       title: editingId ? 'Konfirmasi Simpan Perubahan Live' : 'Konfirmasi Catat Penjualan Live',
       message: editingId
-        ? `Apakah Anda yakin ingin menyimpan perubahan penjualan ${channelMeta.label} tanggal ${formatDateIndo(date)}?`
+        ? `Apakah Anda yakin ingin menyimpan perubahan penjualan ${cleanLabel} tanggal ${formatDateIndo(date)}?`
         : `Apakah Anda yakin ingin menyimpan data transaksi penjualan live senilai ${formatRupiah(omzet)}?`,
       type: editingId ? 'edit' : 'create',
       confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Penjualan',
@@ -557,7 +559,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       return emp ? emp.name : 'Admin / Kasir';
     });
 
-    const channelMeta = salesChannelLabels[nonLiveChannel] || { label: 'Non-Live Marketplace' };
+    const cleanLabel = StorageService.getCleanChannelName(nonLiveChannel);
 
     const record: SalesRecord = {
       id: editingId || 'sale-nonlive-' + Date.now(),
@@ -565,7 +567,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       date,
       salesType: 'non_live',
       salesChannel: nonLiveChannel,
-      channelName: channelMeta.label,
+      channelName: cleanLabel,
       category,
       adminIds: selectedCashierAdminIds,
       adminNames,
@@ -682,8 +684,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         if (typeFilter === 'live' && s.salesType === 'non_live') return false;
         if (typeFilter === 'non_live' && (s.salesType === 'live' || !s.salesType)) return false;
 
-        // Channel filter
-        if (channelFilter !== 'all' && s.salesChannel !== channelFilter) return false;
+        // Channel filter (Normalized comparison for unified channels)
+        if (channelFilter !== 'all') {
+          const itemKey = StorageService.normalizeChannelKey(s.salesChannel || s.channelName);
+          const filterKey = StorageService.normalizeChannelKey(channelFilter);
+          if (itemKey !== filterKey) return false;
+        }
 
         // Category filter
         if (categoryFilter !== 'all' && s.category !== categoryFilter) return false;
@@ -1217,10 +1223,14 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   title="Pilih Channel Penjualan"
                   options={[
                     { value: 'all', label: 'Semua Channel' },
-                    ...Object.entries(salesChannelLabels).map(([key, val]) => ({
-                      value: key,
-                      label: val.label,
-                    })),
+                    { value: 'shopee', label: 'Shopee' },
+                    { value: 'tiktok', label: 'TikTok' },
+                    { value: 'tokopedia', label: 'Tokopedia' },
+                    { value: 'offline', label: 'Offline' },
+                    { value: 'whatsapp', label: 'WhatsApp' },
+                    { value: 'instagram', label: 'Instagram' },
+                    { value: 'website', label: 'Website' },
+                    { value: 'lainnya', label: 'Lainnya' },
                   ]}
                   className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
                 />
@@ -1339,10 +1349,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               <div className="space-y-2">
                 {filteredSales.map(sale => {
                   const isLive = sale.salesType === 'live' || !sale.salesType;
+                  const cleanName = StorageService.getCleanChannelName(sale.salesChannel || sale.channelName);
                   const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
-                    label: sale.channelName || (isLive ? 'Marketplace Live' : 'Marketplace Reguler'),
+                    label: cleanName,
                     color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
                   };
+                  const feeInfo = StorageService.getFeeForChannel(currentUser.storeId, sale.salesChannel || sale.channelName);
                   const categoryLabel = fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion Umum';
                   const hostsOrAdmins = isLive
                     ? (sale.hostNames && sale.hostNames.length > 0 ? sale.hostNames.join(', ') : 'Host Live')
@@ -1362,6 +1374,10 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300">
                             {channelInfo.label}
+                          </span>
+
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                            Admin {feeInfo.adminPercentage}%
                           </span>
 
                           {isLive ? (
@@ -1588,21 +1604,35 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                     {/* Channel Live */}
                     <div>
                       <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Platform Live Streaming <span className="text-[#FE2C55]">*</span>
+                        Platform Saluran Penjualan <span className="text-[#FE2C55]">*</span>
                       </label>
                       <ThemedSelect
                         value={liveChannel}
                         onChange={val => setLiveChannel(val as SalesChannel)}
-                        title="Pilih Platform Live Streaming"
+                        title="Pilih Channel Penjualan"
                         color="magenta"
                         options={[
-                          { value: 'tiktok_live', label: 'TikTok Live' },
-                          { value: 'shopee_live', label: 'Shopee Live' },
-                          { value: 'tokopedia_live', label: 'Tokopedia Live' },
-                          { value: 'instagram_live', label: 'Instagram Live' },
+                          { value: 'tiktok', label: 'TikTok' },
+                          { value: 'shopee', label: 'Shopee' },
+                          { value: 'tokopedia', label: 'Tokopedia' },
+                          { value: 'instagram', label: 'Instagram' },
+                          { value: 'offline', label: 'Offline' },
+                          { value: 'whatsapp', label: 'WhatsApp' },
+                          { value: 'lainnya', label: 'Lainnya' },
                         ]}
                         className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
                       />
+                      {(() => {
+                        const fee = StorageService.getFeeForChannel(currentUser.storeId, liveChannel);
+                        return (
+                          <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-between text-[11px]">
+                            <span className="text-zinc-400">Skema Biaya Channel ({fee.channelName}):</span>
+                            <span className="font-bold text-amber-400">
+                              Admin {fee.adminPercentage}% {fee.serviceFeePerOrder > 0 ? `• Layanan ${formatRupiah(fee.serviceFeePerOrder)}/paket` : '• Layanan Rp 0'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Kategori Fashion */}
@@ -2230,17 +2260,28 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                         title="Pilih Channel Penjualan"
                         color="emerald"
                         options={[
-                          { value: 'shopee_reguler', label: 'Shopee Marketplace Reguler' },
-                          { value: 'tiktok_shop_reguler', label: 'TikTok Shop Reguler' },
-                          { value: 'tokopedia_reguler', label: 'Tokopedia Reguler' },
-                          { value: 'offline_store', label: 'Toko Offline / Butik Fashion' },
-                          { value: 'whatsapp_order', label: 'WhatsApp / Chat Order' },
-                          { value: 'dm_instagram', label: 'DM Instagram / Sosmed' },
-                          { value: 'website', label: 'Website / Olshop' },
+                          { value: 'shopee', label: 'Shopee' },
+                          { value: 'tiktok', label: 'TikTok' },
+                          { value: 'tokopedia', label: 'Tokopedia' },
+                          { value: 'offline', label: 'Offline' },
+                          { value: 'whatsapp', label: 'WhatsApp' },
+                          { value: 'instagram', label: 'Instagram' },
+                          { value: 'website', label: 'Website' },
                           { value: 'lainnya', label: 'Lainnya' },
                         ]}
                         className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
                       />
+                      {(() => {
+                        const fee = StorageService.getFeeForChannel(currentUser.storeId, nonLiveChannel);
+                        return (
+                          <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-between text-[11px]">
+                            <span className="text-zinc-400">Skema Biaya Channel ({fee.channelName}):</span>
+                            <span className="font-bold text-amber-400">
+                              Admin {fee.adminPercentage}% {fee.serviceFeePerOrder > 0 ? `• Layanan ${formatRupiah(fee.serviceFeePerOrder)}/paket` : '• Layanan Rp 0'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Kategori Fashion */}
@@ -2567,6 +2608,38 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Rincian Biaya Admin Channel untuk Transaksi Ini */}
+              {(() => {
+                const feeInfo = StorageService.getFeeForChannel(currentUser.storeId, viewingDetailSale.salesChannel || viewingDetailSale.channelName);
+                const adminCut = Math.round(((feeInfo.adminPercentage || 0) / 100) * (viewingDetailSale.omzet || 0));
+                const serviceCut = (viewingDetailSale.packagesSold || 0) * (feeInfo.serviceFeePerOrder || 0);
+                const totalCut = adminCut + serviceCut;
+                const netOmzet = (viewingDetailSale.omzet || 0) - totalCut - (viewingDetailSale.adsUsed || 0) - (viewingDetailSale.coinUsed || 0);
+
+                return (
+                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-white">
+                      <span>Skema Biaya Channel: {feeInfo.channelName}</span>
+                      <span className="text-amber-400 font-extrabold">Admin {feeInfo.adminPercentage}%</span>
+                    </div>
+                    <div className="space-y-1 text-xs pt-1 border-t border-white/5">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Potongan Admin ({feeInfo.adminPercentage}% x {formatRupiah(viewingDetailSale.omzet || 0)}):</span>
+                        <strong className="text-rose-400 font-bold">- {formatRupiah(adminCut)}</strong>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Biaya Layanan ({feeInfo.serviceFeePerOrder === 0 ? 'Rp 0' : `${formatRupiah(feeInfo.serviceFeePerOrder)} x ${viewingDetailSale.packagesSold || 0} paket`}):</span>
+                        <strong className="text-rose-400 font-bold">- {formatRupiah(serviceCut)}</strong>
+                      </div>
+                      <div className="flex justify-between text-zinc-300 font-bold pt-1 border-t border-white/5">
+                        <span>Estimasi Omzet Diterima Bersih:</span>
+                        <strong className="text-[#25F4EE]">{formatRupiah(netOmzet)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2">
                 <div className="flex justify-between py-2 border-b border-white/5">

@@ -75,11 +75,9 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       : 20000;
     const modalBarangTerjual = totalIsiTerjual * averageHpp;
 
-    // Shopee Deductions
-    const adminPromoPct = store?.settings?.adminPromoPercentage ?? 8.5;
-    const totalAdminShopee = Math.round((adminPromoPct / 100) * totalOmzetKotor);
-    const serviceFee = store?.settings?.serviceFeePerOrder ?? 1250;
-    const totalBiayaLayanan = totalPaketTerjual * serviceFee;
+    // Biaya Admin & Layanan Channel Dinamis
+    const { totalAdminFee, totalServiceFee, channelBreakdown } = StorageService.calculateSalesAdminFees(currentUser.storeId, filteredSales);
+    const channelList = Object.values(channelBreakdown);
 
     // Return
     let totalReturn = 0;
@@ -90,7 +88,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     }
 
     // Laba Kotor output
-    const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminShopee - totalBiayaLayanan - totalIklanTerpakai - totalKoinTerpakai;
+    const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminFee - totalServiceFee - totalIklanTerpakai - totalKoinTerpakai;
     const labaKotor = omzetBersih - totalReturn;
 
     // 2. Total Pengeluaran Operasional (Cashflow Outflow murni - tidak termasuk pengeluaran gaji karena gaji dipisahkan / dihitung mandiri di kas gaji)
@@ -117,6 +115,9 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     return {
       totalOmzetKotor,
       labaKotor,
+      totalAdminFee,
+      totalServiceFee,
+      channelList,
       pengeluaranOperasional,
       pengeluaranGajiDiKas,
       totalBebanGaji,
@@ -388,6 +389,35 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Rincian Biaya Potongan Admin per Saluran Penjualan */}
+      {report.channelList.length > 0 && (
+        <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 space-y-2.5">
+          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+            <h4 className="text-[11px] font-black text-white uppercase tracking-wider">
+              Rincian Potongan Admin &amp; Layanan per Saluran
+            </h4>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-zinc-400">Total Admin: <strong className="text-rose-400">{formatRupiah(report.totalAdminFee)}</strong></span>
+              <span className="text-zinc-400">Total Layanan: <strong className="text-amber-400">{formatRupiah(report.totalServiceFee)}</strong></span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {report.channelList.map(ch => (
+              <div key={ch.channelKey} className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-white">{ch.name}</span>
+                  <span className="text-amber-400 text-[11px] font-bold">Admin {ch.adminPercentage}%</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                  <span>Omzet: {formatRupiah(ch.omzet)}</span>
+                  <span className="text-rose-400 font-medium">Potongan: {formatRupiah(ch.adminFee + ch.serviceFee)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

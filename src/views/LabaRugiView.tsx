@@ -79,15 +79,12 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
     // 3. Modal Barang Terjual = HPP x Isi Terjual
     const modalBarangTerjual = totalIsiTerjual * averageHpp;
 
-    // 4. Total Admin Shopee = Promo % x Omzet Kotor
-    const adminPromoPct = store?.settings?.adminPromoPercentage ?? 8.5;
-    const totalAdminShopee = Math.round((adminPromoPct / 100) * totalOmzetKotor);
+    // 4. Biaya Admin & Layanan Dinamis per Channel
+    const { totalAdminFee, totalServiceFee, channelBreakdown } = StorageService.calculateSalesAdminFees(currentUser.storeId, filteredSales);
+    const channelList = Object.values(channelBreakdown);
+    const effectiveAdminPct = totalOmzetKotor > 0 ? ((totalAdminFee / totalOmzetKotor) * 100).toFixed(1) : '0.0';
 
-    // 5. Total Biaya Layanan = Biaya Layanan per Pesanan x Total Paket Terjual
-    const serviceFeePerOrder = store?.settings?.serviceFeePerOrder ?? 1250;
-    const totalBiayaLayanan = totalPaketTerjual * serviceFeePerOrder;
-
-    // 6. Total Return (Estimasi vs Detail)
+    // 5. Total Return (Estimasi vs Detail)
     let totalReturnAmount = 0;
     const isEstimate = store?.settings?.returnMechanism === 'estimate';
     const estimatePct = store?.settings?.estimateReturnPercentage ?? 3.0;
@@ -98,10 +95,10 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
       totalReturnAmount = filteredReturns.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
     }
 
-    // 7. Omzet Bersih = Omzet Kotor - Modal Terjual - Admin Shopee - Biaya Layanan - Iklan - Koin
-    const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminShopee - totalBiayaLayanan - totalIklanTerpakai - totalKoinTerpakai;
+    // 6. Omzet Bersih = Omzet Kotor - Modal Terjual - Admin Channel - Biaya Layanan - Iklan - Koin
+    const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminFee - totalServiceFee - totalIklanTerpakai - totalKoinTerpakai;
 
-    // 8. Laba Kotor = Omzet Bersih - Total Return
+    // 7. Laba Kotor = Omzet Bersih - Total Return
     const labaKotor = omzetBersih - totalReturnAmount;
 
     return {
@@ -116,17 +113,17 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
       totalIklanTerpakai,
       totalKoinTerpakai,
       modalBarangTerjual,
-      adminPromoPct,
-      totalAdminShopee,
-      serviceFeePerOrder,
-      totalBiayaLayanan,
+      totalAdminFee,
+      totalServiceFee,
+      channelList,
+      effectiveAdminPct,
       isEstimate,
       estimatePct,
       totalReturnAmount,
       omzetBersih,
       labaKotor,
     };
-  }, [inventory, sales, returns, store, period, selectedDate]);
+  }, [inventory, sales, returns, store, period, selectedDate, currentUser.storeId]);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
@@ -224,26 +221,65 @@ export const LabaRugiView: React.FC<LabaRugiViewProps> = ({
           </div>
         </div>
 
-        {/* Kolom 2: Biaya & Potongan Shopee */}
+        {/* Kolom 2: Biaya & Potongan Channel Marketplace */}
         <div className="bg-[#161823] p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
-          <h3 className="font-black text-white text-sm flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4 text-[#FE2C55]" />
-            <span>2. Potongan Marketplace Shopee &amp; Iklan</span>
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-white text-sm flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-[#FE2C55]" />
+              <span>2. Potongan Biaya Admin Channel &amp; Promosi</span>
+            </h3>
+            <span className="text-[10px] text-[#25F4EE] font-bold px-2 py-0.5 rounded-md bg-[#25F4EE]/10 border border-[#25F4EE]/20">
+              Rata-rata: {calculation.effectiveAdminPct}%
+            </span>
+          </div>
 
           <div className="space-y-3 text-xs">
-            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
-              <span className="text-zinc-400">Biaya Admin Shopee ({calculation.adminPromoPct}%):</span>
-              <strong className="text-[#FE2C55] font-bold">{formatRupiah(calculation.totalAdminShopee)}</strong>
+            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Total Potongan Admin Channel:</span>
+                <strong className="text-[#FE2C55] font-bold">{formatRupiah(calculation.totalAdminFee)}</strong>
+              </div>
+
+              {/* Rincian per Channel (Shopee, TikTok, Offline, dll) */}
+              {calculation.channelList.length > 0 && (
+                <div className="pt-2 border-t border-white/5 space-y-1.5">
+                  <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wider">
+                    Rincian Channel Terpakai:
+                  </span>
+                  {calculation.channelList.map(ch => (
+                    <div key={ch.channelKey} className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-300 font-medium">
+                        {ch.name} <span className="text-zinc-500">({ch.adminPercentage}%)</span>:
+                      </span>
+                      <div className="text-right">
+                        <span className="font-bold text-rose-400">{formatRupiah(ch.adminFee)}</span>
+                        <span className="text-[10px] text-zinc-500 ml-1.5">(Omzet: {formatRupiah(ch.omzet)})</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Total Biaya Layanan Pesanan:</span>
+                <strong className="text-[#FE2C55] font-bold">{formatRupiah(calculation.totalServiceFee)}</strong>
+              </div>
+              {calculation.channelList.length > 0 && (
+                <div className="pt-1.5 border-t border-white/5 space-y-1 text-[11px]">
+                  {calculation.channelList.map(ch => (
+                    <div key={ch.channelKey} className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400">{ch.name} ({ch.serviceFeePerOrder === 0 ? 'Rp 0' : `${formatRupiah(ch.serviceFeePerOrder)}/paket`}):</span>
+                      <span className="text-zinc-300 font-semibold">{formatRupiah(ch.serviceFee)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
-              <span className="text-zinc-400">Biaya Layanan ({formatRupiah(calculation.serviceFeePerOrder)}/paket):</span>
-              <strong className="text-[#FE2C55] font-bold">{formatRupiah(calculation.totalBiayaLayanan)}</strong>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 flex items-center justify-between">
-              <span className="text-zinc-400">Penggunaan Shopee Ads &amp; Koin:</span>
+              <span className="text-zinc-400">Penggunaan Iklan (Ads) &amp; Koin:</span>
               <strong className="text-[#FE2C55] font-bold">
                 {formatRupiah(calculation.totalIklanTerpakai + calculation.totalKoinTerpakai)}
               </strong>

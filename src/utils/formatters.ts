@@ -98,18 +98,25 @@ export const fashionCategoryLabels: Record<string, string> = {
 };
 
 export const salesChannelLabels: Record<string, { label: string; type: 'live' | 'non_live'; color: string }> = {
-  tiktok_live: { label: 'TikTok Live', type: 'live', color: 'from-[#FE2C55] to-[#25F4EE]' },
-  shopee_live: { label: 'Shopee Live', type: 'live', color: 'from-orange-500 to-amber-500' },
-  tokopedia_live: { label: 'Tokopedia Live', type: 'live', color: 'from-emerald-500 to-teal-500' },
-  instagram_live: { label: 'Instagram Live', type: 'live', color: 'from-pink-500 to-purple-600' },
-  shopee_reguler: { label: 'Shopee Marketplace Reguler', type: 'non_live', color: 'from-orange-500 to-orange-600' },
-  tiktok_shop_reguler: { label: 'TikTok Shop Reguler', type: 'non_live', color: 'from-zinc-900 to-zinc-700' },
-  tokopedia_reguler: { label: 'Tokopedia Reguler', type: 'non_live', color: 'from-emerald-600 to-green-600' },
-  offline_store: { label: 'Toko Offline / Butik', type: 'non_live', color: 'from-blue-500 to-indigo-600' },
-  whatsapp_order: { label: 'WhatsApp / Chat Order', type: 'non_live', color: 'from-emerald-500 to-green-500' },
-  dm_instagram: { label: 'DM Instagram / Sosmed', type: 'non_live', color: 'from-purple-500 to-pink-500' },
-  website: { label: 'Website Toko / Olshop', type: 'non_live', color: 'from-sky-500 to-blue-600' },
-  lainnya: { label: 'Channel Lainnya', type: 'non_live', color: 'from-zinc-500 to-zinc-600' },
+  shopee: { label: 'Shopee', type: 'non_live', color: 'from-orange-500 to-amber-500' },
+  tiktok: { label: 'TikTok', type: 'live', color: 'from-[#FE2C55] to-[#25F4EE]' },
+  tokopedia: { label: 'Tokopedia', type: 'non_live', color: 'from-emerald-500 to-teal-500' },
+  offline: { label: 'Offline', type: 'non_live', color: 'from-blue-500 to-indigo-600' },
+  whatsapp: { label: 'WhatsApp', type: 'non_live', color: 'from-emerald-500 to-green-500' },
+  instagram: { label: 'Instagram', type: 'non_live', color: 'from-purple-500 to-pink-500' },
+  website: { label: 'Website', type: 'non_live', color: 'from-sky-500 to-blue-600' },
+  lainnya: { label: 'Lainnya', type: 'non_live', color: 'from-zinc-500 to-zinc-600' },
+  // Backward compatibility keys for existing records:
+  tiktok_live: { label: 'TikTok', type: 'live', color: 'from-[#FE2C55] to-[#25F4EE]' },
+  shopee_live: { label: 'Shopee', type: 'live', color: 'from-orange-500 to-amber-500' },
+  tokopedia_live: { label: 'Tokopedia', type: 'live', color: 'from-emerald-500 to-teal-500' },
+  instagram_live: { label: 'Instagram', type: 'live', color: 'from-pink-500 to-purple-600' },
+  shopee_reguler: { label: 'Shopee', type: 'non_live', color: 'from-orange-500 to-orange-600' },
+  tiktok_shop_reguler: { label: 'TikTok', type: 'non_live', color: 'from-zinc-900 to-zinc-700' },
+  tokopedia_reguler: { label: 'Tokopedia', type: 'non_live', color: 'from-emerald-600 to-green-600' },
+  offline_store: { label: 'Offline', type: 'non_live', color: 'from-blue-500 to-indigo-600' },
+  whatsapp_order: { label: 'WhatsApp', type: 'non_live', color: 'from-emerald-500 to-green-500' },
+  dm_instagram: { label: 'Instagram', type: 'non_live', color: 'from-purple-500 to-pink-500' },
 };
 
 export const inventoryUnitLabels: Record<string, string> = {
