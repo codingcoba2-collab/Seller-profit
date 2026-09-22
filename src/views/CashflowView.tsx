@@ -19,7 +19,9 @@ import {
   PlusCircle,
   ClipboardList,
   ArrowRight,
-  Layers
+  Layers,
+  Calendar,
+  Filter
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
@@ -34,6 +36,7 @@ interface CashflowViewProps {
 type CashflowViewMode = 'menu' | 'input' | 'output';
 
 const CATEGORY_LABELS: Record<string, string> = {
+  modal_ball: 'Modal Ball / Pembelian Stok Fashion',
   topup_iklan: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)',
   packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
   makan_minum: 'Konsumsi / Makan & Minum Tim',
@@ -75,7 +78,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   });
 
   // Filter states
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'specific' | 'range' | 'weekly' | 'monthly'>('all');
+  const [specificDate, setSpecificDate] = useState(getTodayString());
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
   const [searchQuery, setSearchQuery] = useState('');
@@ -321,13 +325,17 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const filteredList = cashflowList
     .filter(item => {
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.toLowerCase().trim();
         const matchDesc = item.description?.toLowerCase().includes(q);
-        const matchCat = CATEGORY_LABELS[item.category]?.toLowerCase().includes(q);
+        const matchCat = (CATEGORY_LABELS[item.category] || item.category)?.toLowerCase().includes(q);
         const matchEmp = item.employeeName?.toLowerCase().includes(q);
-        if (!matchDesc && !matchCat && !matchEmp) return false;
+        const matchDateRaw = item.date?.toLowerCase().includes(q);
+        const matchDateIndo = formatDateIndo(item.date).toLowerCase().includes(q);
+        const matchAmount = item.amount?.toString().includes(q);
+        if (!matchDesc && !matchCat && !matchEmp && !matchDateRaw && !matchDateIndo && !matchAmount) return false;
       }
       if (periodFilter === 'today') return item.date === getTodayString();
+      if (periodFilter === 'specific') return item.date === specificDate;
       if (periodFilter === 'range') return item.date >= startDate && item.date <= endDate;
       if (periodFilter === 'weekly') {
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
@@ -348,6 +356,83 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       {/* ================= 1. MENU HUB STATE (2 Pilihan Grid) ================= */}
       {viewMode === 'menu' && (
         <div className="space-y-3.5 sm:space-y-4">
+          {/* Quick Date / Period Bar on Menu View */}
+          <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-[#25F4EE]" />
+                Filter Periode Kas:
+              </span>
+              <ThemedSelect
+                value={periodFilter}
+                onChange={val => setPeriodFilter(val as any)}
+                title="Pilih Periode Kas"
+                options={[
+                  { value: 'all', label: 'Semua Periode' },
+                  { value: 'today', label: 'Hari Ini' },
+                  { value: 'specific', label: '📅 Pilih Tanggal' },
+                  { value: 'range', label: '📅 Rentang Tanggal' },
+                  { value: 'weekly', label: '7 Hari Terakhir' },
+                  { value: 'monthly', label: 'Bulan Ini' },
+                ]}
+                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+              />
+
+              {periodFilter === 'specific' && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+                  <input
+                    type="date"
+                    value={specificDate}
+                    onChange={e => setSpecificDate(e.target.value)}
+                    className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                </div>
+              )}
+
+              {periodFilter === 'range' && (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    className="px-2 py-1 bg-[#0b0c10] border border-[#25F4EE]/40 rounded-xl text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                  <span className="text-zinc-500 text-xs">-</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    className="px-2 py-1 bg-[#0b0c10] border border-[#25F4EE]/40 rounded-xl text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {(periodFilter !== 'all' || searchQuery.trim() !== '') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPeriodFilter('all');
+                    setSearchQuery('');
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] border border-white/10 text-[11px] font-bold transition cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Reset Filter</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setViewMode('output')}
+                className="text-xs text-[#25F4EE] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <span>Lihat {filteredList.length} Transaksi</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
           {/* Ringkasan Ringkas */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -567,6 +652,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     onChange={val => handleCategoryChange(val as any)}
                     title="Pilih Kategori Transaksi"
                     options={type === 'outflow' ? [
+                      { value: 'modal_ball', label: 'Modal Ball / Pembelian Stok Fashion' },
                       { value: 'topup_iklan', label: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)' },
                       { value: 'packing', label: 'Bahan Packing (Lakban/Plastik)' },
                       { value: 'makan_minum', label: 'Konsumsi / Makan Tim' },
@@ -577,7 +663,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       { value: 'lainnya', label: 'Operasional Lainnya' },
                     ] : [
                       { value: 'penarikan_shopee', label: 'Penarikan Saldo Marketplace' },
-                      { value: 'lainnya', label: 'Pemasukan Lainnya / Modal Tambahan' },
+                      { value: 'lainnya', label: 'Pemasukan Lainnya / Suntikan Modal' },
                     ]}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   />
@@ -763,46 +849,158 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       {viewMode === 'output' && (
         <div className="space-y-3">
           {/* Filter Bar & Back Navigation */}
-          <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
-              <button
-                id="btn-back-menu-from-output-cashflow"
-                type="button"
-                onClick={() => setViewMode('menu')}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-                title="Kembali ke Menu Kas"
-                aria-label="Kembali"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-              </button>
+          <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
+                <button
+                  id="btn-back-menu-from-output-cashflow"
+                  type="button"
+                  onClick={() => setViewMode('menu')}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+                  title="Kembali ke Menu Kas"
+                  aria-label="Kembali"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                </button>
 
-              <div className="relative flex-1 min-w-[150px] max-w-xs">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari transaksi / kategori..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                <div className="relative flex-1 min-w-[160px] max-w-xs">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Cari transaksi / tanggal / kategori..."
+                    className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                      title="Hapus pencarian"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <ThemedSelect
+                  value={periodFilter}
+                  onChange={val => setPeriodFilter(val as any)}
+                  title="Pilih Periode"
+                  options={[
+                    { value: 'all', label: 'Semua Periode' },
+                    { value: 'today', label: 'Hari Ini' },
+                    { value: 'specific', label: '📅 Pilih Tanggal' },
+                    { value: 'range', label: '📅 Rentang Tanggal' },
+                    { value: 'weekly', label: '7 Hari Terakhir' },
+                    { value: 'monthly', label: 'Bulan Ini' },
+                  ]}
+                  className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
                 />
               </div>
 
-              <ThemedSelect
-                value={periodFilter}
-                onChange={val => setPeriodFilter(val as any)}
-                title="Pilih Periode"
-                options={[
-                  { value: 'all', label: 'Semua Periode' },
-                  { value: 'today', label: 'Hari Ini' },
-                  { value: 'weekly', label: '7 Hari Terakhir' },
-                  { value: 'monthly', label: 'Bulan Ini' },
-                ]}
-                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              />
+              <div className="flex items-center gap-2 text-xs text-zinc-400 font-semibold shrink-0">
+                {(periodFilter !== 'all' || searchQuery.trim() !== '') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] border border-white/10 text-[11px] font-bold transition cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Reset Filter</span>
+                  </button>
+                )}
+                <span>Total: <strong className="text-white">{filteredList.length}</strong> transaksi</span>
+              </div>
             </div>
 
-            <div className="text-xs text-zinc-400 font-semibold shrink-0">
-              Total: <strong className="text-white">{filteredList.length}</strong> transaksi
+            {/* Dedicated Date Selectors when specific or range is selected */}
+            {periodFilter === 'specific' && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+                  <Calendar className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span className="text-[11px] text-zinc-400 font-bold">Pilih Tanggal:</span>
+                  <input
+                    type="date"
+                    value={specificDate}
+                    onChange={e => setSpecificDate(e.target.value)}
+                    className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <span className="text-xs text-zinc-400 font-medium">
+                  Menampilkan mutasi kas: <strong className="text-white">{formatDateIndo(specificDate)}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSpecificDate(getTodayString())}
+                  className="text-[11px] text-[#25F4EE] hover:underline ml-auto font-medium cursor-pointer"
+                >
+                  Set Hari Ini
+                </button>
+              </div>
+            )}
+
+            {periodFilter === 'range' && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+                  <Calendar className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span className="text-[11px] text-zinc-400 font-bold">Dari:</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <span className="text-zinc-500 text-xs font-bold">-</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+                  <Calendar className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span className="text-[11px] text-zinc-400 font-bold">Sampai:</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <span className="text-xs text-zinc-400 font-medium">
+                  Rentang: <strong className="text-white">{formatDateIndo(startDate)}</strong> s/d <strong className="text-white">{formatDateIndo(endDate)}</strong>
+                </span>
+              </div>
+            )}
+
+            {/* Quick summary strip showing filtered inflow & outflow */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[11px]">
+              <div className="flex items-center gap-1.5 text-zinc-400">
+                <span>Filter Aktif:</span>
+                <span className="font-semibold text-white">
+                  {periodFilter === 'all' && 'Semua Riwayat'}
+                  {periodFilter === 'today' && `Hari Ini (${formatDateIndo(getTodayString())})`}
+                  {periodFilter === 'specific' && formatDateIndo(specificDate)}
+                  {periodFilter === 'range' && `${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)}`}
+                  {periodFilter === 'weekly' && '7 Hari Terakhir'}
+                  {periodFilter === 'monthly' && 'Bulan Ini'}
+                </span>
+                {searchQuery && (
+                  <span className="text-[#25F4EE] font-medium"> • Kata kunci: "{searchQuery}"</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-zinc-400">
+                  Masuk: <strong className="text-[#25F4EE]">+{formatRupiah(totalInflow)}</strong>
+                </span>
+                <span className="text-zinc-400">
+                  Keluar: <strong className="text-[#FE2C55]">-{formatRupiah(totalOutflow)}</strong>
+                </span>
+                <span className="text-zinc-400 font-bold border-l border-white/10 pl-2">
+                  Saldo: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -825,9 +1023,18 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   >
                     {/* Top Row: Date Badge on Left, Action Buttons on Right */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                        {formattedDate}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPeriodFilter('specific');
+                          setSpecificDate(item.date);
+                        }}
+                        title={`Filter hanya tanggal ${formattedDate}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300 hover:border-[#25F4EE]/50 hover:text-[#25F4EE] transition cursor-pointer"
+                      >
+                        <Calendar className="w-3 h-3 text-[#25F4EE]" />
+                        <span>{formattedDate}</span>
+                      </button>
 
                       <div className="flex items-center gap-1">
                         {item.proofImageUrl && (

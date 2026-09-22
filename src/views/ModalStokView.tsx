@@ -250,10 +250,10 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       try {
         if (editingId) {
           StorageService.updateInventory(newBall);
-          onNotify('Perubahan data stok fashion & HPP berhasil disimpan!', 'success');
+          onNotify('Perubahan data stok disimpan & otomatis diperbarui di Pengeluaran Cashflow!', 'success');
         } else {
           StorageService.addInventory(newBall);
-          onNotify('Data stok fashion baru & kalkulasi HPP berhasil disimpan!', 'success');
+          onNotify(`Data stok "${ballType}" disimpan & modal ${formatRupiah(modalPrice)} otomatis masuk ke Pengeluaran Cashflow!`, 'success');
         }
 
         loadData();
@@ -576,14 +576,22 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Harga Beli / Modal (Rp) <span className="text-[#FE2C55]">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-zinc-300">
+                        Harga Beli / Modal (Rp) <span className="text-[#FE2C55]">*</span>
+                      </label>
+                      <span className="text-[10px] text-[#FE2C55] font-semibold flex items-center gap-1">
+                        ⚡ Masuk Pengeluaran Kas
+                      </span>
+                    </div>
                     <CommaNumberInput
                       value={modalPrice}
                       onChange={setModalPrice}
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                     />
+                    <p className="text-[10px] text-zinc-400 mt-1">
+                      Nominal modal ball otomatis tercatat ke pengeluaran cashflow toko.
+                    </p>
                   </div>
                 </div>
 

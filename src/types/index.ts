@@ -279,6 +279,7 @@ export interface CashflowRecord {
   category: 
     | 'penarikan_marketplace' 
     | 'penarikan_shopee' 
+    | 'modal_ball'
     | 'topup_iklan'
     | 'gaji' 
     | 'gaji_pegawai' 

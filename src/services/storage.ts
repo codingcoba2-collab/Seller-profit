@@ -1307,7 +1307,10 @@ export class StorageService {
 
   static saveInventory(list: BallInventory[]) {
     this.safeSetItem(STORAGE_KEYS.INVENTORY, JSON.stringify(list));
-    list.forEach(inv => this.syncToCloud('inventory_balls', inv.id, inv));
+    list.forEach(inv => {
+      this.syncToCloud('inventory_balls', inv.id, inv);
+      this.syncInventoryModalToCashflow(inv);
+    });
     this.notifyListeners('inventory');
   }
 
@@ -1317,6 +1320,7 @@ export class StorageService {
     all.unshift(inv);
     this.saveInventory(all);
     this.syncToCloud('inventory_balls', inv.id, inv);
+    this.syncInventoryModalToCashflow(inv);
   }
 
   static updateInventory(inv: BallInventory) {
@@ -1330,6 +1334,7 @@ export class StorageService {
     }
     this.saveInventory(all);
     this.syncToCloud('inventory_balls', inv.id, inv);
+    this.syncInventoryModalToCashflow(inv);
   }
 
   static deleteInventory(id: string) {
@@ -1338,6 +1343,7 @@ export class StorageService {
     all = all.filter(i => i.id !== id);
     this.saveInventory(all);
     this.deleteFromCloud('inventory_balls', id);
+    this.removeInventoryModalFromCashflow(id);
   }
 
   // ATTENDANCE
@@ -1612,6 +1618,66 @@ export class StorageService {
     }
   }
 
+  // Helper to automatically sync Modal Ball / Stok to Cashflow Outflow (Pengeluaran Pembelian Stok)
+  public static syncInventoryModalToCashflow(inv: BallInventory) {
+    try {
+      const modalAmount = inv.modalPrice || 0;
+      const cashflowId = `cf-modal-${inv.id}`;
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+
+      if (modalAmount > 0) {
+        const desc = `Modal Ball - ${inv.ballType}${inv.pcsCount ? ` (${formatNumber(inv.pcsCount)} pcs)` : ''}${inv.notes ? ` - ${inv.notes}` : ''}`.trim();
+        const existingIdx = all.findIndex(c => c.id === cashflowId || c.id === `cashflow-ball-${inv.id}`);
+        const cfRecord: CashflowRecord = {
+          id: existingIdx !== -1 ? all[existingIdx].id : cashflowId,
+          storeId: inv.storeId,
+          date: inv.date,
+          type: 'outflow',
+          amount: modalAmount,
+          category: 'modal_ball',
+          description: desc,
+          recordedBy: 'Sistem Modal Stok',
+          createdAt: inv.createdAt || new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          all[existingIdx] = cfRecord;
+        } else {
+          all.unshift(cfRecord);
+        }
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+        this.syncToCloud('cashflow', cfRecord.id, cfRecord);
+        this.notifyListeners('cashflow');
+      } else {
+        const nextAll = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-ball-${inv.id}`);
+        if (nextAll.length !== all.length) {
+          this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(nextAll));
+          this.deleteFromCloud('cashflow', cashflowId);
+          this.notifyListeners('cashflow');
+        }
+      }
+    } catch (e) {
+      console.error('Error in syncInventoryModalToCashflow:', e);
+    }
+  }
+
+  public static removeInventoryModalFromCashflow(inventoryId: string) {
+    try {
+      const cashflowId = `cf-modal-${inventoryId}`;
+      const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
+      let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      const filtered = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-ball-${inventoryId}`);
+      if (filtered.length !== all.length) {
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(filtered));
+        this.deleteFromCloud('cashflow', cashflowId);
+        this.notifyListeners('cashflow');
+      }
+    } catch (e) {
+      console.error('Error in removeInventoryModalFromCashflow:', e);
+    }
+  }
+
   // ADS & COINS
   static getAdsCoins(storeId: string): AdsCoinDeposit[] {
     const raw = this.safeGetItem(STORAGE_KEYS.ADS_COINS);
@@ -1703,11 +1769,50 @@ export class StorageService {
           }
         }
       }
+
+      // Pastikan semua modal ball juga otomatis masuk ke cashflow pengeluaran toko ini
+      const inventory = this.getInventory(storeId);
+      for (const inv of inventory) {
+        const modalAmount = inv.modalPrice || 0;
+        if (modalAmount > 0) {
+          const cfId = `cf-modal-${inv.id}`;
+          const existingIdx = all.findIndex(c => c.id === cfId || c.id === `cashflow-ball-${inv.id}`);
+          const desc = `Modal Ball - ${inv.ballType}${inv.pcsCount ? ` (${formatNumber(inv.pcsCount)} pcs)` : ''}${inv.notes ? ` - ${inv.notes}` : ''}`.trim();
+
+          if (existingIdx !== -1) {
+            // Perbaiki jika sebelumnya tersimpan sebagai 'inflow' atau nominal berubah
+            if (all[existingIdx].type !== 'outflow' || all[existingIdx].amount !== modalAmount) {
+              all[existingIdx].type = 'outflow';
+              all[existingIdx].amount = modalAmount;
+              all[existingIdx].category = 'modal_ball';
+              all[existingIdx].description = desc;
+              this.syncToCloud('cashflow', all[existingIdx].id, all[existingIdx]);
+              modified = true;
+            }
+          } else {
+            const newRecord: CashflowRecord = {
+              id: cfId,
+              storeId: inv.storeId,
+              date: inv.date,
+              type: 'outflow',
+              amount: modalAmount,
+              category: 'modal_ball',
+              description: desc,
+              recordedBy: 'Sistem Modal Stok',
+              createdAt: inv.createdAt || new Date().toISOString(),
+            };
+            all.unshift(newRecord);
+            this.syncToCloud('cashflow', newRecord.id, newRecord);
+            modified = true;
+          }
+        }
+      }
+
       if (modified) {
         this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
       }
     } catch (e) {
-      console.error('Error syncing deposits into getCashflow:', e);
+      console.error('Error syncing deposits or modal into getCashflow:', e);
     }
 
     return all.filter(c => c.storeId === storeId);
