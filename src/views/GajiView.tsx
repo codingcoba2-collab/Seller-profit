@@ -473,10 +473,43 @@ export const GajiView: React.FC<GajiViewProps> = ({
       confirmText: payType === 'kasbon' ? 'Ya, Catat Kasbon' : 'Ya, Bayar Gaji',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        StorageService.addCashflow(newCashflow);
+        
+        if (payType === 'kasbon') {
+          // Point 2: ketika ada kasbon uang masuk ke tagihan (+) & keluar di riwayat kas
+          StorageService.createKasbonRecord({
+            storeId: currentUser.storeId,
+            date: payDate,
+            amount: payAmount,
+            employeeId: quickPayEmp.emp.id,
+            employeeName: quickPayEmp.emp.name,
+            notes: payDescription,
+            proofImageUrl: payProofImage || undefined,
+          });
+        } else {
+          // Gaji & Insentif
+          const empSalaryInfo = calculatedSalaryData.find(d => d.emp.id === quickPayEmp.emp.id);
+          const kasbonAmount = empSalaryInfo?.totalKasbon || 0;
+
+          if (kasbonAmount > 0) {
+            // Point 6: ketika gajian masuk (+) kasbon ke pengeluaran masuk (-) total gajian dan masukan (-) kasbon
+            StorageService.processSalaryPaymentWithKasbon({
+              storeId: currentUser.storeId,
+              date: payDate,
+              employeeId: quickPayEmp.emp.id,
+              employeeName: quickPayEmp.emp.name,
+              totalGajian: empSalaryInfo?.totalGrandSalary || (payAmount + kasbonAmount),
+              kasbonDeduction: kasbonAmount,
+              notes: payDescription,
+              proofImageUrl: payProofImage || undefined,
+            });
+          } else {
+            StorageService.addCashflow(newCashflow);
+          }
+        }
+
         const successMsg = payType === 'kasbon'
-          ? `Kasbon sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`
-          : `Pembayaran gaji sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat di Kas!`;
+          ? `Kasbon sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil dicatat & masuk ke Buku Tagihan!`
+          : `Pembayaran gaji sebesar ${formatRupiah(payAmount)} untuk ${quickPayEmp.emp.name} berhasil diproses!`;
         onNotify?.(successMsg, 'success');
         setQuickPayEmp(null);
         loadData();

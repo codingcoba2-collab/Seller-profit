@@ -14,7 +14,9 @@ import {
   PersonalExpenseRecord,
   PersonalBudgetCategory,
   ChatMessage,
-  StoreAnnouncement
+  StoreAnnouncement,
+  TagihanRecord,
+  TagihanPaymentHistory
 } from '../types';
 import { 
   db, 
@@ -48,6 +50,7 @@ const STORAGE_KEYS = {
   CHAT_MESSAGES: 'seller_profit_chat_messages',
   ANNOUNCEMENTS: 'seller_profit_announcements',
   USER_PROFILES: 'seller_profit_user_profiles',
+  TAGIHAN: 'seller_profit_tagihan',
 };
 
 export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
@@ -1618,19 +1621,27 @@ export class StorageService {
     }
   }
 
-  // Helper to automatically sync Modal Ball / Stok to Cashflow Outflow (Pengeluaran Pembelian Stok)
+  // Helper to automatically sync Modal Ball / Stok, Ongkir, and Steam to Cashflow Outflow (Pengeluaran)
   public static syncInventoryModalToCashflow(inv: BallInventory) {
     try {
       const modalAmount = inv.modalPrice || 0;
-      const cashflowId = `cf-modal-${inv.id}`;
+      const shippingAmount = inv.shippingCost || 0;
+      const steamAmount = inv.steamCost || 0;
+
+      const cashflowModalId = `cf-modal-${inv.id}`;
+      const cashflowOngkirId = `cf-ongkir-${inv.id}`;
+      const cashflowSteamId = `cf-steam-${inv.id}`;
+
       const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
       let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      let hasChanges = false;
 
+      // 1. Sync Modal Stok / Ball
       if (modalAmount > 0) {
         const desc = `Modal Ball - ${inv.ballType}${inv.pcsCount ? ` (${formatNumber(inv.pcsCount)} pcs)` : ''}${inv.notes ? ` - ${inv.notes}` : ''}`.trim();
-        const existingIdx = all.findIndex(c => c.id === cashflowId || c.id === `cashflow-ball-${inv.id}`);
+        const existingIdx = all.findIndex(c => c.id === cashflowModalId || c.id === `cashflow-ball-${inv.id}`);
         const cfRecord: CashflowRecord = {
-          id: existingIdx !== -1 ? all[existingIdx].id : cashflowId,
+          id: existingIdx !== -1 ? all[existingIdx].id : cashflowModalId,
           storeId: inv.storeId,
           date: inv.date,
           type: 'outflow',
@@ -1646,16 +1657,84 @@ export class StorageService {
         } else {
           all.unshift(cfRecord);
         }
-        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
         this.syncToCloud('cashflow', cfRecord.id, cfRecord);
-        this.notifyListeners('cashflow');
+        hasChanges = true;
       } else {
-        const nextAll = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-ball-${inv.id}`);
+        const nextAll = all.filter(c => c.id !== cashflowModalId && c.id !== `cashflow-ball-${inv.id}`);
         if (nextAll.length !== all.length) {
-          this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(nextAll));
-          this.deleteFromCloud('cashflow', cashflowId);
-          this.notifyListeners('cashflow');
+          all = nextAll;
+          this.deleteFromCloud('cashflow', cashflowModalId);
+          hasChanges = true;
         }
+      }
+
+      // 2. Sync Ongkir Stok / Ekspedisi (Point 4: otomatis masuk ke riwayat pengeluaran)
+      if (shippingAmount > 0) {
+        const desc = `Ongkos Kirim Stok / Ekspedisi - ${inv.ballType}`;
+        const existingIdx = all.findIndex(c => c.id === cashflowOngkirId);
+        const cfRecord: CashflowRecord = {
+          id: existingIdx !== -1 ? all[existingIdx].id : cashflowOngkirId,
+          storeId: inv.storeId,
+          date: inv.date,
+          type: 'outflow',
+          amount: shippingAmount,
+          category: 'ongkir',
+          description: desc,
+          recordedBy: 'Sistem Modal Stok',
+          createdAt: inv.createdAt || new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          all[existingIdx] = cfRecord;
+        } else {
+          all.unshift(cfRecord);
+        }
+        this.syncToCloud('cashflow', cfRecord.id, cfRecord);
+        hasChanges = true;
+      } else {
+        const nextAll = all.filter(c => c.id !== cashflowOngkirId);
+        if (nextAll.length !== all.length) {
+          all = nextAll;
+          this.deleteFromCloud('cashflow', cashflowOngkirId);
+          hasChanges = true;
+        }
+      }
+
+      // 3. Sync Biaya Steam & Finishing Stok (Point 4: otomatis masuk ke riwayat pengeluaran)
+      if (steamAmount > 0) {
+        const desc = `Biaya Steam & Finishing Stok - ${inv.ballType}`;
+        const existingIdx = all.findIndex(c => c.id === cashflowSteamId);
+        const cfRecord: CashflowRecord = {
+          id: existingIdx !== -1 ? all[existingIdx].id : cashflowSteamId,
+          storeId: inv.storeId,
+          date: inv.date,
+          type: 'outflow',
+          amount: steamAmount,
+          category: 'operasional',
+          description: desc,
+          recordedBy: 'Sistem Modal Stok',
+          createdAt: inv.createdAt || new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          all[existingIdx] = cfRecord;
+        } else {
+          all.unshift(cfRecord);
+        }
+        this.syncToCloud('cashflow', cfRecord.id, cfRecord);
+        hasChanges = true;
+      } else {
+        const nextAll = all.filter(c => c.id !== cashflowSteamId);
+        if (nextAll.length !== all.length) {
+          all = nextAll;
+          this.deleteFromCloud('cashflow', cashflowSteamId);
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
+        this.notifyListeners('cashflow');
       }
     } catch (e) {
       console.error('Error in syncInventoryModalToCashflow:', e);
@@ -1664,13 +1743,23 @@ export class StorageService {
 
   public static removeInventoryModalFromCashflow(inventoryId: string) {
     try {
-      const cashflowId = `cf-modal-${inventoryId}`;
+      const cashflowModalId = `cf-modal-${inventoryId}`;
+      const cashflowOngkirId = `cf-ongkir-${inventoryId}`;
+      const cashflowSteamId = `cf-steam-${inventoryId}`;
+
       const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
       let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
-      const filtered = all.filter(c => c.id !== cashflowId && c.id !== `cashflow-ball-${inventoryId}`);
+      const filtered = all.filter(c => 
+        c.id !== cashflowModalId && 
+        c.id !== `cashflow-ball-${inventoryId}` &&
+        c.id !== cashflowOngkirId &&
+        c.id !== cashflowSteamId
+      );
       if (filtered.length !== all.length) {
         this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(filtered));
-        this.deleteFromCloud('cashflow', cashflowId);
+        this.deleteFromCloud('cashflow', cashflowModalId);
+        this.deleteFromCloud('cashflow', cashflowOngkirId);
+        this.deleteFromCloud('cashflow', cashflowSteamId);
         this.notifyListeners('cashflow');
       }
     } catch (e) {
@@ -1770,18 +1859,18 @@ export class StorageService {
         }
       }
 
-      // Pastikan semua modal ball juga otomatis masuk ke cashflow pengeluaran toko ini
+      // Pastikan semua modal ball, ongkir ekspedisi, dan steam otomatis masuk ke cashflow pengeluaran toko ini
       const inventory = this.getInventory(storeId);
       for (const inv of inventory) {
+        // 1. Sync Modal Price
         const modalAmount = inv.modalPrice || 0;
+        const cfModalId = `cf-modal-${inv.id}`;
         if (modalAmount > 0) {
-          const cfId = `cf-modal-${inv.id}`;
-          const existingIdx = all.findIndex(c => c.id === cfId || c.id === `cashflow-ball-${inv.id}`);
+          const existingIdx = all.findIndex(c => c.id === cfModalId || c.id === `cashflow-ball-${inv.id}`);
           const desc = `Modal Ball - ${inv.ballType}${inv.pcsCount ? ` (${formatNumber(inv.pcsCount)} pcs)` : ''}${inv.notes ? ` - ${inv.notes}` : ''}`.trim();
 
           if (existingIdx !== -1) {
-            // Perbaiki jika sebelumnya tersimpan sebagai 'inflow' atau nominal berubah
-            if (all[existingIdx].type !== 'outflow' || all[existingIdx].amount !== modalAmount) {
+            if (all[existingIdx].type !== 'outflow' || all[existingIdx].amount !== modalAmount || all[existingIdx].category !== 'modal_ball') {
               all[existingIdx].type = 'outflow';
               all[existingIdx].amount = modalAmount;
               all[existingIdx].category = 'modal_ball';
@@ -1791,7 +1880,7 @@ export class StorageService {
             }
           } else {
             const newRecord: CashflowRecord = {
-              id: cfId,
+              id: cfModalId,
               storeId: inv.storeId,
               date: inv.date,
               type: 'outflow',
@@ -1803,6 +1892,72 @@ export class StorageService {
             };
             all.unshift(newRecord);
             this.syncToCloud('cashflow', newRecord.id, newRecord);
+            modified = true;
+          }
+        }
+
+        // 2. Sync Ongkos Kirim Stok / Ekspedisi
+        const shippingAmount = inv.shippingCost || 0;
+        const cfOngkirId = `cf-ongkir-${inv.id}`;
+        if (shippingAmount > 0) {
+          const existingOngkirIdx = all.findIndex(c => c.id === cfOngkirId);
+          const ongkirDesc = `Ongkos Kirim Stok / Ekspedisi - ${inv.ballType}`;
+          if (existingOngkirIdx !== -1) {
+            if (all[existingOngkirIdx].type !== 'outflow' || all[existingOngkirIdx].amount !== shippingAmount || all[existingOngkirIdx].category !== 'ongkir') {
+              all[existingOngkirIdx].type = 'outflow';
+              all[existingOngkirIdx].amount = shippingAmount;
+              all[existingOngkirIdx].category = 'ongkir';
+              all[existingOngkirIdx].description = ongkirDesc;
+              this.syncToCloud('cashflow', all[existingOngkirIdx].id, all[existingOngkirIdx]);
+              modified = true;
+            }
+          } else {
+            const newOngkirRecord: CashflowRecord = {
+              id: cfOngkirId,
+              storeId: inv.storeId,
+              date: inv.date,
+              type: 'outflow',
+              amount: shippingAmount,
+              category: 'ongkir',
+              description: ongkirDesc,
+              recordedBy: 'Sistem Modal Stok',
+              createdAt: inv.createdAt || new Date().toISOString(),
+            };
+            all.unshift(newOngkirRecord);
+            this.syncToCloud('cashflow', newOngkirRecord.id, newOngkirRecord);
+            modified = true;
+          }
+        }
+
+        // 3. Sync Steam & Finishing Stok
+        const steamAmount = inv.steamCost || 0;
+        const cfSteamId = `cf-steam-${inv.id}`;
+        if (steamAmount > 0) {
+          const existingSteamIdx = all.findIndex(c => c.id === cfSteamId);
+          const steamDesc = `Biaya Steam & Finishing Stok - ${inv.ballType}`;
+          if (existingSteamIdx !== -1) {
+            if (all[existingSteamIdx].type !== 'outflow' || all[existingSteamIdx].amount !== steamAmount) {
+              all[existingSteamIdx].type = 'outflow';
+              all[existingSteamIdx].amount = steamAmount;
+              all[existingSteamIdx].category = 'operasional';
+              all[existingSteamIdx].description = steamDesc;
+              this.syncToCloud('cashflow', all[existingSteamIdx].id, all[existingSteamIdx]);
+              modified = true;
+            }
+          } else {
+            const newSteamRecord: CashflowRecord = {
+              id: cfSteamId,
+              storeId: inv.storeId,
+              date: inv.date,
+              type: 'outflow',
+              amount: steamAmount,
+              category: 'operasional',
+              description: steamDesc,
+              recordedBy: 'Sistem Modal Stok',
+              createdAt: inv.createdAt || new Date().toISOString(),
+            };
+            all.unshift(newSteamRecord);
+            this.syncToCloud('cashflow', newSteamRecord.id, newSteamRecord);
             modified = true;
           }
         }
@@ -1912,6 +2067,390 @@ export class StorageService {
     } catch {
       // ignore
     }
+  }
+
+  // ==========================================
+  // TAGIHAN & DANA TALANG STORAGE METHODS
+  // ==========================================
+  static getTagihan(storeId: string): TagihanRecord[] {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+
+    // Auto-sync kasbon from cashflow to tagihan if not already present
+    try {
+      const cashflow = this.getCashflow(storeId);
+      const kasbonCashflows = cashflow.filter(c => 
+        c.type === 'outflow' && 
+        (c.category === 'gaji_pegawai' || c.category === 'gaji') && 
+        c.paymentType === 'kasbon'
+      );
+      let updated = false;
+      kasbonCashflows.forEach(cf => {
+        const exists = all.some(t => t.sourceRefId === cf.id || t.id === `tagihan-cf-${cf.id}`);
+        if (!exists) {
+          const newTagihan: TagihanRecord = {
+            id: `tagihan-cf-${cf.id}`,
+            storeId: cf.storeId,
+            date: cf.date,
+            type: 'kasbon',
+            title: `Kasbon - ${cf.employeeName || 'Pegawai'}`,
+            employeeId: cf.employeeId,
+            employeeName: cf.employeeName,
+            initialAmount: cf.amount,
+            currentBalance: cf.amount, // (+) Masuk ke tagihan (+)
+            status: 'unpaid',
+            notes: cf.description,
+            proofImageUrl: cf.proofImageUrl,
+            sourceRefId: cf.id,
+            createdAt: cf.createdAt || new Date().toISOString(),
+          };
+          all.unshift(newTagihan);
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(all));
+      }
+    } catch (e) {
+      console.error('Error auto-syncing kasbon to tagihan:', e);
+    }
+
+    return all.filter(t => t.storeId === storeId);
+  }
+
+  static saveTagihan(list: TagihanRecord[]): void {
+    this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(list));
+    list.forEach(t => this.syncToCloud('tagihan', t.id, t));
+    this.notifyListeners('tagihan');
+  }
+
+  static addTagihan(record: TagihanRecord): void {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    all.unshift(record);
+    this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(all));
+    this.syncToCloud('tagihan', record.id, record);
+    this.notifyListeners('tagihan');
+  }
+
+  static updateTagihan(record: TagihanRecord): void {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    const idx = all.findIndex(t => t.id === record.id);
+    if (idx !== -1) {
+      all[idx] = record;
+    } else {
+      all.unshift(record);
+    }
+    this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(all));
+    this.syncToCloud('tagihan', record.id, record);
+    this.notifyListeners('tagihan');
+  }
+
+  static deleteTagihan(id: string): void {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    all = all.filter(t => t.id !== id);
+    this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(all));
+    this.deleteFromCloud('tagihan', id);
+    this.notifyListeners('tagihan');
+  }
+
+  // 2. Ketika ada kasbon uang masuk ke tagihan (+)
+  static createKasbonRecord(params: {
+    storeId: string;
+    date: string;
+    amount: number;
+    employeeId: string;
+    employeeName: string;
+    notes?: string;
+    proofImageUrl?: string;
+    recordToCashflow?: boolean;
+  }): { tagihan: TagihanRecord; cashflow?: CashflowRecord } {
+    const timestamp = Date.now();
+    const id = `kb-${timestamp}`;
+
+    let cfRecord: CashflowRecord | undefined;
+    if (params.recordToCashflow !== false) {
+      cfRecord = {
+        id: `cf-${id}`,
+        storeId: params.storeId,
+        date: params.date,
+        type: 'outflow',
+        amount: params.amount,
+        category: 'gaji_pegawai',
+        paymentType: 'kasbon',
+        description: `Kasbon - ${params.employeeName}${params.notes ? ` (${params.notes})` : ''}`,
+        employeeId: params.employeeId,
+        employeeName: params.employeeName,
+        periodMonth: params.date.slice(0, 7),
+        proofImageUrl: params.proofImageUrl,
+        createdAt: new Date().toISOString(),
+      };
+      this.addCashflow(cfRecord);
+    }
+
+    const tagihanRecord: TagihanRecord = {
+      id: `tagihan-${id}`,
+      storeId: params.storeId,
+      date: params.date,
+      type: 'kasbon',
+      title: `Kasbon - ${params.employeeName}`,
+      employeeId: params.employeeId,
+      employeeName: params.employeeName,
+      initialAmount: params.amount,
+      currentBalance: params.amount, // (+) masuk ke tagihan (+)
+      status: 'unpaid',
+      notes: params.notes,
+      proofImageUrl: params.proofImageUrl,
+      sourceRefId: cfRecord?.id,
+      createdAt: new Date().toISOString(),
+    };
+    this.addTagihan(tagihanRecord);
+
+    return { tagihan: tagihanRecord, cashflow: cfRecord };
+  }
+
+  // 3. Ketika ada dana talang (+) masuk ke riwayat dan (-) ke tagihan
+  static createDanaTalangRecord(params: {
+    storeId: string;
+    date: string;
+    amount: number;
+    title: string;
+    notes?: string;
+    proofImageUrl?: string;
+  }): { tagihan: TagihanRecord; cashflow: CashflowRecord } {
+    const id = `dt-${Date.now()}`;
+
+    // (+) masuk ke riwayat kas (Inflow)
+    const cfRecord: CashflowRecord = {
+      id: `cf-${id}`,
+      storeId: params.storeId,
+      date: params.date,
+      type: 'inflow', // (+) uang masuk ke kas
+      amount: params.amount,
+      category: 'dana_talang',
+      description: `Dana Talang Masuk - ${params.title || 'Operasional'}${params.notes ? ` (${params.notes})` : ''}`,
+      proofImageUrl: params.proofImageUrl,
+      createdAt: new Date().toISOString(),
+    };
+    this.addCashflow(cfRecord);
+
+    // (-) ke tagihan (kewajiban talangan perusahaan)
+    const tagihanRecord: TagihanRecord = {
+      id: `tagihan-${id}`,
+      storeId: params.storeId,
+      date: params.date,
+      type: 'dana_talang',
+      title: params.title || 'Dana Talang Operasional',
+      initialAmount: params.amount,
+      currentBalance: -params.amount, // (-) saldo tagihan
+      status: 'unpaid',
+      notes: params.notes,
+      proofImageUrl: params.proofImageUrl,
+      sourceRefId: cfRecord.id,
+      createdAt: new Date().toISOString(),
+    };
+    this.addTagihan(tagihanRecord);
+
+    return { tagihan: tagihanRecord, cashflow: cfRecord };
+  }
+
+  // 5. Ketika bayar kasbon (+) ke riwayat pengeluaran dan (-) ke tagihan
+  static payKasbonRecord(tagihanId: string, params: {
+    date: string;
+    amount: number;
+    notes?: string;
+    proofImageUrl?: string;
+  }): { tagihan: TagihanRecord; cashflow: CashflowRecord } {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    const item = all.find(t => t.id === tagihanId);
+    if (!item) throw new Error('Tagihan kasbon tidak ditemukan');
+
+    const paymentId = `pay-kb-${Date.now()}`;
+    // (+) ke riwayat pengeluaran kas
+    const cfRecord: CashflowRecord = {
+      id: `cf-${paymentId}`,
+      storeId: item.storeId,
+      date: params.date,
+      type: 'outflow',
+      amount: params.amount,
+      category: 'gaji_pegawai',
+      paymentType: 'kasbon',
+      description: `Pembayaran Kasbon - ${item.employeeName || item.title}${params.notes ? ` (${params.notes})` : ''}`,
+      employeeId: item.employeeId,
+      employeeName: item.employeeName,
+      proofImageUrl: params.proofImageUrl,
+      createdAt: new Date().toISOString(),
+    };
+    this.addCashflow(cfRecord);
+
+    // (-) ke tagihan (mengurangi saldo tagihan kasbon)
+    const newBalance = Math.max(0, item.currentBalance - params.amount);
+    const historyItem: TagihanPaymentHistory = {
+      id: paymentId,
+      date: params.date,
+      amount: params.amount,
+      type: 'bayar_kasbon',
+      notes: params.notes,
+      cashflowId: cfRecord.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    item.currentBalance = newBalance;
+    item.status = newBalance <= 0 ? 'paid' : 'partial';
+    item.updatedAt = new Date().toISOString();
+    if (newBalance <= 0) item.settledAt = new Date().toISOString();
+    item.history = [...(item.history || []), historyItem];
+
+    this.updateTagihan(item);
+    return { tagihan: item, cashflow: cfRecord };
+  }
+
+  // 6. Ketika gajian masuk (+) kasbon ke pengeluaran masuk (-) total gajian dan masukan (-) kasbon
+  static processSalaryPaymentWithKasbon(params: {
+    storeId: string;
+    date: string;
+    employeeId: string;
+    employeeName: string;
+    totalGajian: number; // total hak gaji kotor
+    kasbonDeduction: number; // kasbon yang dipotong
+    periodMonth?: string;
+    notes?: string;
+    proofImageUrl?: string;
+  }): { gajiOutflow: CashflowRecord; kasbonAdjustment?: CashflowRecord } {
+    const timestamp = Date.now();
+
+    // Masuk (-) total gajian ke pengeluaran
+    const gajiOutflow: CashflowRecord = {
+      id: `cf-gaji-${timestamp}`,
+      storeId: params.storeId,
+      date: params.date,
+      type: 'outflow', // (-) pengeluaran gaji
+      amount: params.totalGajian,
+      category: 'gaji_pegawai',
+      paymentType: 'gaji_insentif',
+      description: `Gaji Pegawai - ${params.employeeName}${params.notes ? ` (${params.notes})` : ''}`,
+      employeeId: params.employeeId,
+      employeeName: params.employeeName,
+      periodMonth: params.periodMonth || params.date.slice(0, 7),
+      proofImageUrl: params.proofImageUrl,
+      createdAt: new Date().toISOString(),
+    };
+    this.addCashflow(gajiOutflow);
+
+    let kasbonAdjustment: CashflowRecord | undefined;
+    // Masuk (+) kasbon ke pengeluaran (kredit potongan kasbon)
+    if (params.kasbonDeduction > 0) {
+      kasbonAdjustment = {
+        id: `cf-kasbon-potong-${timestamp}`,
+        storeId: params.storeId,
+        date: params.date,
+        type: 'inflow', // (+) penyesuaian kasbon
+        amount: params.kasbonDeduction,
+        category: 'gaji_pegawai',
+        description: `Potongan Pelunasan Kasbon Gaji - ${params.employeeName}`,
+        employeeId: params.employeeId,
+        employeeName: params.employeeName,
+        periodMonth: params.periodMonth || params.date.slice(0, 7),
+        createdAt: new Date().toISOString(),
+      };
+      this.addCashflow(kasbonAdjustment);
+
+      // Dan masukkan (-) kasbon ke tagihan
+      this.settleKasbonForEmployee(params.storeId, params.employeeId, params.kasbonDeduction, gajiOutflow.id);
+    }
+
+    return { gajiOutflow, kasbonAdjustment };
+  }
+
+  static settleKasbonForEmployee(storeId: string, employeeId: string, deductAmount: number, sourceRefId?: string): void {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    let remainingToDeduct = deductAmount;
+
+    // Filter kasbon aktif untuk pegawai ini (dari yang terlama)
+    const empKasbons = all.filter(t => 
+      t.storeId === storeId && 
+      t.type === 'kasbon' && 
+      (t.employeeId === employeeId || (!t.employeeId && t.title.toLowerCase().includes(employeeId.toLowerCase()))) &&
+      t.currentBalance > 0
+    ).sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const item of empKasbons) {
+      if (remainingToDeduct <= 0) break;
+      const deduction = Math.min(item.currentBalance, remainingToDeduct);
+      item.currentBalance -= deduction;
+      remainingToDeduct -= deduction;
+      item.status = item.currentBalance <= 0 ? 'paid' : 'partial';
+      item.updatedAt = new Date().toISOString();
+      if (item.currentBalance <= 0) item.settledAt = new Date().toISOString();
+
+      const historyItem: TagihanPaymentHistory = {
+        id: `potong-gaji-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        date: getTodayString(),
+        amount: deduction,
+        type: 'potong_gaji',
+        notes: `Dipotong otomatis saat gajian`,
+        cashflowId: sourceRefId,
+        createdAt: new Date().toISOString(),
+      };
+      item.history = [...(item.history || []), historyItem];
+    }
+
+    this.safeSetItem(STORAGE_KEYS.TAGIHAN, JSON.stringify(all));
+    all.forEach(t => this.syncToCloud('tagihan', t.id, t));
+    this.notifyListeners('tagihan');
+  }
+
+  // 7. Ketika perusahaan bayar dana talang (-) jumlah dana talang dan di tagihan (+) jumlah dana talang yang dibayarkan
+  static payDanaTalangRecord(tagihanId: string, params: {
+    date: string;
+    amount: number;
+    notes?: string;
+    proofImageUrl?: string;
+  }): { tagihan: TagihanRecord; cashflow: CashflowRecord } {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    const item = all.find(t => t.id === tagihanId);
+    if (!item) throw new Error('Tagihan dana talang tidak ditemukan');
+
+    const paymentId = `pay-dt-${Date.now()}`;
+    // (-) jumlah dana talang keluar dari kas perusahaan (Outflow)
+    const cfRecord: CashflowRecord = {
+      id: `cf-${paymentId}`,
+      storeId: item.storeId,
+      date: params.date,
+      type: 'outflow', // (-) kas keluar karena perusahaan bayar dana talang
+      amount: params.amount,
+      category: 'dana_talang',
+      description: `Perusahaan Bayar Dana Talang - ${item.title}${params.notes ? ` (${params.notes})` : ''}`,
+      proofImageUrl: params.proofImageUrl,
+      createdAt: new Date().toISOString(),
+    };
+    this.addCashflow(cfRecord);
+
+    // Di tagihan (+) jumlah dana talang yang dibayarkan (mengurangi saldo negatif mendekati 0)
+    const newBalance = Math.min(0, item.currentBalance + params.amount);
+    const historyItem: TagihanPaymentHistory = {
+      id: paymentId,
+      date: params.date,
+      amount: params.amount,
+      type: 'bayar_dana_talang',
+      notes: params.notes,
+      cashflowId: cfRecord.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    item.currentBalance = newBalance;
+    item.status = newBalance >= 0 ? 'paid' : 'partial';
+    item.updatedAt = new Date().toISOString();
+    if (newBalance >= 0) item.settledAt = new Date().toISOString();
+    item.history = [...(item.history || []), historyItem];
+
+    this.updateTagihan(item);
+    return { tagihan: item, cashflow: cfRecord };
   }
 
   // PERSONAL FINANCE & CASHFLOW (Arus Keuangan Pribadi)

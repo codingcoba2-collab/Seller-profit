@@ -280,6 +280,7 @@ export interface CashflowRecord {
     | 'penarikan_marketplace' 
     | 'penarikan_shopee' 
     | 'modal_ball'
+    | 'ongkir'
     | 'topup_iklan'
     | 'gaji' 
     | 'gaji_pegawai' 
@@ -289,6 +290,7 @@ export interface CashflowRecord {
     | 'listrik_wifi' 
     | 'sewa_tempat' 
     | 'konsumsi_pribadi' // Pengeluaran Konsumsi Pribadi (Prive Pemilik)
+    | 'dana_talang' // Dana Talang (Inflow saat masuk, Outflow saat dibayar perusahaan)
     | 'lainnya';
   employeeId?: string; // ID pegawai jika kategori gaji_pegawai
   employeeName?: string; // Nama pegawai jika kategori gaji_pegawai
@@ -298,6 +300,37 @@ export interface CashflowRecord {
   personalBudgetCategory?: PersonalBudgetCategory; // Optional: kategori pos pribadi ('sehari_hari', 'utang', dll)
   recordedBy?: string;
   createdAt: string;
+}
+
+// TAGIHAN & DANA TALANG MODEL
+export interface TagihanPaymentHistory {
+  id: string;
+  date: string;
+  amount: number;
+  type: 'bayar_kasbon' | 'potong_gaji' | 'bayar_dana_talang';
+  notes?: string;
+  cashflowId?: string;
+  createdAt: string;
+}
+
+export interface TagihanRecord {
+  id: string;
+  storeId: string;
+  date: string;
+  type: 'kasbon' | 'dana_talang'; // Kasbon Pegawai (+) atau Dana Talang Toko (-)
+  title: string;
+  employeeId?: string;
+  employeeName?: string;
+  initialAmount: number; // Nominal awal
+  currentBalance: number; // Saldo tagihan (+ untuk kasbon, - untuk dana talang)
+  status: 'unpaid' | 'partial' | 'paid';
+  notes?: string;
+  proofImageUrl?: string;
+  sourceRefId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  settledAt?: string;
+  history?: TagihanPaymentHistory[];
 }
 
 // ARUS KEUANGAN PRIBADI

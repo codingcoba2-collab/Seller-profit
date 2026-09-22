@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StorageService } from '../services/storage';
-import { CashflowRecord, CurrentUser, Employee } from '../types';
+import { CashflowRecord, CurrentUser, Employee, TagihanRecord } from '../types';
 import { formatRupiah, formatDateIndo, getTodayString, roleLabels } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { 
@@ -21,11 +21,13 @@ import {
   ArrowRight,
   Layers,
   Calendar,
-  Filter
+  Filter,
+  Receipt
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
+import { TagihanSection } from '../components/TagihanSection';
 
 interface CashflowViewProps {
   currentUser: CurrentUser;
@@ -33,10 +35,12 @@ interface CashflowViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-type CashflowViewMode = 'menu' | 'input' | 'output';
+type CashflowViewMode = 'menu' | 'input' | 'output' | 'tagihan';
 
 const CATEGORY_LABELS: Record<string, string> = {
   modal_ball: 'Modal Ball / Pembelian Stok Fashion',
+  ongkir: 'Ongkos Kirim Stok / Ekspedisi',
+  operasional: 'Biaya Steam & Operasional Toko',
   topup_iklan: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)',
   packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
   makan_minum: 'Konsumsi / Makan & Minum Tim',
@@ -44,6 +48,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   sewa_tempat: 'Sewa Tempat / Ruko Live',
   gaji_pegawai: 'Gaji Pegawai / Karyawan',
   konsumsi_pribadi: 'Konsumsi Pribadi (Prive Owner)',
+  dana_talang: 'Dana Talang / Operasional Talangan',
   lainnya: 'Operasional Lainnya',
   penarikan_shopee: 'Penarikan Saldo Marketplace',
   penarikan_marketplace: 'Penarikan Saldo Marketplace',
@@ -57,6 +62,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [viewMode, setViewMode] = useState<CashflowViewMode>('menu');
   const [inputStep, setInputStep] = useState<number>(1);
   const [cashflowList, setCashflowList] = useState<CashflowRecord[]>([]);
+  const [tagihanList, setTagihanList] = useState<TagihanRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingItem, setEditingItem] = useState<CashflowRecord | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
@@ -105,6 +111,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const loadData = () => {
     const list = StorageService.getCashflow(currentUser.storeId);
     setCashflowList(list);
+    const tagihans = StorageService.getTagihan(currentUser.storeId);
+    setTagihanList(tagihans);
     const emps = StorageService.getEmployees(currentUser.storeId);
     setEmployees(emps);
     if (emps.length > 0 && !employeeId) {
@@ -278,6 +286,39 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           onNotify('Perubahan transaksi arus kas berhasil disimpan!', 'success');
         } else {
           StorageService.addCashflow(record);
+          
+          // Point 2: ketika ada kasbon uang masuk ke tagihan (+)
+          if (record.category === 'gaji_pegawai' && record.paymentType === 'kasbon') {
+            StorageService.createKasbonRecord({
+              storeId: currentUser.storeId,
+              date: record.date,
+              amount: record.amount,
+              employeeId: record.employeeId || '',
+              employeeName: record.employeeName || 'Pegawai',
+              notes: record.description,
+              proofImageUrl: record.proofImageUrl,
+              recordToCashflow: false, // sudah dicatat di addCashflow di atas
+            });
+          }
+          // Point 3: ketika ada dana talang (+) masuk ke riwayat dan (-) ke tagihan
+          else if (record.category === 'dana_talang' && record.type === 'inflow') {
+            const tagihanRecord: TagihanRecord = {
+              id: `tagihan-dt-${record.id}`,
+              storeId: record.storeId,
+              date: record.date,
+              type: 'dana_talang',
+              title: record.description || 'Dana Talang Operasional',
+              initialAmount: record.amount,
+              currentBalance: -record.amount, // (-) saldo tagihan
+              status: 'unpaid',
+              notes: record.description,
+              proofImageUrl: record.proofImageUrl,
+              sourceRefId: record.id,
+              createdAt: new Date().toISOString(),
+            };
+            StorageService.addTagihan(tagihanRecord);
+          }
+
           onNotify('Transaksi arus kas berhasil dicatat!', 'success');
         }
 
@@ -451,12 +492,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           </div>
 
-        {/* Grid Kecil 2 Kesamping: Input vs Output */}
+        {/* Grid 3 Kartu: Input vs Output vs Tagihan */}
         <div className="space-y-2">
           <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
             Pilih Aksi:
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
             {/* Card 1: Form Input */}
             <div
               id="menu-card-input-cashflow"
@@ -518,6 +559,38 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
                 <span>{filteredList.length} Transaksi Tercatat</span>
                 <span className="text-[#FE2C55] font-bold">Buka Data</span>
+              </div>
+            </div>
+
+            {/* Card 3: Tagihan & Dana Talang */}
+            <div
+              id="menu-card-tagihan-cashflow"
+              onClick={() => setViewMode('tagihan')}
+              className="group p-3.5 sm:p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/40 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shrink-0">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <MarqueeText
+                    text="Tagihan & Dana Talang"
+                    as="h3"
+                    className="text-xs sm:text-sm font-black text-white group-hover:text-amber-400 transition-colors leading-tight"
+                  />
+                  <MarqueeText
+                    text="Kasbon pegawai & dana talang perusahaan"
+                    as="p"
+                    speed={12}
+                    className="text-[10px] sm:text-[11px] text-zinc-400 leading-snug"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-white/5">
+                <span>
+                  {tagihanList.filter(t => t.type === 'kasbon' ? t.currentBalance > 0 : t.currentBalance < 0).length} Tagihan Aktif
+                </span>
+                <span className="text-amber-400 font-bold">Buka Tagihan</span>
               </div>
             </div>
           </div>
@@ -653,16 +726,20 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     title="Pilih Kategori Transaksi"
                     options={type === 'outflow' ? [
                       { value: 'modal_ball', label: 'Modal Ball / Pembelian Stok Fashion' },
+                      { value: 'ongkir', label: 'Ongkos Kirim Stok / Ekspedisi' },
+                      { value: 'operasional', label: 'Biaya Steam & Operasional Toko' },
                       { value: 'topup_iklan', label: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)' },
                       { value: 'packing', label: 'Bahan Packing (Lakban/Plastik)' },
                       { value: 'makan_minum', label: 'Konsumsi / Makan Tim' },
                       { value: 'listrik_wifi', label: 'Listrik, Air & Internet WiFi' },
                       { value: 'sewa_tempat', label: 'Sewa Tempat / Ruko' },
                       { value: 'gaji_pegawai', label: 'Gaji / Kasbon Pegawai' },
+                      { value: 'dana_talang', label: 'Perusahaan Bayar Dana Talang' },
                       { value: 'konsumsi_pribadi', label: 'Konsumsi Pribadi (Prive Owner)' },
                       { value: 'lainnya', label: 'Operasional Lainnya' },
                     ] : [
                       { value: 'penarikan_shopee', label: 'Penarikan Saldo Marketplace' },
+                      { value: 'dana_talang', label: 'Dana Talang Masuk (Suntikan Kas / Talangan)' },
                       { value: 'lainnya', label: 'Pemasukan Lainnya / Suntikan Modal' },
                     ]}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
@@ -901,6 +978,16 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2 text-xs text-zinc-400 font-semibold shrink-0">
+                <button
+                  id="btn-goto-tagihan-from-output"
+                  type="button"
+                  onClick={() => setViewMode('tagihan')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition cursor-pointer"
+                  title="Buka Menu Tagihan & Dana Talang"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Menu Tagihan</span>
+                </button>
                 {(periodFilter !== 'all' || searchQuery.trim() !== '') && (
                   <button
                     type="button"
@@ -1101,6 +1188,18 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* ================= 4. TAGIHAN & DANA TALANG VIEW STATE ================= */}
+      {viewMode === 'tagihan' && (
+        <TagihanSection
+          currentUser={currentUser}
+          employees={employees}
+          tagihanList={tagihanList}
+          onRefresh={loadData}
+          onBackToMenu={() => setViewMode('menu')}
+          onNotify={onNotify}
+        />
       )}
 
       {/* Image Preview Modal */}

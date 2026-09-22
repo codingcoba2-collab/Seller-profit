@@ -250,10 +250,13 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       try {
         if (editingId) {
           StorageService.updateInventory(newBall);
-          onNotify('Perubahan data stok disimpan & otomatis diperbarui di Pengeluaran Cashflow!', 'success');
+          onNotify(`Perubahan data stok "${ballType}" disimpan & otomatis diperbarui di Buku Kas & Riwayat Pengeluaran!`, 'success');
         } else {
           StorageService.addInventory(newBall);
-          onNotify(`Data stok "${ballType}" disimpan & modal ${formatRupiah(modalPrice)} otomatis masuk ke Pengeluaran Cashflow!`, 'success');
+          const parts: string[] = [`Modal ${formatRupiah(modalPrice)}`];
+          if (shippingCost > 0) parts.push(`Ongkir ${formatRupiah(shippingCost)}`);
+          if (steamCost > 0) parts.push(`Steam ${formatRupiah(steamCost)}`);
+          onNotify(`Data stok "${ballType}" disimpan! (${parts.join(', ')}) otomatis masuk ke Buku Kas & Riwayat!`, 'success');
         }
 
         loadData();
