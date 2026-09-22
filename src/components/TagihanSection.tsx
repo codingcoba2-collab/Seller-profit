@@ -19,8 +19,7 @@ import {
   ArrowLeft,
   CreditCard,
   Building2,
-  History,
-  RotateCcw
+  History
 } from 'lucide-react';
 
 interface TagihanSectionProps {
@@ -40,13 +39,11 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
   onBackToMenu,
   onNotify,
 }) => {
-  // Filters matching Buku Kas
+  // Filters matching Buku Kas (Image 1)
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'specific' | 'range' | 'weekly' | 'monthly'>('all');
   const [specificDate, setSpecificDate] = useState<string>(getTodayString());
   const [startDate, setStartDate] = useState<string>(getTodayString().slice(0, 8) + '01');
   const [endDate, setEndDate] = useState<string>(getTodayString());
-  const [filterType, setFilterType] = useState<'all' | 'kasbon' | 'dana_talang'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'unpaid' | 'paid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
@@ -126,7 +123,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Konfirmasi Catat Kasbon',
-      message: `Catat kasbon sebesar ${formatRupiah(kasbonAmount)} untuk ${kasbonEmpName}? Transaksi ini otomatis dicatat ke Buku Tagihan dan Pengeluaran Kas.`,
+      message: `Catat kasbon sebesar ${formatRupiah(kasbonAmount)} untuk ${kasbonEmpName}?`,
       type: 'save',
       confirmText: 'Ya, Catat Kasbon',
       onConfirm: () => {
@@ -141,7 +138,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
             notes: kasbonNotes,
             proofImageUrl: kasbonProofImage || undefined,
           });
-          onNotify(`Kasbon ${kasbonEmpName} sebesar ${formatRupiah(kasbonAmount)} berhasil dicatat ke Buku Tagihan!`, 'success');
+          onNotify(`Kasbon ${kasbonEmpName} sebesar ${formatRupiah(kasbonAmount)} berhasil dicatat!`, 'success');
           setIsKasbonModalOpen(false);
           setKasbonNotes('');
           setKasbonProofImage('');
@@ -164,7 +161,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Konfirmasi Catat Dana Talang',
-      message: `Catat dana talang sebesar ${formatRupiah(talangAmount)}? Transaksi ini otomatis dicatat ke Riwayat Kas Masuk dan Buku Tagihan.`,
+      message: `Catat dana talang sebesar ${formatRupiah(talangAmount)}?`,
       type: 'save',
       confirmText: 'Ya, Catat Dana Talang',
       onConfirm: () => {
@@ -178,7 +175,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
             notes: talangNotes,
             proofImageUrl: talangProofImage || undefined,
           });
-          onNotify(`Dana talang sebesar ${formatRupiah(talangAmount)} berhasil dicatat ke Buku Tagihan & Riwayat Kas!`, 'success');
+          onNotify(`Dana talang sebesar ${formatRupiah(talangAmount)} berhasil dicatat!`, 'success');
           setIsDanaTalangModalOpen(false);
           setTalangNotes('');
           setTalangProofImage('');
@@ -213,10 +210,10 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
     }
 
     const isKasbon = paymentModalItem.type === 'kasbon';
-    const title = isKasbon ? 'Konfirmasi Pembayaran Kasbon' : 'Konfirmasi Perusahaan Bayar Dana Talang';
+    const title = isKasbon ? 'Konfirmasi Pembayaran Kasbon' : 'Konfirmasi Pelunasan Dana Talang';
     const message = isKasbon
-      ? `Proses pembayaran kasbon ${paymentModalItem.employeeName || paymentModalItem.title} sebesar ${formatRupiah(payAmount)}? Transaksi ini dicatat ke riwayat pengeluaran kas dan mengurangi sisa tagihan kasbon.`
-      : `Proses pelunasan dana talang ${paymentModalItem.title} sebesar ${formatRupiah(payAmount)}? Transaksi ini dicatat ke pengeluaran kas perusahaan dan mengurangi sisa kewajiban dana talang.`;
+      ? `Proses pembayaran kasbon ${paymentModalItem.employeeName || paymentModalItem.title} sebesar ${formatRupiah(payAmount)}?`
+      : `Proses pelunasan dana talang ${paymentModalItem.title} sebesar ${formatRupiah(payAmount)}?`;
 
     setConfirmModal({
       isOpen: true,
@@ -234,7 +231,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
               notes: payNotes,
               proofImageUrl: payProofImage || undefined,
             });
-            onNotify(`Pembayaran kasbon sebesar ${formatRupiah(payAmount)} berhasil dicatat ke Riwayat Kas & Buku Tagihan.`, 'success');
+            onNotify(`Pembayaran kasbon sebesar ${formatRupiah(payAmount)} berhasil dicatat.`, 'success');
           } else {
             StorageService.payDanaTalangRecord(paymentModalItem.id, {
               date: payDate,
@@ -242,7 +239,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
               notes: payNotes,
               proofImageUrl: payProofImage || undefined,
             });
-            onNotify(`Perusahaan membayar dana talang sebesar ${formatRupiah(payAmount)} berhasil dicatat ke Riwayat Kas & Buku Tagihan.`, 'success');
+            onNotify(`Pelunasan dana talang sebesar ${formatRupiah(payAmount)} berhasil dicatat.`, 'success');
           }
           setPaymentModalItem(null);
           onRefresh();
@@ -258,9 +255,9 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Hapus Catatan Tagihan',
-      message: `Hapus catatan tagihan ${item.title}? Riwayat kas yang sudah dicatat sebelumnya tidak akan dihapus otomatis.`,
+      message: `Hapus catatan tagihan ${item.title}?`,
       type: 'delete',
-      confirmText: 'Ya, Hapus Tagihan',
+      confirmText: 'Ya, Hapus',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         StorageService.deleteTagihan(item.id);
@@ -280,19 +277,6 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
   // Filter list matching CashflowView logic
   const filteredList = tagihanList
     .filter(item => {
-      // Type Filter
-      if (filterType !== 'all' && item.type !== filterType) return false;
-
-      // Status Filter
-      if (filterStatus === 'unpaid') {
-        if (item.type === 'kasbon' && item.currentBalance <= 0) return false;
-        if (item.type === 'dana_talang' && item.currentBalance >= 0) return false;
-      }
-      if (filterStatus === 'paid') {
-        if (item.type === 'kasbon' && item.currentBalance > 0) return false;
-        if (item.type === 'dana_talang' && item.currentBalance < 0) return false;
-      }
-
       // Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -324,166 +308,56 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
     .filter(t => t.type === 'dana_talang')
     .reduce((sum, t) => sum + (t.currentBalance < 0 ? Math.abs(t.currentBalance) : 0), 0);
 
-  const isAnyFilterActive =
-    periodFilter !== 'all' ||
-    filterType !== 'all' ||
-    filterStatus !== 'all' ||
-    searchQuery.trim() !== '';
-
   const handleResetFilters = () => {
     setPeriodFilter('all');
-    setFilterType('all');
-    setFilterStatus('all');
     setSearchQuery('');
   };
 
   return (
-    <div className="space-y-4">
-      {/* Top Header - Consistent with CashflowView */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBackToMenu}
-            className="p-2 rounded-xl bg-[#0b0c10] hover:bg-[#25F4EE]/20 text-zinc-400 hover:text-[#25F4EE] border border-white/10 transition cursor-pointer"
-            title="Kembali ke Buku Kas"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#25F4EE]" />
-              <h2 className="text-base sm:text-lg font-black text-white">Buku Tagihan &amp; Dana Talang</h2>
-            </div>
-            <p className="text-xs text-zinc-400">
-              Catatan kasbon pegawai &amp; kewajiban dana talangan toko
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-catat-kasbon"
-            type="button"
-            onClick={() => {
-              if (employees.length > 0) {
-                setKasbonEmpId(employees[0].id);
-                setKasbonEmpName(employees[0].name);
-              }
-              setIsKasbonModalOpen(true);
-            }}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition cursor-pointer shadow-sm"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>+ Catat Kasbon</span>
-          </button>
-
-          <button
-            id="btn-catat-dana-talang"
-            type="button"
-            onClick={() => setIsDanaTalangModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold transition cursor-pointer shadow-sm"
-          >
-            <Building2 className="w-4 h-4" />
-            <span>+ Catat Dana Talang</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 3 Summary Cards - Exact Layout & Geometry of CashflowView */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Card 1: Kasbon Pegawai */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-amber-500/20 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span className="font-semibold flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-amber-400" />
-              Total Kasbon Pegawai
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
-              {activeKasbonList.length} Peminjam Aktif
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-amber-400">
-            {formatRupiah(totalKasbonAktif)}
-          </div>
-          <p className="text-[10px] text-zinc-400 mt-1">
-            Piutang kasbon toko yang belum lunas atau belum dipotong gaji
-          </p>
-        </div>
-
-        {/* Card 2: Dana Talang */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-[#FE2C55]/20 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span className="font-semibold flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-[#FE2C55]" />
-              Total Dana Talang
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FE2C55]/10 text-[#FE2C55] font-bold border border-[#FE2C55]/20">
-              {activeTalangList.length} Pos Kewajiban
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-[#FE2C55]">
-            {formatRupiah(totalTalangAktif)}
-          </div>
-          <p className="text-[10px] text-zinc-400 mt-1">
-            Kewajiban perusahaan yang harus dibayarkan kembali
-          </p>
-        </div>
-
-        {/* Card 3: Saldo Bersih Tagihan */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span className="font-semibold flex items-center gap-1.5">
-              <Receipt className="w-3.5 h-3.5 text-[#25F4EE]" />
-              Saldo Bersih Tagihan
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 font-bold border border-white/10">
-              {activeKasbonList.length + activeTalangList.length} Belum Lunas
-            </span>
-          </div>
-          <div className={`text-lg sm:text-xl font-black ${
-            totalKasbonAktif >= totalTalangAktif ? 'text-[#25F4EE]' : 'text-amber-400'
-          }`}>
-            {formatRupiah(totalKasbonAktif - totalTalangAktif)}
-          </div>
-          <p className="text-[10px] text-zinc-400 mt-1">
-            Selisih piutang kasbon dikurangi kewajiban dana talang
-          </p>
-        </div>
-      </div>
-
-      {/* Filter & Search Bar - Identical to CashflowView */}
+    <div className="space-y-3">
+      {/* 1. FILTER BAR (Persis Gambar 1: ArrowLeft, Search, Periode, Tombol Aksi, Summary Strip) */}
       <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg space-y-2.5">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari tagihan, pegawai, atau keterangan..."
-              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-                title="Hapus pencarian"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
+            {/* Tombol Kembali ke Menu Kas (Sama persis Gambar 1) */}
+            <button
+              id="btn-back-menu-from-tagihan"
+              type="button"
+              onClick={onBackToMenu}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
+              title="Kembali ke Menu Kas"
+              aria-label="Kembali"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+            </button>
 
-          {/* Dropdown Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Periode Filter */}
+            {/* Input Pencarian */}
+            <div className="relative flex-1 min-w-[160px] max-w-xs">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari transaksi / tagihan..."
+                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown Periode */}
             <ThemedSelect
               value={periodFilter}
               onChange={val => setPeriodFilter(val as any)}
-              title="Pilih Periode Tagihan"
+              title="Pilih Periode"
               options={[
                 { value: 'all', label: 'Semua Periode' },
                 { value: 'today', label: 'Hari Ini' },
@@ -494,273 +368,303 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
               ]}
               className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
             />
+          </div>
 
-            {/* Jenis Tagihan Filter */}
-            <ThemedSelect
-              value={filterType}
-              onChange={val => setFilterType(val as any)}
-              title="Pilih Jenis Tagihan"
-              options={[
-                { value: 'all', label: 'Semua Jenis Tagihan' },
-                { value: 'kasbon', label: 'Kasbon Pegawai' },
-                { value: 'dana_talang', label: 'Dana Talang' },
-              ]}
-              className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-            />
+          {/* Tombol Aksi: + Catat Kasbon & + Catat Dana Talang & Total */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold shrink-0">
+            <button
+              id="btn-catat-kasbon"
+              type="button"
+              onClick={() => {
+                if (employees.length > 0) {
+                  setKasbonEmpId(employees[0].id);
+                  setKasbonEmpName(employees[0].name);
+                }
+                setIsKasbonModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition cursor-pointer"
+              title="Catat Kasbon Pegawai"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Catat Kasbon</span>
+            </button>
 
-            {/* Status Filter */}
-            <ThemedSelect
-              value={filterStatus}
-              onChange={val => setFilterStatus(val as any)}
-              title="Pilih Status Tagihan"
-              options={[
-                { value: 'all', label: 'Semua Status' },
-                { value: 'unpaid', label: 'Belum Lunas' },
-                { value: 'paid', label: 'Sudah Lunas' },
-              ]}
-              className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-            />
+            <button
+              id="btn-catat-dana-talang"
+              type="button"
+              onClick={() => setIsDanaTalangModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold transition cursor-pointer"
+              title="Catat Dana Talang"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>+ Catat Dana Talang</span>
+            </button>
 
-            {/* Reset Filter Button */}
-            {isAnyFilterActive && (
+            {(periodFilter !== 'all' || searchQuery.trim() !== '') && (
               <button
                 type="button"
                 onClick={handleResetFilters}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] border border-white/10 text-[11px] font-bold transition cursor-pointer"
-                title="Reset semua filter"
               >
-                <RotateCcw className="w-3 h-3" />
+                <X className="w-3 h-3" />
                 <span>Reset</span>
               </button>
             )}
 
-            <div className="text-xs text-zinc-400 font-semibold px-1 shrink-0">
+            <span className="text-zinc-400">
               Total: <strong className="text-white">{filteredList.length}</strong> tagihan
-            </div>
+            </span>
           </div>
         </div>
 
         {/* Dedicated Date Selectors when specific or range is selected */}
         {periodFilter === 'specific' && (
-          <div className="flex items-center gap-2 pt-2 border-t border-white/5 text-xs">
-            <span className="text-zinc-400 font-medium">Tanggal:</span>
-            <input
-              type="date"
-              value={specificDate}
-              onChange={e => setSpecificDate(e.target.value)}
-              className="px-3 py-1 text-xs rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-white font-semibold focus:outline-none"
-            />
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+              <Calendar className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span className="text-[11px] text-zinc-400 font-bold">Pilih Tanggal:</span>
+              <input
+                type="date"
+                value={specificDate}
+                onChange={e => setSpecificDate(e.target.value)}
+                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+              />
+            </div>
+            <span className="text-xs text-zinc-400 font-medium">
+              Menampilkan mutasi: <strong className="text-white">{formatDateIndo(specificDate)}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSpecificDate(getTodayString())}
+              className="text-[11px] text-[#25F4EE] hover:underline ml-auto font-medium cursor-pointer"
+            >
+              Set Hari Ini
+            </button>
           </div>
         )}
 
         {periodFilter === 'range' && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5 text-xs">
-            <span className="text-zinc-400 font-medium">Dari:</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="px-3 py-1 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:outline-none"
-            />
-            <span className="text-zinc-400 font-medium">Sampai:</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="px-3 py-1 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:outline-none"
-            />
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
+              <Calendar className="w-3.5 h-3.5 text-[#25F4EE]" />
+              <span className="text-[11px] text-zinc-400 font-bold">Dari:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+              />
+              <span className="text-zinc-500 text-xs">s/d</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+              />
+            </div>
+            <span className="text-xs text-zinc-400 font-medium">
+              Rentang: <strong className="text-white">{formatDateIndo(startDate)}</strong> s/d{' '}
+              <strong className="text-white">{formatDateIndo(endDate)}</strong>
+            </span>
           </div>
         )}
 
-        {/* Quick summary strip matching CashflowView */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[11px] text-zinc-400">
-          <div>
-            Filter:{' '}
-            <span className="text-zinc-300 font-medium">
-              {periodFilter === 'all'
-                ? 'Semua Periode'
-                : periodFilter === 'today'
-                ? 'Hari Ini'
-                : periodFilter === 'specific'
-                ? `Tanggal ${formatDateIndo(specificDate)}`
-                : periodFilter === 'range'
-                ? `${formatDateIndo(startDate)} - ${formatDateIndo(endDate)}`
-                : periodFilter === 'weekly'
-                ? '7 Hari Terakhir'
-                : 'Bulan Ini'}
+        {/* Quick summary strip persis Gambar 1 */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-zinc-400">
+            <span>Filter Aktif:</span>
+            <span className="font-semibold text-white">
+              {periodFilter === 'all' && 'Semua Tagihan'}
+              {periodFilter === 'today' && `Hari Ini (${formatDateIndo(getTodayString())})`}
+              {periodFilter === 'specific' && formatDateIndo(specificDate)}
+              {periodFilter === 'range' && `${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)}`}
+              {periodFilter === 'weekly' && '7 Hari Terakhir'}
+              {periodFilter === 'monthly' && 'Bulan Ini'}
             </span>
-            {filterType !== 'all' && (
-              <span className="ml-2 text-amber-400 font-semibold">
-                • {filterType === 'kasbon' ? 'Kasbon Pegawai' : 'Dana Talang'}
-              </span>
-            )}
-            {filterStatus !== 'all' && (
-              <span className="ml-2 text-cyan-300 font-semibold">
-                • {filterStatus === 'unpaid' ? 'Belum Lunas' : 'Sudah Lunas'}
-              </span>
+            {searchQuery && (
+              <span className="text-[#25F4EE] font-medium"> • Kata kunci: "{searchQuery}"</span>
             )}
           </div>
-          <div className="flex items-center gap-3 font-semibold text-xs">
-            <span>
+
+          <div className="flex items-center gap-3">
+            <span className="text-zinc-400">
               Kasbon: <strong className="text-amber-400">{formatRupiah(filteredKasbonTotal)}</strong>
             </span>
-            <span>
-              Dana Talang: <strong className="text-[#FE2C55]">{formatRupiah(filteredTalangTotal)}</strong>
+            <span className="text-zinc-400">
+              Talang: <strong className="text-[#FE2C55]">{formatRupiah(filteredTalangTotal)}</strong>
+            </span>
+            <span className="text-zinc-400 font-bold border-l border-white/10 pl-2">
+              Saldo:{' '}
+              <strong
+                className={
+                  filteredKasbonTotal >= filteredTalangTotal ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
+                }
+              >
+                {formatRupiah(filteredKasbonTotal - filteredTalangTotal)}
+              </strong>
             </span>
           </div>
         </div>
       </div>
 
-      {/* List Tagihan - Exact Banking List Format of CashflowView */}
+      {/* 2. RINGKASAN MINI 3 KOLOM (Tanda Kuning Diperkecil Ukurannya) */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="p-2 sm:p-2.5 rounded-xl bg-[#161823] border border-amber-500/20 text-center sm:text-left">
+          <div className="text-[10px] sm:text-xs text-zinc-400 font-medium truncate flex items-center justify-center sm:justify-start gap-1">
+            <User className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>Kasbon Pegawai</span>
+          </div>
+          <div className="text-xs sm:text-sm font-black text-amber-400 mt-0.5">
+            {formatRupiah(totalKasbonAktif)}
+          </div>
+          <div className="text-[9px] text-zinc-500 hidden sm:block">
+            {activeKasbonList.length} peminjam aktif
+          </div>
+        </div>
+
+        <div className="p-2 sm:p-2.5 rounded-xl bg-[#161823] border border-[#FE2C55]/20 text-center sm:text-left">
+          <div className="text-[10px] sm:text-xs text-zinc-400 font-medium truncate flex items-center justify-center sm:justify-start gap-1">
+            <Building2 className="w-3 h-3 text-[#FE2C55] shrink-0" />
+            <span>Dana Talang</span>
+          </div>
+          <div className="text-xs sm:text-sm font-black text-[#FE2C55] mt-0.5">
+            {formatRupiah(totalTalangAktif)}
+          </div>
+          <div className="text-[9px] text-zinc-500 hidden sm:block">
+            {activeTalangList.length} pos kewajiban
+          </div>
+        </div>
+
+        <div className="p-2 sm:p-2.5 rounded-xl bg-[#161823] border border-white/10 text-center sm:text-left">
+          <div className="text-[10px] sm:text-xs text-zinc-400 font-medium truncate flex items-center justify-center sm:justify-start gap-1">
+            <Receipt className="w-3 h-3 text-[#25F4EE] shrink-0" />
+            <span>Saldo Bersih</span>
+          </div>
+          <div
+            className={`text-xs sm:text-sm font-black mt-0.5 ${
+              totalKasbonAktif >= totalTalangAktif ? 'text-[#25F4EE]' : 'text-amber-400'
+            }`}
+          >
+            {formatRupiah(totalKasbonAktif - totalTalangAktif)}
+          </div>
+          <div className="text-[9px] text-zinc-500 hidden sm:block">
+            {activeKasbonList.length + activeTalangList.length} belum lunas
+          </div>
+        </div>
+      </div>
+
+      {/* 3. DAFTAR KARTU TAGIHAN (Sama persis Gambar 1: Badge Tanggal Kiri, Ikon Aksi Kanan, Nominal Kiri, Kategori/Pegawai Kanan, Catatan Bawah) */}
       {filteredList.length === 0 ? (
         <div className="p-8 text-center rounded-2xl bg-[#161823] border border-white/10 text-zinc-400 space-y-2">
           <Receipt className="w-10 h-10 mx-auto text-zinc-600 mb-1" />
           <div className="text-sm font-bold text-white">Tidak Ada Catatan Tagihan</div>
           <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-            {isAnyFilterActive
+            {periodFilter !== 'all' || searchQuery
               ? 'Tidak ada data tagihan yang sesuai dengan filter pencarian.'
               : 'Gunakan tombol "+ Catat Kasbon" atau "+ Catat Dana Talang" di bagian atas untuk mencatat data baru.'}
           </p>
-          {isAnyFilterActive && (
+          {(periodFilter !== 'all' || searchQuery) && (
             <button
               type="button"
               onClick={handleResetFilters}
               className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10 transition cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <X className="w-3.5 h-3.5" />
               <span>Reset Filter</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {filteredList.map(item => {
             const isKasbon = item.type === 'kasbon';
             const isPaid = isKasbon ? item.currentBalance <= 0 : item.currentBalance >= 0;
             const remainingBalance = Math.abs(item.currentBalance);
+            const formattedDate = formatDateIndo(item.date);
 
             return (
               <div
                 key={item.id}
                 className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
               >
-                {/* Top Row: Date Badge on Left, Action Buttons on Right */}
+                {/* Baris Atas: Badge Tanggal di Kiri, Tombol Aksi di Kanan (Persis Gambar 1) */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPeriodFilter('specific');
-                        setSpecificDate(item.date);
-                      }}
-                      title={`Filter hanya tanggal ${formatDateIndo(item.date)}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300 hover:border-[#25F4EE]/50 hover:text-[#25F4EE] transition cursor-pointer"
-                    >
-                      <Calendar className="w-3 h-3 text-[#25F4EE]" />
-                      <span>{formatDateIndo(item.date)}</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter('specific');
+                      setSpecificDate(item.date);
+                    }}
+                    title={`Filter hanya tanggal ${formattedDate}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300 hover:border-[#25F4EE]/50 hover:text-[#25F4EE] transition cursor-pointer"
+                  >
+                    <Calendar className="w-3 h-3 text-[#25F4EE]" />
+                    <span>{formattedDate}</span>
+                  </button>
 
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      isKasbon
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        : 'bg-[#25F4EE]/10 text-[#25F4EE] border-[#25F4EE]/20'
-                    }`}>
-                      {isKasbon ? 'Kasbon Pegawai' : 'Dana Talang'}
-                    </span>
-
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                      isPaid
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : item.history && item.history.length > 0
-                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                    }`}>
-                      {isPaid ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Lunas</span>
-                        </>
-                      ) : item.history && item.history.length > 0 ? (
-                        <>
-                          <Clock className="w-3 h-3" />
-                          <span>Dicicil Sebagian</span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="w-3 h-3" />
-                          <span>Belum Lunas</span>
-                        </>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* View Proof Photo */}
+                  <div className="flex items-center gap-1">
+                    {/* Lihat Foto Bukti jika ada */}
                     {item.proofImageUrl && (
                       <button
                         type="button"
                         onClick={() => setPreviewPhotoUrl(item.proofImageUrl || null)}
-                        className="p-1.5 rounded-lg bg-[#0b0c10] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition cursor-pointer"
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
                         title="Lihat Bukti Foto"
                       >
-                        <Eye className="w-3.5 h-3.5 text-[#25F4EE]" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                     )}
 
-                    {/* View Payment History */}
+                    {/* Riwayat Pembayaran / Cicilan jika ada */}
                     {item.history && item.history.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setHistoryModalItem(item)}
-                        className="p-1.5 rounded-lg bg-[#0b0c10] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition cursor-pointer"
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-blue-400 transition cursor-pointer"
                         title="Riwayat Pembayaran"
                       >
-                        <History className="w-3.5 h-3.5 text-blue-400" />
+                        <History className="w-3.5 h-3.5" />
                       </button>
                     )}
 
-                    {/* Pay Button */}
+                    {/* Tombol Bayar / Pelunasan jika belum lunas */}
                     {!isPaid && (
                       <button
                         type="button"
                         onClick={() => openPaymentModal(item)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer ${
-                          isKasbon
-                            ? 'bg-amber-500 hover:bg-amber-600 text-black'
-                            : 'bg-[#25F4EE] hover:bg-[#20ded8] text-black'
-                        }`}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] transition cursor-pointer flex items-center gap-1"
+                        title={isKasbon ? 'Bayar / Potong Kasbon' : 'Bayar Talangan Perusahaan'}
                       >
-                        <CreditCard className="w-3 h-3" />
-                        <span>{isKasbon ? 'Bayar Kasbon' : 'Bayar Talangan'}</span>
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold hidden sm:inline">Bayar</span>
                       </button>
                     )}
 
-                    {/* Delete Button */}
+                    {/* Tombol Hapus (Merah persis Gambar 1) */}
                     <button
                       type="button"
                       onClick={() => handleDelete(item)}
-                      className="p-1.5 rounded-lg bg-[#0b0c10] hover:bg-[#FE2C55]/20 text-zinc-500 hover:text-[#FE2C55] border border-white/10 transition cursor-pointer"
-                      title="Hapus Catatan Tagihan"
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                      title="Hapus Catatan"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Main Row: Nominal on Left, Category/Title on Right */}
+                {/* Baris Utama: Nominal di Kiri (-Rp... merah untuk kasbon, +Rp... cyan untuk talang), Kategori & Nama Pegawai di Kanan (Persis Gambar 1) */}
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="min-w-0">
-                    <div className={`text-base sm:text-lg font-black tracking-tight ${
-                      isPaid
-                        ? 'text-emerald-400'
-                        : isKasbon
-                        ? 'text-amber-400'
-                        : 'text-[#FE2C55]'
-                    }`}>
-                      {isPaid ? 'Rp 0 (Lunas)' : `Sisa: ${formatRupiah(remainingBalance)}`}
-                    </div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5">
-                      Total Awal: {formatRupiah(item.initialAmount)}
+                    <div
+                      className={`text-base sm:text-lg font-black tracking-tight ${
+                        isPaid
+                          ? 'text-emerald-400'
+                          : isKasbon
+                          ? 'text-[#FE2C55]'
+                          : 'text-[#25F4EE]'
+                      }`}
+                    >
+                      {isPaid ? 'Rp 0 (Lunas)' : `${isKasbon ? '-' : '+'}${formatRupiah(remainingBalance)}`}
                     </div>
                   </div>
 
@@ -769,31 +673,20 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
                       {item.title}
                     </div>
                     {item.employeeName && (
-                      <div className="text-[11px] text-amber-400 font-medium truncate">
+                      <div className="text-[11px] text-[#25F4EE] font-medium truncate">
                         Pegawai: {item.employeeName}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Bottom Row: Description / Catatan & Payment Progress */}
-                <div className="pt-1.5 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-zinc-400">
-                  <div className="truncate">
-                    {item.notes ? (
-                      <>
-                        <span className="text-zinc-500 font-medium">Catatan: </span>
-                        <span>{item.notes}</span>
-                      </>
-                    ) : (
-                      <span className="text-zinc-500 italic">Tidak ada catatan</span>
-                    )}
+                {/* Baris Bawah: Catatan (Persis Gambar 1 "Catatan: ...") */}
+                {item.notes && (
+                  <div className="pt-1.5 border-t border-white/5 text-[11px] sm:text-xs text-zinc-400 leading-snug">
+                    <span className="text-zinc-500 font-medium">Catatan: </span>
+                    <span>{item.notes}</span>
                   </div>
-                  {item.history && item.history.length > 0 && (
-                    <div className="text-emerald-400/90 text-[10px] sm:text-[11px] font-semibold shrink-0">
-                      Terbayar: {formatRupiah(item.initialAmount - remainingBalance)} ({item.history.length}x pembayaran)
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             );
           })}
@@ -809,7 +702,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
                 <User className="w-5 h-5 text-amber-400" />
                 <div>
                   <h3 className="text-sm font-black text-white">Catat Kasbon Pegawai</h3>
-                  <p className="text-[10px] text-zinc-400">Otomatis dicatat ke Buku Tagihan dan Pengeluaran Kas</p>
+                  <p className="text-[10px] text-zinc-400">Dicatat ke Buku Tagihan dan Pengeluaran Kas</p>
                 </div>
               </div>
               <button
@@ -933,7 +826,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
                 <Building2 className="w-5 h-5 text-[#25F4EE]" />
                 <div>
                   <h3 className="text-sm font-black text-white">Catat Dana Talang Masuk</h3>
-                  <p className="text-[10px] text-zinc-400">Otomatis dicatat ke Riwayat Kas Masuk dan Buku Tagihan</p>
+                  <p className="text-[10px] text-zinc-400">Dicatat ke Riwayat Kas Masuk dan Buku Tagihan</p>
                 </div>
               </div>
               <button
@@ -1047,12 +940,12 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
                 <CreditCard className="w-5 h-5 text-[#25F4EE]" />
                 <div>
                   <h3 className="text-sm font-black text-white">
-                    {paymentModalItem.type === 'kasbon' ? 'Bayar / Lunasi Kasbon' : 'Perusahaan Bayar Dana Talang'}
+                    {paymentModalItem.type === 'kasbon' ? 'Bayar / Potong Kasbon' : 'Pelunasan Dana Talang'}
                   </h3>
                   <p className="text-[10px] text-zinc-400">
                     {paymentModalItem.type === 'kasbon'
-                      ? 'Dicatat ke pengeluaran kas dan mengurangi tagihan kasbon'
-                      : 'Dicatat ke pengeluaran kas perusahaan dan mengurangi saldo dana talang'}
+                      ? 'Dicatat ke pengeluaran kas dan memotong tagihan kasbon'
+                      : 'Dicatat ke pengeluaran kas dan melunasi dana talang'}
                   </p>
                 </div>
               </div>
@@ -1076,7 +969,7 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
               <div className="flex justify-between items-center text-zinc-400 text-[11px]">
                 <span>Total Awal: {formatRupiah(paymentModalItem.initialAmount)}</span>
                 <span className="font-bold text-amber-400">
-                  Sisa Tagihan: {formatRupiah(Math.abs(paymentModalItem.currentBalance))}
+                  Sisa: {formatRupiah(Math.abs(paymentModalItem.currentBalance))}
                 </span>
               </div>
             </div>
@@ -1202,11 +1095,14 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
             </div>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {(!historyModalItem.history || historyModalItem.history.length === 0) ? (
+              {!historyModalItem.history || historyModalItem.history.length === 0 ? (
                 <div className="text-xs text-zinc-500 text-center py-4">Belum ada riwayat pembayaran.</div>
               ) : (
                 historyModalItem.history.map(hist => (
-                  <div key={hist.id} className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-between gap-2 text-xs">
+                  <div
+                    key={hist.id}
+                    className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/10 flex items-center justify-between gap-2 text-xs"
+                  >
                     <div>
                       <div className="font-bold text-white flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -1217,7 +1113,11 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
                       </div>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 font-semibold border border-white/10">
-                      {hist.type === 'potong_gaji' ? 'Potong Gaji' : hist.type === 'bayar_kasbon' ? 'Bayar Kasbon' : 'Bayar Talangan'}
+                      {hist.type === 'potong_gaji'
+                        ? 'Potong Gaji'
+                        : hist.type === 'bayar_kasbon'
+                        ? 'Bayar Kasbon'
+                        : 'Bayar Talangan'}
                     </span>
                   </div>
                 ))
