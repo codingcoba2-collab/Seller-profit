@@ -181,6 +181,24 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     }
   };
 
+  // Format tanggal pendek khusus tabel buku kas (misal: "24 Sep", "23 Sep")
+  const formatTableDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      const parts = dateStr.slice(0, 10).split('-');
+      if (parts.length === 3) {
+        const day = parseInt(parts[2], 10);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const monthName = months[monthIdx] || parts[1];
+        return `${day} ${monthName}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Input Form States (3 Pos: Operasional, Investasi, Pendanaan)
   const [selectedPillar, setSelectedPillar] = useState<CashflowPillar>('operasional');
   const [type, setType] = useState<'inflow' | 'outflow'>('outflow');
@@ -618,6 +636,31 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       return true;
     });
   }, [filteredList, catatanKasTypeFilter]);
+
+  // Running balance (Saldo Berjalan) untuk Catatan Kas
+  // Dihitung berurutan secara kronologis dari riwayat transaksi toko
+  const runningBalanceMap = useMemo(() => {
+    const chronological = [...cashflowList].sort((a, b) => {
+      const dateDiff = a.date.localeCompare(b.date);
+      if (dateDiff !== 0) return dateDiff;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB && !isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
+      return a.id.localeCompare(b.id);
+    });
+
+    const map = new Map<string, number>();
+    let currentBalance = 0;
+    for (const item of chronological) {
+      if (item.type === 'inflow') {
+        currentBalance += item.amount;
+      } else {
+        currentBalance -= item.amount;
+      }
+      map.set(item.id, currentBalance);
+    }
+    return map;
+  }, [cashflowList]);
 
   // Jurnal list (Seluruh transaksi debit & kredit)
   const jurnalList = useMemo(() => {
@@ -1348,105 +1391,127 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           </div>
 
-          {/* Daftar Catatan Kas Masuk & Keluar */}
-          <div className="space-y-2">
-            {catatanKasList.length === 0 ? (
-              <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs space-y-2">
-                <p>Belum ada catatan kas masuk atau keluar pada periode ini.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetForm();
-                    setActiveMenu('input');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-[#25F4EE] text-[#0b0c10] font-black text-xs inline-flex items-center gap-1.5 cursor-pointer shadow"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  + Input Kas Sekarang
-                </button>
+          {/* Tabel Catatan Kas (Format Buku Kas: Tanggal | Keterangan | Kas Masuk | Kas Keluar | Saldo) */}
+          {catatanKasList.length === 0 ? (
+            <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs space-y-2">
+              <p>Belum ada catatan kas masuk atau keluar pada periode ini.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setActiveMenu('input');
+                }}
+                className="px-4 py-2 rounded-xl bg-[#25F4EE] text-[#0b0c10] font-black text-xs inline-flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                + Input Kas Sekarang
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="rounded-3xl bg-[#0b0c10] border border-white/10 shadow-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-white/20 text-white font-bold text-sm sm:text-base bg-[#161823]/60">
+                        <th className="py-4 px-4 sm:px-6 w-[130px] whitespace-nowrap">Tanggal</th>
+                        <th className="py-4 px-4 sm:px-6 min-w-[200px]">Keterangan</th>
+                        <th className="py-4 px-4 sm:px-6 text-right w-[160px] whitespace-nowrap">Kas Masuk</th>
+                        <th className="py-4 px-4 sm:px-6 text-right w-[160px] whitespace-nowrap">Kas Keluar</th>
+                        <th className="py-4 px-4 sm:px-6 text-right w-[170px] whitespace-nowrap">Saldo</th>
+                        <th className="py-4 px-3 sm:px-4 text-center w-[85px] whitespace-nowrap">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10 text-white text-sm sm:text-base">
+                      {catatanKasList.map(item => {
+                        const isInflow = item.type === 'inflow';
+                        const runningSaldo = runningBalanceMap.get(item.id) ?? item.amount;
+                        const formattedAmount = formatRupiah(item.amount).replace(/\s/g, '');
+                        const formattedSaldo = formatRupiah(runningSaldo).replace(/\s/g, '');
+
+                        return (
+                          <tr key={item.id} className="hover:bg-white/[0.04] transition-colors">
+                            <td className="py-4 px-4 sm:px-6 font-semibold whitespace-nowrap text-white">
+                              {formatTableDate(item.date)}
+                            </td>
+                            <td className="py-4 px-4 sm:px-6">
+                              <div className="font-semibold text-white">{item.description}</div>
+                              {item.employeeName && (
+                                <div className="text-[11px] text-[#25F4EE] mt-0.5 font-medium">
+                                  Pegawai: {item.employeeName}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-medium text-white">
+                              {isInflow ? formattedAmount : '-'}
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-medium text-white">
+                              {!isInflow ? formattedAmount : '-'}
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-bold text-white">
+                              {formattedSaldo}
+                            </td>
+                            <td className="py-4 px-3 sm:px-4 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1">
+                                {item.proofImageUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
+                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                                    title="Lihat Bukti Nota"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEdit(item)}
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
+                                  title="Edit Transaksi"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(item.id, item.description)}
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
+                                  title="Hapus Transaksi"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {catatanKasList.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t-2 border-white/20 bg-[#161823]/80 font-black text-sm sm:text-base">
+                          <td className="py-4 px-4 sm:px-6" colSpan={2}>
+                            Total Ringkasan Periode Ini
+                          </td>
+                          <td className="py-4 px-4 sm:px-6 text-right text-[#25F4EE] whitespace-nowrap">
+                            +{formatRupiah(totalInflow).replace(/\s/g, '')}
+                          </td>
+                          <td className="py-4 px-4 sm:px-6 text-right text-[#FE2C55] whitespace-nowrap">
+                            -{formatRupiah(totalOutflow).replace(/\s/g, '')}
+                          </td>
+                          <td className="py-4 px-4 sm:px-6 text-right text-white whitespace-nowrap">
+                            {formatRupiah(netCash).replace(/\s/g, '')}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
               </div>
-            ) : (
-              catatanKasList.map(item => {
-                const isInflow = item.type === 'inflow';
-                const itemPillar = getCashflowPillar(item);
-                const categoryLabel = CATEGORY_LABELS[item.category] || item.category;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-sm space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300" title="Tanggal Transaksi">
-                          Tgl: {formatDateIndo(item.date)}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-zinc-400 flex items-center gap-1" title="Tanggal & Waktu Input Transaksi">
-                          <Clock className="w-2.5 h-2.5 text-[#25F4EE]" />
-                          Input: {formatInputDateTime(item.createdAt, item.date)}
-                        </span>
-                        {renderPillarBadge(itemPillar)}
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          isInflow ? 'bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30' : 'bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/30'
-                        }`}>
-                          {isInflow ? 'Kas Masuk' : 'Kas Keluar'}
-                        </span>
-                        <span className="text-xs text-zinc-400 font-semibold">{categoryLabel}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {item.proofImageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                            title="Lihat Bukti Nota"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(item)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                          title="Edit Transaksi"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id, item.description)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                          title="Hapus Transaksi"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className={`text-base sm:text-lg font-black tracking-tight ${
-                        isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
-                      }`}>
-                        {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
-                      </div>
-
-                      <div className="text-right min-w-0 flex-1">
-                        <div className="text-xs sm:text-sm font-semibold text-white truncate">
-                          {item.description}
-                        </div>
-                        {item.employeeName && (
-                          <div className="text-[11px] text-[#25F4EE] font-medium truncate">
-                            Pegawai: {item.employeeName}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+              <p className="text-[11px] text-zinc-500 sm:hidden px-1">
+                💡 Geser tabel ke kanan untuk melihat kolom Kas Keluar &amp; Saldo Kas.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
