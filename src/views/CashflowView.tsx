@@ -19,7 +19,9 @@ import {
   BookOpen,
   Briefcase,
   TrendingUp,
-  FolderOpen
+  FolderOpen,
+  ArrowUpDown,
+  Clock
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
@@ -144,6 +146,25 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [jurnalPillarFilter, setJurnalPillarFilter] = useState<'all' | CashflowPillar>('all');
   const [jurnalTypeFilter, setJurnalTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
+  const [sortOrder, setSortOrder] = useState<'input_desc' | 'input_asc' | 'date_desc' | 'date_asc'>('input_desc');
+
+  // Format tanggal & waktu input untuk tampilan kartu
+  const formatInputDateTime = (createdAt?: string, fallbackDate?: string) => {
+    if (!createdAt && !fallbackDate) return '-';
+    const target = createdAt || fallbackDate || '';
+    try {
+      const d = new Date(target);
+      if (isNaN(d.getTime())) return formatDateIndo(target);
+      const dateFormatted = formatDateIndo(target.slice(0, 10));
+      if (createdAt && createdAt.includes('T')) {
+        const timeFormatted = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        return `${dateFormatted} • ${timeFormatted}`;
+      }
+      return dateFormatted;
+    } catch {
+      return formatDateIndo(target);
+    }
+  };
 
   // Input Form States (3 Pos: Operasional, Investasi, Pendanaan)
   const [selectedPillar, setSelectedPillar] = useState<CashflowPillar>('operasional');
@@ -408,7 +429,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       pillar: selectedPillar,
       description,
       recordedBy: currentUser.name,
-      createdAt: new Date().toISOString(),
+      createdAt: editingItem?.createdAt ? editingItem.createdAt : new Date().toISOString(),
       employeeId: (finalCategory === 'gaji_pegawai' || finalCategory === 'kasbon') ? employeeId : undefined,
       employeeName: (finalCategory === 'gaji_pegawai' || finalCategory === 'kasbon') ? employeeName : undefined,
       paymentType: (finalCategory === 'gaji_pegawai' || finalCategory === 'kasbon') ? paymentType : undefined,
@@ -500,37 +521,79 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     });
   };
 
-  // Filter list by period & search query
+  // Filter list by period & search query, serta urutkan sesuai tanggal input
   const filteredList = useMemo(() => {
-    return cashflowList.filter(item => {
-      if (periodFilter === 'today') {
-        if (item.date !== getTodayString()) return false;
-      } else if (periodFilter === 'specific') {
-        if (item.date !== specificDate) return false;
-      } else if (periodFilter === 'range') {
-        if (item.date < startDate || item.date > endDate) return false;
-      } else if (periodFilter === 'weekly') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        const minDate = d.toISOString().slice(0, 10);
-        if (item.date < minDate) return false;
-      } else if (periodFilter === 'monthly') {
-        const curMonth = getTodayString().slice(0, 7);
-        if (!item.date.startsWith(curMonth)) return false;
-      }
+    return cashflowList
+      .filter(item => {
+        if (periodFilter === 'today') {
+          if (item.date !== getTodayString()) return false;
+        } else if (periodFilter === 'specific') {
+          if (item.date !== specificDate) return false;
+        } else if (periodFilter === 'range') {
+          if (item.date < startDate || item.date > endDate) return false;
+        } else if (periodFilter === 'weekly') {
+          const d = new Date();
+          d.setDate(d.getDate() - 7);
+          const minDate = d.toISOString().slice(0, 10);
+          if (item.date < minDate) return false;
+        } else if (periodFilter === 'monthly') {
+          const curMonth = getTodayString().slice(0, 7);
+          if (!item.date.startsWith(curMonth)) return false;
+        }
 
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const descMatch = (item.description || '').toLowerCase().includes(q);
-        const empMatch = (item.employeeName || '').toLowerCase().includes(q);
-        const catMatch = (CATEGORY_LABELS[item.category] || item.category).toLowerCase().includes(q);
-        const amountMatch = item.amount.toString().includes(q);
-        if (!descMatch && !empMatch && !catMatch && !amountMatch) return false;
-      }
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const descMatch = (item.description || '').toLowerCase().includes(q);
+          const empMatch = (item.employeeName || '').toLowerCase().includes(q);
+          const catMatch = (CATEGORY_LABELS[item.category] || item.category).toLowerCase().includes(q);
+          const amountMatch = item.amount.toString().includes(q);
+          if (!descMatch && !empMatch && !catMatch && !amountMatch) return false;
+        }
 
-      return true;
-    });
-  }, [cashflowList, periodFilter, specificDate, startDate, endDate, searchQuery]);
+        return true;
+      })
+      .sort((a, b) => {
+        const getInputTime = (rec: CashflowRecord) => {
+          if (rec.createdAt) {
+            const t = new Date(rec.createdAt).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (rec.id) {
+            const m = rec.id.match(/\d{10,}/);
+            if (m) {
+              const num = parseInt(m[0], 10);
+              if (!isNaN(num) && num > 1000000000) return num;
+            }
+          }
+          if (rec.date) {
+            const t = new Date(rec.date).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+
+        const getTxDateTime = (rec: CashflowRecord) => {
+          if (rec.date) {
+            const t = new Date(rec.date).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+
+        if (sortOrder === 'input_desc') {
+          return getInputTime(b) - getInputTime(a);
+        } else if (sortOrder === 'input_asc') {
+          return getInputTime(a) - getInputTime(b);
+        } else if (sortOrder === 'date_desc') {
+          const diff = getTxDateTime(b) - getTxDateTime(a);
+          return diff !== 0 ? diff : getInputTime(b) - getInputTime(a);
+        } else if (sortOrder === 'date_asc') {
+          const diff = getTxDateTime(a) - getTxDateTime(b);
+          return diff !== 0 ? diff : getInputTime(a) - getInputTime(b);
+        }
+        return getInputTime(b) - getInputTime(a);
+      });
+  }, [cashflowList, periodFilter, specificDate, startDate, endDate, searchQuery, sortOrder]);
 
   // Pillar lists
   const operasionalList = useMemo(() => {
@@ -683,6 +746,26 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 />
               </div>
             )}
+
+            {/* Selector Urutan (Urutkan Sesuai Tanggal Input) */}
+            <div className="flex items-center gap-1.5 pl-2 sm:border-l border-white/10">
+              <span className="text-xs font-bold text-zinc-300 flex items-center gap-1">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#25F4EE]" />
+                Urutan:
+              </span>
+              <ThemedSelect
+                value={sortOrder}
+                onChange={val => setSortOrder(val as any)}
+                title="Pilih Urutan Transaksi"
+                options={[
+                  { value: 'input_desc', label: 'Tanggal Input (Terbaru) ↓' },
+                  { value: 'input_asc', label: 'Tanggal Input (Terlama) ↑' },
+                  { value: 'date_desc', label: 'Tanggal Transaksi (Terbaru)' },
+                  { value: 'date_asc', label: 'Tanggal Transaksi (Terlama)' },
+                ]}
+                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
+              />
+            </div>
           </div>
 
           <div className="relative min-w-[200px] flex-1 max-w-xs">
@@ -1249,9 +1332,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-sm space-y-2"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                            {formatDateIndo(item.date)}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300" title="Tanggal Transaksi">
+                            Tgl: {formatDateIndo(item.date)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-zinc-400 flex items-center gap-1" title="Tanggal & Waktu Input Transaksi">
+                            <Clock className="w-2.5 h-2.5 text-[#25F4EE]" />
+                            Input: {formatInputDateTime(item.createdAt, item.date)}
                           </span>
                           <span className="text-xs text-zinc-300 font-bold">{catLabel}</span>
                         </div>
@@ -1327,9 +1414,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-amber-400/40 transition shadow-sm space-y-2"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                            {formatDateIndo(item.date)}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300" title="Tanggal Transaksi">
+                            Tgl: {formatDateIndo(item.date)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-zinc-400 flex items-center gap-1" title="Tanggal & Waktu Input Transaksi">
+                            <Clock className="w-2.5 h-2.5 text-amber-400" />
+                            Input: {formatInputDateTime(item.createdAt, item.date)}
                           </span>
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30">
                             Aset Jangka Panjang
@@ -1515,9 +1606,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-sm space-y-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                          {formatDateIndo(item.date)}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300" title="Tanggal Transaksi">
+                          Tgl: {formatDateIndo(item.date)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-zinc-400 flex items-center gap-1" title="Tanggal & Waktu Input Transaksi">
+                          <Clock className="w-2.5 h-2.5 text-[#25F4EE]" />
+                          Input: {formatInputDateTime(item.createdAt, item.date)}
                         </span>
                         {renderPillarBadge(itemPillar)}
                         <span className="text-xs text-zinc-400 font-semibold">{categoryLabel}</span>

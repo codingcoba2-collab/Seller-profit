@@ -298,7 +298,27 @@ export const TagihanSection: React.FC<TagihanSectionProps> = ({
 
       return true;
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => {
+      const getTagihanInputTime = (rec: TagihanRecord) => {
+        if (rec.createdAt) {
+          const t = new Date(rec.createdAt).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        if (rec.id) {
+          const match = rec.id.match(/\d{10,}/);
+          if (match) {
+            const val = parseInt(match[0], 10);
+            if (!isNaN(val) && val > 0) return val;
+          }
+        }
+        if (rec.date) {
+          const t = new Date(rec.date).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        return 0;
+      };
+      return getTagihanInputTime(b) - getTagihanInputTime(a);
+    });
 
   // Filtered Totals for quick glance
   const filteredKasbonTotal = filteredList

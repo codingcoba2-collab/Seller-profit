@@ -1970,13 +1970,37 @@ export class StorageService {
       console.error('Error syncing deposits or modal into getCashflow:', e);
     }
 
-    return all.filter(c => c.storeId === storeId);
+    const getInputTime = (item: CashflowRecord) => {
+      if (item.createdAt) {
+        const t = new Date(item.createdAt).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (item.id) {
+        const m = item.id.match(/\d{10,}/);
+        if (m) {
+          const num = parseInt(m[0], 10);
+          if (!isNaN(num) && num > 1000000000) return num;
+        }
+      }
+      if (item.date) {
+        const t = new Date(item.date).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      return 0;
+    };
+
+    return all
+      .filter(c => c.storeId === storeId)
+      .sort((a, b) => getInputTime(b) - getInputTime(a));
   }
 
   static addCashflow(c: CashflowRecord) {
     try {
       const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
       let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
+      if (!c.createdAt) {
+        c.createdAt = new Date().toISOString();
+      }
       all.unshift(c);
       this.safeSetItem(STORAGE_KEYS.CASHFLOW, JSON.stringify(all));
       this.syncToCloud('cashflow', c.id, c);
