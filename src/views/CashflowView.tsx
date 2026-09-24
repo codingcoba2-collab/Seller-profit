@@ -5,8 +5,6 @@ import { formatRupiah, formatDateIndo, getTodayString } from '../utils/formatter
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { 
   Wallet, 
-  ArrowDownCircle, 
-  ArrowUpCircle, 
   Trash2, 
   CheckCircle2, 
   Edit3, 
@@ -17,17 +15,13 @@ import {
   Eye,
   PlusCircle,
   Calendar,
-  Layers,
-  Building2,
   HandCoins,
   BookOpen,
   Briefcase,
   TrendingUp,
-  Receipt,
-  RotateCcw
+  FolderOpen
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
-import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
 import { TagihanSection } from '../components/TagihanSection';
 
@@ -37,18 +31,19 @@ interface CashflowViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export type CashflowMenu = 'catatan_transaksi' | 'operasional' | 'investasi' | 'pendanaan' | 'jurnal';
+export type MainCashflowSubMenu = 'hub' | 'input' | 'daftar_pos' | 'jurnal';
+export type PosSubCategory = 'menu' | 'operasional' | 'investasi' | 'pendanaan';
 
 export const CATEGORY_LABELS: Record<string, string> = {
   // Operasional
-  modal_ball: 'Modal Ball / Pembelian Stok Fashion',
+  modal_ball: 'Modal Ball / Belanja Stok Barang',
   ongkir: 'Ongkos Kirim Stok / Ekspedisi',
-  operasional: 'Biaya Steam & Operasional Toko',
-  topup_iklan: 'Top-Up Saldo Iklan & Promosi (Marketplace/Live)',
-  packing: 'Bahan Packing (Lakban, Plastik, Bubble Wrap)',
-  makan_minum: 'Konsumsi / Makan & Minum Tim',
+  operasional: 'Biaya Operasional Toko',
+  topup_iklan: 'Top-Up Saldo Iklan Marketplace',
+  packing: 'Bahan Packing (Lakban, Plastik, Bubble)',
+  makan_minum: 'Konsumsi Harian & Lembur Tim',
   listrik_wifi: 'Listrik, Air & Internet WiFi',
-  sewa_tempat: 'Sewa Tempat / Ruko Live',
+  sewa_tempat: 'Sewa Tempat / Ruko Toko',
   gaji_pegawai: 'Gaji & Insentif Pegawai',
   gaji: 'Gaji Pegawai',
   penarikan_shopee: 'Penarikan Saldo Marketplace / Penjualan',
@@ -60,20 +55,18 @@ export const CATEGORY_LABELS: Record<string, string> = {
   // Pendanaan
   kasbon: 'Kasbon Pegawai',
   suntikan_modal: 'Suntikan Modal Tambahan (Owner / Investor)',
-  dana_talang: 'Dana Talang / Suntikan Kas Talangan',
+  dana_talang: 'Dana Talang / Kas Talangan',
   konsumsi_pribadi: 'Konsumsi Pribadi (Prive Owner)',
 
-  lainnya: 'Lainnya',
+  lainnya: 'Lain-lain',
 };
 
-// Helper untuk menentukan pos/pillar arus kas secara otomatis & akurat
 export function getCashflowPillar(record: CashflowRecord): CashflowPillar {
   if (record.pillar) return record.pillar;
   
   const cat = record.category as string;
   const desc = (record.description || '').toLowerCase();
 
-  // Pendanaan (Kasbon, Suntikan Modal, Dana Talang, Prive)
   if (
     cat === 'dana_talang' ||
     cat === 'konsumsi_pribadi' ||
@@ -88,7 +81,6 @@ export function getCashflowPillar(record: CashflowRecord): CashflowPillar {
     return 'pendanaan';
   }
 
-  // Investasi (Pembelian barang modal jangka panjang / aset)
   if (
     cat === 'investasi_aset' ||
     cat.includes('investasi') ||
@@ -106,7 +98,6 @@ export function getCashflowPillar(record: CashflowRecord): CashflowPillar {
     return 'investasi';
   }
 
-  // Operasional (default)
   return 'operasional';
 }
 
@@ -115,12 +106,14 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   onBackToDashboard,
   onNotify,
 }) => {
-  // 5 Main Menu State ('hub' is overview, or directly one of the 5 menus)
-  const [activeMenu, setActiveMenu] = useState<CashflowMenu | 'hub'>('hub');
-  const [pendanaanSubTab, setPendanaanSubTab] = useState<'mutasi' | 'tagihan'>('mutasi');
+  // ALUR CASHFLOW:
+  // 1. Menu Cashflow: Ringkasan Saldo & 3 Sub Menu (input, daftar_pos, jurnal)
+  // 2. Sub Menu Input: Hanya formulir input kas masuk & keluar (pilihan 3 pos: operasional, investasi, pendanaan)
+  // 3. Sub Menu Daftar Pos Kas: Menu 3 pos (operasional, investasi, pendanaan)
+  // 4. Sub Menu Jurnal: Seluruh transaksi debit & kredit ditumpuk di sini
+  const [activeMenu, setActiveMenu] = useState<MainCashflowSubMenu>('hub');
+  const [activePosSub, setActivePosSub] = useState<PosSubCategory>('menu');
 
-  // Input Stepper: 1 (Jenis & Kategori), 2 (Nominal, Deskripsi & Foto Nota)
-  const [inputStep, setInputStep] = useState<number>(1);
   const [cashflowList, setCashflowList] = useState<CashflowRecord[]>([]);
   const [tagihanList, setTagihanList] = useState<TagihanRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -152,15 +145,15 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [jurnalPillarFilter, setJurnalPillarFilter] = useState<'all' | CashflowPillar>('all');
   const [jurnalTypeFilter, setJurnalTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
 
-  // Form states
-  const [pillar, setPillar] = useState<CashflowPillar>('operasional');
-  const [date, setDate] = useState(getTodayString());
+  // Input Form States (3 Pos: Operasional, Investasi, Pendanaan)
+  const [selectedPillar, setSelectedPillar] = useState<CashflowPillar>('operasional');
   const [type, setType] = useState<'inflow' | 'outflow'>('outflow');
+  const [date, setDate] = useState(getTodayString());
   const [amount, setAmount] = useState<number>(150000);
   const [category, setCategory] = useState<CashflowRecord['category']>('packing');
   const [description, setDescription] = useState('Beli lakban, plastik packing polymailer & bubble wrap');
   
-  // Gaji Pegawai / Kasbon specific states
+  // Pegawai detail
   const [employeeId, setEmployeeId] = useState<string>('');
   const [employeeName, setEmployeeName] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'gaji_insentif' | 'kasbon'>('gaji_insentif');
@@ -192,10 +185,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setEditingItem(null);
     setDate(getTodayString());
     const chosenPillar = targetPillar || 'operasional';
-    setPillar(chosenPillar);
+    setSelectedPillar(chosenPillar);
     setType('outflow');
     setProofImageUrl('');
-    setInputStep(1);
 
     if (chosenPillar === 'operasional') {
       setAmount(150000);
@@ -204,10 +196,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     } else if (chosenPillar === 'investasi') {
       setAmount(1200000);
       setCategory('investasi_aset');
-      setDescription('Pembelian mesin steamer uap / rak pakaian jangka panjang');
+      setDescription('Pembelian mesin steamer / rak pakaian');
     } else if (chosenPillar === 'pendanaan') {
       setAmount(300000);
-      setCategory('gaji_pegawai');
+      setCategory('kasbon');
       setPaymentType('kasbon');
       const emp = employees[0];
       if (emp) {
@@ -229,7 +221,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setType(item.type);
     setAmount(item.amount);
     const recordPillar = getCashflowPillar(item);
-    setPillar(recordPillar);
+    setSelectedPillar(recordPillar);
     setCategory(item.category);
     setPaymentType(item.paymentType || (item.description?.toLowerCase().includes('kasbon') ? 'kasbon' : 'gaji_insentif'));
     setDescription(item.description || '');
@@ -237,110 +229,106 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     setEmployeeName(item.employeeName || (employees[0]?.name || ''));
     setPeriodMonth(item.periodMonth || getTodayString().slice(0, 7));
     setProofImageUrl(item.proofImageUrl || '');
-    setInputStep(1);
-    setActiveMenu('catatan_transaksi');
+    setActiveMenu('input');
   };
 
   const handlePillarChange = (newPillar: CashflowPillar) => {
-    setPillar(newPillar);
+    setSelectedPillar(newPillar);
     if (newPillar === 'operasional') {
       if (type === 'outflow') {
         setCategory('packing');
         setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
       } else {
         setCategory('penarikan_shopee');
-        setDescription('Penarikan Saldo Hasil Penjualan Marketplace');
+        setDescription('Pencairan saldo penjualan marketplace');
       }
     } else if (newPillar === 'investasi') {
       setCategory('investasi_aset');
-      if (type === 'outflow') {
-        setDescription('Pembelian peralatan live / mesin steam / rak barang jangka panjang');
-      } else {
-        setDescription('Penjualan aset / pengembalian modal investasi barang');
-      }
+      setDescription(type === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
     } else if (newPillar === 'pendanaan') {
       if (type === 'outflow') {
-        setCategory('gaji_pegawai');
-        setPaymentType('kasbon');
-        const emp = employees.find(e => e.id === employeeId) || employees[0];
-        const empName = emp ? emp.name : 'Pegawai';
-        setDescription(`Kasbon Pegawai - ${empName}`);
+        setCategory('kasbon');
+        setDescription('Kasbon Pegawai');
       } else {
-        setCategory('dana_talang');
-        setDescription('Suntikan Modal Kas / Dana Talang Masuk');
+        setCategory('suntikan_modal');
+        setDescription('Suntikan modal kas tambahan');
       }
     }
   };
 
   const handleTypeChange = (newType: 'inflow' | 'outflow') => {
     setType(newType);
-    if (pillar === 'operasional') {
+    if (selectedPillar === 'operasional') {
       if (newType === 'outflow') {
         setCategory('packing');
         setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
       } else {
         setCategory('penarikan_shopee');
-        setDescription('Penarikan Saldo Marketplace');
+        setDescription('Pencairan saldo penjualan marketplace');
       }
-    } else if (pillar === 'investasi') {
+    } else if (selectedPillar === 'investasi') {
       setCategory('investasi_aset');
-      setDescription(newType === 'outflow' ? 'Pembelian barang investasi jangka panjang' : 'Pengembalian / penjualan aset');
-    } else if (pillar === 'pendanaan') {
+      setDescription(newType === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
+    } else if (selectedPillar === 'pendanaan') {
       if (newType === 'outflow') {
-        setCategory('gaji_pegawai');
-        setPaymentType('kasbon');
-        setDescription(`Kasbon Pegawai - ${employeeName || 'Pegawai'}`);
+        setCategory('kasbon');
+        setDescription('Kasbon Pegawai');
       } else {
-        setCategory('dana_talang');
-        setDescription('Suntikan Modal Kas / Dana Talang Masuk');
+        setCategory('suntikan_modal');
+        setDescription('Suntikan modal kas tambahan');
       }
     }
   };
 
-  const handleCategoryChange = (newCat: CashflowRecord['category']) => {
-    setCategory(newCat);
-    if (newCat === 'topup_iklan') {
-      setDescription('Top-Up Saldo Iklan & Promosi Marketplace');
-      setAmount(500000);
-    } else if (newCat === 'gaji_pegawai') {
-      const selectedEmp = employees.find(e => e.id === employeeId) || employees[0];
-      if (selectedEmp) {
-        setEmployeeId(selectedEmp.id);
-        setEmployeeName(selectedEmp.name);
+  const handleCategorySelection = (catValue: CashflowRecord['category']) => {
+    setCategory(catValue);
+    if (catValue === 'gaji_pegawai') {
+      const emp = employees.find(e => e.id === employeeId) || employees[0];
+      if (emp) {
+        setEmployeeId(emp.id);
+        setEmployeeName(emp.name);
         const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
-        setDescription(`${prefix} - ${selectedEmp.name} (Periode ${periodMonth})`);
+        setDescription(`${prefix} - ${emp.name} (Periode ${periodMonth})`);
+      } else {
+        setDescription('Pembayaran Gaji & Insentif Pegawai');
       }
-    } else if (newCat === 'investasi_aset') {
-      setDescription('Pembelian peralatan live / mesin steam / display jangka panjang');
-    } else if (newCat === 'konsumsi_pribadi') {
-      setDescription('Prive / Pengeluaran konsumsi pribadi owner');
-    } else if (newCat === 'suntikan_modal') {
-      setDescription('Suntikan Modal Tambahan Toko');
-    } else if (newCat === 'dana_talang') {
-      setDescription(type === 'inflow' ? 'Dana Talang Masuk (Suntikan Kas)' : 'Pembayaran Pelunasan Dana Talang');
-    } else if (newCat === 'packing') {
+    } else if (catValue === 'kasbon') {
+      const emp = employees.find(e => e.id === employeeId) || employees[0];
+      if (emp) {
+        setEmployeeId(emp.id);
+        setEmployeeName(emp.name);
+        setDescription(`Kasbon Pegawai - ${emp.name}`);
+      } else {
+        setDescription('Kasbon Pegawai');
+      }
+    } else if (catValue === 'packing') {
       setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
-    }
-  };
-
-  const handlePaymentTypeChange = (newType: 'gaji_insentif' | 'kasbon') => {
-    setPaymentType(newType);
-    if (newType === 'kasbon') {
-      setPillar('pendanaan');
-    }
-    if (employeeName) {
-      const prefix = newType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
-      setDescription(`${prefix} - ${employeeName} (Periode ${periodMonth})`);
-    }
-  };
-
-  const handleEmployeeChange = (empId: string) => {
-    setEmployeeId(empId);
-    const emp = employees.find(e => e.id === empId);
-    if (emp) {
-      setEmployeeName(emp.name);
-      const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
-      setDescription(`${prefix} - ${emp.name} (Periode ${periodMonth})`);
+    } else if (catValue === 'makan_minum') {
+      setDescription('Makan minum & konsumsi tim operasional');
+    } else if (catValue === 'listrik_wifi') {
+      setDescription('Tagihan listrik & internet WiFi ruko');
+    } else if (catValue === 'sewa_tempat') {
+      setDescription('Pembayaran sewa ruko / studio live');
+    } else if (catValue === 'modal_ball') {
+      setDescription('Belanja stok pakaian / barang jualan');
+    } else if (catValue === 'ongkir') {
+      setDescription('Ongkos kirim ekspedisi pengiriman stok');
+    } else if (catValue === 'topup_iklan') {
+      setDescription('Top-up saldo iklan & promosi');
+    } else if (catValue === 'operasional') {
+      setDescription('Kebutuhan operasional harian toko');
+    } else if (catValue === 'investasi_aset') {
+      setDescription(type === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
+    } else if (catValue === 'dana_talang') {
+      setDescription(type === 'outflow' ? 'Pelunasan dana talang operasional' : 'Penerimaan dana talang toko');
+    } else if (catValue === 'suntikan_modal') {
+      setDescription('Suntikan modal kas tambahan');
+    } else if (catValue === 'konsumsi_pribadi') {
+      setDescription('Prive penarikan kas pribadi pemilik');
+    } else if (catValue === 'penarikan_shopee') {
+      setDescription('Pencairan saldo penjualan marketplace');
+    } else {
+      setDescription('Catatan kas lain-lain');
     }
   };
 
@@ -381,7 +369,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             ctx.drawImage(img, 0, 0, width, height);
             const compressed = canvas.toDataURL('image/jpeg', 0.65);
             setProofImageUrl(compressed);
-            onNotify('Foto nota berhasil dikompres & siap disimpan.', 'info');
+            onNotify('Foto nota berhasil dilampirkan.', 'info');
           } else {
             setProofImageUrl(dataUrl);
           }
@@ -401,15 +389,12 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       return;
     }
 
-    // Pastikan konsistensi pos & kategori
-    let finalPillar = pillar;
     let finalCategory = category;
-
-    if (finalPillar === 'pendanaan') {
+    if (selectedPillar === 'pendanaan') {
       if (category === 'gaji_pegawai' && paymentType === 'kasbon') {
         finalCategory = 'kasbon';
       }
-    } else if (finalPillar === 'investasi') {
+    } else if (selectedPillar === 'investasi') {
       finalCategory = 'investasi_aset';
     }
 
@@ -420,7 +405,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       type,
       amount,
       category: finalCategory,
-      pillar: finalPillar,
+      pillar: selectedPillar,
       description,
       recordedBy: currentUser.name,
       createdAt: new Date().toISOString(),
@@ -440,7 +425,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         } else {
           StorageService.addCashflow(record);
           
-          // Sinkronisasi otomatis ke Tagihan (Skema perputaran arus sama seperti sebelumnya)
+          // Sinkronisasi otomatis ke Tagihan
           if ((record.category === 'kasbon' || (record.category === 'gaji_pegawai' && record.paymentType === 'kasbon')) && record.type === 'outflow') {
             StorageService.createKasbonRecord({
               storeId: currentUser.storeId,
@@ -474,11 +459,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         }
 
         loadData();
-        resetForm(finalPillar);
-        // Kembali ke jurnal atau pos terkait agar pengguna bisa langsung memeriksa mutasinya
-        if (editingItem) {
-          setActiveMenu('jurnal');
-        }
+        resetForm();
+        // Arahkan ke Jurnal untuk memeriksa mutasi
+        setActiveMenu('jurnal');
       } catch (err: any) {
         console.error('Error saving cashflow:', err);
         onNotify('Gagal menyimpan transaksi kas: ' + (err?.message || 'Terjadi kesalahan sistem.'), 'error');
@@ -489,117 +472,96 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       isOpen: true,
       title: editingItem ? 'Konfirmasi Simpan Perubahan Transaksi' : 'Konfirmasi Catat Transaksi Kas',
       message: editingItem
-        ? `Apakah Anda yakin ingin menyimpan perubahan transaksi ${formatRupiah(amount)}?`
-        : `Apakah Anda yakin ingin mencatat transaksi kas ${type === 'inflow' ? 'pemasukan' : 'pengeluaran'} (${finalPillar.toUpperCase()}) sebesar ${formatRupiah(amount)}?`,
+        ? `Apakah Anda yakin ingin menyimpan perubahan transaksi "${description}" sebesar ${formatRupiah(amount)}?`
+        : `Apakah Anda yakin ingin mencatat ${type === 'inflow' ? 'kas masuk' : 'kas keluar'} "${description}" sebesar ${formatRupiah(amount)}?`,
       type: editingItem ? 'edit' : 'create',
       confirmText: editingItem ? 'Ya, Simpan Perubahan' : 'Ya, Catat Transaksi',
       onConfirm: executeSave,
     });
   };
 
-  const handleDelete = (id: string, desc?: string) => {
+  const handleDelete = (id: string, desc: string) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Konfirmasi Hapus Transaksi Kas',
-      message: `Apakah Anda yakin ingin menghapus transaksi ${desc ? `"${desc}"` : 'ini'}?`,
+      title: 'Hapus Transaksi Kas',
+      message: `Apakah Anda yakin ingin menghapus transaksi "${desc}"? Saldo kas akan disesuaikan kembali.`,
       type: 'delete',
       confirmText: 'Ya, Hapus Transaksi',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        StorageService.deleteCashflow(id);
-        loadData();
-        onNotify('Transaksi berhasil dihapus.', 'info');
-        if (editingItem?.id === id) {
-          resetForm();
+        try {
+          StorageService.deleteCashflow(id);
+          loadData();
+          onNotify('Transaksi kas berhasil dihapus!', 'info');
+        } catch (err: any) {
+          onNotify('Gagal menghapus transaksi: ' + (err?.message || 'Terjadi kesalahan.'), 'error');
         }
       },
     });
   };
 
-  // Filter list umum berdasarkan periode & search query
+  // Filter list by period & search query
   const filteredList = useMemo(() => {
-    return cashflowList
-      .filter(item => {
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase().trim();
-          const matchDesc = item.description?.toLowerCase().includes(q);
-          const matchCat = (CATEGORY_LABELS[item.category] || item.category)?.toLowerCase().includes(q);
-          const matchEmp = item.employeeName?.toLowerCase().includes(q);
-          const matchDateRaw = item.date?.toLowerCase().includes(q);
-          const matchDateIndo = formatDateIndo(item.date).toLowerCase().includes(q);
-          const matchAmount = item.amount?.toString().includes(q);
-          const matchPillar = getCashflowPillar(item).toLowerCase().includes(q);
-          if (!matchDesc && !matchCat && !matchEmp && !matchDateRaw && !matchDateIndo && !matchAmount && !matchPillar) return false;
-        }
-        if (periodFilter === 'today') return item.date === getTodayString();
-        if (periodFilter === 'specific') return item.date === specificDate;
-        if (periodFilter === 'range') return item.date >= startDate && item.date <= endDate;
-        if (periodFilter === 'weekly') {
-          const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-          return item.date >= weekAgo && item.date <= getTodayString();
-        }
-        if (periodFilter === 'monthly') return item.date.startsWith(getTodayString().slice(0, 7));
+    return cashflowList.filter(item => {
+      if (periodFilter === 'today') {
+        if (item.date !== getTodayString()) return false;
+      } else if (periodFilter === 'specific') {
+        if (item.date !== specificDate) return false;
+      } else if (periodFilter === 'range') {
+        if (item.date < startDate || item.date > endDate) return false;
+      } else if (periodFilter === 'weekly') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        const minDate = d.toISOString().slice(0, 10);
+        if (item.date < minDate) return false;
+      } else if (periodFilter === 'monthly') {
+        const curMonth = getTodayString().slice(0, 7);
+        if (!item.date.startsWith(curMonth)) return false;
+      }
 
-        return true;
-      })
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [cashflowList, searchQuery, periodFilter, specificDate, startDate, endDate]);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const descMatch = (item.description || '').toLowerCase().includes(q);
+        const empMatch = (item.employeeName || '').toLowerCase().includes(q);
+        const catMatch = (CATEGORY_LABELS[item.category] || item.category).toLowerCase().includes(q);
+        const amountMatch = item.amount.toString().includes(q);
+        if (!descMatch && !empMatch && !catMatch && !amountMatch) return false;
+      }
 
-  // Pos Operasional Filtered
+      return true;
+    });
+  }, [cashflowList, periodFilter, specificDate, startDate, endDate, searchQuery]);
+
+  // Pillar lists
   const operasionalList = useMemo(() => {
     return filteredList.filter(item => getCashflowPillar(item) === 'operasional');
   }, [filteredList]);
 
-  // Pos Investasi Filtered
   const investasiList = useMemo(() => {
     return filteredList.filter(item => getCashflowPillar(item) === 'investasi');
   }, [filteredList]);
 
-  // Pos Pendanaan Filtered
   const pendanaanList = useMemo(() => {
     return filteredList.filter(item => getCashflowPillar(item) === 'pendanaan');
   }, [filteredList]);
 
-  // Jurnal Filtered (mendukung filter pos & inflow/outflow)
+  // Jurnal list (Seluruh transaksi debit & kredit)
   const jurnalList = useMemo(() => {
     return filteredList.filter(item => {
-      if (jurnalPillarFilter !== 'all' && getCashflowPillar(item) !== jurnalPillarFilter) return false;
+      const itemPillar = getCashflowPillar(item);
+      if (jurnalPillarFilter !== 'all' && itemPillar !== jurnalPillarFilter) return false;
       if (jurnalTypeFilter !== 'all' && item.type !== jurnalTypeFilter) return false;
       return true;
     });
   }, [filteredList, jurnalPillarFilter, jurnalTypeFilter]);
 
-  // Hitungan Agregat Perputaran Kas
-  const totalInflow = filteredList.filter(c => c.type === 'inflow').reduce((acc, c) => acc + c.amount, 0);
-  const totalOutflow = filteredList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
+  // Totals calculations
+  const totalInflow = filteredList.filter(i => i.type === 'inflow').reduce((a, b) => a + b.amount, 0);
+  const totalOutflow = filteredList.filter(i => i.type === 'outflow').reduce((a, b) => a + b.amount, 0);
   const netCash = totalInflow - totalOutflow;
 
-  // Operasional metrics
-  const opInflow = operasionalList.filter(c => c.type === 'inflow').reduce((acc, c) => acc + c.amount, 0);
-  const opOutflow = operasionalList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
-  const opNet = opInflow - opOutflow;
-
-  // Investasi metrics
-  const invInflow = investasiList.filter(c => c.type === 'inflow').reduce((acc, c) => acc + c.amount, 0);
-  const invOutflow = investasiList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
-  const invNet = invInflow - invOutflow;
-
-  // Pendanaan metrics
-  const fundInflow = pendanaanList.filter(c => c.type === 'inflow').reduce((acc, c) => acc + c.amount, 0);
-  const fundOutflow = pendanaanList.filter(c => c.type === 'outflow').reduce((acc, c) => acc + c.amount, 0);
-  const fundNet = fundInflow - fundOutflow;
-
-  // Tagihan metrics
-  const activeKasbonTotal = tagihanList
-    .filter(t => t.type === 'kasbon' && t.currentBalance > 0)
-    .reduce((acc, t) => acc + t.currentBalance, 0);
-  const activeTalangTotal = tagihanList
-    .filter(t => t.type === 'dana_talang' && t.currentBalance < 0)
-    .reduce((acc, t) => acc + Math.abs(t.currentBalance), 0);
-
-  // Helper render badge pilar
-  const renderPillarBadge = (recordPillar: CashflowPillar) => {
-    switch (recordPillar) {
+  const renderPillarBadge = (p: CashflowPillar) => {
+    switch (p) {
       case 'operasional':
         return (
           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
@@ -608,13 +570,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         );
       case 'investasi':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-            Investasi Aset
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30">
+            Investasi
           </span>
         );
       case 'pendanaan':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-400/10 text-purple-400 border border-purple-400/30">
             Pendanaan
           </span>
         );
@@ -623,17 +585,27 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* ================= TOP NAVIGATION BAR (5 MENU UTAMA) ================= */}
-      <div className="p-2 sm:p-2.5 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2">
+      {/* ================= TOP CLEAN HEADER BAR ================= */}
+      <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {activeMenu !== 'hub' ? (
             <button
               type="button"
-              onClick={() => setActiveMenu('hub')}
+              onClick={() => {
+                if (activeMenu === 'daftar_pos' && activePosSub !== 'menu') {
+                  setActivePosSub('menu');
+                } else {
+                  setActiveMenu('hub');
+                }
+              }}
               className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span className="hidden sm:inline">Menu Utama</span>
+              <span>
+                {activeMenu === 'daftar_pos' && activePosSub !== 'menu'
+                  ? 'Daftar Pos'
+                  : 'Menu Cashflow'}
+              </span>
             </button>
           ) : (
             <button
@@ -642,90 +614,28 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span className="hidden sm:inline">Dashboard</span>
+              <span>Dashboard</span>
             </button>
           )}
 
           <div className="flex items-center gap-1.5">
             <Wallet className="w-4 h-4 text-[#25F4EE]" />
-            <span className="text-xs sm:text-sm font-black text-white">Arus Kas (Cashflow)</span>
+            <span className="text-xs sm:text-sm font-black text-white">
+              {activeMenu === 'hub' && 'Cashflow'}
+              {activeMenu === 'input' && (editingItem ? 'Edit Transaksi Kas' : 'Input Kas (Catatan Kas)')}
+              {activeMenu === 'daftar_pos' && (
+                activePosSub === 'menu' ? 'Daftar Pos Kas' :
+                activePosSub === 'operasional' ? 'Daftar Pos Operasional' :
+                activePosSub === 'investasi' ? 'Daftar Pos Investasi' : 'Daftar Pos Pendanaan'
+              )}
+              {activeMenu === 'jurnal' && 'Jurnal Transaksi Kas'}
+            </span>
           </div>
-        </div>
-
-        {/* 5 Tab Quick Switcher */}
-        <div className="flex items-center gap-1 overflow-x-auto py-1 max-w-full no-scrollbar">
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setActiveMenu('catatan_transaksi');
-            }}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeMenu === 'catatan_transaksi'
-                ? 'bg-[#25F4EE] text-black shadow-md shadow-[#25F4EE]/20'
-                : 'bg-[#0b0c10] text-zinc-300 hover:text-white border border-white/5'
-            }`}
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Catatan Transaksi</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMenu('operasional')}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeMenu === 'operasional'
-                ? 'bg-[#25F4EE] text-black shadow-md shadow-[#25F4EE]/20'
-                : 'bg-[#0b0c10] text-zinc-300 hover:text-white border border-white/5'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>Operasional</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMenu('investasi')}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeMenu === 'investasi'
-                ? 'bg-amber-400 text-black shadow-md shadow-amber-400/20'
-                : 'bg-[#0b0c10] text-zinc-300 hover:text-white border border-white/5'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Investasi</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMenu('pendanaan')}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeMenu === 'pendanaan'
-                ? 'bg-purple-400 text-black shadow-md shadow-purple-400/20'
-                : 'bg-[#0b0c10] text-zinc-300 hover:text-white border border-white/5'
-            }`}
-          >
-            <HandCoins className="w-3.5 h-3.5" />
-            <span>Pendanaan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMenu('jurnal')}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeMenu === 'jurnal'
-                ? 'bg-[#FE2C55] text-white shadow-md shadow-[#FE2C55]/20'
-                : 'bg-[#0b0c10] text-zinc-300 hover:text-white border border-white/5'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Jurnal</span>
-          </button>
         </div>
       </div>
 
-      {/* Global Quick Period & Filter Bar (shown on views with lists) */}
-      {activeMenu !== 'catatan_transaksi' && (
+      {/* Filter Bar (Khusus Tampilan Daftar Transaksi) */}
+      {(activeMenu === 'jurnal' || (activeMenu === 'daftar_pos' && (activePosSub === 'operasional' || activePosSub === 'investasi'))) && (
         <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
@@ -748,242 +658,157 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             />
 
             {periodFilter === 'specific' && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/40 text-xs text-white">
-                <input
-                  type="date"
-                  value={specificDate}
-                  onChange={e => setSpecificDate(e.target.value)}
-                  className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
-                />
-              </div>
+              <input
+                type="date"
+                value={specificDate}
+                onChange={e => setSpecificDate(e.target.value)}
+                className="px-2.5 py-1 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white"
+              />
             )}
 
             {periodFilter === 'range' && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 text-xs">
                 <input
                   type="date"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  className="px-2 py-1 bg-[#0b0c10] border border-[#25F4EE]/40 rounded-xl text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white"
                 />
-                <span className="text-zinc-500 text-xs">-</span>
+                <span className="text-zinc-500">s/d</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  className="px-2 py-1 bg-[#0b0c10] border border-[#25F4EE]/40 rounded-xl text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white"
                 />
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {(periodFilter !== 'all' || searchQuery.trim() !== '') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPeriodFilter('all');
-                  setSearchQuery('');
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] border border-white/10 text-[11px] font-bold transition cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-                <span>Reset</span>
-              </button>
-            )}
-            <div className="relative min-w-[150px] sm:min-w-[200px]">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari transaksi..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-              />
-            </div>
+          <div className="relative min-w-[200px] flex-1 max-w-xs">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari transaksi..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
+            />
           </div>
         </div>
       )}
 
-      {/* ================= 0. MENU UTAMA (HUB VIEW: 5 KARTU UTAMA) ================= */}
+      {/* =========================================================================
+          HALAMAN UTAMA CASHFLOW (RINGKASAN & 3 SUB MENU)
+          ========================================================================= */}
       {activeMenu === 'hub' && (
         <div className="space-y-4">
-          {/* Ringkasan Saldo Utama (Perputaran Arus Tetap Sama) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow">
-              <div className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
-                <ArrowDownCircle className="w-3.5 h-3.5 text-[#25F4EE]" />
-                Total Kas Masuk
-              </div>
-              <div className="text-base sm:text-lg font-black text-[#25F4EE] mt-0.5">
-                +{formatRupiah(totalInflow)}
-              </div>
+          {/* Ringkasan Saldo Cashflow */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-[#25F4EE]" />
+              <h3 className="text-sm font-black text-white">Ringkasan Saldo Cashflow</h3>
             </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow">
-              <div className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
-                <ArrowUpCircle className="w-3.5 h-3.5 text-[#FE2C55]" />
-                Total Kas Keluar
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[11px] font-bold text-zinc-400 block">Total Kas Masuk (Debit)</span>
+                <span className="text-base sm:text-lg font-black text-[#25F4EE]">+{formatRupiah(totalInflow)}</span>
               </div>
-              <div className="text-base sm:text-lg font-black text-[#FE2C55] mt-0.5">
-                -{formatRupiah(totalOutflow)}
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[11px] font-bold text-zinc-400 block">Total Kas Keluar (Kredit)</span>
+                <span className="text-base sm:text-lg font-black text-[#FE2C55]">-{formatRupiah(totalOutflow)}</span>
               </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow">
-              <div className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
-                <Wallet className="w-3.5 h-3.5 text-white" />
-                Saldo Bersih (Net)
-              </div>
-              <div className={`text-base sm:text-lg font-black mt-0.5 ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                {formatRupiah(netCash)}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow">
-              <div className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
-                <Receipt className="w-3.5 h-3.5 text-amber-400" />
-                Total Tagihan Aktif
-              </div>
-              <div className="text-base sm:text-lg font-black text-amber-400 mt-0.5">
-                {formatRupiah(activeKasbonTotal + activeTalangTotal)}
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[11px] font-bold text-zinc-400 block">Saldo Kas Bersih</span>
+                <span className={`text-base sm:text-lg font-black ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+                  {formatRupiah(netCash)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* GRID 5 MENU UTAMA CASHFLOW */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-[#25F4EE]" />
-              <span>5 Menu Utama Arus Kas:</span>
-            </div>
+          {/* 3 SUB MENU CASHFLOW */}
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1">
+              Menu Cashflow:
+            </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* Menu 1: Catatan Transaksi Kas */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* 1. Sub Menu: Input Kas */}
               <div
-                id="menu-card-catatan-transaksi"
+                id="menu-input-kas"
                 onClick={() => {
-                  resetForm('operasional');
-                  setActiveMenu('catatan_transaksi');
+                  resetForm();
+                  setActiveMenu('input');
                 }}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+                className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0 group-hover:scale-105 transition">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
                     <PlusCircle className="w-6 h-6" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black text-white group-hover:text-[#25F4EE] transition">
-                      1. Catatan Transaksi Kas
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-emerald-300 transition">
+                      1. Input Kas
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      Hanya input saja semua ditumpuk disini (Operasional, Investasi &amp; Pendanaan).
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Catatan kas masuk &amp; keluar untuk 3 pos (Operasional, Investasi, Pendanaan).
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span className="text-zinc-500">Formulir Kas Masuk/Keluar</span>
-                  <span className="text-[#25F4EE] font-bold group-hover:underline">Buka Input &rarr;</span>
+                <div className="text-right pt-2 border-t border-white/5">
+                  <span className="text-xs font-bold text-emerald-400 group-hover:underline">Buka Input &rarr;</span>
                 </div>
               </div>
 
-              {/* Menu 2: Operasional */}
+              {/* 2. Sub Menu: Daftar Pos Kas */}
               <div
-                id="menu-card-operasional"
-                onClick={() => setActiveMenu('operasional')}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
+                id="menu-daftar-pos"
+                onClick={() => {
+                  setActivePosSub('menu');
+                  setActiveMenu('daftar_pos');
+                }}
+                className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-cyan-500/30 hover:border-cyan-400 transition-all cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shrink-0 group-hover:scale-105 transition">
-                    <Briefcase className="w-6 h-6" />
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                    <FolderOpen className="w-6 h-6" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black text-white group-hover:text-[#25F4EE] transition">
-                      2. Operasional
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-cyan-300 transition">
+                      2. Daftar Pos Kas
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      Operasional sehari-hari: bahan packing, konsumsi tim, listrik, sewa ruko, gaji harian/shift, modal stok, ongkir &amp; iklan.
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Daftar transaksi terpisah per pos: Operasional, Investasi, dan Pendanaan.
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span>{operasionalList.length} Transaksi Operasional</span>
-                  <span className="text-[#25F4EE] font-bold group-hover:underline">Buka Pos &rarr;</span>
+                <div className="text-right pt-2 border-t border-white/5">
+                  <span className="text-xs font-bold text-cyan-400 group-hover:underline">Buka Pos Kas &rarr;</span>
                 </div>
               </div>
 
-              {/* Menu 3: Investasi */}
+              {/* 3. Sub Menu: Jurnal */}
               <div
-                id="menu-card-investasi"
-                onClick={() => setActiveMenu('investasi')}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition">
-                    <TrendingUp className="w-6 h-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black text-white group-hover:text-amber-400 transition">
-                      3. Investasi
-                    </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      Pembelian barang jangka panjang: mesin steamer, rak baju, display manekin, lighting live, gadget admin, renovasi studio.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span>{investasiList.length} Transaksi Investasi</span>
-                  <span className="text-amber-400 font-bold group-hover:underline">Buka Pos &rarr;</span>
-                </div>
-              </div>
-
-              {/* Menu 4: Pendanaan */}
-              <div
-                id="menu-card-pendanaan"
-                onClick={() => setActiveMenu('pendanaan')}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-purple-400/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-purple-400 shrink-0 group-hover:scale-105 transition">
-                    <HandCoins className="w-6 h-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black text-white group-hover:text-purple-400 transition">
-                      4. Pendanaan
-                    </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      Kasbon &amp; suntikkan: kasbon pegawai, suntikan modal owner/investor, dana talang &amp; penarikan prive.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span>{pendanaanList.length} Mutasi &amp; Tagihan</span>
-                  <span className="text-purple-400 font-bold group-hover:underline">Buka Pos &rarr;</span>
-                </div>
-              </div>
-
-              {/* Menu 5: Jurnal */}
-              <div
-                id="menu-card-jurnal"
+                id="menu-jurnal"
                 onClick={() => setActiveMenu('jurnal')}
-                className="group p-4 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#FE2C55]/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-md active:scale-98 sm:col-span-2 lg:col-span-2"
+                className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-purple-500/30 hover:border-purple-400 transition-all cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#FE2C55] shrink-0 group-hover:scale-105 transition">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
                     <BookOpen className="w-6 h-6" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black text-white group-hover:text-[#FE2C55] transition">
-                      5. Jurnal
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-purple-300 transition">
+                      3. Jurnal
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      Pos keluar masuk seluruh transaksi kas terpadu (Operasional, Investasi &amp; Pendanaan) lengkap dengan bukti nota dan mutasi saldo.
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Seluruh daftar transaksi debit &amp; kredit lengkap ditumpuk di sini.
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span>{filteredList.length} Total Transaksi Tercatat</span>
-                  <span className="text-[#FE2C55] font-bold group-hover:underline">Buka Jurnal Kas &rarr;</span>
+                <div className="text-right pt-2 border-t border-white/5">
+                  <span className="text-xs font-bold text-purple-400 group-hover:underline">Buka Jurnal &rarr;</span>
                 </div>
               </div>
             </div>
@@ -991,790 +816,444 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         </div>
       )}
 
-      {/* ================= 1. MENU 1: CATATAN TRANSAKSI KAS (HANYA INPUT SAJA) ================= */}
-      {activeMenu === 'catatan_transaksi' && (
-        <div className="max-w-3xl mx-auto space-y-4">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={() => setActiveMenu('hub')}
-              className="text-xs text-zinc-400 hover:text-white transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali ke 5 Menu</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-white">
-                {editingItem ? '✏️ Edit Transaksi Kas' : 'Catatan Transaksi Kas'}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-                Tahap {inputStep} dari 2
-              </span>
+      {/* =========================================================================
+          1. SUB MENU: INPUT KAS (CATATAN KAS) - HANYA FORMULIR INPUT SAJA
+          ========================================================================= */}
+      {activeMenu === 'input' && (
+        <div className="max-w-2xl mx-auto space-y-3.5">
+          <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
+            <div className="border-b border-white/10 pb-3 flex items-center justify-between">
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[#25F4EE]" />
+                <span>{editingItem ? 'Edit Transaksi Kas' : 'Formulir Catatan Kas'}</span>
+              </h3>
+              {editingItem && (
+                <button
+                  type="button"
+                  onClick={() => resetForm()}
+                  className="text-[11px] text-[#FE2C55] hover:underline cursor-pointer"
+                >
+                  Batal Edit
+                </button>
+              )}
             </div>
-          </div>
 
-          {/* Stepper Pills */}
-          <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2 rounded-2xl border border-white/10 text-xs">
-            <button
-              type="button"
-              onClick={() => setInputStep(1)}
-              className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-                inputStep === 1
-                  ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                  : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-              }`}
-            >
-              <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-              <span>Pos &amp; Jenis Transaksi</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setInputStep(2)}
-              className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-                inputStep === 2
-                  ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                  : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-              }`}
-            >
-              <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-              <span>Nominal, Keterangan &amp; Nota</span>
-            </button>
-          </div>
+            {/* A. PILIH POS ARUS KAS: 3 POS SAJA */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Pilih Pos Kas <span className="text-[#FE2C55]">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePillarChange('operasional')}
+                  className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    selectedPillar === 'operasional'
+                      ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-[#25F4EE] shadow-md shadow-[#25F4EE]/10'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4" />
+                  <span>Operasional</span>
+                </button>
 
-          <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
-            {inputStep === 1 && (
-              <div className="space-y-4">
-                <div className="border-b border-white/10 pb-2">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-[#25F4EE]" />
-                    <span>Tahap 1: Tentukan Pos Kas, Jenis &amp; Tanggal</span>
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Semua transaksi kas (Operasional, Investasi barang jangka panjang, maupun Pendanaan) diinput dan ditumpuk di sini.
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePillarChange('investasi')}
+                  className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    selectedPillar === 'investasi'
+                      ? 'bg-amber-400/15 border-amber-400 text-amber-400 shadow-md shadow-amber-400/10'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Investasi</span>
+                </button>
 
-                {/* Pilih Pos Arus Kas: Operasional vs Investasi vs Pendanaan */}
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Pilih Pos Arus Kas <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handlePillarChange('operasional')}
-                      className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        pillar === 'operasional'
-                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] shadow-md shadow-[#25F4EE]/10'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <Briefcase className="w-4 h-4" />
-                      <span>Operasional</span>
-                      <span className="text-[9px] font-normal text-zinc-500">Sehari-hari</span>
-                    </button>
+                <button
+                  type="button"
+                  onClick={() => handlePillarChange('pendanaan')}
+                  className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    selectedPillar === 'pendanaan'
+                      ? 'bg-purple-400/15 border-purple-400 text-purple-400 shadow-md shadow-purple-400/10'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <HandCoins className="w-4 h-4" />
+                  <span>Pendanaan</span>
+                </button>
+              </div>
+            </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePillarChange('investasi')}
-                      className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        pillar === 'investasi'
-                          ? 'bg-amber-400/10 border-amber-400 text-amber-400 shadow-md shadow-amber-400/10'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <TrendingUp className="w-4 h-4" />
-                      <span>Investasi</span>
-                      <span className="text-[9px] font-normal text-zinc-500">Barang Jangka Panjang</span>
-                    </button>
+            {/* B. JENIS TRANSAKSI: KAS KELUAR vs KAS MASUK */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Jenis Transaksi <span className="text-[#FE2C55]">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTypeChange('outflow')}
+                  className={`p-3 rounded-2xl border text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
+                    type === 'outflow'
+                      ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-[#FE2C55] shadow-md shadow-[#FE2C55]/10'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>🔻 Pengeluaran (Kredit)</span>
+                </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePillarChange('pendanaan')}
-                      className={`p-3 rounded-2xl border text-xs font-black transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-                        pillar === 'pendanaan'
-                          ? 'bg-purple-500/10 border-purple-500 text-purple-300 shadow-md shadow-purple-500/10'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <HandCoins className="w-4 h-4" />
-                      <span>Pendanaan</span>
-                      <span className="text-[9px] font-normal text-zinc-500">Kasbon &amp; Suntikan</span>
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTypeChange('inflow')}
+                  className={`p-3 rounded-2xl border text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
+                    type === 'inflow'
+                      ? 'bg-[#25F4EE]/15 border-[#25F4EE] text-[#25F4EE] shadow-md shadow-[#25F4EE]/10'
+                      : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>🔺 Pemasukan (Debit)</span>
+                </button>
+              </div>
+            </div>
 
-                {/* Jenis Mutasi: Kas Keluar vs Kas Masuk */}
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                    Jenis Mutasi Kas <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleTypeChange('outflow')}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        type === 'outflow'
-                          ? 'bg-[#FE2C55]/10 border-[#FE2C55] text-[#FE2C55]'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <ArrowUpCircle className="w-4 h-4" />
-                      <span>Kas Keluar (Pengeluaran)</span>
-                    </button>
+            {/* C. TANGGAL TRANSAKSI */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
+              </label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:outline-hidden focus:border-[#25F4EE]"
+              />
+            </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleTypeChange('inflow')}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        type === 'inflow'
-                          ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE]'
-                          : 'bg-[#0b0c10] border-white/5 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <ArrowDownCircle className="w-4 h-4" />
-                      <span>Kas Masuk (Pemasukan)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Tanggal Transaksi <span className="text-[#FE2C55]">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={date}
-                      onChange={e => setDate(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Kategori Transaksi <span className="text-[#FE2C55]">*</span>
-                    </label>
-                    <ThemedSelect
-                      value={category}
-                      onChange={val => handleCategoryChange(val as any)}
-                      title="Pilih Kategori Transaksi"
-                      options={
-                        pillar === 'operasional'
-                          ? type === 'outflow'
-                            ? [
-                                { value: 'packing', label: 'Bahan Packing (Lakban, Plastik, Bubble)' },
-                                { value: 'makan_minum', label: 'Konsumsi / Makan & Minum Tim' },
-                                { value: 'listrik_wifi', label: 'Listrik, Air & Internet WiFi' },
-                                { value: 'sewa_tempat', label: 'Sewa Tempat / Ruko Live' },
-                                { value: 'gaji_pegawai', label: 'Gaji & Insentif Pegawai' },
-                                { value: 'operasional', label: 'Biaya Steam & Operasional Toko' },
-                                { value: 'ongkir', label: 'Ongkos Kirim Stok / Ekspedisi' },
-                                { value: 'modal_ball', label: 'Modal Ball / Pembelian Stok Fashion' },
-                                { value: 'topup_iklan', label: 'Top-Up Saldo Iklan & Promosi' },
-                                { value: 'lainnya', label: 'Operasional Harian Lainnya' },
-                              ]
-                            : [
-                                { value: 'penarikan_shopee', label: 'Penarikan Saldo Marketplace / Penjualan' },
-                                { value: 'penarikan_marketplace', label: 'Penarikan Saldo Toko / Marketplace Lain' },
-                                { value: 'operasional', label: 'Pemasukan Operasional Toko Lainnya' },
-                              ]
-                          : pillar === 'investasi'
-                          ? type === 'outflow'
-                            ? [
-                                { value: 'investasi_aset', label: 'Pembelian Aset / Barang Jangka Panjang (Steamer, Rak, HP Live, Dekor)' },
-                                { value: 'sewa_tempat', label: 'Sewa Jangka Panjang / Renovasi Tempat' },
-                              ]
-                            : [
-                                { value: 'investasi_aset', label: 'Penjualan Aset / Pengembalian Investasi Barang' },
-                              ]
-                          : type === 'outflow'
-                          ? [
-                              { value: 'kasbon', label: 'Pemberian Kasbon Pegawai' },
-                              { value: 'dana_talang', label: 'Pembayaran / Pelunasan Dana Talang Perusahaan' },
-                              { value: 'konsumsi_pribadi', label: 'Konsumsi Pribadi (Prive Owner)' },
-                            ]
-                          : [
-                              { value: 'dana_talang', label: 'Dana Talang Masuk (Suntikan Kas / Talangan)' },
-                              { value: 'suntikan_modal', label: 'Suntikan Modal Tambahan (Owner / Investor)' },
-                              { value: 'kasbon', label: 'Pengembalian / Cicilan Kasbon Pegawai' },
-                            ]
-                      }
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                    />
-                  </div>
-                </div>
-
-                {/* Sub-form Pegawai jika kategori Gaji / Kasbon */}
-                {(category === 'gaji_pegawai' || category === 'kasbon') && (
-                  <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-purple-500/30 space-y-3">
-                    <div className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-                      <HandCoins className="w-3.5 h-3.5" />
-                      <span>Rincian Pembayaran Pegawai</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-400 mb-1">Pilih Pegawai</label>
-                        <ThemedSelect
-                          value={employeeId}
-                          onChange={val => handleEmployeeChange(val)}
-                          title="Pilih Pegawai"
-                          options={employees.map(emp => ({ value: emp.id, label: emp.name }))}
-                          className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-400 mb-1">Tipe Pembayaran</label>
-                        <ThemedSelect
-                          value={paymentType}
-                          onChange={val => handlePaymentTypeChange(val as any)}
-                          title="Pilih Tipe Pembayaran"
-                          options={[
-                            { value: 'gaji_insentif', label: 'Gaji / Insentif (Operasional)' },
-                            { value: 'kasbon', label: 'Kasbon Pegawai (Pendanaan)' },
-                          ]}
-                          className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-zinc-400 mb-1">Periode Bulan</label>
-                        <input
-                          type="month"
-                          value={periodMonth}
-                          onChange={e => {
-                            setPeriodMonth(e.target.value);
-                            if (employeeName) {
-                              const prefix = paymentType === 'kasbon' ? 'Kasbon' : 'Pembayaran Gaji & Insentif';
-                              setDescription(`${prefix} - ${employeeName} (Periode ${e.target.value})`);
-                            }
-                          }}
-                          className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
+            {/* D. KATEGORI TRANSAKSI */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Kategori Transaksi <span className="text-[#FE2C55]">*</span>
+              </label>
+              <select
+                value={category}
+                onChange={e => handleCategorySelection(e.target.value as any)}
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:outline-hidden focus:border-[#25F4EE]"
+              >
+                {selectedPillar === 'operasional' && (
+                  type === 'outflow' ? (
+                    <>
+                      <option value="packing" className="bg-[#161823] text-white">Bahan Packing (Lakban, Plastik, Bubble)</option>
+                      <option value="makan_minum" className="bg-[#161823] text-white">Konsumsi Harian &amp; Lembur Tim</option>
+                      <option value="listrik_wifi" className="bg-[#161823] text-white">Listrik, Air &amp; Internet WiFi</option>
+                      <option value="sewa_tempat" className="bg-[#161823] text-white">Sewa Tempat / Ruko Toko</option>
+                      <option value="gaji_pegawai" className="bg-[#161823] text-white">Gaji &amp; Insentif Pegawai</option>
+                      <option value="modal_ball" className="bg-[#161823] text-white">Modal Stok / Belanja Barang Dagangan</option>
+                      <option value="ongkir" className="bg-[#161823] text-white">Ongkos Kirim Stok / Ekspedisi</option>
+                      <option value="topup_iklan" className="bg-[#161823] text-white">Iklan &amp; Saldo Promosi Marketplace</option>
+                      <option value="operasional" className="bg-[#161823] text-white">Operasional Rutin Toko Lainnya</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="penarikan_shopee" className="bg-[#161823] text-white">Penarikan Saldo Marketplace / Penjualan</option>
+                      <option value="operasional" className="bg-[#161823] text-white">Pemasukan Operasional Toko Lainnya</option>
+                    </>
+                  )
                 )}
 
-                <div className="pt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setInputStep(2)}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-                  >
-                    <span>Lanjut ke Tahap 2: Nominal &amp; Nota</span>
-                    <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {inputStep === 2 && (
-              <div className="space-y-4">
-                <div className="border-b border-white/10 pb-2">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#25F4EE]" />
-                    <span>Tahap 2: Masukkan Nominal Transaksi &amp; Foto Nota</span>
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Lengkapi besaran nominal, deskripsi catatan detail, serta foto nota bukti kas.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Nominal Transaksi (Rp) <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <CommaNumberInput
-                    value={amount}
-                    onChange={setAmount}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-                  />
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    Terbilang: <strong className="text-white">{formatRupiah(amount)}</strong>
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Keterangan / Deskripsi Transaksi <span className="text-[#FE2C55]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    placeholder="Contoh: Beli lakban 5 roll & plastik polymailer"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                  />
-                </div>
-
-                {/* Upload Bukti Nota */}
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Foto Nota / Bukti Transfer (Opsional)
-                  </label>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-
-                  {proofImageUrl ? (
-                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0b0c10] border border-white/10">
-                      <img
-                        src={proofImageUrl}
-                        alt="Bukti Nota"
-                        className="w-14 h-14 object-cover rounded-xl border border-white/10"
-                      />
-                      <div className="flex-1 min-w-0 text-xs">
-                        <span className="text-emerald-400 font-bold block">✓ Foto Bukti Terlampir</span>
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-[10px] text-[#25F4EE] hover:underline cursor-pointer mr-3"
-                        >
-                          Ganti Foto
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProofImageUrl('')}
-                          className="text-[10px] text-[#FE2C55] hover:underline cursor-pointer"
-                        >
-                          Hapus Foto
-                        </button>
-                      </div>
-                    </div>
+                {selectedPillar === 'investasi' && (
+                  type === 'outflow' ? (
+                    <option value="investasi_aset" className="bg-[#161823] text-white">Pembelian Aset / Barang Jangka Panjang (Mesin, Display, Gadget)</option>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full p-4 rounded-2xl bg-[#0b0c10] border border-dashed border-white/10 hover:border-[#25F4EE]/40 transition text-center cursor-pointer"
+                    <option value="investasi_aset" className="bg-[#161823] text-white">Penjualan Aset / Mesin / Barang Bekas</option>
+                  )
+                )}
+
+                {selectedPillar === 'pendanaan' && (
+                  type === 'outflow' ? (
+                    <>
+                      <option value="kasbon" className="bg-[#161823] text-white">Pinjaman Kasbon Pegawai</option>
+                      <option value="dana_talang" className="bg-[#161823] text-white">Pengembalian Dana Talang Toko</option>
+                      <option value="konsumsi_pribadi" className="bg-[#161823] text-white">Konsumsi Pribadi (Prive Owner)</option>
+                      <option value="lainnya" className="bg-[#161823] text-white">Pengeluaran Pendanaan Lainnya</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="suntikan_modal" className="bg-[#161823] text-white">Suntikan Modal Pemilik / Investor</option>
+                      <option value="dana_talang" className="bg-[#161823] text-white">Penerimaan Dana Talang Toko</option>
+                      <option value="kasbon" className="bg-[#161823] text-white">Pengembalian / Pelunasan Kasbon Pegawai</option>
+                      <option value="lainnya" className="bg-[#161823] text-white">Pemasukan Pendanaan Lainnya</option>
+                    </>
+                  )
+                )}
+              </select>
+            </div>
+
+            {/* E. KHUSUS PEGAWAI JIKA KASBON ATAU GAJI */}
+            {(category === 'gaji_pegawai' || category === 'kasbon') && (
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Pilih Pegawai:</label>
+                    <select
+                      value={employeeId}
+                      onChange={e => {
+                        setEmployeeId(e.target.value);
+                        const emp = employees.find(x => x.id === e.target.value);
+                        if (emp) {
+                          setEmployeeName(emp.name);
+                          setDescription(`${category === 'kasbon' ? 'Kasbon' : 'Gaji'} - ${emp.name} (${periodMonth})`);
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
                     >
-                      <Upload className="w-5 h-5 mx-auto text-zinc-400 mb-1" />
-                      <span className="text-xs text-zinc-300 font-bold block">Klik untuk Unggah Foto Nota</span>
-                      <span className="text-[10px] text-zinc-500">JPG, PNG maksimal 10MB (otomatis dikompres)</span>
-                    </button>
-                  )}
-                </div>
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id} className="bg-[#161823] text-white">
+                          {emp.name} ({emp.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="pt-3 flex items-center justify-between border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => setInputStep(1)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Tahap Sebelumnya</span>
-                  </button>
-
-                  <button
-                    id="btn-submit-cashflow-transaction"
-                    type="submit"
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{editingItem ? 'Simpan Perubahan' : 'Catat & Tumpuk Transaksi'}</span>
-                  </button>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Periode Bulan:</label>
+                    <input
+                      type="month"
+                      value={periodMonth}
+                      onChange={e => {
+                        setPeriodMonth(e.target.value);
+                        if (employeeName) {
+                          setDescription(`${category === 'kasbon' ? 'Kasbon' : 'Gaji'} - ${employeeName} (${e.target.value})`);
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
+                    />
+                  </div>
                 </div>
               </div>
             )}
-          </form>
 
-          {/* Bagian Bawah: Feed Transaksi yang Baru Saja Diinput/Ditumpuk */}
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 space-y-2.5 shadow">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5 text-[#25F4EE]" />
-                Riwayat Transaksi Baru Saja Ditumpuk:
+            {/* F. NOMINAL TRANSAKSI (RP) */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Nominal Transaksi (Rp) <span className="text-[#FE2C55]">*</span>
+              </label>
+              <CommaNumberInput
+                value={amount}
+                onChange={setAmount}
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-black text-sm focus:outline-hidden focus:border-[#25F4EE]"
+              />
+              <span className="text-[10px] text-zinc-400 mt-1 block">
+                Terbilang: <strong className="text-white">{formatRupiah(amount)}</strong>
               </span>
-              <button
-                type="button"
-                onClick={() => setActiveMenu('jurnal')}
-                className="text-[11px] text-[#25F4EE] hover:underline font-bold"
-              >
-                Lihat Semua di Jurnal &rarr;
-              </button>
             </div>
 
-            <div className="space-y-2">
-              {cashflowList.slice(0, 4).map(item => {
-                const itemPillar = getCashflowPillar(item);
-                const isInflow = item.type === 'inflow';
-                return (
-                  <div key={item.id} className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 flex items-center justify-between gap-3 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {renderPillarBadge(itemPillar)}
-                        <span className="text-zinc-400 text-[10px]">{formatDateIndo(item.date)}</span>
-                      </div>
-                      <div className="text-white font-medium truncate mt-0.5">{item.description}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className={`font-black ${isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                        {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= 2. MENU 2: OPERASIONAL (OPERASIONAL SEHARI-HARI) ================= */}
-      {activeMenu === 'operasional' && (
-        <div className="space-y-3.5">
-          {/* Header Pos Operasional */}
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-[#25F4EE]" />
-                  <span>Pos Arus Kas: Operasional Sehari-hari</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Mencatat seluruh beban operasional rutin toko: packing, konsumsi, listrik &amp; wifi, sewa ruko, gaji pegawai harian, modal stok, ongkir &amp; iklan.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm('operasional');
-                  setActiveMenu('catatan_transaksi');
-                }}
-                className="px-3.5 py-2 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Catat Kas Operasional</span>
-              </button>
+            {/* G. KETERANGAN TRANSAKSI */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Keterangan Transaksi <span className="text-[#FE2C55]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Tulis keterangan transaksi..."
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:outline-hidden focus:border-[#25F4EE]"
+              />
             </div>
 
-            {/* Metrics Operasional */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Pemasukan Operasional</span>
-                <span className="text-base font-black text-[#25F4EE]">+{formatRupiah(opInflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Pengeluaran Operasional</span>
-                <span className="text-base font-black text-[#FE2C55]">-{formatRupiah(opOutflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Arus Kas Operasional Bersih</span>
-                <span className={`text-base font-black ${opNet >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                  {formatRupiah(opNet)}
-                </span>
-              </div>
-            </div>
-          </div>
+            {/* H. FOTO NOTA / BUKTI TRANSFER */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Foto Nota / Bukti Transfer (Opsional)
+              </label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
 
-          {/* List Transaksi Operasional */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-zinc-400 px-1">
-              Daftar Transaksi Operasional ({operasionalList.length}):
-            </div>
-
-            {operasionalList.length === 0 ? (
-              <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
-                Belum ada transaksi operasional pada periode ini.
-              </div>
-            ) : (
-              operasionalList.map(item => {
-                const isInflow = item.type === 'inflow';
-                const catLabel = CATEGORY_LABELS[item.category] || item.category;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-sm space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                          {formatDateIndo(item.date)}
-                        </span>
-                        <span className="text-xs text-zinc-300 font-bold">{catLabel}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {item.proofImageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE]"
-                            title="Lihat Bukti Nota"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(item)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE]"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id, item.description)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55]"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className={`text-base font-black ${isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-                        {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
-                      </div>
-                      <div className="text-right text-xs text-zinc-300 truncate font-medium flex-1">
-                        {item.description}
-                      </div>
-                    </div>
-
-                    {item.employeeName && (
-                      <div className="text-[11px] text-[#25F4EE] pt-1 border-t border-white/5">
-                        Pegawai Terkait: <strong>{item.employeeName}</strong> {item.periodMonth ? `(Periode ${item.periodMonth})` : ''}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ================= 3. MENU 3: INVESTASI (PEMBELIAN BARANG JANGKA PANJANG) ================= */}
-      {activeMenu === 'investasi' && (
-        <div className="space-y-3.5">
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-amber-400" />
-                  <span>Pos Arus Kas: Investasi (Barang Jangka Panjang)</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Pembelian aset &amp; inventaris toko berumur manfaat lebih dari 1 tahun: Mesin steamer, rak baju, display manekin, lighting live, gadget admin &amp; renovasi.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm('investasi');
-                  setActiveMenu('catatan_transaksi');
-                }}
-                className="px-3.5 py-2 rounded-xl bg-amber-400 text-black font-extrabold text-xs shadow-md shadow-amber-400/20 hover:bg-amber-400/90 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Catat Pembelian Investasi / Aset</span>
-              </button>
-            </div>
-
-            {/* Metrics Investasi */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Pengeluaran Pembelian Aset</span>
-                <span className="text-base font-black text-[#FE2C55]">-{formatRupiah(invOutflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Penjualan Aset / Pengembalian</span>
-                <span className="text-base font-black text-amber-400">+{formatRupiah(invInflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Arus Kas Investasi Bersih</span>
-                <span className={`text-base font-black ${invNet >= 0 ? 'text-amber-400' : 'text-[#FE2C55]'}`}>
-                  {formatRupiah(invNet)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* List Transaksi Investasi */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-zinc-400 px-1">
-              Daftar Pembelian &amp; Transaksi Barang Investasi ({investasiList.length}):
-            </div>
-
-            {investasiList.length === 0 ? (
-              <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
-                Belum ada transaksi investasi / pembelian barang jangka panjang pada periode ini.
-              </div>
-            ) : (
-              investasiList.map(item => {
-                const isInflow = item.type === 'inflow';
-                return (
-                  <div
-                    key={item.id}
-                    className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-amber-400/40 transition shadow-sm space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                          {formatDateIndo(item.date)}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30">
-                          Aset Jangka Panjang
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {item.proofImageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400"
-                            title="Lihat Nota Aset"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(item)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id, item.description)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55]"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className={`text-base font-black ${isInflow ? 'text-amber-400' : 'text-[#FE2C55]'}`}>
-                        {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
-                      </div>
-                      <div className="text-right text-xs text-zinc-300 truncate font-semibold flex-1">
-                        {item.description}
-                      </div>
+              {proofImageUrl ? (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0b0c10] border border-white/10">
+                  <img
+                    src={proofImageUrl}
+                    alt="Bukti Nota"
+                    className="w-14 h-14 object-cover rounded-xl border border-white/10"
+                  />
+                  <div className="flex-1 min-w-0 text-xs">
+                    <span className="text-emerald-400 font-bold block">✓ Foto Bukti Terlampir</span>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-[10px] text-[#25F4EE] hover:underline cursor-pointer"
+                      >
+                        Ganti Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProofImageUrl('')}
+                        className="text-[10px] text-[#FE2C55] hover:underline cursor-pointer"
+                      >
+                        Hapus Foto
+                      </button>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ================= 4. MENU 4: PENDANAAN (KASBON & SUNTIKKAN) ================= */}
-      {activeMenu === 'pendanaan' && (
-        <div className="space-y-3.5">
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <HandCoins className="w-5 h-5 text-purple-400" />
-                  <span>Pos Arus Kas: Pendanaan (Kasbon &amp; Suntikan)</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Kelola kasbon pegawai, suntikan dana talang operasional, suntikan modal pemilik / investor, dan prive penarikan kas.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm('pendanaan');
-                  setActiveMenu('catatan_transaksi');
-                }}
-                className="px-3.5 py-2 rounded-xl bg-purple-500 text-white font-extrabold text-xs shadow-md shadow-purple-500/20 hover:bg-purple-600 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Catat Kasbon / Suntikan Kas</span>
-              </button>
-            </div>
-
-            {/* Metrics Pendanaan */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Suntikan Kas / Modal (+)</span>
-                <span className="text-base font-black text-purple-300">+{formatRupiah(fundInflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Kasbon Keluar / Prive (-)</span>
-                <span className="text-base font-black text-[#FE2C55]">-{formatRupiah(fundOutflow)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Sisa Tagihan Kasbon</span>
-                <span className="text-base font-black text-amber-400">{formatRupiah(activeKasbonTotal)}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[10px] text-zinc-400 font-semibold block">Sisa Dana Talang Toko</span>
-                <span className="text-base font-black text-[#25F4EE]">{formatRupiah(activeTalangTotal)}</span>
-              </div>
-            </div>
-
-            {/* Sub-Switch: Mutasi Pendanaan vs Buku Tagihan */}
-            <div className="flex items-center gap-2 pt-1 border-t border-white/5">
-              <button
-                type="button"
-                onClick={() => setPendanaanSubTab('mutasi')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  pendanaanSubTab === 'mutasi'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                    : 'bg-[#0b0c10] text-zinc-400 border border-white/5 hover:text-white'
-                }`}
-              >
-                Daftar Mutasi Kasbon &amp; Suntikan ({pendanaanList.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setPendanaanSubTab('tagihan')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  pendanaanSubTab === 'tagihan'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'bg-[#0b0c10] text-zinc-400 border border-white/5 hover:text-white'
-                }`}
-              >
-                Buku Tagihan &amp; Dana Talang ({tagihanList.length})
-              </button>
-            </div>
-          </div>
-
-          {/* Sub-View 1: Mutasi Kasbon & Suntikan */}
-          {pendanaanSubTab === 'mutasi' && (
-            <div className="space-y-2">
-              {pendanaanList.length === 0 ? (
-                <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
-                  Belum ada transaksi kasbon atau suntikan dana pada periode ini.
                 </div>
               ) : (
-                pendanaanList.map(item => {
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full p-4 rounded-2xl bg-[#0b0c10] border border-dashed border-white/10 hover:border-[#25F4EE]/40 transition text-center cursor-pointer"
+                >
+                  <Upload className="w-5 h-5 mx-auto text-zinc-400 mb-1" />
+                  <span className="text-xs text-zinc-300 font-bold block">Klik untuk Unggah Foto Nota</span>
+                  <span className="text-[10px] text-zinc-500">JPG, PNG maksimal 10MB</span>
+                </button>
+              )}
+            </div>
+
+            {/* TOMBOL SIMPAN */}
+            <div className="pt-2 flex items-center justify-between border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => resetForm()}
+                className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 transition cursor-pointer"
+              >
+                Reset Form
+              </button>
+
+              <button
+                id="btn-submit-cashflow-transaction"
+                type="submit"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{editingItem ? 'Simpan Perubahan' : 'Simpan Transaksi Kas'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* =========================================================================
+          2. SUB MENU: DAFTAR POS KAS (MENU 3 POS: OPERASIONAL, INVESTASI, PENDANAAN)
+          ========================================================================= */}
+      {activeMenu === 'daftar_pos' && (
+        <div className="space-y-4">
+          {activePosSub === 'menu' && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1">
+                Pilih Daftar Pos Kas:
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {/* Pos Operasional */}
+                <div
+                  id="card-pos-operasional"
+                  onClick={() => setActivePosSub('operasional')}
+                  className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-[#25F4EE]/30 text-[#25F4EE] flex items-center justify-center shrink-0">
+                      <Briefcase className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="text-base font-black text-white group-hover:text-[#25F4EE] transition">
+                        Operasional
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {operasionalList.length} Transaksi Operasional
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right pt-2 border-t border-white/5">
+                    <span className="text-xs font-bold text-[#25F4EE] group-hover:underline">Buka Daftar &rarr;</span>
+                  </div>
+                </div>
+
+                {/* Pos Investasi */}
+                <div
+                  id="card-pos-investasi"
+                  onClick={() => setActivePosSub('investasi')}
+                  className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-amber-400/30 text-amber-400 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="text-base font-black text-white group-hover:text-amber-400 transition">
+                        Investasi
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {investasiList.length} Transaksi Aset
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right pt-2 border-t border-white/5">
+                    <span className="text-xs font-bold text-amber-400 group-hover:underline">Buka Daftar &rarr;</span>
+                  </div>
+                </div>
+
+                {/* Pos Pendanaan */}
+                <div
+                  id="card-pos-pendanaan"
+                  onClick={() => setActivePosSub('pendanaan')}
+                  className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-purple-400/50 transition cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-purple-400/30 text-purple-400 flex items-center justify-center shrink-0">
+                      <HandCoins className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="text-base font-black text-white group-hover:text-purple-400 transition">
+                        Pendanaan
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {tagihanList.length} Data Tagihan &amp; Kasbon
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right pt-2 border-t border-white/5">
+                    <span className="text-xs font-bold text-purple-400 group-hover:underline">Buka Daftar &rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DAFTAR: POS OPERASIONAL */}
+          {activePosSub === 'operasional' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
+                <span>Daftar Transaksi Operasional ({operasionalList.length}):</span>
+              </div>
+
+              {operasionalList.length === 0 ? (
+                <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
+                  Belum ada transaksi operasional pada periode ini.
+                </div>
+              ) : (
+                operasionalList.map(item => {
                   const isInflow = item.type === 'inflow';
                   const catLabel = CATEGORY_LABELS[item.category] || item.category;
 
                   return (
                     <div
                       key={item.id}
-                      className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-purple-500/40 transition shadow-sm space-y-2"
+                      className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-sm space-y-2"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
                             {formatDateIndo(item.date)}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                            {catLabel}
-                          </span>
+                          <span className="text-xs text-zinc-300 font-bold">{catLabel}</span>
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -1782,8 +1261,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                             <button
                               type="button"
                               onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-purple-400"
-                              title="Lihat Bukti"
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE]"
+                              title="Lihat Bukti Nota"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
@@ -1791,7 +1270,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleStartEdit(item)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-purple-400"
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE]"
                             title="Edit"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -1808,17 +1287,17 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                       </div>
 
                       <div className="flex items-baseline justify-between gap-3">
-                        <div className={`text-base font-black ${isInflow ? 'text-purple-300' : 'text-[#FE2C55]'}`}>
+                        <div className={`text-base font-black ${isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
                           {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
                         </div>
-                        <div className="text-right text-xs text-zinc-300 truncate font-semibold flex-1">
+                        <div className="text-right text-xs text-zinc-300 truncate font-medium flex-1">
                           {item.description}
                         </div>
                       </div>
 
                       {item.employeeName && (
-                        <div className="text-[11px] text-purple-300 pt-1 border-t border-white/5">
-                          Nama Pegawai: <strong>{item.employeeName}</strong>
+                        <div className="text-[11px] text-[#25F4EE] pt-1 border-t border-white/5">
+                          Pegawai Terkait: <strong>{item.employeeName}</strong> {item.periodMonth ? `(Periode ${item.periodMonth})` : ''}
                         </div>
                       )}
                     </div>
@@ -1828,51 +1307,102 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           )}
 
-          {/* Sub-View 2: TagihanSection */}
-          {pendanaanSubTab === 'tagihan' && (
+          {/* DAFTAR: POS INVESTASI */}
+          {activePosSub === 'investasi' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-zinc-400 px-1">
+                <span>Daftar Transaksi Pembelian Aset ({investasiList.length}):</span>
+              </div>
+
+              {investasiList.length === 0 ? (
+                <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
+                  Belum ada transaksi pembelian aset / investasi pada periode ini.
+                </div>
+              ) : (
+                investasiList.map(item => {
+                  const isInflow = item.type === 'inflow';
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-amber-400/40 transition shadow-sm space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
+                            {formatDateIndo(item.date)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                            Aset Jangka Panjang
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {item.proofImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400"
+                              title="Lihat Nota Aset"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(item)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400"
+                            title="Edit"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id, item.description)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55]"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className={`text-base font-black ${isInflow ? 'text-amber-400' : 'text-[#FE2C55]'}`}>
+                          {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
+                        </div>
+                        <div className="text-right text-xs text-zinc-300 truncate font-semibold flex-1">
+                          {item.description}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* DAFTAR: POS PENDANAAN (BUKU TAGIHAN & DANA TALANG) */}
+          {activePosSub === 'pendanaan' && (
             <TagihanSection
               currentUser={currentUser}
               employees={employees}
               tagihanList={tagihanList}
               onRefresh={loadData}
-              onBackToMenu={() => setActiveMenu('pendanaan')}
+              onBackToMenu={() => setActivePosSub('menu')}
               onNotify={onNotify}
             />
           )}
         </div>
       )}
 
-      {/* ================= 5. MENU 5: JURNAL (POS KELUAR MASUK SELURUH TRANSAKSI) ================= */}
+      {/* =========================================================================
+          3. SUB MENU: JURNAL (SELURUH TRANSAKSI DEBIT & KREDIT DITUMPUK DI SINI)
+          ========================================================================= */}
       {activeMenu === 'jurnal' && (
-        <div className="space-y-3.5">
-          {/* Header & Quick Summary */}
-          <div className="p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-[#FE2C55]" />
-                  <span>Jurnal Umum Arus Kas Terpadu</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Pos keluar masuk seluruh transaksi kas dari Operasional, Investasi aset &amp; Pendanaan secara lengkap.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  setActiveMenu('catatan_transaksi');
-                }}
-                className="px-3.5 py-2 rounded-xl bg-[#FE2C55] text-white font-extrabold text-xs shadow-md shadow-[#FE2C55]/20 hover:bg-[#FE2C55]/90 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Catat Transaksi Baru</span>
-              </button>
-            </div>
-
-            {/* Filter Pos & Jenis Jurnal */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <div className="space-y-3">
+          {/* Filter Pos & Jenis Jurnal */}
+          <div className="p-3.5 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] font-bold text-zinc-400">Filter Pos:</span>
                 <button
@@ -1938,7 +1468,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     jurnalTypeFilter === 'inflow' ? 'bg-[#25F4EE]/20 text-[#25F4EE]' : 'bg-[#0b0c10] text-zinc-400'
                   }`}
                 >
-                  Kas Masuk (+)
+                  Debit (+)
                 </button>
                 <button
                   type="button"
@@ -1947,7 +1477,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                     jurnalTypeFilter === 'outflow' ? 'bg-[#FE2C55]/20 text-[#FE2C55]' : 'bg-[#0b0c10] text-zinc-400'
                   }`}
                 >
-                  Kas Keluar (-)
+                  Kredit (-)
                 </button>
               </div>
             </div>
@@ -1955,13 +1485,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             {/* Total Balance Strip */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-xs">
               <div className="text-zinc-400">
-                Menampilkan: <strong className="text-white">{jurnalList.length}</strong> transaksi jurnal
+                Total: <strong className="text-white">{jurnalList.length}</strong> transaksi jurnal
               </div>
               <div className="flex items-center gap-3">
-                <span>Masuk: <strong className="text-[#25F4EE]">+{formatRupiah(totalInflow)}</strong></span>
-                <span>Keluar: <strong className="text-[#FE2C55]">-{formatRupiah(totalOutflow)}</strong></span>
+                <span>Debit: <strong className="text-[#25F4EE]">+{formatRupiah(totalInflow)}</strong></span>
+                <span>Kredit: <strong className="text-[#FE2C55]">-{formatRupiah(totalOutflow)}</strong></span>
                 <span className="font-bold pl-2 border-l border-white/10">
-                  Saldo Kas: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
+                  Saldo: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
                 </span>
               </div>
             </div>
@@ -1971,7 +1501,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           <div className="space-y-2">
             {jurnalList.length === 0 ? (
               <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs">
-                Tidak ada data jurnal transaksi pada filter yang dipilih.
+                Tidak ada data transaksi jurnal pada filter yang dipilih.
               </div>
             ) : (
               jurnalList.map(item => {
