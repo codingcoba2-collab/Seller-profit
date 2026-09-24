@@ -269,6 +269,8 @@ export interface AdsCoinDeposit {
   createdAt: string;
 }
 
+export type CashflowPillar = 'operasional' | 'investasi' | 'pendanaan';
+
 export interface CashflowRecord {
   id: string;
   storeId: string;
@@ -289,9 +291,13 @@ export interface CashflowRecord {
     | 'makan_minum' 
     | 'listrik_wifi' 
     | 'sewa_tempat' 
+    | 'investasi_aset' // Pembelian barang jangka panjang / aset toko
+    | 'suntikan_modal' // Suntikan modal tambahan (owner / investor)
+    | 'kasbon' // Kasbon pegawai
     | 'konsumsi_pribadi' // Pengeluaran Konsumsi Pribadi (Prive Pemilik)
     | 'dana_talang' // Dana Talang (Inflow saat masuk, Outflow saat dibayar perusahaan)
     | 'lainnya';
+  pillar?: CashflowPillar; // Pos Arus Kas: 'operasional' | 'investasi' | 'pendanaan'
   employeeId?: string; // ID pegawai jika kategori gaji_pegawai
   employeeName?: string; // Nama pegawai jika kategori gaji_pegawai
   periodMonth?: string; // Periode bulan gaji (misal: "2026-09" atau "September 2026")

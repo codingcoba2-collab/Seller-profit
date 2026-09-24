@@ -118,6 +118,7 @@
         "date": { "type": "string" },
         "type": { "type": "string" },
         "category": { "type": "string" },
+        "pillar": { "type": "string" },
         "amount": { "type": "number" },
         "description": { "type": "string" }
       },
