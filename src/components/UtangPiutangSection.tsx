@@ -355,9 +355,13 @@ export const UtangPiutangSection: React.FC<UtangPiutangSectionProps> = ({
         return true;
       })
       .sort((a, b) => {
+        // Urutan menurut tanggal transaksi dari paling lama di bawah (terbaru di atas)
+        const dateDiff = (b.date || '').localeCompare(a.date || '');
+        if (dateDiff !== 0) return dateDiff;
         const timeA = new Date(a.createdAt || a.date).getTime() || 0;
         const timeB = new Date(b.createdAt || b.date).getTime() || 0;
-        return timeB - timeA;
+        if (timeB !== timeA) return timeB - timeA;
+        return (b.id || '').localeCompare(a.id || '');
       });
   }, [tagihanList, activeTab, statusFilter, periodFilter, specificDate, startDate, endDate, searchQuery]);
 

@@ -135,6 +135,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingItem, setEditingItem] = useState<CashflowRecord | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<CashflowRecord | null>(null);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -161,7 +162,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   const [catatanKasTypeFilter, setCatatanKasTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
   const [jurnalPillarFilter, setJurnalPillarFilter] = useState<'all' | CashflowPillar>('all');
   const [jurnalTypeFilter, setJurnalTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
-  const [sortOrder, setSortOrder] = useState<'input_desc' | 'input_asc' | 'date_desc' | 'date_asc'>('input_desc');
+  const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc' | 'input_desc' | 'input_asc'>('date_desc');
 
   // Format tanggal & waktu input untuk tampilan kartu
   const formatInputDateTime = (createdAt?: string, fallbackDate?: string) => {
@@ -197,6 +198,38 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
     } catch {
       return dateStr;
     }
+  };
+
+  // Helper untuk mendapatkan timestamp waktu input / pembuatan transaksi secara presisi
+  const getCashflowInputTime = (rec: CashflowRecord): number => {
+    if (rec.createdAt) {
+      const t = new Date(rec.createdAt).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (rec.id) {
+      const m = rec.id.match(/\d{10,}/);
+      if (m) {
+        const num = parseInt(m[0], 10);
+        if (!isNaN(num) && num > 1000000000) return num;
+      }
+    }
+    return 0;
+  };
+
+  // Urutan Kronologis Baku: Dari transaksi paling lama (paling awal) ke paling baru
+  // (Ascending: 8 Sep dulu, lalu 10 Sep transaksi 1, lalu 10 Sep transaksi 2, dst.)
+  const compareCashflowChronologicalAsc = (a: CashflowRecord, b: CashflowRecord): number => {
+    // 1. Urutkan berdasarkan tanggal transaksi (YYYY-MM-DD)
+    const dateDiff = (a.date || '').localeCompare(b.date || '');
+    if (dateDiff !== 0) return dateDiff;
+
+    // 2. Jika tanggal transaksi persis sama, urutkan berdasarkan urutan waktu input pembuatan
+    const timeA = getCashflowInputTime(a);
+    const timeB = getCashflowInputTime(b);
+    if (timeA !== timeB) return timeA - timeB;
+
+    // 3. ID sebagai penentu akhir jika waktu sama
+    return (a.id || '').localeCompare(b.id || '');
   };
 
   // Input Form States (3 Pos: Operasional, Investasi, Pendanaan)
@@ -574,45 +607,20 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         return true;
       })
       .sort((a, b) => {
-        const getInputTime = (rec: CashflowRecord) => {
-          if (rec.createdAt) {
-            const t = new Date(rec.createdAt).getTime();
-            if (!isNaN(t) && t > 0) return t;
-          }
-          if (rec.id) {
-            const m = rec.id.match(/\d{10,}/);
-            if (m) {
-              const num = parseInt(m[0], 10);
-              if (!isNaN(num) && num > 1000000000) return num;
-            }
-          }
-          if (rec.date) {
-            const t = new Date(rec.date).getTime();
-            if (!isNaN(t) && t > 0) return t;
-          }
-          return 0;
-        };
-
-        const getTxDateTime = (rec: CashflowRecord) => {
-          if (rec.date) {
-            const t = new Date(rec.date).getTime();
-            if (!isNaN(t) && t > 0) return t;
-          }
-          return 0;
-        };
-
-        if (sortOrder === 'input_desc') {
-          return getInputTime(b) - getInputTime(a);
-        } else if (sortOrder === 'input_asc') {
-          return getInputTime(a) - getInputTime(b);
-        } else if (sortOrder === 'date_desc') {
-          const diff = getTxDateTime(b) - getTxDateTime(a);
-          return diff !== 0 ? diff : getInputTime(b) - getInputTime(a);
+        if (sortOrder === 'date_desc') {
+          // Tanggal transaksi: Paling lama di bawah (artinya terbaru di atas, terlama di bawah)
+          return compareCashflowChronologicalAsc(b, a);
         } else if (sortOrder === 'date_asc') {
-          const diff = getTxDateTime(a) - getTxDateTime(b);
-          return diff !== 0 ? diff : getInputTime(a) - getInputTime(b);
+          // Tanggal transaksi: Paling lama di atas
+          return compareCashflowChronologicalAsc(a, b);
+        } else if (sortOrder === 'input_desc') {
+          const timeDiff = getCashflowInputTime(b) - getCashflowInputTime(a);
+          return timeDiff !== 0 ? timeDiff : (b.id || '').localeCompare(a.id || '');
+        } else if (sortOrder === 'input_asc') {
+          const timeDiff = getCashflowInputTime(a) - getCashflowInputTime(b);
+          return timeDiff !== 0 ? timeDiff : (a.id || '').localeCompare(b.id || '');
         }
-        return getInputTime(b) - getInputTime(a);
+        return compareCashflowChronologicalAsc(b, a);
       });
   }, [cashflowList, periodFilter, specificDate, startDate, endDate, searchQuery, sortOrder]);
 
@@ -638,16 +646,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   }, [filteredList, catatanKasTypeFilter]);
 
   // Running balance (Saldo Berjalan) untuk Catatan Kas
-  // Dihitung berurutan secara kronologis dari riwayat transaksi toko
+  // Dihitung berurutan secara kronologis dari transaksi paling awal / lama ke paling baru
   const runningBalanceMap = useMemo(() => {
-    const chronological = [...cashflowList].sort((a, b) => {
-      const dateDiff = a.date.localeCompare(b.date);
-      if (dateDiff !== 0) return dateDiff;
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      if (timeA !== timeB && !isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
-      return a.id.localeCompare(b.id);
-    });
+    const chronological = [...cashflowList].sort(compareCashflowChronologicalAsc);
 
     const map = new Map<string, number>();
     let currentBalance = 0;
@@ -829,10 +830,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 onChange={val => setSortOrder(val as any)}
                 title="Pilih Urutan Transaksi"
                 options={[
-                  { value: 'input_desc', label: 'Tanggal Input (Terbaru) ↓' },
-                  { value: 'input_asc', label: 'Tanggal Input (Terlama) ↑' },
-                  { value: 'date_desc', label: 'Tanggal Transaksi (Terbaru)' },
-                  { value: 'date_asc', label: 'Tanggal Transaksi (Terlama)' },
+                  { value: 'date_desc', label: 'Tgl Transaksi (Paling Lama di Bawah) ↓' },
+                  { value: 'date_asc', label: 'Tgl Transaksi (Paling Lama di Atas) ↑' },
+                  { value: 'input_desc', label: 'Waktu Input (Terbaru di Atas)' },
+                  { value: 'input_asc', label: 'Waktu Input (Terlama di Atas)' },
                 ]}
                 className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
               />
@@ -1391,7 +1392,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           </div>
 
-          {/* Tabel Catatan Kas (Format Buku Kas: Tanggal | Keterangan | Kas Masuk | Kas Keluar | Saldo) */}
+          {/* Tabel Catatan Kas (Format Buku Kas: Tanggal | Kas Masuk | Kas Keluar | Saldo) */}
           {catatanKasList.length === 0 ? (
             <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs space-y-2">
               <p>Belum ada catatan kas masuk atau keluar pada periode ini.</p>
@@ -1409,106 +1410,82 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="rounded-3xl bg-[#0b0c10] border border-white/10 shadow-2xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[700px]">
-                    <thead>
-                      <tr className="border-b border-white/20 text-white font-bold text-sm sm:text-base bg-[#161823]/60">
-                        <th className="py-4 px-4 sm:px-6 w-[130px] whitespace-nowrap">Tanggal</th>
-                        <th className="py-4 px-4 sm:px-6 min-w-[200px]">Keterangan</th>
-                        <th className="py-4 px-4 sm:px-6 text-right w-[160px] whitespace-nowrap">Kas Masuk</th>
-                        <th className="py-4 px-4 sm:px-6 text-right w-[160px] whitespace-nowrap">Kas Keluar</th>
-                        <th className="py-4 px-4 sm:px-6 text-right w-[170px] whitespace-nowrap">Saldo</th>
-                        <th className="py-4 px-3 sm:px-4 text-center w-[85px] whitespace-nowrap">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10 text-white text-sm sm:text-base">
-                      {catatanKasList.map(item => {
-                        const isInflow = item.type === 'inflow';
-                        const runningSaldo = runningBalanceMap.get(item.id) ?? item.amount;
-                        const formattedAmount = formatRupiah(item.amount).replace(/\s/g, '');
-                        const formattedSaldo = formatRupiah(runningSaldo).replace(/\s/g, '');
+              <div className="rounded-2xl sm:rounded-3xl bg-[#0b0c10] border border-white/10 shadow-2xl overflow-hidden">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b border-white/20 text-white font-bold text-xs sm:text-base bg-[#161823]/70">
+                      <th className="py-3 sm:py-4 px-2 sm:px-5 w-[22%] text-left whitespace-nowrap">Tanggal</th>
+                      <th className="py-3 sm:py-4 px-1.5 sm:px-4 w-[26%] text-right whitespace-nowrap">Kas Masuk</th>
+                      <th className="py-3 sm:py-4 px-1.5 sm:px-4 w-[26%] text-right whitespace-nowrap">Kas Keluar</th>
+                      <th className="py-3 sm:py-4 px-2 sm:px-5 w-[26%] text-right whitespace-nowrap">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10 text-white text-xs sm:text-base">
+                    {catatanKasList.map(item => {
+                      const isInflow = item.type === 'inflow';
+                      const runningSaldo = runningBalanceMap.get(item.id) ?? item.amount;
+                      const formattedAmount = formatRupiah(item.amount).replace(/\s/g, '');
+                      const formattedSaldo = formatRupiah(runningSaldo).replace(/\s/g, '');
 
-                        return (
-                          <tr key={item.id} className="hover:bg-white/[0.04] transition-colors">
-                            <td className="py-4 px-4 sm:px-6 font-semibold whitespace-nowrap text-white">
-                              {formatTableDate(item.date)}
-                            </td>
-                            <td className="py-4 px-4 sm:px-6">
-                              <div className="font-semibold text-white">{item.description}</div>
-                              {item.employeeName && (
-                                <div className="text-[11px] text-[#25F4EE] mt-0.5 font-medium">
-                                  Pegawai: {item.employeeName}
-                                </div>
+                      return (
+                        <tr
+                          key={item.id}
+                          onClick={() => setSelectedDetailItem(item)}
+                          className="hover:bg-white/[0.08] active:bg-white/[0.14] transition-colors cursor-pointer group"
+                          title="Klik untuk melihat keterangan & rincian transaksi"
+                        >
+                          <td className="py-3 sm:py-4 px-2 sm:px-5 font-semibold whitespace-nowrap text-white">
+                            <div className="flex items-center gap-1 truncate">
+                              <span>{formatTableDate(item.date)}</span>
+                              {item.proofImageUrl && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#25F4EE] shrink-0" title="Ada foto bukti" />
                               )}
-                            </td>
-                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-medium text-white">
-                              {isInflow ? formattedAmount : '-'}
-                            </td>
-                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-medium text-white">
-                              {!isInflow ? formattedAmount : '-'}
-                            </td>
-                            <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-bold text-white">
-                              {formattedSaldo}
-                            </td>
-                            <td className="py-4 px-3 sm:px-4 text-center whitespace-nowrap">
-                              <div className="flex items-center justify-center gap-1">
-                                {item.proofImageUrl && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
-                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                                    title="Lihat Bukti Nota"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEdit(item)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                                  title="Edit Transaksi"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item.id, item.description)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                                  title="Hapus Transaksi"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    {catatanKasList.length > 0 && (
-                      <tfoot>
-                        <tr className="border-t-2 border-white/20 bg-[#161823]/80 font-black text-sm sm:text-base">
-                          <td className="py-4 px-4 sm:px-6" colSpan={2}>
-                            Total Ringkasan Periode Ini
+                            </div>
                           </td>
-                          <td className="py-4 px-4 sm:px-6 text-right text-[#25F4EE] whitespace-nowrap">
-                            +{formatRupiah(totalInflow).replace(/\s/g, '')}
+                          <td className="py-3 sm:py-4 px-1.5 sm:px-4 text-right whitespace-nowrap font-medium text-white truncate">
+                            {isInflow ? (
+                              <span className="text-[#25F4EE] font-semibold">{formattedAmount}</span>
+                            ) : (
+                              <span className="text-zinc-500">-</span>
+                            )}
                           </td>
-                          <td className="py-4 px-4 sm:px-6 text-right text-[#FE2C55] whitespace-nowrap">
-                            -{formatRupiah(totalOutflow).replace(/\s/g, '')}
+                          <td className="py-3 sm:py-4 px-1.5 sm:px-4 text-right whitespace-nowrap font-medium text-white truncate">
+                            {!isInflow ? (
+                              <span className="text-[#FE2C55] font-semibold">{formattedAmount}</span>
+                            ) : (
+                              <span className="text-zinc-500">-</span>
+                            )}
                           </td>
-                          <td className="py-4 px-4 sm:px-6 text-right text-white whitespace-nowrap">
-                            {formatRupiah(netCash).replace(/\s/g, '')}
+                          <td className="py-3 sm:py-4 px-2 sm:px-5 text-right whitespace-nowrap font-bold text-white truncate">
+                            {formattedSaldo}
                           </td>
-                          <td></td>
                         </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                  {catatanKasList.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-white/20 bg-[#161823]/90 font-black text-xs sm:text-base">
+                        <td className="py-3 sm:py-4 px-2 sm:px-5 text-white whitespace-nowrap">
+                          Total
+                        </td>
+                        <td className="py-3 sm:py-4 px-1.5 sm:px-4 text-right text-[#25F4EE] whitespace-nowrap truncate">
+                          +{formatRupiah(totalInflow).replace(/\s/g, '')}
+                        </td>
+                        <td className="py-3 sm:py-4 px-1.5 sm:px-4 text-right text-[#FE2C55] whitespace-nowrap truncate">
+                          -{formatRupiah(totalOutflow).replace(/\s/g, '')}
+                        </td>
+                        <td className="py-3 sm:py-4 px-2 sm:px-5 text-right text-white whitespace-nowrap truncate">
+                          {formatRupiah(netCash).replace(/\s/g, '')}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
-              <p className="text-[11px] text-zinc-500 sm:hidden px-1">
-                💡 Geser tabel ke kanan untuk melihat kolom Kas Keluar &amp; Saldo Kas.
+              <p className="text-[11px] text-zinc-400 px-1 flex items-center justify-between">
+                <span>💡 Sentuh / klik baris transaksi untuk melihat keterangan &amp; detail.</span>
+                <span className="text-zinc-500 hidden sm:inline">{catatanKasList.length} Transaksi</span>
               </p>
             </div>
           )}
@@ -2067,6 +2044,150 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           onBackToMenu={() => setActiveMenu('hub')}
           onNotify={onNotify}
         />
+      )}
+
+      {/* Pop-up Detail Keterangan & Rincian Transaksi Catatan Kas */}
+      {selectedDetailItem && (
+        <div className="fixed inset-0 z-[9990] bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-[#161823] rounded-3xl border border-white/10 p-5 max-w-md w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#25F4EE]">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-white">Detail Transaksi Kas</h4>
+                  <span className="text-[11px] text-zinc-400">
+                    {formatDateIndo(selectedDetailItem.date)}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailItem(null)}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Keterangan Transaksi (Fokus Utama yang Diminta User) */}
+            <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#25F4EE] block">
+                Keterangan Transaksi
+              </span>
+              <p className="text-base sm:text-lg font-black text-white leading-relaxed break-words">
+                {selectedDetailItem.description || '-'}
+              </p>
+            </div>
+
+            {/* Nominal & Saldo Kas */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[10px] font-bold text-zinc-400 block mb-0.5">
+                  {selectedDetailItem.type === 'inflow' ? 'Kas Masuk' : 'Kas Keluar'}
+                </span>
+                <span className={`text-base sm:text-lg font-black tracking-tight ${
+                  selectedDetailItem.type === 'inflow' ? 'text-[#25F4EE]' : 'text-[#FE2C55]'
+                }`}>
+                  {selectedDetailItem.type === 'inflow' ? '+' : '-'}{formatRupiah(selectedDetailItem.amount)}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[10px] font-bold text-zinc-400 block mb-0.5">Saldo Berjalan</span>
+                <span className="text-base sm:text-lg font-black text-white tracking-tight">
+                  {formatRupiah(runningBalanceMap.get(selectedDetailItem.id) ?? selectedDetailItem.amount)}
+                </span>
+              </div>
+            </div>
+
+            {/* Detail Tambahan: Pos, Kategori, Waktu Input, Pegawai */}
+            <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-zinc-300">
+                <span className="text-zinc-500">Pos Cashflow:</span>
+                <div>{renderPillarBadge(getCashflowPillar(selectedDetailItem))}</div>
+              </div>
+              <div className="flex justify-between items-center text-zinc-300">
+                <span className="text-zinc-500">Kategori:</span>
+                <span className="font-semibold text-right text-white">
+                  {CATEGORY_LABELS[selectedDetailItem.category] || selectedDetailItem.category}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-300">
+                <span className="text-zinc-500">Waktu Input:</span>
+                <span className="font-medium text-zinc-400">
+                  {formatInputDateTime(selectedDetailItem.createdAt, selectedDetailItem.date)}
+                </span>
+              </div>
+              {selectedDetailItem.employeeName && (
+                <div className="flex justify-between items-center text-zinc-300">
+                  <span className="text-zinc-500">Pegawai Terkait:</span>
+                  <span className="font-bold text-[#25F4EE]">{selectedDetailItem.employeeName}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Bukti Foto Nota jika ada */}
+            {selectedDetailItem.proofImageUrl && (
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Bukti Nota:</span>
+                <div
+                  onClick={() => setPreviewPhotoUrl(selectedDetailItem.proofImageUrl!)}
+                  className="relative rounded-2xl overflow-hidden border border-white/10 group cursor-pointer max-h-32 bg-black flex items-center justify-center"
+                >
+                  <img
+                    src={selectedDetailItem.proofImageUrl}
+                    alt="Bukti Nota"
+                    className="max-h-32 w-full object-cover group-hover:opacity-80 transition"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white transition">
+                    <Eye className="w-4 h-4 mr-1 text-[#25F4EE]" />
+                    Klik untuk Perbesar
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tombol Aksi */}
+            <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailItem;
+                  setSelectedDetailItem(null);
+                  handleDelete(item.id, item.description);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] font-bold text-xs flex items-center justify-center gap-1.5 border border-[#FE2C55]/20 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailItem;
+                  setSelectedDetailItem(null);
+                  handleStartEdit(item);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] font-bold text-xs flex items-center justify-center gap-1.5 border border-[#25F4EE]/20 transition cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDetailItem(null)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Image Preview Modal */}
