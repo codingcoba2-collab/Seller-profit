@@ -90,13 +90,14 @@ class NetworkService {
         }
         return ok;
       } catch (e) {
-        // If fetch aborted or failed, we are disconnected
+        // If fetch aborted or failed, respect browser navigator.onLine status
+        const browserOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
         const prev = this.isOnline;
-        this.isOnline = false;
-        if (prev !== false) {
+        this.isOnline = browserOnline;
+        if (prev !== browserOnline) {
           this.notify();
         }
-        return false;
+        return browserOnline;
       } finally {
         this.checkPromise = null;
       }

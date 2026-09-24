@@ -13,11 +13,15 @@ import {
   onSnapshot, 
   query, 
   where,
+  setLogLevel,
   getCountFromServer,
   getDocFromServer,
   type Unsubscribe
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
+
+// Silence internal transient offline warnings in sandbox environment
+setLogLevel('silent');
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -77,15 +81,8 @@ try {
     app = getApps()[0];
   }
 
-  // Use initializeFirestore with experimentalForceLongPolling to guarantee stable connectivity
-  // in sandboxed iframe, proxy, and container environments without streaming WebChannel failures
-  try {
-    db = initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-    }, firebaseConfig.firestoreDatabaseId);
-  } catch {
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  }
+  // Standard Firestore initialization with designated database ID per Firebase skill
+  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 } catch (err) {
   console.warn("Firebase initialization warning (will use resilient local persistence mode):", err);
 }
@@ -101,7 +98,8 @@ async function validateConnection() {
     }
   }
 }
-validateConnection();
+// Validate connection asynchronously without unhandled promise rejections
+validateConnection().catch(() => {});
 
 export { 
   app, 

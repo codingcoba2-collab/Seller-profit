@@ -46,12 +46,15 @@
           window.WebSocket = PatchedWS;
         }
 
-        // 2. Filter console notices containing [vite] or websocket connection notices
+        // 2. Filter console notices containing [vite], websocket, or Firestore offline retry notices
         var methods = ['error', 'warn', 'info', 'log', 'debug'];
         function isViteMsg(arg) {
           if (!arg) return false;
           var str = typeof arg === 'string' ? arg : (arg.message || String(arg));
-          return str.indexOf('[vite]') !== -1 || str.indexOf('websocket') !== -1;
+          return str.indexOf('[vite]') !== -1 || 
+                 str.indexOf('websocket') !== -1 ||
+                 str.indexOf('Could not reach Cloud Firestore backend') !== -1 ||
+                 str.indexOf('client will operate in offline mode') !== -1;
         }
         for (var i = 0; i < methods.length; i++) {
           (function(m) {

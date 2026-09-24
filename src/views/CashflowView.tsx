@@ -703,29 +703,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* ================= TOP CLEAN HEADER BAR ================= */}
-      <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {activeMenu !== 'hub' ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (activeMenu === 'riwayat_pos' && activePosSub !== 'menu') {
-                  setActivePosSub('menu');
-                } else {
-                  setActiveMenu('hub');
-                }
-              }}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>
-                {activeMenu === 'riwayat_pos' && activePosSub !== 'menu'
-                  ? 'Riwayat Pos'
-                  : 'Menu Cashflow'}
-              </span>
-            </button>
-          ) : (
+      {/* ================= TOP CLEAN HEADER BAR (HANYA DI HUB) ================= */}
+      {activeMenu === 'hub' && (
+        <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onBackToDashboard}
@@ -734,45 +715,43 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
               <span>Dashboard</span>
             </button>
-          )}
 
-          <div className="flex items-center gap-1.5">
-            <Wallet className="w-4 h-4 text-[#25F4EE]" />
-            <span className="text-xs sm:text-sm font-black text-white">
-              {activeMenu === 'hub' && 'Cashflow & Arus Kas Toko'}
-              {activeMenu === 'input' && (editingItem ? 'Edit Transaksi Kas' : 'Input Kas')}
-              {activeMenu === 'catatan_kas' && 'Catatan Kas (Kas Masuk & Keluar)'}
-              {activeMenu === 'riwayat_pos' && (
-                activePosSub === 'menu' ? 'Riwayat Pos Cashflow' :
-                activePosSub === 'operasional' ? 'Riwayat Pos: Operasional' :
-                activePosSub === 'investasi' ? 'Riwayat Pos: Investasi' : 'Riwayat Pos: Pendanaan'
-              )}
-              {activeMenu === 'jurnal' && 'Jurnal Transaksi Kas (Debit & Kredit)'}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-[#25F4EE]" />
+              <span className="text-xs sm:text-sm font-black text-white">
+                Cashflow &amp; Arus Kas Toko
+              </span>
+            </div>
           </div>
         </div>
-
-        {/* Quick Input Button in Header when in list views */}
-        {activeMenu !== 'hub' && activeMenu !== 'input' && (
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setActiveMenu('input');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-[#25F4EE] hover:bg-[#20e3de] text-[#0b0c10] font-black text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#25F4EE]/20"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">+ Input Kas</span>
-            <span className="sm:hidden">Input</span>
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Filter Bar (Khusus Tampilan Daftar Transaksi) */}
-      {(activeMenu === 'catatan_kas' || activeMenu === 'jurnal' || (activeMenu === 'riwayat_pos' && (activePosSub === 'operasional' || activePosSub === 'investasi'))) && (
-        <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow flex flex-wrap items-center justify-between gap-2.5">
+      {(activeMenu === 'catatan_kas' || activeMenu === 'jurnal' || (activeMenu === 'riwayat_pos' && (activePosSub === 'operasional' || activePosSub === 'investasi' || activePosSub === 'pendanaan'))) && (
+        <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
+            {activeMenu === 'catatan_kas' || activeMenu === 'jurnal' ? (
+              <button
+                type="button"
+                onClick={() => setActiveMenu('hub')}
+                className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0"
+                title="Kembali ke Menu Cashflow"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span className="hidden sm:inline">Menu Cashflow</span>
+              </button>
+            ) : activeMenu === 'riwayat_pos' && activePosSub !== 'menu' ? (
+              <button
+                type="button"
+                onClick={() => setActivePosSub('menu')}
+                className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0"
+                title="Kembali ke Riwayat Pos"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span className="hidden sm:inline">Riwayat Pos</span>
+              </button>
+            ) : null}
+
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-[#25F4EE]" />
               Filter Periode:
@@ -818,37 +797,31 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 />
               </div>
             )}
-
-            {/* Selector Urutan (Urutkan Sesuai Tanggal Input) */}
-            <div className="flex items-center gap-1.5 pl-2 sm:border-l border-white/10">
-              <span className="text-xs font-bold text-zinc-300 flex items-center gap-1">
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#25F4EE]" />
-                Urutan:
-              </span>
-              <ThemedSelect
-                value={sortOrder}
-                onChange={val => setSortOrder(val as any)}
-                title="Pilih Urutan Transaksi"
-                options={[
-                  { value: 'date_desc', label: 'Tgl Transaksi (Paling Lama di Bawah) ↓' },
-                  { value: 'date_asc', label: 'Tgl Transaksi (Paling Lama di Atas) ↑' },
-                  { value: 'input_desc', label: 'Waktu Input (Terbaru di Atas)' },
-                  { value: 'input_asc', label: 'Waktu Input (Terlama di Atas)' },
-                ]}
-                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              />
-            </div>
           </div>
 
-          <div className="relative min-w-[200px] flex-1 max-w-xs">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari transaksi..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
-            />
+          <div className="flex items-center gap-2 flex-1 max-w-xs justify-end">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari transaksi..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:outline-hidden focus:border-[#25F4EE]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setActiveMenu('input');
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-[#25F4EE] hover:bg-[#20e3de] text-[#0b0c10] font-black text-xs flex items-center gap-1 transition cursor-pointer shadow-md shadow-[#25F4EE]/20 shrink-0"
+              title="Input Transaksi Kas"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Input</span>
+            </button>
           </div>
         </div>
       )}
@@ -857,25 +830,28 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           HALAMAN UTAMA CASHFLOW (RINGKASAN & 3 MENU)
           ========================================================================= */}
       {activeMenu === 'hub' && (
-        <div className="space-y-4">
-          {/* Ringkasan Saldo Cashflow */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-[#25F4EE]" />
-              <h3 className="text-sm font-black text-white">Ringkasan Saldo Cashflow</h3>
+        <div className="space-y-3.5 sm:space-y-4">
+          {/* Ringkasan Saldo Cashflow (Compact / Perkecil Sesuai Permintaan) */}
+          <div className="p-3 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <h3 className="text-xs font-black text-white">Ringkasan Saldo Cashflow</h3>
+              </div>
+              <span className="text-[10px] text-zinc-400 font-semibold">{filteredList.length} Transaksi</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[11px] font-bold text-zinc-400 block">Total Kas Masuk</span>
-                <span className="text-base sm:text-lg font-black text-[#25F4EE]">+{formatRupiah(totalInflow)}</span>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[10px] font-semibold text-zinc-400 block truncate">Kas Masuk</span>
+                <span className="text-xs sm:text-sm font-black text-[#25F4EE] block truncate">+{formatRupiah(totalInflow)}</span>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[11px] font-bold text-zinc-400 block">Total Kas Keluar</span>
-                <span className="text-base sm:text-lg font-black text-[#FE2C55]">-{formatRupiah(totalOutflow)}</span>
+              <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[10px] font-semibold text-zinc-400 block truncate">Kas Keluar</span>
+                <span className="text-xs sm:text-sm font-black text-[#FE2C55] block truncate">-{formatRupiah(totalOutflow)}</span>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5">
-                <span className="text-[11px] font-bold text-zinc-400 block">Saldo Kas</span>
-                <span className={`text-base sm:text-lg font-black ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+              <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5">
+                <span className="text-[10px] font-semibold text-zinc-400 block truncate">Saldo Kas</span>
+                <span className={`text-xs sm:text-sm font-black block truncate ${netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
                   {formatRupiah(netCash)}
                 </span>
               </div>
@@ -1339,58 +1315,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
           ========================================================================= */}
       {activeMenu === 'catatan_kas' && (
         <div className="space-y-3">
-          {/* Filter Jenis Kas & Ringkasan */}
-          <div className="p-3.5 rounded-3xl bg-[#161823] border border-white/10 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-zinc-300">Tampilkan:</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCatatanKasTypeFilter('all')}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                      catatanKasTypeFilter === 'all'
-                        ? 'bg-white/20 text-white shadow-sm'
-                        : 'bg-[#0b0c10] text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Semua ({filteredList.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCatatanKasTypeFilter('inflow')}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                      catatanKasTypeFilter === 'inflow'
-                        ? 'bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/40'
-                        : 'bg-[#0b0c10] text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Kas Masuk ({filteredList.filter(i => i.type === 'inflow').length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCatatanKasTypeFilter('outflow')}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                      catatanKasTypeFilter === 'outflow'
-                        ? 'bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/40'
-                        : 'bg-[#0b0c10] text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Kas Keluar ({filteredList.filter(i => i.type === 'outflow').length})
-                  </button>
-                </div>
-              </div>
-
-              {/* Ringkasan Cepat di Catatan Kas */}
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span>Total Masuk: <strong className="text-[#25F4EE]">+{formatRupiah(totalInflow)}</strong></span>
-                <span>Total Keluar: <strong className="text-[#FE2C55]">-{formatRupiah(totalOutflow)}</strong></span>
-                <span className="font-bold pl-2 sm:border-l sm:border-white/10">
-                  Saldo: <strong className={netCash >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}>{formatRupiah(netCash)}</strong>
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* Tabel Catatan Kas (Format Buku Kas: Tanggal | Kas Masuk | Kas Keluar | Saldo) */}
 
           {/* Tabel Catatan Kas (Format Buku Kas: Tanggal | Kas Masuk | Kas Keluar | Saldo) */}
           {catatanKasList.length === 0 ? (
@@ -1499,9 +1424,19 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         <div className="space-y-4">
           {activePosSub === 'menu' && (
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1">
-                Pilih Pos Cashflow:
-              </h4>
+              <div className="flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveMenu('hub')}
+                  className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span>Menu Cashflow</span>
+                </button>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Pilih Pos Cashflow:
+                </h4>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Pos Operasional */}

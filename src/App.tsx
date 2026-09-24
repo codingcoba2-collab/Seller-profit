@@ -168,8 +168,12 @@ export default function App() {
     let offlineAlertTimer: NodeJS.Timeout | null = null;
 
     const initializeApp = async () => {
-      // Step 1: Online-only check
-      const online = await networkService.checkConnection();
+      // Step 1: Online-only check with cold-start resilience
+      let online = await networkService.checkConnection();
+      if (!online && typeof navigator !== 'undefined' && navigator.onLine) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        online = await networkService.checkConnection();
+      }
       setIsOnline(online);
 
       if (!online) {
