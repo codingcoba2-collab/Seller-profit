@@ -2477,6 +2477,196 @@ export class StorageService {
     return { tagihan: item, cashflow: cfRecord };
   }
 
+  // 8. General UTANG & PIUTANG handlers: Piutang, Kasbon Pegawai, Utang Supplier, Pinjaman
+  static createUtangPiutangRecord(params: {
+    storeId: string;
+    date: string;
+    type: 'piutang' | 'kasbon' | 'utang_supplier' | 'pinjaman' | 'dana_talang';
+    title: string;
+    initialAmount: number;
+    contactName?: string;
+    employeeId?: string;
+    employeeName?: string;
+    customerName?: string;
+    supplierName?: string;
+    lenderName?: string;
+    dueDate?: string;
+    notes?: string;
+    proofImageUrl?: string;
+    recordToCashflow?: boolean;
+  }): { tagihan: TagihanRecord; cashflow?: CashflowRecord } {
+    const timestamp = Date.now();
+    const id = `up-${timestamp}`;
+    let cfRecord: CashflowRecord | undefined;
+
+    if (params.recordToCashflow) {
+      if (params.type === 'piutang') {
+        cfRecord = {
+          id: `cf-${id}`,
+          storeId: params.storeId,
+          date: params.date,
+          type: 'outflow',
+          amount: params.initialAmount,
+          category: 'operasional',
+          description: `Pemberian Piutang - ${params.contactName || params.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      } else if (params.type === 'kasbon') {
+        cfRecord = {
+          id: `cf-${id}`,
+          storeId: params.storeId,
+          date: params.date,
+          type: 'outflow',
+          amount: params.initialAmount,
+          category: 'gaji_pegawai',
+          paymentType: 'kasbon',
+          description: `Kasbon Pegawai - ${params.employeeName || params.contactName || 'Pegawai'}${params.notes ? ` (${params.notes})` : ''}`,
+          employeeId: params.employeeId,
+          employeeName: params.employeeName,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      } else if (params.type === 'pinjaman' || params.type === 'dana_talang') {
+        cfRecord = {
+          id: `cf-${id}`,
+          storeId: params.storeId,
+          date: params.date,
+          type: 'inflow',
+          amount: params.initialAmount,
+          category: 'pinjaman_diterima',
+          pillar: 'pendanaan',
+          description: `Penerimaan Pinjaman - ${params.contactName || params.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      }
+    }
+
+    const tagihanRecord: TagihanRecord = {
+      id: `tagihan-${id}`,
+      storeId: params.storeId,
+      date: params.date,
+      type: params.type,
+      title: params.title,
+      employeeId: params.employeeId,
+      employeeName: params.employeeName,
+      contactName: params.contactName,
+      customerName: params.customerName,
+      supplierName: params.supplierName,
+      lenderName: params.lenderName,
+      initialAmount: params.initialAmount,
+      currentBalance: params.initialAmount,
+      status: 'unpaid',
+      dueDate: params.dueDate,
+      notes: params.notes,
+      proofImageUrl: params.proofImageUrl,
+      sourceRefId: cfRecord?.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.addTagihan(tagihanRecord);
+    return { tagihan: tagihanRecord, cashflow: cfRecord };
+  }
+
+  static payUtangPiutangRecord(tagihanId: string, params: {
+    date: string;
+    amount: number;
+    notes?: string;
+    proofImageUrl?: string;
+    recordToCashflow?: boolean;
+  }): { tagihan: TagihanRecord; cashflow?: CashflowRecord } {
+    const raw = this.safeGetItem(STORAGE_KEYS.TAGIHAN);
+    let all: TagihanRecord[] = raw ? JSON.parse(raw) : [];
+    const item = all.find(t => t.id === tagihanId);
+    if (!item) throw new Error('Catatan utang / piutang tidak ditemukan');
+
+    const paymentId = `pay-up-${Date.now()}`;
+    let cfRecord: CashflowRecord | undefined;
+
+    if (params.recordToCashflow !== false) {
+      if (item.type === 'piutang') {
+        cfRecord = {
+          id: `cf-${paymentId}`,
+          storeId: item.storeId,
+          date: params.date,
+          type: 'inflow',
+          amount: params.amount,
+          category: 'operasional',
+          description: `Pelunasan Piutang - ${item.contactName || item.customerName || item.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      } else if (item.type === 'kasbon') {
+        cfRecord = {
+          id: `cf-${paymentId}`,
+          storeId: item.storeId,
+          date: params.date,
+          type: 'inflow',
+          amount: params.amount,
+          category: 'gaji_pegawai',
+          paymentType: 'kasbon',
+          description: `Pengembalian Kasbon - ${item.employeeName || item.contactName || item.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      } else if (item.type === 'utang_supplier') {
+        cfRecord = {
+          id: `cf-${paymentId}`,
+          storeId: item.storeId,
+          date: params.date,
+          type: 'outflow',
+          amount: params.amount,
+          category: 'modal_ball',
+          description: `Pembayaran Utang Supplier - ${item.contactName || item.supplierName || item.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      } else if (item.type === 'pinjaman' || item.type === 'dana_talang') {
+        cfRecord = {
+          id: `cf-${paymentId}`,
+          storeId: item.storeId,
+          date: params.date,
+          type: 'outflow',
+          amount: params.amount,
+          category: 'bayar_pokok_pinjaman',
+          pillar: 'pendanaan',
+          description: `Pembayaran Pokok Pinjaman - ${item.contactName || item.lenderName || item.title}${params.notes ? ` (${params.notes})` : ''}`,
+          proofImageUrl: params.proofImageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        this.addCashflow(cfRecord);
+      }
+    }
+
+    const currentBal = Math.abs(item.currentBalance);
+    const newBalance = Math.max(0, currentBal - params.amount);
+    const historyItem: TagihanPaymentHistory = {
+      id: paymentId,
+      date: params.date,
+      amount: params.amount,
+      type: `bayar_${item.type}`,
+      notes: params.notes,
+      cashflowId: cfRecord?.id,
+      createdAt: new Date().toISOString(),
+    };
+
+    item.currentBalance = item.type === 'dana_talang' ? -newBalance : newBalance;
+    item.status = newBalance <= 0 ? 'paid' : 'partial';
+    item.updatedAt = new Date().toISOString();
+    if (newBalance <= 0) item.settledAt = new Date().toISOString();
+    item.history = [...(item.history || []), historyItem];
+
+    this.updateTagihan(item);
+    return { tagihan: item, cashflow: cfRecord };
+  }
+
   // PERSONAL FINANCE & CASHFLOW (Arus Keuangan Pribadi)
   static getPersonalBudgetAllocation(storeId: string): PersonalBudgetAllocation {
     const totalKonsumsi = this.getTotalKonsumsiPribadi(storeId);

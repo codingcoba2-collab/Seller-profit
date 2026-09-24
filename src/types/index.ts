@@ -292,10 +292,14 @@ export interface CashflowRecord {
     | 'listrik_wifi' 
     | 'sewa_tempat' 
     | 'investasi_aset' // Pembelian barang jangka panjang / aset toko
-    | 'suntikan_modal' // Suntikan modal tambahan (owner / investor)
-    | 'kasbon' // Kasbon pegawai
+    | 'modal_awal' // Modal / Setoran Modal Awal
+    | 'suntikan_modal' // Tambahan Modal (owner / investor)
+    | 'pinjaman_diterima' // Pinjaman Diterima (Pihak Ketiga / Bank)
+    | 'bayar_pokok_pinjaman' // Pembayaran Pokok Pinjaman
     | 'konsumsi_pribadi' // Pengeluaran Konsumsi Pribadi (Prive Pemilik)
-    | 'dana_talang' // Dana Talang (Inflow saat masuk, Outflow saat dibayar perusahaan)
+    | 'prive' // Prive Pemilik
+    | 'kasbon' // Kasbon pegawai
+    | 'dana_talang' // Dana Talang
     | 'lainnya';
   pillar?: CashflowPillar; // Pos Arus Kas: 'operasional' | 'investasi' | 'pendanaan'
   employeeId?: string; // ID pegawai jika kategori gaji_pegawai
@@ -308,12 +312,14 @@ export interface CashflowRecord {
   createdAt: string;
 }
 
-// TAGIHAN & DANA TALANG MODEL
+// UTANG & PIUTANG MODEL (Tagihan, Kasbon Pegawai, Utang Supplier, Pinjaman)
+export type UtangPiutangType = 'piutang' | 'kasbon' | 'utang_supplier' | 'pinjaman' | 'dana_talang';
+
 export interface TagihanPaymentHistory {
   id: string;
   date: string;
   amount: number;
-  type: 'bayar_kasbon' | 'potong_gaji' | 'bayar_dana_talang';
+  type: 'bayar_kasbon' | 'potong_gaji' | 'bayar_dana_talang' | 'bayar_utang' | 'terima_piutang' | 'bayar_pinjaman' | string;
   notes?: string;
   cashflowId?: string;
   createdAt: string;
@@ -323,13 +329,18 @@ export interface TagihanRecord {
   id: string;
   storeId: string;
   date: string;
-  type: 'kasbon' | 'dana_talang'; // Kasbon Pegawai (+) atau Dana Talang Toko (-)
+  type: UtangPiutangType; // Piutang | Kasbon Pegawai | Utang Supplier | Pinjaman / Dana Talang
   title: string;
   employeeId?: string;
   employeeName?: string;
-  initialAmount: number; // Nominal awal
-  currentBalance: number; // Saldo tagihan (+ untuk kasbon, - untuk dana talang)
+  contactName?: string; // Nama debitur/kreditur/pihak terkait
+  customerName?: string;
+  supplierName?: string;
+  lenderName?: string;
+  initialAmount: number; // Nominal awal tagihan/utang/piutang
+  currentBalance: number; // Sisa saldo yang belum dibayar/diterima
   status: 'unpaid' | 'partial' | 'paid';
+  dueDate?: string; // Tanggal jatuh tempo
   notes?: string;
   proofImageUrl?: string;
   sourceRefId?: string;

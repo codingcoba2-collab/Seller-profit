@@ -22,11 +22,13 @@ import {
   FolderOpen,
   ArrowUpDown,
   Clock,
-  Receipt
+  Receipt,
+  CreditCard
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
 import { TagihanSection } from '../components/TagihanSection';
+import { UtangPiutangSection } from '../components/UtangPiutangSection';
 
 interface CashflowViewProps {
   currentUser: CurrentUser;
@@ -34,11 +36,11 @@ interface CashflowViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export type MainCashflowSubMenu = 'hub' | 'input' | 'catatan_kas' | 'riwayat_pos' | 'jurnal';
+export type MainCashflowSubMenu = 'hub' | 'input' | 'catatan_kas' | 'riwayat_pos' | 'jurnal' | 'utang_piutang';
 export type PosSubCategory = 'menu' | 'operasional' | 'investasi' | 'pendanaan';
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  // Operasional
+  // 1. Operasional
   modal_ball: 'Modal Ball / Belanja Stok Barang',
   ongkir: 'Ongkos Kirim Stok / Ekspedisi',
   operasional: 'Biaya Operasional Toko',
@@ -52,14 +54,16 @@ export const CATEGORY_LABELS: Record<string, string> = {
   penarikan_shopee: 'Penarikan Saldo Marketplace / Penjualan',
   penarikan_marketplace: 'Penarikan Saldo Marketplace',
   
-  // Investasi
+  // 2. Investasi
   investasi_aset: 'Pembelian Aset / Barang Jangka Panjang',
 
-  // Pendanaan
-  kasbon: 'Kasbon Pegawai',
-  suntikan_modal: 'Suntikan Modal Tambahan (Owner / Investor)',
-  dana_talang: 'Dana Talang / Kas Talangan',
-  konsumsi_pribadi: 'Konsumsi Pribadi (Prive Owner)',
+  // 3. Pendanaan (HANYA berisi Modal, Tambahan Modal, Pinjaman Diterima, Pembayaran Pokok Pinjaman, dan Prive)
+  modal_awal: 'Modal / Setoran Modal Awal',
+  suntikan_modal: 'Tambahan Modal (Owner / Investor)',
+  pinjaman_diterima: 'Pinjaman Diterima (Pihak Ketiga / Bank)',
+  bayar_pokok_pinjaman: 'Pembayaran Pokok Pinjaman',
+  konsumsi_pribadi: 'Prive (Penarikan Pribadi Pemilik)',
+  prive: 'Prive (Penarikan Pribadi Pemilik)',
 
   lainnya: 'Lain-lain',
 };
@@ -70,20 +74,26 @@ export function getCashflowPillar(record: CashflowRecord): CashflowPillar {
   const cat = record.category as string;
   const desc = (record.description || '').toLowerCase();
 
+  // Pendanaan: HANYA Modal, Tambahan Modal, Pinjaman Diterima, Pembayaran Pokok Pinjaman, dan Prive
+  // Tagihan, Piutang, atau Kasbon TIDAK dimasukkan ke dalam Pendanaan!
   if (
-    cat === 'dana_talang' ||
-    cat === 'konsumsi_pribadi' ||
+    cat === 'modal_awal' ||
     cat === 'suntikan_modal' ||
-    cat === 'kasbon' ||
-    record.paymentType === 'kasbon' ||
-    desc.includes('kasbon') ||
-    desc.includes('suntikan') ||
-    desc.includes('talang') ||
+    cat === 'pinjaman_diterima' ||
+    cat === 'bayar_pokok_pinjaman' ||
+    cat === 'konsumsi_pribadi' ||
+    cat === 'prive' ||
+    desc.includes('suntikan modal') ||
+    desc.includes('tambahan modal') ||
+    desc.includes('modal awal') ||
+    desc.includes('pinjaman diterima') ||
+    desc.includes('pokok pinjaman') ||
     desc.includes('prive')
   ) {
     return 'pendanaan';
   }
 
+  // Investasi
   if (
     cat === 'investasi_aset' ||
     cat.includes('investasi') ||
@@ -101,6 +111,7 @@ export function getCashflowPillar(record: CashflowRecord): CashflowPillar {
     return 'investasi';
   }
 
+  // Sisanya masuk ke Operasional
   return 'operasional';
 }
 
@@ -223,17 +234,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       setCategory('investasi_aset');
       setDescription('Pembelian mesin steamer / rak pakaian');
     } else if (chosenPillar === 'pendanaan') {
-      setAmount(300000);
-      setCategory('kasbon');
-      setPaymentType('kasbon');
-      const emp = employees[0];
-      if (emp) {
-        setEmployeeId(emp.id);
-        setEmployeeName(emp.name);
-        setDescription(`Kasbon Pegawai - ${emp.name}`);
-      } else {
-        setDescription('Kasbon Pegawai');
-      }
+      setAmount(1000000);
+      setType('inflow');
+      setCategory('modal_awal');
+      setDescription('Setoran modal awal usaha toko');
     }
 
     const now = new Date();
@@ -272,11 +276,11 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       setDescription(type === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
     } else if (newPillar === 'pendanaan') {
       if (type === 'outflow') {
-        setCategory('kasbon');
-        setDescription('Kasbon Pegawai');
+        setCategory('bayar_pokok_pinjaman');
+        setDescription('Pembayaran pokok pinjaman');
       } else {
         setCategory('suntikan_modal');
-        setDescription('Suntikan modal kas tambahan');
+        setDescription('Tambahan modal pemilik / investor');
       }
     }
   };
@@ -296,11 +300,11 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       setDescription(newType === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
     } else if (selectedPillar === 'pendanaan') {
       if (newType === 'outflow') {
-        setCategory('kasbon');
-        setDescription('Kasbon Pegawai');
+        setCategory('bayar_pokok_pinjaman');
+        setDescription('Pembayaran pokok pinjaman');
       } else {
         setCategory('suntikan_modal');
-        setDescription('Suntikan modal kas tambahan');
+        setDescription('Tambahan modal pemilik / investor');
       }
     }
   };
@@ -316,15 +320,6 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         setDescription(`${prefix} - ${emp.name} (Periode ${periodMonth})`);
       } else {
         setDescription('Pembayaran Gaji & Insentif Pegawai');
-      }
-    } else if (catValue === 'kasbon') {
-      const emp = employees.find(e => e.id === employeeId) || employees[0];
-      if (emp) {
-        setEmployeeId(emp.id);
-        setEmployeeName(emp.name);
-        setDescription(`Kasbon Pegawai - ${emp.name}`);
-      } else {
-        setDescription('Kasbon Pegawai');
       }
     } else if (catValue === 'packing') {
       setDescription('Beli lakban, plastik packing polymailer & bubble wrap');
@@ -344,12 +339,16 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       setDescription('Kebutuhan operasional harian toko');
     } else if (catValue === 'investasi_aset') {
       setDescription(type === 'outflow' ? 'Pembelian mesin steamer / rak / display' : 'Penjualan aset / mesin bekas');
-    } else if (catValue === 'dana_talang') {
-      setDescription(type === 'outflow' ? 'Pelunasan dana talang operasional' : 'Penerimaan dana talang toko');
+    } else if (catValue === 'modal_awal') {
+      setDescription('Setoran modal awal usaha toko');
     } else if (catValue === 'suntikan_modal') {
-      setDescription('Suntikan modal kas tambahan');
-    } else if (catValue === 'konsumsi_pribadi') {
-      setDescription('Prive penarikan kas pribadi pemilik');
+      setDescription('Tambahan modal pemilik / investor');
+    } else if (catValue === 'pinjaman_diterima') {
+      setDescription('Penerimaan pinjaman usaha / kreditur');
+    } else if (catValue === 'bayar_pokok_pinjaman') {
+      setDescription('Pembayaran pokok pinjaman');
+    } else if (catValue === 'konsumsi_pribadi' || catValue === 'prive') {
+      setDescription('Prive (Penarikan kas pribadi pemilik)');
     } else if (catValue === 'penarikan_shopee') {
       setDescription('Pencairan saldo penjualan marketplace');
     } else {
@@ -853,12 +852,13 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             <span>+ Input Kas</span>
           </button>
 
-          {/* Kemudian 3 menu:
+          {/* Kemudian 4 menu:
               1. Catatan Kas
               2. Riwayat Pos Cashflow
-              3. Jurnal */}
+              3. Jurnal
+              4. Utang & Piutang */}
           <div className="space-y-2.5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* 1. Catatan Kas */}
               <div
                 id="menu-catatan-kas"
@@ -932,8 +932,33 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
-                  <span className="text-zinc-500 font-semibold">Debit (+) & Kredit (-)</span>
+                  <span className="text-zinc-500 font-semibold">Debit (+) &amp; Kredit (-)</span>
                   <span className="font-bold text-purple-400 group-hover:underline">Buka Jurnal &rarr;</span>
+                </div>
+              </div>
+
+              {/* 4. Utang & Piutang */}
+              <div
+                id="menu-utang-piutang"
+                onClick={() => setActiveMenu('utang_piutang')}
+                className="group p-5 rounded-3xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/50 transition-all cursor-pointer flex flex-col justify-between gap-3 shadow-lg active:scale-99"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-amber-300 transition">
+                      4. Utang &amp; Piutang
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Piutang, Kasbon Pegawai, Utang Supplier, dan Pinjaman.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                  <span className="text-zinc-500 font-semibold">{tagihanList.length} Catatan</span>
+                  <span className="font-bold text-amber-400 group-hover:underline">Buka Utang &amp; Piutang &rarr;</span>
                 </div>
               </div>
             </div>
@@ -1101,25 +1126,22 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                 {selectedPillar === 'pendanaan' && (
                   type === 'outflow' ? (
                     <>
-                      <option value="kasbon" className="bg-[#161823] text-white">Pinjaman Kasbon Pegawai</option>
-                      <option value="dana_talang" className="bg-[#161823] text-white">Pengembalian Dana Talang Toko</option>
-                      <option value="konsumsi_pribadi" className="bg-[#161823] text-white">Konsumsi Pribadi (Prive Owner)</option>
-                      <option value="lainnya" className="bg-[#161823] text-white">Pengeluaran Pendanaan Lainnya</option>
+                      <option value="bayar_pokok_pinjaman" className="bg-[#161823] text-white">Pembayaran Pokok Pinjaman</option>
+                      <option value="konsumsi_pribadi" className="bg-[#161823] text-white">Prive (Penarikan Pribadi Pemilik)</option>
                     </>
                   ) : (
                     <>
-                      <option value="suntikan_modal" className="bg-[#161823] text-white">Suntikan Modal Pemilik / Investor</option>
-                      <option value="dana_talang" className="bg-[#161823] text-white">Penerimaan Dana Talang Toko</option>
-                      <option value="kasbon" className="bg-[#161823] text-white">Pengembalian / Pelunasan Kasbon Pegawai</option>
-                      <option value="lainnya" className="bg-[#161823] text-white">Pemasukan Pendanaan Lainnya</option>
+                      <option value="modal_awal" className="bg-[#161823] text-white">Modal / Setoran Modal Awal</option>
+                      <option value="suntikan_modal" className="bg-[#161823] text-white">Tambahan Modal (Owner / Investor)</option>
+                      <option value="pinjaman_diterima" className="bg-[#161823] text-white">Pinjaman Diterima (Pihak Ketiga / Bank)</option>
                     </>
                   )
                 )}
               </select>
             </div>
 
-            {/* E. KHUSUS PEGAWAI JIKA KASBON ATAU GAJI */}
-            {(category === 'gaji_pegawai' || category === 'kasbon') && (
+            {/* E. KHUSUS PEGAWAI JIKA GAJI */}
+            {category === 'gaji_pegawai' && (
               <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
@@ -1131,7 +1153,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                         const emp = employees.find(x => x.id === e.target.value);
                         if (emp) {
                           setEmployeeName(emp.name);
-                          setDescription(`${category === 'kasbon' ? 'Kasbon' : 'Gaji'} - ${emp.name} (${periodMonth})`);
+                          setDescription(`Gaji - ${emp.name} (${periodMonth})`);
                         }
                       }}
                       className="w-full px-2.5 py-2 text-xs rounded-xl bg-[#161823] border border-white/10 text-white"
@@ -1503,7 +1525,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                         Pendanaan
                       </div>
                       <p className="text-xs text-zinc-400 mt-0.5">
-                        {tagihanList.length} Data Tagihan &amp; Kasbon
+                        {pendanaanList.length} Transaksi Pendanaan (Modal, Pinjaman, Prive)
                       </p>
                     </div>
                   </div>
@@ -1677,16 +1699,105 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             </div>
           )}
 
-          {/* DAFTAR: POS PENDANAAN (BUKU TAGIHAN & DANA TALANG) */}
+          {/* DAFTAR: POS PENDANAAN (HANYA MODAL, TAMBAHAN MODAL, PINJAMAN DITERIMA, POKOK PINJAMAN, DAN PRIVE) */}
           {activePosSub === 'pendanaan' && (
-            <TagihanSection
-              currentUser={currentUser}
-              employees={employees}
-              tagihanList={tagihanList}
-              onRefresh={loadData}
-              onBackToMenu={() => setActivePosSub('menu')}
-              onNotify={onNotify}
-            />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between text-xs font-bold text-zinc-400 px-1 gap-2">
+                <span>Daftar Transaksi Pendanaan ({pendanaanList.length}):</span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-[#25F4EE]">
+                    Masuk: +{formatRupiah(pendanaanList.filter(i => i.type === 'inflow').reduce((a, b) => a + b.amount, 0))}
+                  </span>
+                  <span>•</span>
+                  <span className="text-[#FE2C55]">
+                    Keluar: -{formatRupiah(pendanaanList.filter(i => i.type === 'outflow').reduce((a, b) => a + b.amount, 0))}
+                  </span>
+                </div>
+              </div>
+
+              {pendanaanList.length === 0 ? (
+                <div className="p-8 text-center bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs space-y-2">
+                  <p>Belum ada transaksi pos pendanaan (Modal, Tambahan Modal, Pinjaman Diterima, Pokok Pinjaman, atau Prive) pada periode ini.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm('pendanaan');
+                      setActiveMenu('input');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    + Input Kas Pendanaan
+                  </button>
+                </div>
+              ) : (
+                pendanaanList.map(item => {
+                  const isInflow = item.type === 'inflow';
+                  const catLabel = CATEGORY_LABELS[item.category] || item.category;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-purple-400/40 transition shadow-sm space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300" title="Tanggal Transaksi">
+                            Tgl: {formatDateIndo(item.date)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-zinc-400 flex items-center gap-1" title="Tanggal & Waktu Input Transaksi">
+                            <Clock className="w-2.5 h-2.5 text-purple-400" />
+                            Input: {formatInputDateTime(item.createdAt, item.date)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-400/10 text-purple-400 border border-purple-400/30">
+                            Pendanaan
+                          </span>
+                          <span className="text-xs text-zinc-300 font-bold">{catLabel}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {item.proofImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewPhotoUrl(item.proofImageUrl!)}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-purple-400"
+                              title="Lihat Bukti Nota"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(item)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-purple-400"
+                            title="Edit"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id, item.description)}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55]"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className={`text-base font-black ${isInflow ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+                          {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
+                        </div>
+                        <div className="text-right text-xs text-zinc-300 truncate font-semibold flex-1">
+                          {item.description}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1877,6 +1988,20 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* =========================================================================
+          4. SUB MENU: UTANG & PIUTANG (PIUTANG, KASBON PEGAWAI, UTANG SUPPLIER, PINJAMAN)
+          ========================================================================= */}
+      {activeMenu === 'utang_piutang' && (
+        <UtangPiutangSection
+          currentUser={currentUser}
+          employees={employees}
+          tagihanList={tagihanList}
+          onRefresh={loadData}
+          onBackToMenu={() => setActiveMenu('hub')}
+          onNotify={onNotify}
+        />
       )}
 
       {/* Image Preview Modal */}
