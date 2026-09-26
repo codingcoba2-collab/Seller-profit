@@ -182,6 +182,11 @@ export interface BallInventory {
   storeId: string;
   date: string;
   ballType: string; // nama stok / kode / nama ball / seri
+  weightKg?: number; // berat ball dalam kg (misal 45, 50, 100)
+  pcsKepala?: number; // jumlah pcs kategori kelas Kepala
+  pcsBadan?: number; // jumlah pcs kategori kelas Badan
+  pcsKaki?: number; // jumlah pcs kategori kelas Kaki
+  ballQuality?: BallQualityGrade; // 'sangat_bagus' | 'bagus' | 'biasa' | 'jelek'
   category?: FashionCategory; // Kategori fashion (Thrift, Baju Baru, Hijab, Distro, dll.)
   unitType?: InventoryUnitType; // Ball karung, Lusin, Seri, Satuan, dll.
   sizes?: string[]; // Pilihan ukuran e.g. ['S', 'M', 'L', 'XL']
@@ -400,6 +405,25 @@ export interface StoreAnnouncement {
   createdAt: string;
 }
 
+export type BallQualityGrade = 'sangat_bagus' | 'bagus' | 'biasa' | 'jelek';
+
+export interface BallDataRecord {
+  id: string;
+  storeId: string;
+  date: string;
+  ballName: string;
+  weightKg: number; // berat ball dalam kg
+  pcsTotal: number; // total isi barang dalam ball
+  pcsKepala: number; // jumlah pcs kelas Kepala
+  pcsBadan: number; // jumlah pcs kelas Badan
+  pcsKaki: number; // jumlah pcs kelas Kaki
+  quality: BallQualityGrade; // 'sangat_bagus' | 'bagus' | 'biasa' | 'jelek'
+  notes?: string;
+  sourceInventoryId?: string;
+  sourceSortirId?: string;
+  createdAt: string;
+}
+
 export type ViewState = 
   | 'login'
   | 'dashboard'
@@ -410,6 +434,7 @@ export type ViewState =
   | 'role_management'   // Persiapan: Manajemen Pegawai & Role
   | 'modal_stok'        // Persiapan: Modal & Stok (HPP)
   | 'steam_sortir'      // Persiapan: Sortir, QC dan Finishing
+  | 'daftar_ball'       // Persiapan: Daftar Ball (Nama Ball, Berat Ball, Kualitas Ball)
   | 'admin_shopee'      // Persiapan: Biaya Admin Marketplace
   | 'iklan_koin'        // Persiapan: Saldo Biaya Iklan & Koin Live
   | 'topup_saldo_input' // Topup Saldo Form Input
@@ -448,12 +473,17 @@ export interface SteamSortirRecord {
   date: string;
   ballInventoryId?: string;
   ballName: string;
+  weightKg?: number; // Berat ball (kg)
   processType: 'sortir' | 'steam' | 'sortir_dan_steam';
   employeeIds: string[];
   employeeNames: string[];
   pcsTotal: number;
   pcsLayakJual: number;
   pcsReject: number;
+  pcsKepala?: number; // Kategori kelas Kepala
+  pcsBadan?: number; // Kategori kelas Badan
+  pcsKaki?: number; // Kategori kelas Kaki
+  ballQuality?: BallQualityGrade; // Klasifikasi kualitas ball
   costPerPcs?: number; // Optional: jasa per pcs dihapus dari form, upah melalui absensi
   totalCost?: number;
   status: 'proses' | 'selesai';

@@ -27,6 +27,7 @@ const CategoryPageView = lazy(() => import('./views/CategoryPageView').then(m =>
 const RoleManagementView = lazy(() => import('./views/RoleManagementView').then(m => ({ default: m.RoleManagementView })));
 const ModalStokView = lazy(() => import('./views/ModalStokView').then(m => ({ default: m.ModalStokView })));
 const SteamSortirView = lazy(() => import('./views/SteamSortirView').then(m => ({ default: m.SteamSortirView })));
+const DaftarBallView = lazy(() => import('./views/DaftarBallView').then(m => ({ default: m.DaftarBallView })));
 const AdminShopeeView = lazy(() => import('./views/AdminShopeeView').then(m => ({ default: m.AdminShopeeView })));
 const KehadiranView = lazy(() => import('./views/KehadiranView').then(m => ({ default: m.KehadiranView })));
 const PenjualanView = lazy(() => import('./views/PenjualanView').then(m => ({ default: m.PenjualanView })));
@@ -427,6 +428,14 @@ export default function App() {
 
         {currentRoute === '/persiapan/sortir-qc' && (
           <SteamSortirView
+            currentUser={currentUser}
+            onBackToDashboard={() => handleNavigate('/persiapan')}
+            onNotify={handleNotify}
+          />
+        )}
+
+        {currentRoute === '/persiapan/daftar-ball' && (
+          <DaftarBallView
             currentUser={currentUser}
             onBackToDashboard={() => handleNavigate('/persiapan')}
             onNotify={handleNotify}

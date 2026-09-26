@@ -31,6 +31,7 @@ export type RoutePath =
   | '/persiapan/manajemen-pegawai'
   | '/persiapan/modal-stok'
   | '/persiapan/sortir-qc'
+  | '/persiapan/daftar-ball'
   | '/persiapan/biaya-admin'
   | '/persiapan/saldo-iklan'
   | '/topup-saldo'
@@ -126,10 +127,20 @@ export const CATEGORIES: CategoryDefinition[] = [
       {
         path: '/persiapan/sortir-qc',
         title: 'Sortir, QC & Finishing',
-        subtitle: 'Pencatatan pcs layak jual, reject & upah pengerjaan',
+        subtitle: 'Pencatatan pcs layak jual, reject, kelas kepala/badan/kaki & upah',
         badgeText: 'Sortir & QC',
         icon: Scissors,
         iconColor: 'text-teal-400',
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allEmployeesCanView: true,
+      },
+      {
+        path: '/persiapan/daftar-ball',
+        title: 'Daftar Ball',
+        subtitle: 'Data nama ball, berat ball (kg) & klasifikasi kualitas ball (Kepala & Isi)',
+        badgeText: 'Kualitas Ball',
+        icon: Package,
+        iconColor: 'text-[#25F4EE]',
         allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
         allEmployeesCanView: true,
       },
@@ -366,6 +377,9 @@ export function normalizePath(path: string): RoutePath {
     case '/persiapan/sortir-qc':
     case '/persiapan/sortir':
       return '/persiapan/sortir-qc';
+    case '/persiapan/daftar-ball':
+    case '/daftar-ball':
+      return '/persiapan/daftar-ball';
     case '/persiapan/biaya-admin':
     case '/persiapan/admin':
       return '/persiapan/biaya-admin';
@@ -463,6 +477,7 @@ export function viewStateToPath(view: ViewState): RoutePath {
     case 'role_management': return '/persiapan/manajemen-pegawai';
     case 'modal_stok': return '/persiapan/modal-stok';
     case 'steam_sortir': return '/persiapan/sortir-qc';
+    case 'daftar_ball': return '/persiapan/daftar-ball';
     case 'admin_shopee': return '/persiapan/biaya-admin';
     case 'iklan_koin': return '/topup-saldo';
     case 'kehadiran': return '/penjualan/kehadiran';
@@ -526,7 +541,7 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
     return user.isOwner || isManager;
   }
 
-  if (route === '/persiapan/sortir-qc') {
+  if (route === '/persiapan/sortir-qc' || route === '/persiapan/daftar-ball') {
     return true;
   }
 
@@ -567,6 +582,7 @@ export function getPageTitle(route: RoutePath): string {
     case '/persiapan/manajemen-pegawai': return 'Manajemen Pegawai & Role';
     case '/persiapan/modal-stok': return 'Modal & Stok (HPP)';
     case '/persiapan/sortir-qc': return 'Sortir, QC & Finishing';
+    case '/persiapan/daftar-ball': return 'Daftar Ball';
     case '/persiapan/biaya-admin': return 'Biaya Admin Marketplace';
     case '/persiapan/saldo-iklan':
     case '/topup-saldo': return 'Saldo Biaya Iklan & Koin Live';

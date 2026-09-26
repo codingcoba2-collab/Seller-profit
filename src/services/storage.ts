@@ -9,6 +9,7 @@ import {
   CashflowRecord,
   CurrentUser,
   SteamSortirRecord,
+  BallDataRecord,
   ChannelFeeConfig,
   PersonalBudgetAllocation,
   PersonalExpenseRecord,
@@ -32,7 +33,7 @@ import {
   type Unsubscribe 
 } from './firebase';
 import { FirestoreTelemetry } from './firestoreTelemetry';
-import { formatNumber, getTodayString } from '../utils/formatters';
+import { formatNumber, getTodayString, evaluateBallQuality } from '../utils/formatters';
 
 const STORAGE_KEYS = {
   STORES: 'shopee_lr_stores',
@@ -45,6 +46,7 @@ const STORAGE_KEYS = {
   ADS_COINS: 'shopee_lr_adscoins',
   CASHFLOW: 'shopee_lr_cashflow',
   STEAM_SORTIR: 'shopee_lr_steamsortir',
+  BALL_DATA: 'shopee_lr_ball_data',
   PERSONAL_BUDGET: 'seller_profit_personal_budget',
   PERSONAL_EXPENSES: 'seller_profit_personal_expenses',
   CHAT_MESSAGES: 'seller_profit_chat_messages',
@@ -174,6 +176,11 @@ const DEFAULT_INVENTORY: BallInventory[] = [
     storeId: 'store-shopee-01',
     date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
     ballType: 'Ball Knit Import Korea Grade A',
+    weightKg: 50,
+    pcsKepala: 115,
+    pcsBadan: 175,
+    pcsKaki: 60,
+    ballQuality: 'sangat_bagus',
     modalPrice: 6500000,
     pcsCount: 350,
     shippingCost: 250000,
@@ -189,6 +196,11 @@ const DEFAULT_INVENTORY: BallInventory[] = [
     storeId: 'store-shopee-01',
     date: new Date(Date.now() - 86400000 * 1).toISOString().slice(0, 10),
     ballType: 'Ball Cardigan & Blouse Japan',
+    weightKg: 45,
+    pcsKepala: 85,
+    pcsBadan: 155,
+    pcsKaki: 60,
+    ballQuality: 'bagus',
     modalPrice: 5500000,
     pcsCount: 300,
     shippingCost: 200000,
@@ -198,6 +210,71 @@ const DEFAULT_INVENTORY: BallInventory[] = [
     returnMechanism: 'detail',
     estimateReturnPercentage: 3.0,
     createdAt: new Date().toISOString(),
+  }
+];
+
+const DEFAULT_BALL_DATA: BallDataRecord[] = [
+  {
+    id: 'ball-data-01',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
+    ballName: 'Ball Knit Import Korea Grade A',
+    weightKg: 50,
+    pcsTotal: 350,
+    pcsKepala: 115,
+    pcsBadan: 175,
+    pcsKaki: 60,
+    qualityGrade: 'sangat_bagus',
+    inventoryBallId: 'ball-01',
+    notes: 'Kepala > 100 pcs & total isi > 270 pcs (Sangat Bagus)',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: 'ball-data-02',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 1).toISOString().slice(0, 10),
+    ballName: 'Ball Cardigan & Blouse Japan',
+    weightKg: 45,
+    pcsTotal: 300,
+    pcsKepala: 85,
+    pcsBadan: 155,
+    pcsKaki: 60,
+    qualityGrade: 'bagus',
+    inventoryBallId: 'ball-02',
+    notes: 'Kepala 71-100 pcs & total isi > 270 pcs (Bagus)',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+  },
+  {
+    id: 'ball-data-03',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 4).toISOString().slice(0, 10),
+    ballName: 'Ball Crewneck & Hoodie Vintage #03',
+    weightKg: 45,
+    pcsTotal: 255,
+    pcsKepala: 82,
+    pcsBadan: 118,
+    pcsKaki: 55,
+    qualityGrade: 'biasa',
+    notes: 'Kepala 71-100 pcs & isi ≤ 270 pcs (Biasa)',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+  },
+  {
+    id: 'ball-data-04',
+    storeId: 'store-shopee-01',
+    date: new Date(Date.now() - 86400000 * 6).toISOString().slice(0, 10),
+    ballName: 'Ball Kaos Oblong Mix Seri #04',
+    weightKg: 40,
+    pcsTotal: 235,
+    pcsKepala: 55,
+    pcsBadan: 110,
+    pcsKaki: 70,
+    qualityGrade: 'jelek',
+    notes: 'Kepala ≤ 70 pcs & isi < 250 pcs (Jelek)',
+    recordedBy: 'Owner Toko (Bambang)',
+    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
   }
 ];
 
@@ -2829,6 +2906,7 @@ export class StorageService {
     let all: SteamSortirRecord[] = raw ? JSON.parse(raw) : [];
     all.unshift(item);
     this.saveSteamSortir(all);
+    this.syncSortirToBallData(item);
   }
 
   static updateSteamSortir(item: SteamSortirRecord) {
@@ -2838,6 +2916,7 @@ export class StorageService {
     if (idx !== -1) {
       all[idx] = item;
       this.saveSteamSortir(all);
+      this.syncSortirToBallData(item);
     }
   }
 
@@ -2847,6 +2926,96 @@ export class StorageService {
     all = all.filter(s => s.id !== id);
     this.saveSteamSortir(all);
     this.deleteFromCloud('steam_sortir', id);
+  }
+
+  // DAFTAR BALL (BALL QUALITY & CLASS DATA)
+  static getBallData(storeId: string): BallDataRecord[] {
+    const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
+    let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
+    if (!raw) {
+      this.safeSetItem(STORAGE_KEYS.BALL_DATA, JSON.stringify(all));
+    }
+    return all
+      .filter(b => b.storeId === storeId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  static saveBallData(list: BallDataRecord[]) {
+    this.safeSetItem(STORAGE_KEYS.BALL_DATA, JSON.stringify(list));
+    list.forEach(item => this.syncToCloud('ball_data', item.id, item));
+    this.notifyListeners('ball_data');
+  }
+
+  static addOrUpdateBallData(item: BallDataRecord) {
+    const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
+    let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
+    const computedQuality = evaluateBallQuality(item.pcsKepala, item.pcsTotal);
+    const updatedItem: BallDataRecord = {
+      ...item,
+      qualityGrade: computedQuality,
+    };
+    const idx = all.findIndex(b => b.id === updatedItem.id);
+    if (idx !== -1) {
+      all[idx] = updatedItem;
+    } else {
+      all.unshift(updatedItem);
+    }
+    this.saveBallData(all);
+  }
+
+  static deleteBallData(id: string) {
+    const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
+    let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
+    all = all.filter(b => b.id !== id);
+    this.saveBallData(all);
+    this.deleteFromCloud('ball_data', id);
+  }
+
+  private static syncSortirToBallData(item: SteamSortirRecord) {
+    const hasClassData = (item.pcsKepala || 0) > 0 || (item.pcsBadan || 0) > 0 || (item.pcsKaki || 0) > 0;
+    if (!hasClassData || !item.ballName) return;
+
+    const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
+    let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
+
+    const pcsKepala = item.pcsKepala || 0;
+    const pcsBadan = item.pcsBadan || 0;
+    const pcsKaki = item.pcsKaki || 0;
+    const pcsTotal = (pcsKepala + pcsBadan + pcsKaki) > 0 ? (pcsKepala + pcsBadan + pcsKaki) : (item.totalPcsProcessed || 0);
+    const qualityGrade = evaluateBallQuality(pcsKepala, pcsTotal);
+
+    const existingIdx = all.findIndex(
+      b => b.storeId === item.storeId && (
+        b.sortirRecordId === item.id ||
+        (item.inventoryBallId && b.inventoryBallId === item.inventoryBallId) ||
+        b.ballName.trim().toLowerCase() === item.ballName!.trim().toLowerCase()
+      )
+    );
+
+    const ballRecord: BallDataRecord = {
+      id: existingIdx !== -1 ? all[existingIdx].id : `ball-${Date.now()}`,
+      storeId: item.storeId,
+      date: item.date,
+      ballName: item.ballName.trim(),
+      weightKg: item.ballWeightKg || (existingIdx !== -1 ? all[existingIdx].weightKg : 45),
+      pcsTotal,
+      pcsKepala,
+      pcsBadan,
+      pcsKaki,
+      qualityGrade,
+      inventoryBallId: item.inventoryBallId || (existingIdx !== -1 ? all[existingIdx].inventoryBallId : undefined),
+      sortirRecordId: item.id,
+      notes: item.notes || (existingIdx !== -1 ? all[existingIdx].notes : ''),
+      recordedBy: item.recordedBy,
+      createdAt: existingIdx !== -1 ? all[existingIdx].createdAt : item.createdAt,
+    };
+
+    if (existingIdx !== -1) {
+      all[existingIdx] = ballRecord;
+    } else {
+      all.unshift(ballRecord);
+    }
+    this.saveBallData(all);
   }
 
   // CALCULATIONS & BALANCES

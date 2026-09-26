@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StorageService } from '../services/storage';
 import { CurrentUser, SteamSortirRecord } from '../types';
-import { formatDateIndo, formatNumber } from '../utils/formatters';
+import { formatDateIndo, formatNumber, evaluateBallQuality, ballQualityMeta } from '../utils/formatters';
 import { 
   Scissors, 
   Trash2, 
@@ -16,7 +16,10 @@ import {
   ClipboardList,
   AlertCircle,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Layers,
+  Award,
+  Scale
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
@@ -63,8 +66,12 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [ballInventoryId, setBallInventoryId] = useState('');
   const [customBallName, setCustomBallName] = useState('');
+  const [ballWeightKg, setBallWeightKg] = useState<number | ''>(45);
   const [processType, setProcessType] = useState<'sortir' | 'steam' | 'sortir_dan_steam'>('sortir');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [pcsKepala, setPcsKepala] = useState<number | ''>('');
+  const [pcsBadan, setPcsBadan] = useState<number | ''>('');
+  const [pcsKaki, setPcsKaki] = useState<number | ''>('');
   const [pcsTotal, setPcsTotal] = useState<number | ''>('');
   const [pcsLayakJual, setPcsLayakJual] = useState<number | ''>('');
   const [pcsReject, setPcsReject] = useState<number | ''>(0);
@@ -94,10 +101,35 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     if (!ballId) return;
     const found = inventoryList.find(b => b.id === ballId);
     if (found) {
-      setPcsTotal(found.pcsCount || '');
-      setPcsLayakJual(found.pcsCount || '');
+      const count = found.pcsCount || found.pcsTotal || '';
+      setPcsTotal(count);
+      setPcsLayakJual(count);
       setPcsReject(0);
       setCustomBallName(found.ballType || '');
+      if (found.weightKg) setBallWeightKg(found.weightKg);
+      if (found.pcsKepala !== undefined) setPcsKepala(found.pcsKepala);
+      if (found.pcsBadan !== undefined) setPcsBadan(found.pcsBadan);
+      if (found.pcsKaki !== undefined) setPcsKaki(found.pcsKaki);
+    }
+  };
+
+  // Auto-calculate total pcs when Kepala, Badan, or Kaki changes
+  const updateClassBreakdown = (
+    nextKepala: number | '',
+    nextBadan: number | '',
+    nextKaki: number | ''
+  ) => {
+    setPcsKepala(nextKepala);
+    setPcsBadan(nextBadan);
+    setPcsKaki(nextKaki);
+    const k = typeof nextKepala === 'number' ? nextKepala : 0;
+    const b = typeof nextBadan === 'number' ? nextBadan : 0;
+    const f = typeof nextKaki === 'number' ? nextKaki : 0;
+    const sumClass = k + b + f;
+    if (sumClass > 0) {
+      setPcsTotal(sumClass);
+      const reject = typeof pcsReject === 'number' ? pcsReject : 0;
+      setPcsLayakJual(Math.max(0, sumClass - reject));
     }
   };
 
@@ -136,13 +168,17 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const handleStartEdit = (record: SteamSortirRecord) => {
     setEditingRecord(record);
     setDate(record.date || new Date().toISOString().slice(0, 10));
-    setBallInventoryId(record.ballInventoryId || '');
+    setBallInventoryId(record.ballInventoryId || record.inventoryBallId || '');
     setCustomBallName(record.ballName || '');
+    setBallWeightKg(record.ballWeightKg ?? 45);
     setProcessType(record.processType || 'sortir');
     setSelectedEmployeeIds(record.employeeIds || []);
-    setPcsTotal(record.pcsTotal);
-    setPcsLayakJual(record.pcsLayakJual);
-    setPcsReject(record.pcsReject);
+    setPcsKepala(record.pcsKepala ?? '');
+    setPcsBadan(record.pcsBadan ?? '');
+    setPcsKaki(record.pcsKaki ?? '');
+    setPcsTotal(record.pcsTotal ?? record.totalPcsProcessed ?? '');
+    setPcsLayakJual(record.pcsLayakJual ?? '');
+    setPcsReject(record.pcsReject ?? 0);
     setNotes(record.notes || '');
     setStatus(record.status || 'selesai');
     setViewMode('input');
@@ -158,7 +194,11 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     setDate(new Date().toISOString().slice(0, 10));
     setBallInventoryId('');
     setCustomBallName('');
+    setBallWeightKg(45);
     setSelectedEmployeeIds([]);
+    setPcsKepala('');
+    setPcsBadan('');
+    setPcsKaki('');
     setPcsTotal('');
     setPcsLayakJual('');
     setPcsReject(0);
@@ -178,26 +218,41 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       .filter(e => selectedEmployeeIds.includes(e.id))
       .map(e => e.name);
 
-    const calcTotal = typeof pcsTotal === 'number' ? pcsTotal : 0;
+    const numKepala = typeof pcsKepala === 'number' ? pcsKepala : 0;
+    const numBadan = typeof pcsBadan === 'number' ? pcsBadan : 0;
+    const numKaki = typeof pcsKaki === 'number' ? pcsKaki : 0;
+    const sumFromClass = numKepala + numBadan + numKaki;
+
+    const calcTotal = typeof pcsTotal === 'number' && pcsTotal > 0 ? pcsTotal : sumFromClass;
     const calcReject = typeof pcsReject === 'number' ? pcsReject : 0;
     const calcLayak = typeof pcsLayakJual === 'number' ? pcsLayakJual : Math.max(0, calcTotal - calcReject);
+    const calcWeight = typeof ballWeightKg === 'number' && ballWeightKg > 0 ? ballWeightKg : 45;
+    const computedQuality = evaluateBallQuality(numKepala, calcTotal);
 
     const record: SteamSortirRecord = {
       id: editingRecord ? editingRecord.id : 'steam-sortir-' + Date.now(),
       storeId,
       date,
       ballInventoryId: selectedBall ? selectedBall.id : undefined,
+      inventoryBallId: selectedBall ? selectedBall.id : undefined,
       ballName: finalBallName,
+      ballWeightKg: calcWeight,
       processType,
       employeeIds: selectedEmployeeIds,
       employeeNames: selectedEmpNames.length > 0 ? selectedEmpNames : [currentUser.name],
+      pcsKepala: numKepala,
+      pcsBadan: numBadan,
+      pcsKaki: numKaki,
+      ballQuality: computedQuality,
       pcsTotal: calcTotal,
+      totalPcsProcessed: calcTotal,
       pcsLayakJual: calcLayak,
       pcsReject: calcReject,
       costPerPcs: 0,
       totalCost: 0,
       status,
       notes,
+      recordedBy: currentUser.name,
       createdAt: editingRecord ? editingRecord.createdAt : new Date().toISOString(),
     };
 
@@ -465,34 +520,68 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               </div>
             </div>
 
-            {/* Nama Ball Manual / Teks */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-zinc-300">
-                  Nama / Jenis Ball <span className="text-[#FE2C55]">*</span>
-                </label>
-                <span className="text-[10px] text-zinc-400">Ketik manual atau pilih rekomendasi</span>
-              </div>
-              <input
-                type="text"
-                value={customBallName}
-                onChange={e => setCustomBallName(e.target.value)}
-                placeholder="Misal: Ball Knit Korea Grade A"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-              />
+            {/* Nama Ball Manual / Teks & Berat Ball */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-zinc-300">
+                    Nama / Jenis Ball <span className="text-[#FE2C55]">*</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-400">Ketik manual atau pilih rekomendasi</span>
+                </div>
+                <input
+                  type="text"
+                  value={customBallName}
+                  onChange={e => setCustomBallName(e.target.value)}
+                  placeholder="Misal: Ball Knit Korea Grade A"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                />
 
-              {/* Rekomendasi Cepat Nama Ball */}
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {ballPresets.map(preset => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setCustomBallName(preset)}
-                    className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 hover:text-[#25F4EE] border border-white/10 text-zinc-300 transition"
-                  >
-                    + {preset}
-                  </button>
-                ))}
+                {/* Rekomendasi Cepat Nama Ball */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {ballPresets.map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCustomBallName(preset)}
+                      className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 hover:text-[#25F4EE] border border-white/10 text-zinc-300 transition"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-[#25F4EE]" />
+                  <span>Berat Ball (Kg)</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.5"
+                  value={ballWeightKg}
+                  onChange={e => setBallWeightKg(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                  placeholder="Misal: 45"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                />
+                <div className="flex gap-1 mt-2">
+                  {[40, 45, 50, 100].map(kg => (
+                    <button
+                      key={kg}
+                      type="button"
+                      onClick={() => setBallWeightKg(kg)}
+                      className={`text-[10px] px-2 py-0.5 rounded-lg border transition ${
+                        ballWeightKg === kg
+                          ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] font-bold'
+                          : 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {kg} Kg
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -563,12 +652,169 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
             </div>
           </div>
 
-          {/* Bagian 2: Hasil QC Pcs Layak, Reject & Catatan */}
+          {/* Bagian 2: Kategori Kelas Barang (Kepala, Badan, Kaki) & Evaluasi Kualitas Ball */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
+            <div className="border-b border-white/10 pb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#25F4EE]" />
+                <span>Bagian 2: Kategori Kelas Sortir &amp; QC (Kepala, Badan, Kaki)</span>
+              </h3>
+              <span className="text-[10px] text-zinc-400">
+                Menentukan data bagus atau tidaknya kualitas Ball
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Kelas Kepala */}
+              <div className="p-3 rounded-xl bg-[#0b0c10] border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-emerald-400">
+                    Kelas Kepala (Pcs)
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                    Grade Utama
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={pcsKepala}
+                  onChange={e => updateClassBreakdown(
+                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                    pcsBadan,
+                    pcsKaki
+                  )}
+                  placeholder="Misal: 110"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-emerald-500/30 text-white font-bold focus:border-emerald-400"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[50, 75, 105, 120].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => updateClassBreakdown(amt, pcsBadan, pcsKaki)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-300 transition"
+                    >
+                      {amt} pcs
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Kelas Badan */}
+              <div className="p-3 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-[#25F4EE]">
+                    Kelas Badan (Pcs)
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-[#25F4EE]/10 text-[#25F4EE] font-bold border border-[#25F4EE]/20">
+                    Grade Menengah
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={pcsBadan}
+                  onChange={e => updateClassBreakdown(
+                    pcsKepala,
+                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                    pcsKaki
+                  )}
+                  placeholder="Misal: 120"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-[#25F4EE]/30 text-white font-bold focus:border-[#25F4EE]"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[80, 100, 120, 150].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => updateClassBreakdown(pcsKepala, amt, pcsKaki)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-[#25F4EE]/20 text-zinc-400 hover:text-[#25F4EE] transition"
+                    >
+                      {amt} pcs
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Kelas Kaki */}
+              <div className="p-3 rounded-xl bg-[#0b0c10] border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-amber-400">
+                    Kelas Kaki (Pcs)
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+                    Grade Bawah
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={pcsKaki}
+                  onChange={e => updateClassBreakdown(
+                    pcsKepala,
+                    pcsBadan,
+                    e.target.value === '' ? '' : parseInt(e.target.value) || 0
+                  )}
+                  placeholder="Misal: 50"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-amber-500/30 text-white font-bold focus:border-amber-400"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[30, 50, 70, 90].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => updateClassBreakdown(pcsKepala, pcsBadan, amt)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-500/20 text-zinc-400 hover:text-amber-300 transition"
+                    >
+                      {amt} pcs
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Kualitas Ball Preview Card */}
+            {(() => {
+              const k = typeof pcsKepala === 'number' ? pcsKepala : 0;
+              const b = typeof pcsBadan === 'number' ? pcsBadan : 0;
+              const f = typeof pcsKaki === 'number' ? pcsKaki : 0;
+              const totalBarang = typeof pcsTotal === 'number' && pcsTotal > 0 ? pcsTotal : (k + b + f);
+              const qualityGrade = evaluateBallQuality(k, totalBarang);
+              const qMeta = ballQualityMeta[qualityGrade];
+              return (
+                <div className="p-3.5 rounded-xl bg-[#0b0c10] border border-white/10 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${qMeta.bgClass} ${qMeta.borderClass} ${qMeta.textClass}`}>
+                      <Award className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-zinc-300">Kualitas Ball:</span>
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black border ${qMeta.bgClass} ${qMeta.borderClass} ${qMeta.textClass}`}>
+                          {qMeta.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        Total Isi: <strong className="text-white">{formatNumber(totalBarang)} pcs</strong> (Kepala: <strong className="text-emerald-400">{formatNumber(k)}</strong> • Badan: <strong className="text-[#25F4EE]">{formatNumber(b)}</strong> • Kaki: <strong className="text-amber-400">{formatNumber(f)}</strong>)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 sm:text-right">
+                    <div>Standar: <span className="text-zinc-300 font-semibold">{qMeta.description}</span></div>
+                    <div className="text-[#25F4EE] font-semibold mt-0.5">Otomatis tersimpan ke Menu Daftar Ball</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Bagian 3: Hasil QC Pcs Layak, Reject & Catatan */}
           <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
             <div className="border-b border-white/10 pb-3">
               <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
                 <Scissors className="w-4 h-4 text-[#FE2C55]" />
-                <span>Bagian 2: Hasil Pcs Layak, Reject &amp; Catatan</span>
+                <span>Bagian 3: Hasil Pcs Layak, Reject &amp; Catatan</span>
               </h3>
             </div>
 
@@ -835,14 +1081,41 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               {/* Main Row: Total Pcs on Left, Ball Name & Petugas on Right */}
               <div className="flex items-baseline justify-between gap-3">
                 <div>
-                  <div className="text-base sm:text-lg font-black text-white tracking-tight">
-                    {rec.pcsTotal} <span className="text-xs font-semibold text-zinc-400">pcs</span>
+                  <div className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2 flex-wrap">
+                    <span>{rec.pcsTotal} <span className="text-xs font-semibold text-zinc-400">pcs</span></span>
+                    {rec.ballWeightKg ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-zinc-300 font-semibold">
+                        {rec.ballWeightKg} Kg
+                      </span>
+                    ) : null}
+                    {((rec.pcsKepala || 0) > 0 || (rec.pcsBadan || 0) > 0 || (rec.pcsKaki || 0) > 0 || rec.ballQuality) && (() => {
+                      const qGrade = rec.ballQuality || evaluateBallQuality(rec.pcsKepala || 0, rec.pcsTotal || 0);
+                      const qMeta = ballQualityMeta[qGrade];
+                      return (
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${qMeta.bgClass} ${qMeta.borderClass} ${qMeta.textClass}`}>
+                          Kualitas: {qMeta.label}
+                        </span>
+                      );
+                    })()}
                   </div>
-                  <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-2">
+                  <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
                     <span className="text-emerald-400">Layak: {rec.pcsLayakJual} pcs</span>
                     <span className="text-zinc-600">•</span>
                     <span className="text-[#FE2C55]">Reject: {rec.pcsReject} pcs</span>
                   </div>
+                  {((rec.pcsKepala || 0) > 0 || (rec.pcsBadan || 0) > 0 || (rec.pcsKaki || 0) > 0) && (
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Kepala: {formatNumber(rec.pcsKepala || 0)} pcs
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+                        Badan: {formatNumber(rec.pcsBadan || 0)} pcs
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        Kaki: {formatNumber(rec.pcsKaki || 0)} pcs
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-right min-w-0 flex-1">

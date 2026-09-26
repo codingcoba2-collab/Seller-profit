@@ -1,6 +1,7 @@
 /**
  * Helper functions for formatting numbers, currency, and dates
  */
+import { BallQualityGrade } from '../types';
 
 export const formatRupiah = (amount: number | string | undefined | null): string => {
   const num = typeof amount === 'string' ? parseFloat(amount.replace(/[^0-9.-]+/g, '')) || 0 : amount || 0;
@@ -145,4 +146,65 @@ export const formatAttendanceRole = (roleStr: string | undefined): string => {
   }
   return parts.map(p => roleLabels[p] || p).join(' & ');
 };
+
+/**
+ * Evaluasi Kualitas Ball berdasarkan jumlah Kepala dan total Isi barang:
+ * - Jika kepala > 100 dan isi > 270 -> Sangat Bagus
+ * - Jika kepala > 70 s/d 100 dan isi > 270 -> Bagus
+ * - Jika kepala > 100 dan isi <= 270 -> Bagus
+ * - Jika kepala > 70 s/d 100 dan isi <= 270 -> Biasa
+ * - Jika kepala <= 70 dan isi > 270 -> Biasa
+ * - Jika kepala <= 70 dan isi < 250 (atau <= 270) -> Jelek
+ */
+export const evaluateBallQuality = (pcsKepala: number, pcsTotal: number): BallQualityGrade => {
+  const kepala = Number(pcsKepala) || 0;
+  const isi = Number(pcsTotal) || 0;
+
+  if (kepala > 100 && isi > 270) {
+    return 'sangat_bagus';
+  }
+  if ((kepala >= 70 && kepala <= 100 && isi > 270) || (kepala > 100 && isi <= 270)) {
+    return 'bagus';
+  }
+  if ((kepala >= 70 && kepala <= 100 && isi <= 270) || (kepala < 70 && isi > 270)) {
+    return 'biasa';
+  }
+  return 'jelek';
+};
+
+export const ballQualityMeta: Record<
+  BallQualityGrade,
+  {
+    label: string;
+    badgeClass: string;
+    textClass: string;
+    description: string;
+  }
+> = {
+  sangat_bagus: {
+    label: 'Sangat Bagus',
+    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+    textClass: 'text-emerald-400',
+    description: 'Kepala > 100 pcs & Isi > 270 pcs',
+  },
+  bagus: {
+    label: 'Bagus',
+    badgeClass: 'bg-[#25F4EE]/15 text-[#25F4EE] border-[#25F4EE]/40',
+    textClass: 'text-[#25F4EE]',
+    description: '(Kepala 70–100 & Isi > 270) atau (Kepala > 100 & Isi < 270)',
+  },
+  biasa: {
+    label: 'Biasa',
+    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+    textClass: 'text-amber-400',
+    description: '(Kepala 70–100 & Isi < 270) atau (Kepala < 70 & Isi > 270)',
+  },
+  jelek: {
+    label: 'Jelek',
+    badgeClass: 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/40',
+    textClass: 'text-[#FE2C55]',
+    description: 'Kepala < 70 pcs & Isi < 250 pcs',
+  },
+};
+
 
