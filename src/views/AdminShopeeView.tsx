@@ -3,6 +3,7 @@ import { StorageService } from '../services/storage';
 import { CurrentUser, ChannelFeeConfig } from '../types';
 import { formatRupiah, formatNumber } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { 
   Percent, 
   ShoppingCart, 
@@ -13,7 +14,11 @@ import {
   HelpCircle,
   Calculator,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  ArrowLeft,
+  ChevronRight,
+  TrendingUp,
+  Settings
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 
@@ -23,14 +28,30 @@ interface AdminShopeeViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+type AdminSubMenu = 'menu' | 'biaya-layanan' | 'simulasi';
+
 export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
   currentUser,
   onBackToDashboard,
   onNotify,
 }) => {
+  const [activeSubMenu, setActiveSubMenu] = useState<AdminSubMenu>('menu');
   const [channelFees, setChannelFees] = useState<ChannelFeeConfig[]>([]);
   const [defaultAdminPercentage, setDefaultAdminPercentage] = useState<number>(8.5);
   const [defaultServiceFee, setDefaultServiceFee] = useState<number>(1250);
+
+  // Register back button handler for nested navigation
+  useEffect(() => {
+    if (activeSubMenu !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setActiveSubMenu('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [activeSubMenu]);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -165,183 +186,263 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Action Toolbar */}
-      <div className="flex items-center justify-between gap-3 bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-lg">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
-          <Store className="w-4 h-4 text-[#25F4EE]" />
-          <span>Biaya Layanan &amp; Potongan Admin</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-reset-channels"
-            type="button"
-            onClick={handleResetToDefaults}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
-            title="Reset ke daftar standar"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset Standar</span>
-          </button>
-          <button
-            id="btn-open-add-channel"
-            type="button"
-            onClick={() => setShowAddChannel(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-[#25F4EE] text-zinc-950 hover:bg-[#25F4EE]/90 transition cursor-pointer shadow-md shadow-[#25F4EE]/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Channel</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Form: Channel Cards */}
-      <form onSubmit={handleSaveAll} className="space-y-6">
-        <div className="space-y-4">
+      {/* 1. TAMPILAN MENU UTAMA (Bukan langsung data) */}
+      {activeSubMenu === 'menu' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* 2 Pilihan Menu */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {channelFees.map((ch, idx) => {
-              const isOffline = ch.channel === 'offline' || ch.channel === 'whatsapp';
-              const badgeColor = ch.channel === 'tiktok' 
-                ? 'border-[#FE2C55]/30 text-[#FE2C55] bg-[#FE2C55]/10' 
-                : ch.channel === 'shopee' 
-                ? 'border-orange-500/30 text-orange-400 bg-orange-500/10' 
-                : ch.channel === 'offline' 
-                ? 'border-blue-500/30 text-blue-400 bg-blue-500/10'
-                : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10';
-
-              return (
-                <div
-                  key={ch.id}
-                  id={`card-channel-${ch.id}`}
-                  className={`p-5 rounded-2xl bg-[#161823] border transition-all space-y-4 ${
-                    ch.isActive ? 'border-white/10 hover:border-white/20' : 'border-white/5 opacity-60 bg-[#12141c]'
-                  }`}
-                >
-                  {/* Channel Card Header */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-black border ${badgeColor}`}>
-                        {ch.channel.toUpperCase()}
-                      </span>
-                      <div>
-                        <h4 className="text-sm font-bold text-white">{ch.name}</h4>
-                        <span className="text-[10px] text-zinc-400">
-                          {isOffline ? 'Bebas biaya admin / Penjualan Langsung' : 'Potongan marketplace online'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <label className="flex items-center gap-1.5 text-[11px] text-zinc-400 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={ch.isActive}
-                          onChange={e => handleUpdateChannel(ch.id, { isActive: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded border-white/20 text-[#25F4EE] focus:ring-0"
-                        />
-                        <span>{ch.isActive ? 'Aktif' : 'Nonaktif'}</span>
-                      </label>
-
-                      {channelFees.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteChannel(ch.id, ch.name)}
-                          className="p-1 text-zinc-500 hover:text-rose-400 transition"
-                          title="Hapus Channel"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Channel Rate Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-white/5">
-                    {/* Admin % */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
-                          <Percent className="w-3 h-3 text-[#FE2C55]" />
-                          <span>Biaya Admin (%)</span>
-                        </label>
-                        <span className="text-xs font-black text-[#25F4EE]">
-                          {ch.adminPercentage}%
-                        </span>
-                      </div>
-                      <input
-                        id={`input-admin-pct-${ch.id}`}
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="100"
-                        value={ch.adminPercentage}
-                        onChange={e => handleUpdateChannel(ch.id, { adminPercentage: parseFloat(e.target.value) || 0 })}
-                        className="w-full rounded-xl border border-white/10 bg-[#0b0c10] px-3 py-2 text-sm font-bold text-white focus:border-[#25F4EE]"
-                      />
-                      {/* Quick pills */}
-                      <div className="flex items-center gap-1 pt-0.5">
-                        {[0, 6.5, 7.5, 8.5, 10].map(p => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => handleUpdateChannel(ch.id, { adminPercentage: p })}
-                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-md border ${
-                              ch.adminPercentage === p 
-                                ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/40' 
-                                : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/20'
-                            }`}
-                          >
-                            {p}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Biaya Layanan */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
-                          <ShoppingCart className="w-3 h-3 text-[#25F4EE]" />
-                          <span>Biaya Layanan (Rp)</span>
-                        </label>
-                        <span className="text-xs font-semibold text-zinc-400">
-                          / paket
-                        </span>
-                      </div>
-                      <CommaNumberInput
-                        id={`input-service-fee-${ch.id}`}
-                        value={ch.serviceFeePerOrder}
-                        onChange={val => handleUpdateChannel(ch.id, { serviceFeePerOrder: val })}
-                        className="w-full rounded-xl border border-white/10 bg-[#0b0c10] px-3 py-2 text-sm font-bold text-white focus:border-[#25F4EE]"
-                      />
-                      {/* Quick pills */}
-                      <div className="flex items-center gap-1 pt-0.5">
-                        {[0, 1000, 1250, 2000].map(fee => (
-                          <button
-                            key={fee}
-                            type="button"
-                            onClick={() => handleUpdateChannel(ch.id, { serviceFeePerOrder: fee })}
-                            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-md border ${
-                              ch.serviceFeePerOrder === fee 
-                                ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/40' 
-                                : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/20'
-                            }`}
-                          >
-                            {fee === 0 ? 'Gratis' : formatNumber(fee)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+            {/* Menu 1: Biaya Layanan dan Potongan Admin */}
+            <div
+              id="menu-card-biaya-layanan"
+              onClick={() => setActiveSubMenu('biaya-layanan')}
+              className="group p-5 sm:p-6 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-[#25F4EE]/50 transition cursor-pointer flex flex-col justify-between gap-4 shadow-xl active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-[#25F4EE] shadow-inner">
+                  <Store className="w-6 h-6" />
                 </div>
-              );
-            })}
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
+                  {channelFees.length} Channel Terdaftar
+                </span>
+              </div>
+
+              <div>
+                <h4 className="text-base sm:text-lg font-black text-white group-hover:text-[#25F4EE] transition-colors">
+                  Biaya Layanan dan Potongan Admin
+                </h4>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  Konfigurasi persentase biaya admin (%) dan biaya layanan per pesanan untuk seluruh channel (TikTok, Shopee, Offline, Tokopedia, dll).
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs">
+                <span className="text-zinc-500">Kelola tarif channel</span>
+                <span className="text-[#25F4EE] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span>Buka Konfigurasi</span>
+                  <ChevronRight className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
+
+            {/* Menu 2: Simulasi Perbandingan Potongan */}
+            <div
+              id="menu-card-simulasi-potongan"
+              onClick={() => setActiveSubMenu('simulasi')}
+              className="group p-5 sm:p-6 rounded-2xl bg-[#161823] hover:bg-[#1c1f2e] border border-white/10 hover:border-amber-400/50 transition cursor-pointer flex flex-col justify-between gap-4 shadow-xl active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#0b0c10] border border-white/10 flex items-center justify-center text-amber-400 shadow-inner">
+                  <Calculator className="w-6 h-6" />
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                  Kalkulator Live
+                </span>
+              </div>
+
+              <div>
+                <h4 className="text-base sm:text-lg font-black text-white group-hover:text-amber-400 transition-colors">
+                  Simulasi Perbandingan Potongan
+                </h4>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  Hitung dan bandingkan estimasi potongan admin serta penerimaan bersih (net) per channel marketplace berdasarkan omzet penjualan dan jumlah paket.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs">
+                <span className="text-zinc-500">Uji komparasi net</span>
+                <span className="text-amber-400 font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span>Buka Simulasi</span>
+                  <ChevronRight className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Simulation Calculator */}
-        <div className="bg-[#12141c] rounded-2xl p-5 border border-white/10 space-y-4">
-          <div className="flex items-center justify-between">
+      {/* 2. MENU SUB-VIEW: BIAYA LAYANAN DAN POTONGAN ADMIN */}
+      {activeSubMenu === 'biaya-layanan' && (
+        <form onSubmit={handleSaveAll} className="space-y-4 animate-in fade-in duration-200">
+          {/* Action Toolbar for channel fee settings */}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              id="btn-reset-channels"
+              type="button"
+              onClick={handleResetToDefaults}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition cursor-pointer"
+              title="Reset ke daftar standar"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Reset Standar</span>
+            </button>
+            <button
+              id="btn-open-add-channel"
+              type="button"
+              onClick={() => setShowAddChannel(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-[#25F4EE] text-zinc-950 hover:bg-[#25F4EE]/90 transition cursor-pointer shadow-md shadow-[#25F4EE]/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Channel</span>
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {channelFees.map((ch, idx) => {
+                const isOffline = ch.channel === 'offline' || ch.channel === 'whatsapp';
+                const badgeColor = ch.channel === 'tiktok' 
+                  ? 'border-[#FE2C55]/30 text-[#FE2C55] bg-[#FE2C55]/10' 
+                  : ch.channel === 'shopee' 
+                  ? 'border-orange-500/30 text-orange-400 bg-orange-500/10' 
+                  : ch.channel === 'offline' 
+                  ? 'border-blue-500/30 text-blue-400 bg-blue-500/10'
+                  : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10';
+
+                return (
+                  <div
+                    key={ch.id}
+                    id={`card-channel-${ch.id}`}
+                    className={`p-5 rounded-2xl bg-[#161823] border transition-all space-y-4 ${
+                      ch.isActive ? 'border-white/10 hover:border-white/20' : 'border-white/5 opacity-60 bg-[#12141c]'
+                    }`}
+                  >
+                    {/* Channel Card Header */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black border ${badgeColor}`}>
+                          {ch.channel.toUpperCase()}
+                        </span>
+                        <div>
+                          <h4 className="text-sm font-bold text-white">{ch.name}</h4>
+                          <span className="text-[10px] text-zinc-400">
+                            {isOffline ? 'Bebas biaya admin / Penjualan Langsung' : 'Potongan marketplace online'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <label className="flex items-center gap-1.5 text-[11px] text-zinc-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={ch.isActive}
+                            onChange={e => handleUpdateChannel(ch.id, { isActive: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded border-white/20 text-[#25F4EE] focus:ring-0"
+                          />
+                          <span>{ch.isActive ? 'Aktif' : 'Nonaktif'}</span>
+                        </label>
+
+                        {channelFees.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteChannel(ch.id, ch.name)}
+                            className="p-1 text-zinc-500 hover:text-rose-400 transition"
+                            title="Hapus Channel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Channel Rate Inputs */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-white/5">
+                      {/* Admin % */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
+                            <Percent className="w-3 h-3 text-[#FE2C55]" />
+                            <span>Biaya Admin (%)</span>
+                          </label>
+                          <span className="text-xs font-black text-[#25F4EE]">
+                            {ch.adminPercentage}%
+                          </span>
+                        </div>
+                        <input
+                          id={`input-admin-pct-${ch.id}`}
+                          type="number"
+                          step="0.05"
+                          min="0"
+                          max="100"
+                          value={ch.adminPercentage}
+                          onChange={e => handleUpdateChannel(ch.id, { adminPercentage: parseFloat(e.target.value) || 0 })}
+                          className="w-full rounded-xl border border-white/10 bg-[#0b0c10] px-3 py-2 text-sm font-bold text-white focus:border-[#25F4EE]"
+                        />
+                        {/* Quick pills */}
+                        <div className="flex items-center gap-1 pt-0.5">
+                          {[0, 6.5, 7.5, 8.5, 10].map(p => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => handleUpdateChannel(ch.id, { adminPercentage: p })}
+                              className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-md border ${
+                                ch.adminPercentage === p 
+                                  ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/40' 
+                                  : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              {p}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Biaya Layanan */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
+                            <ShoppingCart className="w-3 h-3 text-[#25F4EE]" />
+                            <span>Biaya Layanan (Rp)</span>
+                          </label>
+                          <span className="text-xs font-semibold text-zinc-400">
+                            / paket
+                          </span>
+                        </div>
+                        <CommaNumberInput
+                          id={`input-service-fee-${ch.id}`}
+                          value={ch.serviceFeePerOrder}
+                          onChange={val => handleUpdateChannel(ch.id, { serviceFeePerOrder: val })}
+                          className="w-full rounded-xl border border-white/10 bg-[#0b0c10] px-3 py-2 text-sm font-bold text-white focus:border-[#25F4EE]"
+                        />
+                        {/* Quick pills */}
+                        <div className="flex items-center gap-1 pt-0.5">
+                          {[0, 1000, 1250, 2000].map(fee => (
+                            <button
+                              key={fee}
+                              type="button"
+                              onClick={() => handleUpdateChannel(ch.id, { serviceFeePerOrder: fee })}
+                              className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-md border ${
+                                ch.serviceFeePerOrder === fee 
+                                  ? 'bg-[#25F4EE]/20 text-[#25F4EE] border-[#25F4EE]/40' 
+                                  : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              {fee === 0 ? 'Gratis' : formatNumber(fee)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <button
+            id="btn-save-all-channels"
+            type="submit"
+            className="w-full py-4 rounded-2xl text-xs sm:text-sm font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-xl shadow-[#FE2C55]/20 active:scale-[0.99] transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4 text-white" />
+            <span>Simpan Seluruh Pengaturan Biaya Marketplace</span>
+          </button>
+        </form>
+      )}
+
+      {/* 4. MENU SUB-VIEW: SIMULASI PERBANDINGAN POTONGAN */}
+      {activeSubMenu === 'simulasi' && (
+        <div className="bg-[#12141c] rounded-2xl p-5 border border-white/10 space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
               <Calculator className="w-4 h-4 text-amber-400" />
               <span>Simulasi Perbandingan Potongan Admin per Channel</span>
@@ -399,17 +500,7 @@ export const AdminShopeeView: React.FC<AdminShopeeViewProps> = ({
             })}
           </div>
         </div>
-
-        {/* Save Button */}
-        <button
-          id="btn-save-all-channels"
-          type="submit"
-          className="w-full py-4 rounded-2xl text-xs sm:text-sm font-black text-white bg-[#FE2C55] hover:bg-[#FE2C55]/90 border border-[#FE2C55]/50 shadow-xl shadow-[#FE2C55]/20 active:scale-[0.99] transition cursor-pointer flex items-center justify-center gap-2"
-        >
-          <CheckCircle2 className="w-4 h-4 text-white" />
-          <span>Simpan Seluruh Pengaturan Biaya Marketplace</span>
-        </button>
-      </form>
+      )}
 
       {/* Modal Add Channel */}
       {showAddChannel && (

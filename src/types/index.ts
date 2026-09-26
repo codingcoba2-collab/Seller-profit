@@ -193,6 +193,7 @@ export interface BallInventory {
   sizeBreakdown?: { [size: string]: number }; // e.g. { S: 50, M: 100, L: 100, XL: 50 }
   modalPrice: number;
   pcsCount: number; // isi pcs total
+  pcsTotal?: number; // alias for pcsCount
   shippingCost: number; // ongkir
   steamCost: number; // biaya steam / finishing
   sortirCost: number; // biaya sortir / QC
@@ -417,8 +418,12 @@ export interface BallDataRecord {
   pcsKepala: number; // jumlah pcs kelas Kepala
   pcsBadan: number; // jumlah pcs kelas Badan
   pcsKaki: number; // jumlah pcs kelas Kaki
-  quality: BallQualityGrade; // 'sangat_bagus' | 'bagus' | 'biasa' | 'jelek'
+  quality?: BallQualityGrade; // 'sangat_bagus' | 'bagus' | 'biasa' | 'jelek'
+  qualityGrade?: BallQualityGrade;
+  inventoryBallId?: string;
+  sortirRecordId?: string;
   notes?: string;
+  recordedBy?: string;
   sourceInventoryId?: string;
   sourceSortirId?: string;
   createdAt: string;
@@ -472,8 +477,13 @@ export interface SteamSortirRecord {
   storeId: string;
   date: string;
   ballInventoryId?: string;
+  inventoryBallId?: string;
   ballName: string;
   weightKg?: number; // Berat ball (kg)
+  ballWeightKg?: number;
+  totalPcsProcessed?: number;
+  recordedBy?: string;
+  sortirRecordId?: string;
   processType: 'sortir' | 'steam' | 'sortir_dan_steam';
   employeeIds: string[];
   employeeNames: string[];

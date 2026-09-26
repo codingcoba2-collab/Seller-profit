@@ -177,6 +177,8 @@ export const ballQualityMeta: Record<
   {
     label: string;
     badgeClass: string;
+    bgClass: string;
+    borderClass: string;
     textClass: string;
     description: string;
   }
@@ -184,24 +186,32 @@ export const ballQualityMeta: Record<
   sangat_bagus: {
     label: 'Sangat Bagus',
     badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+    bgClass: 'bg-emerald-500/15',
+    borderClass: 'border-emerald-500/40',
     textClass: 'text-emerald-400',
     description: 'Kepala > 100 pcs & Isi > 270 pcs',
   },
   bagus: {
     label: 'Bagus',
     badgeClass: 'bg-[#25F4EE]/15 text-[#25F4EE] border-[#25F4EE]/40',
+    bgClass: 'bg-[#25F4EE]/15',
+    borderClass: 'border-[#25F4EE]/40',
     textClass: 'text-[#25F4EE]',
     description: '(Kepala 70–100 & Isi > 270) atau (Kepala > 100 & Isi < 270)',
   },
   biasa: {
     label: 'Biasa',
     badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+    bgClass: 'bg-amber-500/15',
+    borderClass: 'border-amber-500/40',
     textClass: 'text-amber-400',
     description: '(Kepala 70–100 & Isi < 270) atau (Kepala < 70 & Isi > 270)',
   },
   jelek: {
     label: 'Jelek',
     badgeClass: 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/40',
+    bgClass: 'bg-[#FE2C55]/15',
+    borderClass: 'border-[#FE2C55]/40',
     textClass: 'text-[#FE2C55]',
     description: 'Kepala < 70 pcs & Isi < 250 pcs',
   },

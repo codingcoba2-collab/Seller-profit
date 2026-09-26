@@ -71,11 +71,14 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       return;
     }
 
+    // Otomatis +10% + 1000 untuk saldo iklan (misal top up 50k, masuk laporannya jadi 56k)
+    const finalAdsAmount = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
+
     const newDeposit: AdsCoinDeposit = {
       id: editId || 'adscoin-' + Date.now(),
       storeId: currentUser.storeId,
       date,
-      adsAmount,
+      adsAmount: finalAdsAmount,
       coinAmount,
       notes,
       createdAt: new Date().toISOString(),
@@ -100,17 +103,23 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       }
     };
 
+    const finalAdsBreakdownText = adsAmount > 0 
+      ? `iklan ${formatRupiah(finalAdsAmount)} (Top-up dasar ${formatRupiah(adsAmount)} + 10% + Rp 1.000)` 
+      : '';
+
     setConfirmModal({
       isOpen: true,
       title: isEditing ? 'Konfirmasi Simpan Perubahan Top-Up' : 'Konfirmasi Simpan Saldo Top-Up',
       message: isEditing
         ? `Apakah Anda yakin ingin menyimpan perubahan data top-up ini?`
-        : `Apakah Anda yakin ingin menyimpan saldo top-up iklan ${formatRupiah(adsAmount)} dan koin ${formatRupiah(coinAmount)}?`,
+        : `Apakah Anda yakin ingin menyimpan saldo ${finalAdsBreakdownText}${finalAdsAmount > 0 && coinAmount > 0 ? ' dan ' : ''}${coinAmount > 0 ? `koin ${formatRupiah(coinAmount)}` : ''}?`,
       type: isEditing ? 'edit' : 'create',
       confirmText: isEditing ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Saldo',
       onConfirm: executeSave,
     });
   };
+
+  const finalAdsReportedPreview = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
@@ -134,21 +143,50 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nominal Iklan */}
-            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-1.5">
-              <label className="block text-xs font-bold text-[#25F4EE]">
-                Nominal Saldo Iklan Marketplace (Rp)
-              </label>
+            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#25F4EE]">
+                  Nominal Top-Up Iklan (Rp)
+                </label>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                  Otomatis +10% + Rp 1.000
+                </span>
+              </div>
               <CommaNumberInput
                 id="input-topup-ads"
                 value={adsAmount}
                 onChange={setAdsAmount}
-                placeholder="Contoh: 1.000.000"
+                placeholder="Contoh: 50.000"
                 className="w-full bg-[#161823] border border-white/10 rounded-xl px-4 py-2.5 text-white font-black text-base focus:outline-hidden focus:border-[#25F4EE]"
               />
+
+              {/* Breakdown Otomatis Masuk Laporan */}
+              {adsAmount > 0 && (
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs space-y-1">
+                  <div className="flex items-center justify-between text-zinc-400 text-[11px]">
+                    <span>Nominal Dasar:</span>
+                    <span className="font-semibold text-white">{formatRupiah(adsAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-zinc-400 text-[11px]">
+                    <span>+ Pajak/Admin 10%:</span>
+                    <span className="text-amber-400">+{formatRupiah(Math.round(adsAmount * 0.1))}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-zinc-400 text-[11px]">
+                    <span>+ Biaya Transaksi:</span>
+                    <span className="text-amber-400">+Rp 1.000</span>
+                  </div>
+                  <div className="pt-1.5 border-t border-white/10 flex items-center justify-between">
+                    <span className="font-bold text-zinc-200">Masuk Laporan:</span>
+                    <span className="font-black text-sm text-[#25F4EE]">
+                      {formatRupiah(finalAdsReportedPreview)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Nominal Koin */}
-            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-1.5">
+            <div className="bg-[#0b0c10] p-3.5 rounded-2xl border border-white/10 space-y-2">
               <label className="block text-xs font-bold text-amber-400">
                 Nominal Koin Live Reward (Rp)
               </label>
@@ -159,6 +197,9 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
                 placeholder="Contoh: 500.000"
                 className="w-full bg-[#161823] border border-white/10 rounded-xl px-4 py-2.5 text-white font-black text-base focus:outline-hidden focus:border-amber-400"
               />
+              <span className="text-[10px] text-zinc-400 block pt-1">
+                Koin saweran &amp; voucher live reward penonton
+              </span>
             </div>
           </div>
 

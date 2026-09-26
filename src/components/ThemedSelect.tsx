@@ -21,7 +21,7 @@ export interface ThemedSelectProps {
   className?: string;
   disabled?: boolean;
   id?: string;
-  color?: 'cyan' | 'magenta' | 'amber' | 'emerald';
+  color?: 'theme' | 'cyan' | 'magenta' | 'amber' | 'emerald';
 }
 
 export const ThemedSelect: React.FC<ThemedSelectProps> = ({
@@ -33,7 +33,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
   className = '',
   disabled = false,
   id,
-  color = 'cyan',
+  color = 'theme',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +88,16 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
   };
 
   const themeColors = {
+    theme: {
+      neonColor: 'cyan' as const,
+      border: 'border-[var(--primary-color,#25F4EE)]/40',
+      activeBorder: 'border-[var(--primary-color,#25F4EE)]',
+      activeRing: 'border-[var(--primary-color,#25F4EE)] bg-[var(--primary-color,#25F4EE)]/20 shadow-[0_0_12px_var(--primary-color,#25F4EE)]',
+      dot: 'bg-[var(--primary-color,#25F4EE)] shadow-[0_0_8px_var(--primary-color,#25F4EE)]',
+      textActive: 'text-[var(--primary-color,#25F4EE)]',
+      bgActive: 'bg-[var(--primary-color,#25F4EE)]/10',
+      chevron: 'text-[var(--primary-color,#25F4EE)]',
+    },
     cyan: {
       neonColor: 'cyan' as const,
       border: 'border-[#25F4EE]/40',
@@ -139,7 +149,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
         type="button"
         disabled={disabled}
         onClick={handleOpen}
-        className={`px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 hover:border-white/25 text-white font-semibold flex items-center justify-between gap-2 transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        className={`px-3 py-2 text-xs rounded-xl bg-[var(--bg-main,#0b0c10)] border border-white/10 hover:border-[var(--primary-color,#25F4EE)]/50 text-[var(--text-main,#f4f4f6)] font-semibold flex items-center justify-between gap-2 transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
         title={selectedOption ? selectedOption.label : title}
       >
         <span className="truncate">
@@ -156,7 +166,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
             onClick={() => setIsOpen(false)}
           >
             <div
-              className="spatial-card relative w-full max-w-lg bg-[#161823] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-2xl shadow-[0_-15px_45px_rgba(0,0,0,0.85)] max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
+              className="spatial-card relative w-full max-w-lg bg-[var(--bg-card,#161823)] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-2xl shadow-[0_-15px_45px_rgba(0,0,0,0.85)] max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200 text-[var(--text-main,#ffffff)]"
               onClick={(e) => e.stopPropagation()}
             >
               <NeonCorners variant="side-left" color={themeColors.neonColor} size="sm" />
@@ -169,7 +179,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
               {/* Sheet Header */}
               <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.02] relative z-10">
                 <div>
-                  <h3 className="text-sm font-black text-white tracking-wide">
+                  <h3 className="text-sm font-black text-[var(--text-main,#ffffff)] tracking-wide">
                     {title}
                   </h3>
                   <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -188,7 +198,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
 
               {/* Search Bar if > 5 options */}
               {options.length > 5 && (
-                <div className="p-3 border-b border-white/5 bg-[#0b0c10]/40 relative z-10">
+                <div className="p-3 border-b border-white/5 bg-[var(--bg-main,#0b0c10)]/50 relative z-10">
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                     <input
@@ -196,14 +206,14 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Cari opsi..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE] outline-none"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[var(--bg-main,#0b0c10)] border border-white/10 text-[var(--text-main,#ffffff)] placeholder-zinc-500 focus:border-[var(--primary-color,#25F4EE)] outline-none"
                     />
                   </div>
                 </div>
               )}
 
               {/* Options List */}
-              <div className="p-3 overflow-y-auto max-h-[55vh] space-y-1 relative z-10">
+              <div className="p-3 overflow-y-auto max-h-[55vh] space-y-1.5 relative z-10">
                 {filteredOptions.length === 0 ? (
                   <div className="text-center py-8 text-xs text-zinc-500">
                     Opsi tidak ditemukan.
@@ -219,7 +229,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
                         className={`w-full px-4 py-3 rounded-xl flex items-center justify-between gap-3 text-left transition cursor-pointer border ${
                           isSelected
                             ? `${themeColors.bgActive} ${themeColors.activeBorder} ${themeColors.textActive} font-black shadow-sm`
-                            : 'bg-[#0b0c10]/70 border-white/5 hover:bg-white/5 text-zinc-200 hover:text-white'
+                            : 'bg-[var(--bg-main,#0b0c10)]/70 border-white/5 hover:bg-white/5 text-[var(--text-main,#e4e4e7)] hover:text-white'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -266,7 +276,7 @@ export const ThemedSelect: React.FC<ThemedSelectProps> = ({
               </div>
 
               {/* Sheet Footer */}
-              <div className="p-3 border-t border-white/10 bg-[#0b0c10]/40 flex justify-end relative z-10">
+              <div className="p-3 border-t border-white/10 bg-[var(--bg-main,#0b0c10)]/40 flex justify-end relative z-10">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}

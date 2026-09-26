@@ -252,9 +252,43 @@ body {
 [data-theme-mode="light"] input,
 [data-theme-mode="light"] select,
 [data-theme-mode="light"] textarea {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+  background-color: var(--bg-card, #ffffff) !important;
+  color: var(--text-main, #0f172a) !important;
   border-color: #cbd5e1 !important;
+}
+
+/* Universal Select & Option Theming - applies to all themes, dark & light */
+select {
+  background-color: var(--bg-card, #161823) !important;
+  color: var(--text-main, #f4f4f6) !important;
+  border-color: var(--border-color, rgba(255, 255, 255, 0.15)) !important;
+}
+
+select:focus {
+  border-color: var(--primary-color, #25F4EE) !important;
+  outline: none;
+}
+
+option {
+  background-color: var(--bg-card, #161823) !important;
+  color: var(--text-main, #f4f4f6) !important;
+}
+
+option:checked,
+option:hover {
+  background-color: var(--bg-card-secondary, #12141c) !important;
+  color: var(--primary-color, #25F4EE) !important;
+}
+
+[data-theme-mode="light"] option {
+  background-color: var(--bg-card, #ffffff) !important;
+  color: var(--text-main, #0f172a) !important;
+}
+
+[data-theme-mode="light"] option:checked,
+[data-theme-mode="light"] option:hover {
+  background-color: #f1f5f9 !important;
+  color: var(--primary-color, #0891b2) !important;
 }
 
 /* Custom Scrollbar */

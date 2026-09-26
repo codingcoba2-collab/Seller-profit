@@ -62,12 +62,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   if (triggerSubViewBack()) return;
                   onNavigate(parent ? parent.path : '/dashboard');
                 }}
-                className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white transition border border-[#FE2C55]/40 cursor-pointer shadow-[0_0_12px_rgba(254,44,85,0.25)] active:scale-95 shrink-0 flex items-center gap-1.5 font-black text-xs"
-                title={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
-                aria-label={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
+                className="w-8 h-8 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white transition border border-[#FE2C55]/40 cursor-pointer active:scale-95 shrink-0 flex items-center justify-center shadow-xs"
+                title={parent ? `Kembali ke ${parent.label}` : 'Kembali'}
+                aria-label={parent ? `Kembali ke ${parent.label}` : 'Kembali'}
               >
-                <ArrowLeft className="w-4 h-4 text-[#FE2C55] shrink-0 stroke-[2.5]" />
-                <span className="font-bold text-xs">Kembali</span>
+                <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
             ) : (
               <div 

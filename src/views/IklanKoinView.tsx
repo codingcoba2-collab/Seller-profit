@@ -150,11 +150,14 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
       return;
     }
 
+    // Otomatis +10% + 1000 untuk saldo iklan (misal top up 50k, masuk laporannya jadi 56k)
+    const finalAdsAmount = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
+
     const record: AdsCoinDeposit = {
       id: editingId || 'adcoin-' + Date.now(),
       storeId: currentUser.storeId,
       date,
-      adsAmount,
+      adsAmount: finalAdsAmount,
       coinAmount,
       notes,
       createdAt: new Date().toISOString(),
@@ -182,12 +185,16 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
       }
     };
 
+    const finalAdsBreakdownText = adsAmount > 0 
+      ? `iklan ${formatRupiah(finalAdsAmount)} (Top-up dasar ${formatRupiah(adsAmount)} + 10% + Rp 1.000)` 
+      : '';
+
     setConfirmModal({
       isOpen: true,
       title: editingId ? 'Konfirmasi Simpan Perubahan Saldo' : 'Konfirmasi Catat Top-Up Saldo',
       message: editingId
         ? `Apakah Anda yakin ingin menyimpan perubahan data deposit saldo ini?`
-        : `Apakah Anda yakin ingin menyimpan deposit saldo iklan ${formatRupiah(adsAmount)} dan koin ${formatRupiah(coinAmount)}?`,
+        : `Apakah Anda yakin ingin menyimpan deposit saldo ${finalAdsBreakdownText}${finalAdsAmount > 0 && coinAmount > 0 ? ' dan ' : ''}${coinAmount > 0 ? `koin ${formatRupiah(coinAmount)}` : ''}?`,
       type: editingId ? 'edit' : 'create',
       confirmText: editingId ? 'Ya, Simpan Perubahan' : 'Ya, Catat Saldo',
       onConfirm: executeSave,
@@ -358,18 +365,42 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#25F4EE] mb-1">
-                    Nominal Top Up Saldo Iklan (Rp)
-                  </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[#25F4EE]">
+                      Nominal Top Up Saldo Iklan (Rp)
+                    </label>
+                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      Otomatis +10% + Rp 1.000
+                    </span>
+                  </div>
                   <CommaNumberInput
                     value={adsAmount}
                     onChange={setAdsAmount}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
                   />
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    {formatRupiah(adsAmount)}
-                  </span>
+                  {adsAmount > 0 && (
+                    <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-xs space-y-1 mt-1.5">
+                      <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                        <span>Nominal Dasar:</span>
+                        <span className="font-semibold text-white">{formatRupiah(adsAmount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                        <span>+ Pajak/Admin 10%:</span>
+                        <span className="text-amber-400">+{formatRupiah(Math.round(adsAmount * 0.1))}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                        <span>+ Biaya Transaksi:</span>
+                        <span className="text-amber-400">+Rp 1.000</span>
+                      </div>
+                      <div className="pt-1 border-t border-white/10 flex items-center justify-between">
+                        <span className="font-bold text-zinc-200 text-[11px]">Masuk Laporan:</span>
+                        <span className="font-black text-xs text-[#25F4EE]">
+                          {formatRupiah(adsAmount + Math.round(adsAmount * 0.1) + 1000)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
