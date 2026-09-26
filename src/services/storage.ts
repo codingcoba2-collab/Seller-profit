@@ -2926,15 +2926,73 @@ export class StorageService {
     all = all.filter(s => s.id !== id);
     this.saveSteamSortir(all);
     this.deleteFromCloud('steam_sortir', id);
+
+    // Hapus juga data ball otomatis yang berasal dari sortir record ini
+    const rawBall = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
+    if (rawBall) {
+      const allBalls: BallDataRecord[] = JSON.parse(rawBall);
+      const filteredBalls = allBalls.filter(b => b.sortirRecordId !== id);
+      if (filteredBalls.length !== allBalls.length) {
+        this.saveBallData(filteredBalls);
+      }
+    }
   }
 
-  // DAFTAR BALL (BALL QUALITY & CLASS DATA)
+  // DAFTAR BALL (BALL QUALITY & CLASS DATA - OTOMATIS DARI SORTIR & QC)
   static getBallData(storeId: string): BallDataRecord[] {
     const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
     let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
     if (!raw) {
       this.safeSetItem(STORAGE_KEYS.BALL_DATA, JSON.stringify(all));
     }
+
+    // Pastikan seluruh catatan Sortir & QC toko ini otomatis tersinkron ke Daftar Ball
+    const sortirRecords = this.getSteamSortir(storeId);
+    let hasNewSync = false;
+    sortirRecords.forEach(item => {
+      if (!item.ballName) return;
+      const pcsKepala = item.pcsKepala || 0;
+      const pcsBadan = item.pcsBadan || 0;
+      const pcsKaki = item.pcsKaki || 0;
+      const sumClass = pcsKepala + pcsBadan + pcsKaki;
+      const pcsTotal = sumClass > 0 ? sumClass : (item.pcsTotal || item.totalPcsProcessed || 0);
+      if (pcsTotal <= 0 && sumClass <= 0) return;
+
+      const qualityGrade = evaluateBallQuality(pcsKepala, pcsTotal);
+      const existingIdx = all.findIndex(
+        b => b.storeId === item.storeId && (
+          b.sortirRecordId === item.id ||
+          (item.inventoryBallId && b.inventoryBallId === item.inventoryBallId) ||
+          b.ballName.trim().toLowerCase() === item.ballName!.trim().toLowerCase()
+        )
+      );
+
+      if (existingIdx === -1) {
+        all.unshift({
+          id: `ball-${item.id}`,
+          storeId: item.storeId,
+          date: item.date,
+          ballName: item.ballName.trim(),
+          weightKg: item.ballWeightKg || 45,
+          pcsTotal,
+          pcsKepala,
+          pcsBadan,
+          pcsKaki,
+          qualityGrade,
+          inventoryBallId: item.inventoryBallId || item.ballInventoryId,
+          sortirRecordId: item.id,
+          notes: item.notes || '',
+          recordedBy: item.recordedBy,
+          createdAt: item.createdAt,
+        });
+        hasNewSync = true;
+      }
+    });
+
+    if (hasNewSync) {
+      this.safeSetItem(STORAGE_KEYS.BALL_DATA, JSON.stringify(all));
+    }
+
     return all
       .filter(b => b.storeId === storeId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -2972,8 +3030,7 @@ export class StorageService {
   }
 
   private static syncSortirToBallData(item: SteamSortirRecord) {
-    const hasClassData = (item.pcsKepala || 0) > 0 || (item.pcsBadan || 0) > 0 || (item.pcsKaki || 0) > 0;
-    if (!hasClassData || !item.ballName) return;
+    if (!item.ballName) return;
 
     const raw = this.safeGetItem(STORAGE_KEYS.BALL_DATA);
     let all: BallDataRecord[] = raw ? JSON.parse(raw) : DEFAULT_BALL_DATA;
@@ -2981,7 +3038,10 @@ export class StorageService {
     const pcsKepala = item.pcsKepala || 0;
     const pcsBadan = item.pcsBadan || 0;
     const pcsKaki = item.pcsKaki || 0;
-    const pcsTotal = (pcsKepala + pcsBadan + pcsKaki) > 0 ? (pcsKepala + pcsBadan + pcsKaki) : (item.totalPcsProcessed || 0);
+    const sumClass = pcsKepala + pcsBadan + pcsKaki;
+    const pcsTotal = sumClass > 0 ? sumClass : (item.pcsTotal || item.totalPcsProcessed || 0);
+    if (pcsTotal <= 0 && sumClass <= 0) return;
+
     const qualityGrade = evaluateBallQuality(pcsKepala, pcsTotal);
 
     const existingIdx = all.findIndex(
@@ -3003,7 +3063,7 @@ export class StorageService {
       pcsBadan,
       pcsKaki,
       qualityGrade,
-      inventoryBallId: item.inventoryBallId || (existingIdx !== -1 ? all[existingIdx].inventoryBallId : undefined),
+      inventoryBallId: item.inventoryBallId || item.ballInventoryId || (existingIdx !== -1 ? all[existingIdx].inventoryBallId : undefined),
       sortirRecordId: item.id,
       notes: item.notes || (existingIdx !== -1 ? all[existingIdx].notes : ''),
       recordedBy: item.recordedBy,

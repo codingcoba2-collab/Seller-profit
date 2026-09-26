@@ -365,40 +365,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Batal / Kembali ke Menu</span>
           </button>
-
-          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-            Tahap {inputStep} dari 2
-          </span>
-        </div>
-
-        {/* Stepper Header Pills */}
-        <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 rounded-2xl border border-white/10 text-xs">
-          <button
-            type="button"
-            onClick={() => setInputStep(1)}
-            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-              inputStep === 1
-                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-            }`}
-          >
-            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">1</span>
-            <span className="hidden sm:inline">Tanggal &amp; Saldo Iklan</span>
-            <span className="sm:hidden">Saldo Iklan</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setInputStep(2)}
-            className={`p-2 rounded-xl text-center font-bold transition flex items-center justify-center gap-2 ${
-              inputStep === 2
-                ? 'bg-[#25F4EE]/10 border border-[#25F4EE] text-[#25F4EE]'
-                : 'bg-[#0b0c10] border border-white/5 text-zinc-400'
-            }`}
-          >
-            <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">2</span>
-            <span className="hidden sm:inline">Saldo Koin &amp; Catatan</span>
-            <span className="sm:hidden">Koin &amp; Catatan</span>
-          </button>
         </div>
 
         {/* Form Container */}
@@ -407,9 +373,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           {inputStep === 1 && (
             <div className="space-y-4">
               <div className="border-b border-white/10 pb-2">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Megaphone className="w-4 h-4 text-[#25F4EE]" />
-                  <span>Tahap 1: Tanggal &amp; Topup Iklan Berbayar</span>
+                <h3 className="text-sm font-black text-white">
+                  Tanggal &amp; Topup Iklan Berbayar
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">Masukkan tanggal pengisian dan nominal saldo iklan berbayar marketplace.</p>
               </div>
@@ -449,7 +414,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
                   onClick={() => setInputStep(2)}
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
                 >
-                  <span>Tahap Selanjutnya: Saldo Koin &amp; Catatan</span>
+                  <span>Selanjutnya</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -460,9 +425,8 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
           {inputStep === 2 && (
             <div className="space-y-4">
               <div className="border-b border-white/10 pb-2">
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-amber-300" />
-                  <span>Tahap 2: Topup Saldo Koin Saweran &amp; Catatan</span>
+                <h3 className="text-sm font-black text-white">
+                  Topup Saldo Koin Saweran &amp; Catatan
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">Masukkan topup koin untuk giveaway/saweran live dan catatan bukti transaksi.</p>
               </div>

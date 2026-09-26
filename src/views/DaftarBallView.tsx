@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { BallDataRecord, BallQualityGrade, CurrentUser } from '../types';
 import {
@@ -8,18 +8,15 @@ import {
   ballQualityMeta,
 } from '../utils/formatters';
 import {
-  Package,
   Scale,
   Award,
-  Layers,
-  PlusCircle,
   Search,
   Edit3,
   Trash2,
   CheckCircle2,
   ArrowLeft,
+  ArrowRight,
   Info,
-  RotateCcw,
   ClipboardList,
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
@@ -37,6 +34,8 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
 }) => {
   const storeId = currentUser.storeId;
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [formStep, setFormStep] = useState<number>(1);
+  const [ballDataList, setBallDataList] = useState<BallDataRecord[]>([]);
   const [editingBall, setEditingBall] = useState<BallDataRecord | null>(null);
   const [showCriteriaGuide, setShowCriteriaGuide] = useState(false);
 
@@ -44,9 +43,8 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [qualityFilter, setQualityFilter] = useState<'all' | BallQualityGrade>('all');
 
-  // Form states
+  // Edit form states (for updating existing ball data synced from Sortir & QC)
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [selectedInventoryId, setSelectedInventoryId] = useState('');
   const [ballName, setBallName] = useState('');
   const [weightKg, setWeightKg] = useState<number | ''>(45);
   const [pcsKepala, setPcsKepala] = useState<number | ''>('');
@@ -71,8 +69,19 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
     onConfirm: () => {},
   });
 
-  const ballDataList = StorageService.getBallData(storeId);
-  const inventoryList = StorageService.getInventory(storeId);
+  const loadData = () => {
+    setBallDataList(StorageService.getBallData(storeId));
+  };
+
+  useEffect(() => {
+    loadData();
+    const unsub = StorageService.subscribe((key) => {
+      if (key === 'ball_data' || key === 'steam_sortir' || key === 'all') {
+        loadData();
+      }
+    });
+    return () => unsub();
+  }, [storeId]);
 
   const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
     if (onNotify) onNotify(msg, type);
@@ -95,24 +104,8 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
     }
   };
 
-  const handleSelectInventory = (invId: string) => {
-    setSelectedInventoryId(invId);
-    if (!invId) return;
-    const found = inventoryList.find(i => i.id === invId);
-    if (found) {
-      setBallName(found.ballType || '');
-      if (found.weightKg) setWeightKg(found.weightKg);
-      const count = found.pcsCount || found.pcsTotal || '';
-      setPcsTotal(count);
-      if (found.pcsKepala !== undefined) setPcsKepala(found.pcsKepala);
-      if (found.pcsBadan !== undefined) setPcsBadan(found.pcsBadan);
-      if (found.pcsKaki !== undefined) setPcsKaki(found.pcsKaki);
-    }
-  };
-
   const resetForm = () => {
     setDate(new Date().toISOString().slice(0, 10));
-    setSelectedInventoryId('');
     setBallName('');
     setWeightKg(45);
     setPcsKepala('');
@@ -121,12 +114,12 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
     setPcsTotal('');
     setNotes('');
     setEditingBall(null);
+    setFormStep(1);
   };
 
   const handleStartEdit = (ball: BallDataRecord) => {
     setEditingBall(ball);
     setDate(ball.date || new Date().toISOString().slice(0, 10));
-    setSelectedInventoryId(ball.inventoryBallId || '');
     setBallName(ball.ballName);
     setWeightKg(ball.weightKg || 45);
     setPcsKepala(ball.pcsKepala);
@@ -134,11 +127,14 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
     setPcsKaki(ball.pcsKaki);
     setPcsTotal(ball.pcsTotal);
     setNotes(ball.notes || '');
+    setFormStep(1);
     setViewMode('form');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingBall) return;
+
     const cleanName = ballName.trim();
     if (!cleanName) {
       notify('Nama Ball wajib diisi!', 'error');
@@ -154,8 +150,7 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
     const computedGrade = evaluateBallQuality(numKepala, finalTotal);
 
     const record: BallDataRecord = {
-      id: editingBall ? editingBall.id : `ball-data-${Date.now()}`,
-      storeId,
+      ...editingBall,
       date,
       ballName: cleanName,
       weightKg: finalWeight,
@@ -164,27 +159,21 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
       pcsBadan: numBadan,
       pcsKaki: numKaki,
       qualityGrade: computedGrade,
-      inventoryBallId: selectedInventoryId || undefined,
       notes: notes.trim(),
       recordedBy: currentUser.name,
-      createdAt: editingBall ? editingBall.createdAt : new Date().toISOString(),
     };
 
     setConfirmModal({
       isOpen: true,
-      title: editingBall ? 'Simpan Perubahan Data Ball' : 'Tambah Data Ball Baru',
-      message: `Simpan data "${cleanName}" (${finalWeight} Kg, Isi ${formatNumber(finalTotal)} pcs, Kepala ${formatNumber(numKepala)} pcs) dengan kualitas "${ballQualityMeta[computedGrade].label}"?`,
-      type: editingBall ? 'edit' : 'create',
-      confirmText: 'Ya, Simpan Data Ball',
+      title: 'Simpan Perubahan Data Ball',
+      message: `Simpan perubahan data "${cleanName}" (${finalWeight} Kg, Isi ${formatNumber(finalTotal)} pcs, Kepala ${formatNumber(numKepala)} pcs) dengan kualitas "${ballQualityMeta[computedGrade].label}"?`,
+      type: 'edit',
+      confirmText: 'Ya, Simpan Perubahan',
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         StorageService.addOrUpdateBallData(record);
-        notify(
-          editingBall
-            ? 'Data Ball berhasil diperbarui!'
-            : 'Data Ball baru berhasil ditambahkan ke Daftar Ball!',
-          'success'
-        );
+        loadData();
+        notify('Data Ball berhasil diperbarui!', 'success');
         resetForm();
         setViewMode('list');
       },
@@ -201,6 +190,7 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         StorageService.deleteBallData(ball.id);
+        loadData();
         notify('Data ball berhasil dihapus.', 'info');
       },
     });
@@ -235,101 +225,7 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   const liveMeta = ballQualityMeta[liveQuality];
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 space-y-4 text-white font-sans">
-      {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-            <Package className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm sm:text-base font-black text-white leading-tight">
-              Daftar Ball &amp; Klasifikasi Kualitas
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Data Nama Ball, Berat Ball (Kg), Rincian Kelas (Kepala, Badan, Kaki) &amp; Kualitas Ball
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCriteriaGuide(!showCriteriaGuide)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
-          >
-            <Info className="w-3.5 h-3.5 text-[#25F4EE]" />
-            <span>{showCriteriaGuide ? 'Tutup Rumus Kualitas' : 'Standar Kualitas Ball'}</span>
-          </button>
-
-          {viewMode === 'list' ? (
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setViewMode('form');
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25F4EE] text-black text-xs font-black shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Tambah Data Ball</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setViewMode('list');
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Kembali ke Daftar Ball</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Collapsible Standar Kriteria Kualitas Ball */}
-      {showCriteriaGuide && (
-        <div className="p-4 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-black text-[#25F4EE] flex items-center gap-2">
-              <Award className="w-4 h-4" />
-              <span>Aturan Penilaian Kualitas Ball (Berdasarkan Kelas Kepala &amp; Total Isi)</span>
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
-              <div className="font-black text-emerald-400">1. Sangat Bagus</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 100 pcs</strong> dan <strong>Total Isi &gt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 space-y-1">
-              <div className="font-black text-[#25F4EE]">2. Bagus</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong><br />
-                • Atau <strong>Kepala &gt; 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
-              <div className="font-black text-amber-400">3. Biasa</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong><br />
-                • Atau <strong>Kepala &lt; 70 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 space-y-1">
-              <div className="font-black text-[#FE2C55]">4. Jelek</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &lt; 70 pcs</strong> dan <strong>Total Isi &lt; 250 pcs</strong> (atau di bawah standar)
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* Ringkasan Statistik Kualitas Ball */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
         <button
@@ -408,241 +304,320 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
         </button>
       </div>
 
-      {/* ================= FORM INPUT / EDIT BALL ================= */}
-      {viewMode === 'form' ? (
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-xl space-y-4">
-          <div className="border-b border-white/10 pb-3 flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#25F4EE]" />
-              <span>{editingBall ? 'Edit Data Ball & Kualitas' : 'Input Data Ball Baru'}</span>
+      {/* Collapsible Standar Kriteria Kualitas Ball */}
+      {showCriteriaGuide && (
+        <div className="p-4 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs sm:text-sm font-black text-[#25F4EE] flex items-center gap-2">
+              <Award className="w-4 h-4" />
+              <span>Aturan Penilaian Kualitas Ball (Otomatis dari Sortir &amp; QC)</span>
             </h3>
-            <span className="text-[11px] text-zinc-400">Kualitas dihitung otomatis dari Kepala &amp; Total Isi</span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Tanggal Pencatatan <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+              <div className="font-black text-emerald-400">1. Sangat Bagus</div>
+              <p className="text-[11px] text-zinc-300 leading-snug">
+                • <strong>Kepala &gt; 100 pcs</strong> dan <strong>Total Isi &gt; 270 pcs</strong>
+              </p>
             </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Ambil dari Stok Inventaris (Opsional)
-              </label>
-              <ThemedSelect
-                value={selectedInventoryId}
-                onChange={val => handleSelectInventory(val)}
-                title="Pilih Ball dari Stok Inventaris"
-                placeholder="-- Ketik Manual / Pilih dari Stok Inventaris --"
-                options={[
-                  { value: '', label: '-- Ketik Manual / Pilih dari Stok Inventaris --' },
-                  ...inventoryList.map(inv => ({
-                    value: inv.id,
-                    label: `${inv.ballType} (${inv.pcsCount || inv.pcsTotal || 0} pcs)`,
-                    description: 'Salin nama & isi ball dari inventaris',
-                  })),
-                ]}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              />
+            <div className="p-3 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 space-y-1">
+              <div className="font-black text-[#25F4EE]">2. Bagus</div>
+              <p className="text-[11px] text-zinc-300 leading-snug">
+                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong><br />
+                • Atau <strong>Kepala &gt; 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong>
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+              <div className="font-black text-amber-400">3. Biasa</div>
+              <p className="text-[11px] text-zinc-300 leading-snug">
+                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong><br />
+                • Atau <strong>Kepala &lt; 70 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong>
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 space-y-1">
+              <div className="font-black text-[#FE2C55]">4. Jelek</div>
+              <p className="text-[11px] text-zinc-300 leading-snug">
+                • <strong>Kepala &lt; 70 pcs</strong> dan <strong>Total Isi &lt; 250 pcs</strong> (atau di bawah standar)
+              </p>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-zinc-300 mb-1">
-                Nama Ball <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={ballName}
-                onChange={e => setBallName(e.target.value)}
-                placeholder="Contoh: Ball Knitwear Premium Grade A #01"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1.5">
-                <Scale className="w-3.5 h-3.5 text-[#25F4EE]" />
-                <span>Berat Ball (Kg) <span className="text-[#FE2C55]">*</span></span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="0.5"
-                required
-                value={weightKg}
-                onChange={e => setWeightKg(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                placeholder="Misal: 45"
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
-              />
-              <div className="flex gap-1 mt-1.5">
-                {[40, 45, 50, 100].map(kg => (
-                  <button
-                    key={kg}
-                    type="button"
-                    onClick={() => setWeightKg(kg)}
-                    className={`text-[10px] px-2 py-0.5 rounded border transition ${
-                      weightKg === kg
-                        ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] font-bold'
-                        : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    {kg} Kg
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Input Kategori Kelas: Kepala, Badan, Kaki & Total Isi */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-[#0b0c10] border border-emerald-500/30 space-y-1.5">
-              <label className="block text-xs font-black text-emerald-400">
-                Kelas Kepala (Pcs) <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={pcsKepala}
-                onChange={e =>
-                  handleClassChange(
-                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
-                    pcsBadan,
-                    pcsKaki
-                  )
-                }
-                placeholder="Misal: 115"
-                className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-emerald-500/30 text-white font-bold"
-              />
-              <span className="text-[10px] text-zinc-400 block">Penentu utama kualitas ball</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-1.5">
-              <label className="block text-xs font-black text-[#25F4EE]">
-                Kelas Badan (Pcs)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={pcsBadan}
-                onChange={e =>
-                  handleClassChange(
-                    pcsKepala,
-                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
-                    pcsKaki
-                  )
-                }
-                placeholder="Misal: 120"
-                className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-[#25F4EE]/30 text-white font-bold"
-              />
-              <span className="text-[10px] text-zinc-400 block">Barang kualitas standar</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#0b0c10] border border-amber-500/30 space-y-1.5">
-              <label className="block text-xs font-black text-amber-400">
-                Kelas Kaki (Pcs)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={pcsKaki}
-                onChange={e =>
-                  handleClassChange(
-                    pcsKepala,
-                    pcsBadan,
-                    e.target.value === '' ? '' : parseInt(e.target.value) || 0
-                  )
-                }
-                placeholder="Misal: 45"
-                className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-amber-500/30 text-white font-bold"
-              />
-              <span className="text-[10px] text-zinc-400 block">Barang grade bawah</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/20 space-y-1.5">
-              <label className="block text-xs font-black text-white">
-                Total Isi Ball (Pcs) <span className="text-[#FE2C55]">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={pcsTotal}
-                onChange={e => setPcsTotal(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                placeholder="Misal: 280"
-                className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/20 text-white font-black"
-              />
-              <span className="text-[10px] text-zinc-400 block">Otomatis Kepala + Badan + Kaki</span>
-            </div>
-          </div>
-
-          {/* Hasil Kualitas Ball Otomatis */}
-          <div className="p-4 rounded-xl bg-[#0b0c10] border border-white/10 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center border ${liveMeta.bgClass} ${liveMeta.borderClass} ${liveMeta.textClass}`}>
-                <Award className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-zinc-300">Kualitas Ball (Otomatis):</span>
-                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black border ${liveMeta.bgClass} ${liveMeta.borderClass} ${liveMeta.textClass}`}>
-                    {liveMeta.label}
-                  </span>
-                </div>
-                <div className="text-xs text-zinc-400 mt-0.5">
-                  Kriteria: <strong className="text-zinc-200">{liveMeta.description}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-zinc-300 font-semibold">
-              Kepala: <span className="text-emerald-400 font-bold">{formatNumber(liveKepala)} pcs</span> • Total Isi: <span className="text-white font-bold">{formatNumber(liveTotal)} pcs</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-zinc-300 mb-1">
-              Catatan Evaluasi Ball (Opsional)
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Contoh: Isi dominan brand bagus, bahan tebal..."
-              className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+      {/* ================= FORM EDIT BALL (Format Selanjutnya, Tanpa Tanda di Atas) ================= */}
+      {viewMode === 'form' && editingBall ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2 px-1">
             <button
               type="button"
-              onClick={resetForm}
-              className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-semibold transition"
+              onClick={() => {
+                resetForm();
+                setViewMode('list');
+              }}
+              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/25 hover:bg-[#25F4EE]/90 transition cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{editingBall ? 'Simpan Perubahan Ball' : 'Simpan ke Daftar Ball'}</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Batal / Kembali ke Daftar Ball</span>
             </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
+            {formStep === 1 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white">
+                    Informasi Nama &amp; Berat Ball
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Perbarui identitas ball dan berat ball (Kg).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Tanggal Pencatatan <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Nama Ball <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ballName}
+                      onChange={e => setBallName(e.target.value)}
+                      placeholder="Contoh: Ball Knitwear Premium Grade A #01"
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1 flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-[#25F4EE]" />
+                      <span>Berat Ball (Kg) <span className="text-[#FE2C55]">*</span></span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      required
+                      value={weightKg}
+                      onChange={e => setWeightKg(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                      placeholder="Misal: 45"
+                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
+                    />
+                    <div className="flex gap-1 mt-1.5">
+                      {[40, 45, 50, 100].map(kg => (
+                        <button
+                          key={kg}
+                          type="button"
+                          onClick={() => setWeightKg(kg)}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition ${
+                            weightKg === kg
+                              ? 'bg-[#25F4EE]/20 border-[#25F4EE] text-[#25F4EE] font-bold'
+                              : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {kg} Kg
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {formStep === 2 && (
+              <div className="space-y-5">
+                <div className="border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-black text-white">
+                    Rincian Kelas (Kepala, Badan, Kaki) &amp; Kualitas Ball
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Kualitas ball dihitung otomatis dari jumlah Kepala dan Total Isi.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-emerald-500/30 space-y-1.5">
+                    <label className="block text-xs font-black text-emerald-400">
+                      Kelas Kepala (Pcs) <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={pcsKepala}
+                      onChange={e =>
+                        handleClassChange(
+                          e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                          pcsBadan,
+                          pcsKaki
+                        )
+                      }
+                      placeholder="Misal: 115"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-emerald-500/30 text-white font-bold"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-[#25F4EE]/30 space-y-1.5">
+                    <label className="block text-xs font-black text-[#25F4EE]">
+                      Kelas Badan (Pcs)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pcsBadan}
+                      onChange={e =>
+                        handleClassChange(
+                          pcsKepala,
+                          e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                          pcsKaki
+                        )
+                      }
+                      placeholder="Misal: 120"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-[#25F4EE]/30 text-white font-bold"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-amber-500/30 space-y-1.5">
+                    <label className="block text-xs font-black text-amber-400">
+                      Kelas Kaki (Pcs)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pcsKaki}
+                      onChange={e =>
+                        handleClassChange(
+                          pcsKepala,
+                          pcsBadan,
+                          e.target.value === '' ? '' : parseInt(e.target.value) || 0
+                        )
+                      }
+                      placeholder="Misal: 45"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-amber-500/30 text-white font-bold"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#0b0c10] border border-white/20 space-y-1.5">
+                    <label className="block text-xs font-black text-white">
+                      Total Isi Ball (Pcs) <span className="text-[#FE2C55]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={pcsTotal}
+                      onChange={e => setPcsTotal(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                      placeholder="Misal: 280"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-[#161823] border border-white/20 text-white font-black"
+                    />
+                  </div>
+                </div>
+
+                {/* Hasil Kualitas Ball Otomatis */}
+                <div className="p-4 rounded-xl bg-[#0b0c10] border border-white/10 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center border ${liveMeta.bgClass} ${liveMeta.borderClass} ${liveMeta.textClass}`}>
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-zinc-300">Kualitas Ball (Otomatis):</span>
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black border ${liveMeta.bgClass} ${liveMeta.borderClass} ${liveMeta.textClass}`}>
+                          {liveMeta.label}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        Kriteria: <strong className="text-zinc-200">{liveMeta.description}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-zinc-300 font-semibold">
+                    Kepala: <span className="text-emerald-400 font-bold">{formatNumber(liveKepala)} pcs</span> • Total Isi: <span className="text-white font-bold">{formatNumber(liveTotal)} pcs</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Catatan Evaluasi Ball (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Contoh: Isi dominan brand bagus, bahan tebal..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              {formStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setFormStep(prev => prev - 1)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Sebelumnya</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setViewMode('list');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                  <span>Batal</span>
+                </button>
+              )}
+
+              {formStep < 2 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!ballName.trim()) {
+                      notify('Nama Ball wajib diisi!', 'error');
+                      return;
+                    }
+                    setFormStep(2);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
+                >
+                  <span>Selanjutnya</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan Perubahan Ball</span>
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       ) : (
-        /* ================= DAFTAR BALL TABLE & CARDS ================= */
+        /* ================= DAFTAR BALL TABLE & CARDS (Otomatis dari Sortir & QC) ================= */
         <div className="space-y-3">
           {/* Search & Filter Bar */}
           <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 flex flex-wrap items-center justify-between gap-2.5">
@@ -673,28 +648,27 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
               />
             </div>
 
-            <div className="text-xs text-zinc-400 font-semibold">
-              Menampilkan <strong className="text-white">{filteredBalls.length}</strong> Ball
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowCriteriaGuide(!showCriteriaGuide)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
+              >
+                <Info className="w-3.5 h-3.5 text-[#25F4EE]" />
+                <span>{showCriteriaGuide ? 'Tutup Standar' : 'Standar Kualitas'}</span>
+              </button>
+              <div className="text-xs text-zinc-400 font-semibold">
+                Total: <strong className="text-white">{filteredBalls.length}</strong> Ball
+              </div>
             </div>
           </div>
 
           {filteredBalls.length === 0 ? (
-            <div className="p-10 rounded-2xl bg-[#161823] border border-white/10 text-center space-y-3">
+            <div className="p-10 rounded-2xl bg-[#161823] border border-white/10 text-center space-y-2">
               <ClipboardList className="w-8 h-8 text-zinc-500 mx-auto" />
               <p className="text-xs text-zinc-400">
-                Belum ada data ball yang sesuai filter. Anda dapat menambahkan langsung atau mengisi melalui menu Sortir &amp; QC.
+                Belum ada data ball pada filter ini. Data ball akan otomatis terisi saat Anda mencatat pengerjaan di menu <strong>Sortir, QC &amp; Finishing</strong>.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  setViewMode('form');
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold hover:bg-[#25F4EE]/25 transition"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>+ Input Data Ball Pertama</span>
-              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

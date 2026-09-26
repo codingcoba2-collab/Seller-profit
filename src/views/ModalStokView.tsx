@@ -77,8 +77,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
   const [modalPrice, setModalPrice] = useState<number>(6000000);
   const [pcsCount, setPcsCount] = useState<number>(300);
   const [shippingCost, setShippingCost] = useState<number>(200000);
-  const [steamCost, setSteamCost] = useState<number>(150000);
-  const [sortirCost, setSortirCost] = useState<number>(100000);
+  const [steamCost, setSteamCost] = useState<number>(0);
+  const [sortirCost, setSortirCost] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
   const [returnMechanism, setReturnMechanism] = useState<'estimate' | 'detail'>('detail');
   const [estimateReturnPercentage, setEstimateReturnPercentage] = useState<number>(3.0);
@@ -123,8 +123,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
     setModalPrice(6000000);
     setPcsCount(300);
     setShippingCost(200000);
-    setSteamCost(150000);
-    setSortirCost(100000);
+    setSteamCost(0);
+    setSortirCost(0);
     setNotes('');
     setSelectedSizes(['S', 'M', 'L', 'XL']);
     setSizeBreakdown({ S: 75, M: 75, L: 75, XL: 75 });
@@ -422,44 +422,6 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Batal / Kembali ke Menu</span>
             </button>
-            <div className="text-xs font-bold text-[#25F4EE]">
-              Langkah {formStep} dari 3
-            </div>
-          </div>
-
-          {/* Stepper Progress */}
-          <div className="grid grid-cols-3 gap-2 bg-[#161823] p-3 rounded-2xl border border-white/10 text-xs">
-            {[
-              { step: 1, label: 'Info & Kategori Barang', icon: '📦' },
-              { step: 2, label: 'Modal Beli & HPP', icon: '💰' },
-              { step: 3, label: 'Ukuran & Return', icon: '📏' },
-            ].map(item => {
-              const isActive = formStep === item.step;
-              const isDone = formStep > item.step;
-              return (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => {
-                    if (isDone || item.step <= formStep) {
-                      setFormStep(item.step);
-                    }
-                  }}
-                  className={`p-2.5 rounded-xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
-                    isActive
-                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] font-black'
-                      : isDone
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
-                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                  <span className="hidden sm:inline truncate text-[11px] sm:text-xs">
-                    {item.step}. {item.label}
-                  </span>
-                </button>
-              );
-            })}
           </div>
 
           <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
@@ -467,9 +429,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             {formStep === 1 && (
               <div className="space-y-5">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">1</span>
-                    <span>Informasi Dasar Barang &amp; Kategori</span>
+                  <h3 className="text-sm font-black text-white">
+                    Informasi Dasar Barang &amp; Kategori
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">Masukkan tanggal kedatangan stok, nama stok / ball, dan kategorinya.</p>
                 </div>
@@ -556,14 +517,13 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             {formStep === 2 && (
               <div className="space-y-5">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">2</span>
-                    <span>Harga Modal Beli &amp; Komponen Biaya HPP</span>
+                  <h3 className="text-sm font-black text-white">
+                    Harga Modal Beli &amp; Komponen Biaya HPP
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">Masukkan jumlah total pcs barang dan seluruh biaya terkait untuk menghitung HPP per pcs secara akurat.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Masukkan jumlah total pcs barang, harga beli, dan ongkos kirim. Biaya sortir &amp; QC dihitung otomatis dari menu Sortir &amp; QC.</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1">
                       Isi / Jumlah Pcs Barang <span className="text-[#FE2C55]">*</span>
@@ -583,22 +543,14 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                       <label className="text-xs font-bold text-zinc-300">
                         Harga Beli / Modal (Rp) <span className="text-[#FE2C55]">*</span>
                       </label>
-                      <span className="text-[10px] text-[#FE2C55] font-semibold flex items-center gap-1">
-                        ⚡ Masuk Pengeluaran Kas
-                      </span>
                     </div>
                     <CommaNumberInput
                       value={modalPrice}
                       onChange={setModalPrice}
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-bold focus:border-[#25F4EE]"
                     />
-                    <p className="text-[10px] text-zinc-400 mt-1">
-                      Nominal modal ball otomatis tercatat ke pengeluaran cashflow toko.
-                    </p>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1">
                       Biaya Ongkos Kirim (Rp)
@@ -606,28 +558,6 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                     <CommaNumberInput
                       value={shippingCost}
                       onChange={setShippingCost}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Biaya Steam / Finishing / Tag (Rp)
-                    </label>
-                    <CommaNumberInput
-                      value={steamCost}
-                      onChange={setSteamCost}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1">
-                      Biaya Sortir / QC / Packing (Rp)
-                    </label>
-                    <CommaNumberInput
-                      value={sortirCost}
-                      onChange={setSortirCost}
                       className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white focus:border-[#25F4EE]"
                     />
                   </div>
@@ -641,7 +571,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                       <span>Kalkulasi Otomatis HPP per Pcs:</span>
                     </div>
                     <div className="text-[11px] text-zinc-400 mt-0.5">
-                      ({formatRupiah(modalPrice)} + {formatRupiah(shippingCost)} + {formatRupiah(steamCost)} + {formatRupiah(sortirCost)}) / {pcsCount} pcs
+                      ({formatRupiah(modalPrice)} + {formatRupiah(shippingCost)}) / {pcsCount} pcs
                     </div>
                   </div>
                   <div className="text-right">
@@ -660,9 +590,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
             {formStep === 3 && (
               <div className="space-y-5">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">3</span>
-                    <span>Distribusi Ukuran &amp; Ketentuan Return</span>
+                  <h3 className="text-sm font-black text-white">
+                    Distribusi Ukuran &amp; Ketentuan Return
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">Atur pembagian size pakaian dan mekanisme estimasi return.</p>
                 </div>
@@ -798,7 +727,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
                   onClick={handleNextStep}
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
                 >
-                  <span>Lanjut: {formStep === 1 ? 'Modal & HPP' : 'Ukuran & Return'}</span>
+                  <span>Selanjutnya</span>
                   <ArrowLeft className="w-4 h-4 rotate-180" />
                 </button>
               ) : (

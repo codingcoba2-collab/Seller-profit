@@ -645,46 +645,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Batal / Kembali ke Daftar</span>
             </button>
-            <div className="text-xs font-bold text-[#25F4EE] flex items-center gap-1.5">
-              <span>{editingId ? 'Edit Pegawai' : 'Registrasi Baru'}</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-400">Tahap {formStep}/4</span>
-            </div>
-          </div>
-
-          {/* Wizard Stepper Progress Bar */}
-          <div className="grid grid-cols-4 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
-            {[
-              { step: 1, label: 'Akun Login', icon: '👤' },
-              { step: 2, label: 'Hak Akses Role', icon: '🛡️' },
-              { step: 3, label: 'Gaji & Insentif', icon: '💰' },
-              { step: 4, label: 'Bonus & Target', icon: '🏆' },
-            ].map(item => {
-              const isActive = formStep === item.step;
-              const isDone = formStep > item.step;
-              return (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => {
-                    // Hanya izinkan lompat ke step yang sudah atau step 1
-                    if (isDone || item.step <= formStep) {
-                      setFormStep(item.step);
-                    }
-                  }}
-                  title={`${item.step}. ${item.label}`}
-                  className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
-                    isActive
-                      ? 'bg-[#25F4EE]/10 border-[#25F4EE] text-[#25F4EE] font-black'
-                      : isDone
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
-                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                </button>
-              );
-            })}
           </div>
 
           {/* Form Container */}
@@ -693,9 +653,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             {formStep === 1 && (
               <div className="space-y-5">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">1</span>
-                    <span>Data Akun &amp; Kredensial Login Pegawai</span>
+                  <h3 className="text-sm font-black text-white">
+                    Data Akun &amp; Kredensial Login Pegawai
                   </h3>
                 </div>
 
@@ -820,9 +779,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             {formStep === 2 && (
               <div className="space-y-5">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">2</span>
-                    <span>Pilih Hak Akses Role Pegawai</span>
+                  <h3 className="text-sm font-black text-white">
+                    Pilih Hak Akses Role Pegawai
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">Satu pegawai dapat memegang lebih dari satu role (bisa rangkap jabatan).</p>
                 </div>
@@ -874,9 +832,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             {formStep === 3 && (
               <div className="space-y-6">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">3</span>
-                    <span>Pengaturan Gaji Pokok &amp; Insentif Role</span>
+                  <h3 className="text-sm font-black text-white">
+                    Pengaturan Gaji Pokok &amp; Insentif Role
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">Tentukan skema gaji pokok dan komisi per pcs / paket untuk role yang telah dipilih.</p>
                 </div>
@@ -1131,9 +1088,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
             {formStep === 4 && (
               <div className="space-y-6">
                 <div className="border-b border-white/10 pb-3">
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#25F4EE] text-black flex items-center justify-center text-xs font-black">4</span>
-                    <span>Bonus Target Tambahan &amp; Konfirmasi Simpan</span>
+                  <h3 className="text-sm font-black text-white">
+                    Bonus Target Tambahan &amp; Konfirmasi Simpan
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">Aturan bonus tambahan pencapaian target toko dan ringkasan data sebelum disimpan.</p>
                 </div>
@@ -1267,7 +1223,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                   onClick={handleNextStep}
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
                 >
-                  <span>Lanjut: {formStep === 1 ? 'Pilih Role' : formStep === 2 ? 'Gaji & Insentif' : 'Bonus Target'}</span>
+                  <span>Selanjutnya</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               ) : (
