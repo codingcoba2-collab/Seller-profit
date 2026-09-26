@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { SalesRecord, CurrentUser, Employee, SalesType, SalesChannel, FashionCategory, PaymentMethod, SaleFormat } from '../types';
 import { 
   formatRupiah, 
@@ -341,8 +342,20 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
   const handleCancelEdit = () => {
     resetForm();
-    setViewMode('rekap');
+    setViewMode('menu');
   };
+
+  useEffect(() => {
+    registerSubViewBackHandler(() => {
+      if (viewMode !== 'menu') {
+        resetForm();
+        setViewMode('menu');
+        return true;
+      }
+      return false;
+    });
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   const liveIncentivePreview = useMemo(() => {
     if (viewMode !== 'input_live' || selectedHostIds.length === 0) return [];
@@ -807,26 +820,6 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   if (viewMode === 'menu') {
     return (
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-        {/* Top Header Navigation */}
-        <div className="flex items-center justify-between gap-2 px-1">
-          <button
-            type="button"
-            onClick={onBackToDashboard}
-            className="text-xs text-zinc-400 hover:text-white transition flex items-center gap-1.5 font-bold cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            <span>Kembali ke Kategori Menu</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('rekap')}
-            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-[#25F4EE] border border-white/10 hover:border-[#25F4EE]/40 transition cursor-pointer flex items-center gap-1.5"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Lihat Riwayat ({salesList.length})</span>
-          </button>
-        </div>
-
         {/* Ringkasan Ringkas */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <div className="p-3 rounded-xl bg-[#161823] border border-white/10">
@@ -844,11 +837,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         </div>
 
         {/* Grid Kecil 2 Kesamping jika tidak cukup sisanya ke bawah */}
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Aksi:
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {/* Card 1: Input Live */}
             <div
               id="menu-card-input-live"
@@ -945,89 +934,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Compact Top Navigation Bar with Quick Mode Switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-back-menu-penjualan"
-            onClick={() => {
-              if (editingId) handleCancelEdit();
-              setViewMode('menu');
-            }}
-            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Menu Hub</span>
-          </button>
-          <span className="text-zinc-600">/</span>
-          <button
-            type="button"
-            onClick={onBackToDashboard}
-            className="text-xs text-zinc-400 hover:text-white transition font-medium cursor-pointer"
-          >
-            Kategori
-          </button>
-        </div>
-
-        {/* Quick Mode Switcher Tabs */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              if (editingId) handleCancelEdit();
-              setViewMode('rekap');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'rekap'
-                ? 'bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/40 shadow-xs'
-                : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Riwayat ({salesList.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setViewMode('input_live');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'input_live'
-                ? 'bg-[#FE2C55]/20 text-[#FE2C55] border border-[#FE2C55]/40 shadow-xs'
-                : 'bg-white/5 hover:bg-[#FE2C55]/10 text-zinc-400 hover:text-[#FE2C55] border border-white/5'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>+ Live</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setViewMode('input_non_live');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'input_non_live'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
-                : 'bg-white/5 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 border border-white/5'
-            }`}
-          >
-            <Store className="w-3.5 h-3.5" />
-            <span>+ Non-Live</span>
-          </button>
-        </div>
-      </div>
-
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
       {viewMode === 'rekap' && (
         <div className="space-y-3.5 sm:space-y-4">
@@ -1502,76 +1414,13 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       {/* ================= TAB 2: INPUT PENJUALAN LIVE (WIZARD STEPPER) ================= */}
       {viewMode === 'input_live' && (
         <div className="space-y-4 max-w-4xl mx-auto">
-          {/* Header & Sub-step Info */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali ke Rekap</span>
-            </button>
-            <div className="text-xs font-bold text-[#FE2C55] flex items-center gap-1.5">
-              <span>{editingId ? 'Edit Data Sesi Live' : 'Input Penjualan Live'}</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-400">Tahap {liveFormStep}/3</span>
-            </div>
-          </div>
-
-          {/* Stepper Progress Bar */}
-          <div className="grid grid-cols-3 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
-            {[
-              { step: 1, label: 'Platform & Tim Host', icon: '🎤' },
-              { step: 2, label: 'Hasil Penjualan Live', icon: '💰' },
-              { step: 3, label: 'Ukuran & Insentif', icon: '🏷️' },
-            ].map(item => {
-              const isActive = liveFormStep === item.step;
-              const isDone = liveFormStep > item.step;
-              return (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => {
-                    if (isDone || item.step <= liveFormStep) {
-                      setLiveFormStep(item.step);
-                    }
-                  }}
-                  title={`${item.step}. ${item.label}`}
-                  className={`p-2 sm:p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
-                    isActive
-                      ? 'bg-[#FE2C55]/15 border-[#FE2C55] text-[#FE2C55] font-black'
-                      : isDone
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
-                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                  <span className="hidden sm:inline font-bold">{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
           <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <Video className="w-5 h-5 text-[#FE2C55]" />
-                <span>
-                  {liveFormStep === 1 && 'Tahap 1: Platform & Petugas Live Bertugas'}
-                  {liveFormStep === 2 && 'Tahap 2: Hasil Sesi Penjualan & Biaya Live'}
-                  {liveFormStep === 3 && 'Tahap 3: Rincian Ukuran Terjual & Sinkronisasi Insentif'}
-                </span>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-sm font-black text-white">
+                {liveFormStep === 1 && 'Platform & Petugas Live Bertugas'}
+                {liveFormStep === 2 && 'Hasil Sesi Penjualan & Biaya Live'}
+                {liveFormStep === 3 && 'Rincian Ukuran Terjual & Sinkronisasi Insentif'}
               </h3>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
-                >
-                  Batal Edit
-                </button>
-              )}
             </div>
 
             {errorMessage && (
@@ -2110,7 +1959,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <button
                     type="button"
                     onClick={handlePrevLiveStep}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-bold transition cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Tahap Sebelumnya</span>
@@ -2118,10 +1967,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition cursor-pointer"
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                   >
-                    Reset Form
+                    <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                    <span>Batal</span>
                   </button>
                 )}
 
@@ -2129,15 +1979,15 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <button
                     type="button"
                     onClick={handleNextLiveStep}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-95 transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
                   >
-                    <span>Lanjut: {liveFormStep === 1 ? 'Hasil & Biaya Live' : 'Ukuran & Insentif'}</span>
+                    <span>Selanjutnya</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#FE2C55] to-pink-500 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-[#FE2C55]/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-95 transition cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>{editingId ? 'Simpan Perubahan Live' : 'Simpan Penjualan Live'}</span>
@@ -2152,74 +2002,12 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       {/* ================= TAB 3: INPUT PENJUALAN NON-LIVE (WIZARD STEPPER) ================= */}
       {viewMode === 'input_non_live' && (
         <div className="space-y-4 max-w-4xl mx-auto">
-          {/* Header & Sub-step Info */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="text-xs text-zinc-400 hover:text-emerald-400 transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali ke Rekap</span>
-            </button>
-            <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>{editingId ? 'Edit Data Non-Live' : 'Input Penjualan Non-Live'}</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-400">Tahap {nonLiveFormStep}/2</span>
-            </div>
-          </div>
-
-          {/* Stepper Progress Bar */}
-          <div className="grid grid-cols-2 gap-2 bg-[#161823] p-2.5 sm:p-3 rounded-2xl border border-white/10 text-xs">
-            {[
-              { step: 1, label: 'Channel & Petugas Kasir', icon: '🏪' },
-              { step: 2, label: 'Nominal & Rincian Ukuran', icon: '🏷️' },
-            ].map(item => {
-              const isActive = nonLiveFormStep === item.step;
-              const isDone = nonLiveFormStep > item.step;
-              return (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => {
-                    if (isDone || item.step <= nonLiveFormStep) {
-                      setNonLiveFormStep(item.step);
-                    }
-                  }}
-                  title={`${item.step}. ${item.label}`}
-                  className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-1.5 ${
-                    isActive
-                      ? 'bg-emerald-500/15 border-emerald-400 text-emerald-400 font-black'
-                      : isDone
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold cursor-pointer'
-                      : 'bg-[#0b0c10] border-white/5 text-zinc-500 font-medium cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-sm">{isDone ? '✓' : item.icon}</span>
-                  <span className="font-bold">{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
           <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <Store className="w-5 h-5 text-emerald-400" />
-                <span>
-                  {nonLiveFormStep === 1 && 'Tahap 1: Saluran Penjualan & Petugas Kasir'}
-                  {nonLiveFormStep === 2 && 'Tahap 2: Hasil Transaksi, Ukuran & Catatan'}
-                </span>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-sm font-black text-white">
+                {nonLiveFormStep === 1 && 'Saluran Penjualan & Petugas Kasir'}
+                {nonLiveFormStep === 2 && 'Hasil Transaksi, Ukuran & Catatan'}
               </h3>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="text-xs text-zinc-400 hover:text-white px-3 py-1 rounded-xl bg-white/5 border border-white/10 transition cursor-pointer"
-                >
-                  Batal Edit
-                </button>
-              )}
             </div>
 
             {errorMessage && (
@@ -2520,7 +2308,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <button
                     type="button"
                     onClick={handlePrevNonLiveStep}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-bold transition cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Tahap Sebelumnya</span>
@@ -2528,10 +2316,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-xs font-bold transition cursor-pointer"
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 border border-[#FE2C55]/30 text-[#FE2C55] transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                   >
-                    Reset Form
+                    <ArrowLeft className="w-4 h-4 text-[#FE2C55] stroke-[2.5]" />
+                    <span>Batal</span>
                   </button>
                 )}
 
@@ -2539,15 +2328,15 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <button
                     type="button"
                     onClick={handleNextNonLiveStep}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 text-black text-xs font-black shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#25F4EE] text-black text-xs font-black shadow-lg shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer"
                   >
-                    <span>Lanjut: Nominal &amp; Rincian Ukuran</span>
+                    <span>Selanjutnya</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-[#0b0c10] text-xs font-black transition cursor-pointer shadow-lg shadow-emerald-400/25 hover:opacity-95 active:scale-95 flex items-center gap-2"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FE2C55] text-white text-xs font-black shadow-lg shadow-[#FE2C55]/30 hover:bg-[#FE2C55]/90 active:scale-95 transition cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>{editingId ? 'Simpan Perubahan Non-Live' : 'Simpan Penjualan Non-Live'}</span>

@@ -398,38 +398,16 @@ export const UtangPiutangSection: React.FC<UtangPiutangSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBackToMenu}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
-            title="Kembali ke Menu Utama Cashflow"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-[#25F4EE]" />
-              <span>Utang &amp; Piutang</span>
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Pencatatan Piutang, Kasbon Pegawai, Utang Supplier, dan Pinjaman Usaha
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openAddModal(activeTab === 'all' ? 'piutang' : activeTab)}
-            className="px-4 py-2 rounded-xl bg-[#25F4EE] hover:bg-[#1ee0da] text-[#0b0c10] font-black text-xs flex items-center gap-1.5 transition shadow cursor-pointer active:scale-98"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>+ Catat Utang / Piutang</span>
-          </button>
-        </div>
+      {/* Action Button */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={() => openAddModal(activeTab === 'all' ? 'piutang' : activeTab)}
+          className="px-4 py-2 rounded-xl bg-[#25F4EE] hover:bg-[#1ee0da] text-[#0b0c10] font-black text-xs flex items-center gap-1.5 transition shadow cursor-pointer active:scale-98"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>+ Catat Utang / Piutang</span>
+        </button>
       </div>
 
       {/* 4 Top Summary Stat Cards */}

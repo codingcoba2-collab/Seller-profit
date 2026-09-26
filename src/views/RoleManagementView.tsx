@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { Employee, UserRole, SalaryType, IncentiveType, CurrentUser, IncentiveConfig, TierCalculationMode } from '../types';
 import { formatRupiah, formatNumber, roleLabels, roleBadgeColors } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
@@ -42,6 +43,20 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [formStep, setFormStep] = useState<number>(1);
+
+  useEffect(() => {
+    if (viewMode === 'form') {
+      registerSubViewBackHandler(() => {
+        setEditingId(null);
+        setFormStep(1);
+        setViewMode('list');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string>('');
@@ -635,18 +650,6 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       {/* 2. HALAMAN FORM WIZARD (INPUT / EDIT) */}
       {viewMode === 'form' && (
         <div className="space-y-4">
-          {/* Compact Form Header (No bulky card wrapper) */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali ke Daftar</span>
-            </button>
-          </div>
-
           {/* Form Container */}
           <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
             {/* TAHAP 1: DATA IDENTITAS & AKUN */}

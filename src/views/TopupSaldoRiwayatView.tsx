@@ -97,29 +97,6 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Compact Header & Navigation */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <button
-          type="button"
-          id="btn-back-to-topup-hub"
-          onClick={() => onNavigate('/topup-saldo')}
-          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Menu Saldo</span>
-        </button>
-
-        <button
-          type="button"
-          id="btn-add-new-topup-from-riwayat"
-          onClick={() => onNavigate('/topup-saldo/input')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-        >
-          <PlusCircle className="w-3.5 h-3.5" />
-          <span>+ Input Baru</span>
-        </button>
-      </div>
-
       {/* Filter & Summary Bar */}
       <div className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">

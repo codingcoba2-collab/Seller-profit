@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { BallDataRecord, BallQualityGrade, CurrentUser } from '../types';
 import {
   formatDateIndo,
@@ -37,6 +38,20 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   const [formStep, setFormStep] = useState<number>(1);
   const [ballDataList, setBallDataList] = useState<BallDataRecord[]>([]);
   const [editingBall, setEditingBall] = useState<BallDataRecord | null>(null);
+
+  useEffect(() => {
+    if (viewMode === 'form') {
+      registerSubViewBackHandler(() => {
+        setEditingBall(null);
+        setFormStep(1);
+        setViewMode('list');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
   const [showCriteriaGuide, setShowCriteriaGuide] = useState(false);
 
   // Filter states
@@ -347,20 +362,6 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
       {/* ================= FORM EDIT BALL (Format Selanjutnya, Tanpa Tanda di Atas) ================= */}
       {viewMode === 'form' && editingBall ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setViewMode('list');
-              }}
-              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali ke Daftar Ball</span>
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
             {formStep === 1 && (
               <div className="space-y-5">

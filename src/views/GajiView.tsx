@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { Employee, AttendanceRecord, SalesRecord, BallInventory, CurrentUser, PeriodFilter, UserRole, CashflowRecord } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors } from '../utils/formatters';
 import { calculateHostPeriodIncentives } from '../utils/incentiveCalculator';
@@ -119,6 +120,18 @@ export const GajiView: React.FC<GajiViewProps> = ({
       (emp.name && currentName && emp.name.toLowerCase() === currentName)
     );
   };
+
+  useEffect(() => {
+    if (selectedEmployeeId) {
+      registerSubViewBackHandler(() => {
+        setSelectedEmployeeId(null);
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [selectedEmployeeId]);
 
   useEffect(() => {
     loadData();
@@ -637,24 +650,6 @@ export const GajiView: React.FC<GajiViewProps> = ({
 
           return (
             <div className="space-y-3.5 sm:space-y-4 max-w-2xl mx-auto">
-              {/* Bar Navigasi Kembali ke Daftar Pegawai */}
-              <div className="flex items-center justify-between gap-2 px-1">
-                <button
-                  type="button"
-                  id="btn-back-to-emp-grid"
-                  onClick={() => {
-                    SoundFx.playRobotButtonClick();
-                    setSelectedEmployeeId(null);
-                  }}
-                  className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Kembali ke Daftar Pegawai</span>
-                </button>
-
-                <strong className="text-xs text-zinc-300 font-bold">{selectedItem.emp.name}</strong>
-              </div>
-
               {/* Kartu Rincian Gaji Pegawai Terpilih (Sesuai Gambar User) */}
               <div
                 key={selectedItem.emp.id}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { CurrentUser, SalesRecord, FashionCategory, SalesChannel } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, salesChannelLabels, fashionCategoryLabels } from '../utils/formatters';
 import { 
@@ -40,6 +41,18 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [salesList, setSalesList] = useState<SalesRecord[]>(() => StorageService.getSales(currentUser.storeId));
+
+  useEffect(() => {
+    if (activeSubView !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setActiveSubView('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [activeSubView]);
 
   useEffect(() => {
     setSalesList(StorageService.getSales(currentUser.storeId));
@@ -286,11 +299,7 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
         </div>
 
         {/* Pilihan 4 Menu Output: Grid Kecil 2 Kesamping, Sisanya ke Bawah */}
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Modul Analisis:
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {/* 1. Grafik Tren Penjualan */}
             <div
               id="menu-stat-grafik"
@@ -391,23 +400,13 @@ export const StatistikView: React.FC<StatistikViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
       </div>
     );
   }
 
-  // HEADER SUB-VIEW DETAIL DENGAN TOMBOL BACK KE MENU STATISTIK
+  // HEADER SUB-VIEW DETAIL
   const SubHeader = (_props?: any) => (
-    <div className="flex flex-wrap items-center justify-between gap-2.5 px-1">
-      <button
-        type="button"
-        onClick={() => setActiveSubView('menu')}
-        className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Kembali ke Menu Statistik</span>
-      </button>
-
+    <div className="flex flex-wrap items-center justify-end gap-2.5 px-1">
       {/* Period Filter Selector */}
       <div className="flex items-center gap-1 overflow-x-auto bg-[#161823] p-1 rounded-xl border border-white/10">
         {[

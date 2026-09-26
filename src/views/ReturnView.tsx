@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { CurrentUser, ReturnRecord } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
@@ -89,6 +90,20 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
       setEstimatePercentage(store?.settings?.estimateReturnPercentage || 3);
     }
   };
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingId(null);
+        setInputStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   useEffect(() => {
     loadData();

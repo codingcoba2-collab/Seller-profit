@@ -759,3 +759,18 @@ export function getBreadcrumbs(route: RoutePath): BreadcrumbItem[] {
 
   return items;
 }
+
+// Sub-view back handler registry so the top Navbar Kembali button can step back out of sub-views (input/rekap/output) before leaving the page
+let activeSubViewBackHandler: (() => boolean) | null = null;
+
+export function registerSubViewBackHandler(handler: (() => boolean) | null): void {
+  activeSubViewBackHandler = handler;
+}
+
+export function triggerSubViewBack(): boolean {
+  if (activeSubViewBackHandler) {
+    return activeSubViewBackHandler();
+  }
+  return false;
+}
+

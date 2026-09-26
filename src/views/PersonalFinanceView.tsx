@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { 
   CurrentUser, 
   PersonalBudgetAllocation, 
@@ -120,6 +121,20 @@ export const PersonalFinanceView: React.FC<PersonalFinanceViewProps> = ({
     const expList = StorageService.getPersonalExpenses(currentUser.storeId);
     setExpenses(expList);
   };
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingExpense(null);
+        setInputStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   useEffect(() => {
     loadData();

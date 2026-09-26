@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { CashflowRecord, CashflowPillar, CurrentUser, Employee, TagihanRecord } from '../types';
 import { formatRupiah, formatDateIndo, getTodayString } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
@@ -128,6 +129,23 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   //    - Jurnal = daftar Debit dan Kredit
   const [activeMenu, setActiveMenu] = useState<MainCashflowSubMenu>('hub');
   const [activePosSub, setActivePosSub] = useState<PosSubCategory>('menu');
+
+  useEffect(() => {
+    if (activeMenu !== 'hub') {
+      registerSubViewBackHandler(() => {
+        if (activeMenu === 'riwayat_pos' && activePosSub !== 'menu') {
+          setActivePosSub('menu');
+          return true;
+        }
+        setEditingItem(null);
+        setActiveMenu('hub');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [activeMenu, activePosSub]);
 
   const [cashflowList, setCashflowList] = useState<CashflowRecord[]>([]);
   const [tagihanList, setTagihanList] = useState<TagihanRecord[]>([]);
@@ -708,55 +726,10 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* ================= TOP CLEAN HEADER BAR (HANYA DI HUB) ================= */}
-      {activeMenu === 'hub' && (
-        <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-              <span>Dashboard</span>
-            </button>
-
-            <div className="flex items-center gap-1.5">
-              <Wallet className="w-4 h-4 text-[#25F4EE]" />
-              <span className="text-xs sm:text-sm font-black text-white">
-                Cashflow &amp; Arus Kas Toko
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Filter Bar (Khusus Tampilan Daftar Transaksi) */}
       {(activeMenu === 'catatan_kas' || (activeMenu === 'riwayat_pos' && (activePosSub === 'operasional' || activePosSub === 'investasi' || activePosSub === 'pendanaan'))) && (
         <div className="p-2.5 sm:p-3 bg-[#161823] rounded-2xl border border-white/10 shadow flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            {activeMenu === 'catatan_kas' ? (
-              <button
-                type="button"
-                onClick={() => setActiveMenu('hub')}
-                className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0"
-                title="Kembali ke Menu Cashflow"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-                <span className="hidden sm:inline">Menu Cashflow</span>
-              </button>
-            ) : activeMenu === 'riwayat_pos' && activePosSub !== 'menu' ? (
-              <button
-                type="button"
-                onClick={() => setActivePosSub('menu')}
-                className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0"
-                title="Kembali ke Riwayat Pos"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-                <span className="hidden sm:inline">Riwayat Pos</span>
-              </button>
-            ) : null}
-
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-[#25F4EE]" />
               Filter Periode:
@@ -1402,22 +1375,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
       {activeMenu === 'riwayat_pos' && (
         <div className="space-y-4">
           {activePosSub === 'menu' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveMenu('hub')}
-                  className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition border border-white/10 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 text-[#25F4EE]" />
-                  <span>Menu Cashflow</span>
-                </button>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  Pilih Pos Cashflow:
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Pos Operasional */}
                 <div
                   id="card-pos-operasional"
@@ -1498,7 +1456,6 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* DAFTAR: POS OPERASIONAL */}

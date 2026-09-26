@@ -141,19 +141,8 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Top Header & Navigation */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <button
-          type="button"
-          id="btn-back-to-informasi"
-          onClick={() => onNavigate('/informasi')}
-          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Informasi</span>
-        </button>
-
-        {currentUser.isOwner && !isCreating && (
+      {currentUser.isOwner && !isCreating && (
+        <div className="flex items-center justify-end gap-2 px-1">
           <button
             type="button"
             id="btn-open-create-announcement"
@@ -167,8 +156,8 @@ export const PengumumanView: React.FC<PengumumanViewProps> = ({
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Buat Pengumuman</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Live Preview Ticker of Active Announcements */}
       <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FE2C55]/15 via-black/40 to-[#25F4EE]/10 border border-[#FE2C55]/30 flex items-center gap-3 overflow-hidden shadow-inner">

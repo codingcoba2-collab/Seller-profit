@@ -268,16 +268,42 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* 1. Top Compact Header & Navigation */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <button
-          type="button"
-          onClick={() => onNavigate('/informasi')}
-          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Informasi</span>
-        </button>
+      {/* Main Chat Mode Tabs & Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('group')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeTab === 'group'
+                ? 'bg-[#25F4EE] text-zinc-950 shadow-md font-black'
+                : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Grup Tim ({contacts.length + 1})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('personal')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+              activeTab === 'personal'
+                ? 'bg-[#25F4EE] text-zinc-950 shadow-md font-black'
+                : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            <span>Chat Personal 1-on-1</span>
+            {contacts.length > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'personal' ? 'bg-zinc-900 text-white' : 'bg-white/10 text-zinc-300'
+              }`}>
+                {contacts.length} Kontak
+              </span>
+            )}
+          </button>
+        </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
@@ -307,52 +333,6 @@ export const LiveChatView: React.FC<LiveChatViewProps> = ({
             <span className="hidden sm:inline">Bersihkan</span>
           </button>
         </div>
-      </div>
-
-      {/* 2. Main Chat Mode Tabs */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('group')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-            activeTab === 'group'
-              ? 'bg-[#25F4EE] text-zinc-950 shadow-md font-black'
-              : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Grup Tim ({contacts.length + 1})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('personal')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-            activeTab === 'personal'
-              ? 'bg-[#25F4EE] text-zinc-950 shadow-md font-black'
-              : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          <User className="w-4 h-4" />
-          <span>Chat Personal 1-on-1</span>
-          {contacts.length > 0 && (
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-              activeTab === 'personal' ? 'bg-zinc-900 text-white' : 'bg-white/10 text-zinc-300'
-            }`}>
-              {contacts.length} Kontak
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('/informasi/kontak')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 transition cursor-pointer ml-auto border border-white/5"
-        >
-          <BookUser className="w-4 h-4 text-emerald-400" />
-          <span className="hidden sm:inline">Daftar Kontak Lengkap</span>
-          <span className="sm:hidden">Kontak</span>
-        </button>
       </div>
 
       {/* 3. Chat Layout Container */}

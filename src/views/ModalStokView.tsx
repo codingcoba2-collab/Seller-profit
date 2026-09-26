@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { BallInventory, CurrentUser, FashionCategory, InventoryUnitType } from '../types';
 import { 
   formatRupiah, 
@@ -98,6 +99,20 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       setEstimateReturnPercentage(store.settings.estimateReturnPercentage || 3.0);
     }
   };
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingId(null);
+        setFormStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   useEffect(() => {
     loadData();
@@ -345,11 +360,7 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
         </div>
 
         {/* Pilihan 2 Menu: Grid Kecil 2 Kesamping */}
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Menu:
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {/* 1. Input Stok Baru */}
             <div
               onClick={() => {
@@ -402,7 +413,6 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
       </div>
     );
   }
@@ -412,18 +422,6 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       {/* TAMPILAN FORM WIZARD (INPUT / EDIT) */}
       {viewMode === 'form' && (
         <div className="space-y-4">
-          {/* Compact Form Header */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Batal / Kembali ke Menu</span>
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
             {/* TAHAP 1: IDENTITAS & KATEGORI BARANG */}
             {formStep === 1 && (
@@ -748,48 +746,6 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       {/* TAMPILAN LAPORAN & RIWAYAT STOK (LIST VIEW) */}
       {viewMode === 'list' && (
         <div className="space-y-3.5 sm:space-y-4">
-          {/* Compact Top Bar */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={() => setViewMode('menu')}
-              className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Kembali ke Menu Stok</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setFormStep(1);
-                setViewMode('form');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>+ Input Stok Baru</span>
-            </button>
-          </div>
-
-          {/* Sisa Stok Bar (Ringkas & Kompak) */}
-          <div className="flex items-center justify-between bg-[#161823] p-3 rounded-2xl border border-white/10 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-[#0b0c10] text-[#25F4EE] border border-white/10">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold text-zinc-400">Total Stok Fisik Tersedia</div>
-                <div className="text-sm sm:text-base font-black text-white">
-                  {formatNumber(stockInfo.remainingStock)} <span className="text-xs font-normal text-zinc-400">pcs pakaian</span>
-                </div>
-              </div>
-            </div>
-            <div className="text-right text-xs text-zinc-400">
-              Total Terjual: <b className="text-[#25F4EE]">{formatNumber(stockInfo.totalPcsSold)} pcs</b>
-            </div>
-          </div>
-
           {/* Summary metrics (Kompak sesuai standar) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-0.5">

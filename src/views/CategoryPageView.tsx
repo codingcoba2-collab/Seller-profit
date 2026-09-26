@@ -23,26 +23,6 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Category Header Banner */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-[#161823] border border-white/10 shadow-lg flex items-center gap-3 sm:gap-4 relative overflow-hidden">
-        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-[#0b0c10] border border-white/10 shrink-0 ${currentCategory.iconColor}`}>
-          <CategoryIcon className="w-6 h-6" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-              Kategori {currentCategory.title}
-            </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
-              {currentCategory.items.length} Modul
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1 sm:line-clamp-none">
-            {currentCategory.description}
-          </p>
-        </div>
-      </div>
-
       {/* Sub-menu Feature Cards Grid: 2 ke samping */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {currentCategory.items.map((item) => {

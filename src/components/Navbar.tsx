@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CurrentUser, ViewState } from '../types';
 import { StorageService } from '../services/storage';
 import { roleLabels } from '../utils/formatters';
-import { RoutePath, getParentRoute, getPageTitle } from '../services/navigation';
+import { RoutePath, getParentRoute, getPageTitle, triggerSubViewBack } from '../services/navigation';
 import { 
   ArrowLeft, 
   ShoppingBag, 
@@ -58,7 +58,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {!isHome ? (
               <button
                 id="btn-back-to-parent"
-                onClick={() => onNavigate(parent ? parent.path : '/dashboard')}
+                onClick={() => {
+                  if (triggerSubViewBack()) return;
+                  onNavigate(parent ? parent.path : '/dashboard');
+                }}
                 className="px-2.5 py-1.5 rounded-xl bg-[#FE2C55]/15 hover:bg-[#FE2C55]/25 text-[#FE2C55] hover:text-white transition border border-[#FE2C55]/40 cursor-pointer shadow-[0_0_12px_rgba(254,44,85,0.25)] active:scale-95 shrink-0 flex items-center gap-1.5 font-black text-xs"
                 title={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}
                 aria-label={parent ? `Kembali ke ${parent.label}` : 'Kembali ke Beranda'}

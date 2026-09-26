@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { AttendanceRecord, CurrentUser, Employee, UserRole } from '../types';
 import { formatDateIndo, getTodayString, roleLabels, roleBadgeColors, formatAttendanceRole } from '../utils/formatters';
 import { 
@@ -89,6 +90,20 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       setHoursWorked(matched.salaryType === 'hourly' ? 4 : 1);
     }
   };
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingId(null);
+        setInputStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   useEffect(() => {
     loadData();

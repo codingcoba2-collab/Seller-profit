@@ -138,15 +138,7 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
       </div>
 
       {/* DUA PILIHAN UTAMA TOP UP SALDO */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-            <Wallet className="w-4 h-4 text-[#25F4EE]" />
-            <span>Aksi Kelola Saldo</span>
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* 1. Input Topup Saldo Card */}
           <div
             id="card-nav-topup-input"
@@ -190,7 +182,6 @@ export const TopupSaldoHubView: React.FC<TopupSaldoHubViewProps> = ({
               />
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

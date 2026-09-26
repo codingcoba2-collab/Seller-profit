@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { CurrentUser, SteamSortirRecord } from '../types';
 import { formatDateIndo, formatNumber, evaluateBallQuality, ballQualityMeta } from '../utils/formatters';
 import { 
@@ -35,6 +36,20 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [viewMode, setViewMode] = useState<SteamSortirViewMode>('menu');
   const [formStep, setFormStep] = useState<number>(1);
   const [editingRecord, setEditingRecord] = useState<SteamSortirRecord | null>(null);
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingRecord(null);
+        setFormStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
@@ -402,11 +417,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
         </div>
 
         {/* Pilihan Aksi Menu Card */}
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Aksi Menu:
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Card 1: Form Input */}
             <button
               id="menu-card-input-steam"
@@ -463,7 +474,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               </div>
             </button>
           </div>
-        </div>
       </div>
     );
   }
@@ -472,30 +482,6 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   if (viewMode === 'input') {
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-4 text-white font-sans">
-        {/* Compact Form Header (Tanpa tanda stepper di atas) */}
-        <div className="flex items-center justify-between gap-2 px-1">
-          <button
-            id="btn-back-menu-steam"
-            type="button"
-            onClick={() => {
-              handleCancelEdit();
-              setViewMode('menu');
-            }}
-            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Batal / Kembali ke Menu</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode('output')}
-            className="text-xs text-[#25F4EE] hover:underline font-bold transition cursor-pointer"
-          >
-            Lihat Riwayat QC →
-          </button>
-        </div>
-
         {/* Form Container (Format sama dengan Manajemen Pegawai) */}
         <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
           {/* TAHAP 1: INFORMASI BALL, BERAT & JENIS PROSES */}
@@ -999,19 +985,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   // ================= 3. OUTPUT & LAPORAN STATE =================
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Filter Bar with Back Shortcut */}
+      {/* Filter Bar */}
       <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            id="btn-back-menu-from-output-steam"
-            type="button"
-            onClick={() => setViewMode('menu')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali ke Menu"
-            aria-label="Kembali ke Menu"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
-          </button>
           <div className="relative w-48 sm:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input

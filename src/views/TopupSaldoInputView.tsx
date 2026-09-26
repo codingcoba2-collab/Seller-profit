@@ -114,29 +114,6 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Compact Header & Navigation */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <button
-          type="button"
-          id="btn-back-to-topup-hub"
-          onClick={() => onNavigate('/topup-saldo')}
-          className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Menu Saldo</span>
-        </button>
-
-        <button
-          type="button"
-          id="btn-goto-riwayat-from-input"
-          onClick={() => onNavigate('/topup-saldo/riwayat')}
-          className="text-xs text-[#25F4EE] hover:underline flex items-center gap-1 font-bold cursor-pointer"
-        >
-          <History className="w-3.5 h-3.5" />
-          <span>Lihat Riwayat &gt;</span>
-        </button>
-      </div>
-
       {/* Dedicated Form Input Card */}
       <div className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">

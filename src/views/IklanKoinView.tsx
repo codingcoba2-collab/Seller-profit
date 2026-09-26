@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storage';
+import { registerSubViewBackHandler } from '../services/navigation';
 import { AdsCoinDeposit, CurrentUser } from '../types';
 import { formatRupiah, formatNumber, formatDateIndo, getTodayString } from '../utils/formatters';
 import { CommaNumberInput } from '../components/CommaNumberInput';
@@ -100,6 +101,20 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
     const list = StorageService.getAdsCoins(currentUser.storeId);
     setDepositList(list);
   };
+
+  useEffect(() => {
+    if (viewMode !== 'menu') {
+      registerSubViewBackHandler(() => {
+        setEditingId(null);
+        setInputStep(1);
+        setViewMode('menu');
+        return true;
+      });
+    } else {
+      registerSubViewBackHandler(null);
+    }
+    return () => registerSubViewBackHandler(null);
+  }, [viewMode]);
 
   useEffect(() => {
     loadData();
@@ -221,35 +236,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   if (viewMode === 'menu') {
     return (
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-3.5 text-white font-sans">
-        {/* Header Bar Sub-Menu */}
-        <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-          <div className="flex items-center gap-3">
-            <button
-              id="btn-back-dashboard-iklankoin"
-              type="button"
-              onClick={onBackToDashboard}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-              title="Kembali ke Dashboard"
-              aria-label="Kembali"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-            </button>
-            <div>
-              <h2 className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span>Deposit Iklan &amp; Koin Saweran Live</span>
-              </h2>
-              <p className="text-[10px] text-zinc-400">Pengelolaan saldo promosi berbayar &amp; giveaway</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-zinc-400 block font-medium">Total Terpakai:</span>
-            <span className="text-xs sm:text-sm font-black text-white">
-              {formatRupiah(adsCoinInfo.totalAdsUsed + adsCoinInfo.totalCoinUsed)}
-            </span>
-          </div>
-        </div>
-
         {/* Ringkasan Ringkas & Kompak di Atas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="p-2.5 rounded-xl bg-[#161823] border border-white/10">
@@ -279,11 +265,7 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
         </div>
 
         {/* Grid Kecil 2 Kesamping: Input vs Output */}
-        <div className="space-y-1.5">
-          <div className="text-[11px] font-bold text-zinc-400 px-1 uppercase tracking-wider">
-            Pilih Aksi:
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {/* Card 1: Form Input */}
             <div
               id="menu-card-input-iklankoin"
@@ -342,7 +324,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
       </div>
     );
   }
@@ -351,22 +332,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   if (viewMode === 'input') {
     return (
       <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-        {/* Compact Form Header */}
-        <div className="flex items-center justify-between gap-2 px-1">
-          <button
-            id="btn-back-menu-iklankoin"
-            type="button"
-            onClick={() => {
-              resetForm();
-              setViewMode('menu');
-            }}
-            className="text-xs text-zinc-400 hover:text-[#FE2C55] transition flex items-center gap-1.5 font-bold cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Batal / Kembali ke Menu</span>
-          </button>
-        </div>
-
         {/* Form Container */}
         <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
           {/* TAHAP 1: Tanggal & Saldo Iklan */}
@@ -489,40 +454,6 @@ export const IklanKoinView: React.FC<IklanKoinViewProps> = ({
   // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Sub-menu Navigation Bar */}
-      <div className="flex items-center justify-between p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-back-menu-from-output-iklankoin"
-            type="button"
-            onClick={() => setViewMode('menu')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali ke Menu"
-            aria-label="Kembali"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
-          </button>
-          <div>
-            <h3 className="text-xs sm:text-sm font-black text-white">Riwayat Saldo &amp; ROAS</h3>
-            <p className="text-[10px] text-zinc-400">Daftar mutasi pengisian saldo iklan &amp; koin</p>
-          </div>
-        </div>
-
-        <button
-          id="btn-open-form-from-output-iklankoin"
-          type="button"
-          onClick={() => {
-            resetForm();
-            setInputStep(1);
-            setViewMode('input');
-          }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-        >
-          <PlusCircle className="w-3.5 h-3.5" />
-          <span>+ Topup Baru</span>
-        </button>
-      </div>
-
       {/* ROAS Summary Highlights - Kompak & Ringkas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
         <div className="p-2.5 sm:p-3 rounded-xl bg-[#161823] border border-white/10 space-y-0.5">
