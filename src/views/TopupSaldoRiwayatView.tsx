@@ -233,12 +233,16 @@ export const TopupSaldoRiwayatView: React.FC<TopupSaldoRiwayatViewProps> = ({
                     <div className="text-base sm:text-lg font-black text-white tracking-tight">
                       {formatRupiah(total)}
                     </div>
+                    <span className="text-[10px] text-zinc-400">Total Saldo Didapat</span>
                   </div>
 
                   <div className="text-right min-w-0 flex-1 flex flex-wrap items-center justify-end gap-2 text-xs">
                     {item.adsAmount > 0 && (
-                      <span className="text-[#25F4EE] font-bold">
-                        Iklan: {formatRupiah(item.adsAmount)}
+                      <span className="inline-flex items-center gap-1 text-[#25F4EE] font-bold">
+                        <span>Iklan: {formatRupiah(item.adsAmount)}</span>
+                        <span className="text-[10px] text-amber-400/90 font-normal">
+                          (Bayar Kas {formatRupiah(item.adsPaymentCost || (item.adsAmount + Math.round(item.adsAmount * 0.1) + 1000))})
+                        </span>
                       </span>
                     )}
                     {item.adsAmount > 0 && item.coinAmount > 0 && (

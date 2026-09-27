@@ -1634,18 +1634,27 @@ export class StorageService {
     }
   }
 
-  // Helper to sync Ads & Coin deposits to Cashflow Outflow (biaya top up iklan masuk ke pengeluaran)
+  // Helper to sync Ads & Coin deposits to Cashflow Outflow (biaya top up iklan masuk ke pengeluaran kas riil)
   private static syncAdsDepositToCashflow(item: AdsCoinDeposit) {
     try {
-      const totalAmount = (item.adsAmount || 0) + (item.coinAmount || 0);
+      // Saldo iklan murni yang bisa dipakai belanja adalah item.adsAmount (yang diinput user)
+      // Sedangkan uang kas yang keluar adalah adsPaymentCost (adsAmount + 10% + 1000)
+      const adsCost = item.adsPaymentCost !== undefined 
+        ? item.adsPaymentCost 
+        : (item.adsAmount > 0 ? (item.adsAmount + Math.round(item.adsAmount * 0.1) + 1000) : 0);
+      const totalAmount = adsCost + (item.coinAmount || 0);
       const cashflowId = `cf-topup-${item.id}`;
       const raw = this.safeGetItem(STORAGE_KEYS.CASHFLOW);
       let all: CashflowRecord[] = raw ? JSON.parse(raw) : [];
 
       if (totalAmount > 0) {
         const parts: string[] = [];
-        if ((item.adsAmount || 0) > 0) parts.push(`Iklan Rp ${formatNumber(item.adsAmount)}`);
-        if ((item.coinAmount || 0) > 0) parts.push(`Koin Rp ${formatNumber(item.coinAmount)}`);
+        if ((item.adsAmount || 0) > 0) {
+          parts.push(`Saldo Iklan Rp ${formatNumber(item.adsAmount)} (Bayar Rp ${formatNumber(adsCost)})`);
+        }
+        if ((item.coinAmount || 0) > 0) {
+          parts.push(`Koin Rp ${formatNumber(item.coinAmount)}`);
+        }
         const desc = `Top-Up Saldo Iklan & Promosi (${parts.join(', ')})${item.notes ? ` - ${item.notes}` : ''}`.trim();
 
         const existingIdx = all.findIndex(c => c.id === cashflowId || c.id === `cashflow-topup-${item.id}`);
@@ -3847,12 +3856,15 @@ export class StorageService {
 
   /**
    * Perhitungan Sisa Balik Modal (Return on Investment / Break Even Point Toko)
-   * Menghitung total modal yang diinvestasikan, total laba bersih yang terkumpul,
-   * sisa modal yang belum kembali, dan persentase pencapaian balik modal.
+   * Sesuai ketentuan:
+   * 1. Net Profit = Uang Kas - Biaya Operasional
+   * 2. Balik Modal = Uang Kas - Modal Masuk / Suntikan
    */
-  static calculateReturnOnInvestment(storeId: string): {
+  static calculateReturnOnInvestment(storeId: string, filterFn?: (date: string) => boolean): {
     totalModalInvestasi: number;
-    modalSumber: 'pengaturan' | 'stok_ball';
+    modalSumber: 'pengaturan' | 'stok_ball' | 'suntikan_kas';
+    totalUangKas: number;
+    totalBiayaOperasional: number;
     totalOmzetKotor: number;
     totalNetProfit: number;
     sisaBalikModal: number;
@@ -3869,64 +3881,84 @@ export class StorageService {
     const returns = this.getReturns(storeId);
     const cashflows = this.getCashflow(storeId);
 
-    // 1. Total Modal yang diinvestasikan
-    // Jika owner mengatur manual modal investasi awal di settings, gunakan itu jika > 0.
-    // Jika tidak, akumulasikan total modal beli ball + ongkir + biaya steam + biaya sortir dari inventory
+    const activeCashflows = filterFn ? cashflows.filter(c => filterFn(c.date)) : cashflows;
+    const activeSales = filterFn ? sales.filter(s => filterFn(s.date)) : sales;
+
+    // 1. Total Modal Masuk / Suntikan
+    const modalSuntikanCashflow = activeCashflows
+      .filter(c => c.type === 'inflow' && (c.category === 'modal_awal' || c.category === 'suntikan_modal' || c.pillar === 'pendanaan'))
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
+    const allModalSuntikanCashflow = cashflows
+      .filter(c => c.type === 'inflow' && (c.category === 'modal_awal' || c.category === 'suntikan_modal' || c.pillar === 'pendanaan'))
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
     const totalModalDariStok = inventory.reduce((acc, i) => {
       return acc + (i.modalPrice || 0) + (i.shippingCost || 0) + (i.steamCost || 0) + (i.sortirCost || 0);
     }, 0);
 
     const manualCapital = store?.settings?.initialCapitalInvested;
     const hasManualCapital = typeof manualCapital === 'number' && manualCapital > 0;
-    const totalModalInvestasi = hasManualCapital ? manualCapital : totalModalDariStok;
-    const modalSumber: 'pengaturan' | 'stok_ball' = hasManualCapital ? 'pengaturan' : 'stok_ball';
 
-    // 2. Akumulasi Penjualan & Laba Bersih
-    const totalOmzetKotor = sales.reduce((acc, s) => acc + (s.omzet || 0), 0);
-    const totalPcsTerjual = sales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-    const totalPaketTerjual = sales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
+    let totalModalInvestasi = 0;
+    let modalSumber: 'pengaturan' | 'stok_ball' | 'suntikan_kas' = 'stok_ball';
 
-    const hppData = this.calculateHPP(storeId);
-    const averageHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
-    const modalBarangTerjual = totalPcsTerjual * averageHpp;
-
-    // Biaya Admin & Layanan Channel Dinamis sesuai channel tiap transaksi
-    const { totalAdminFee, totalServiceFee } = this.calculateSalesAdminFees(storeId, sales);
-
-    // Iklan & Koin
-    const totalIklanTerpakai = sales.reduce((acc, s) => acc + (s.adsUsed || 0), 0);
-    const totalKoinTerpakai = sales.reduce((acc, s) => acc + (s.coinUsed || 0), 0);
-
-    // Return
-    let totalReturn = 0;
-    if (store?.settings?.returnMechanism === 'estimate') {
-      totalReturn = Math.round(((store?.settings?.estimateReturnPercentage ?? 3) / 100) * totalOmzetKotor);
+    if (modalSuntikanCashflow > 0) {
+      totalModalInvestasi = modalSuntikanCashflow;
+      modalSumber = 'suntikan_kas';
+    } else if (allModalSuntikanCashflow > 0) {
+      totalModalInvestasi = allModalSuntikanCashflow;
+      modalSumber = 'suntikan_kas';
+    } else if (hasManualCapital) {
+      totalModalInvestasi = manualCapital;
+      modalSumber = 'pengaturan';
     } else {
-      totalReturn = returns.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+      totalModalInvestasi = totalModalDariStok;
+      modalSumber = 'stok_ball';
     }
 
-    // Laba Kotor
-    const labaKotor = totalOmzetKotor - modalBarangTerjual - totalAdminFee - totalServiceFee - totalIklanTerpakai - totalKoinTerpakai - totalReturn;
+    // 2. Akumulasi Penjualan & Uang Kas
+    const totalOmzetKotor = activeSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
+    const totalPcsTerjual = activeSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
+    const totalPaketTerjual = activeSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
 
-    // Pengeluaran Operasional Cashflow
-    const pengeluaranOperasional = cashflows
-      .filter(c => c.type === 'outflow' && c.category !== 'gaji_pegawai' && c.category !== 'konsumsi_pribadi')
+    const hppData = this.calculateHPP(storeId, filterFn);
+    const averageHpp = hppData.weightedAverageHpp > 0 ? hppData.weightedAverageHpp : 20000;
+
+    // Saldo Kas (Uang Kas riil toko dari Ringkasan Cashflow: Kas Masuk - Kas Keluar)
+    const totalKasMasuk = activeCashflows
+      .filter(c => c.type === 'inflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const totalKasKeluar = activeCashflows
+      .filter(c => c.type === 'outflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const saldoKas = totalKasMasuk - totalKasKeluar;
+
+    // Jika user mencatat cashflow, gunakan Saldo Kas riil (Kas Masuk - Kas Keluar)
+    // Jika belum ada transaksi cashflow sama sekali, gunakan omzet penjualan sebagai fallback
+    const totalUangKas = activeCashflows.length > 0 ? saldoKas : totalOmzetKotor;
+
+    // 3. Biaya Operasional Kas (seluruh pengeluaran operasional toko)
+    const totalBiayaOperasional = activeCashflows
+      .filter(c => c.type === 'outflow' && c.category !== 'konsumsi_pribadi' && c.category !== 'prive')
       .reduce((acc, c) => acc + (c.amount || 0), 0);
 
-    // Laba Bersih Toko Akumulasi
-    const totalNetProfit = labaKotor - pengeluaranOperasional;
+    // 4. Net Profit = Uang Kas - Biaya Operasional
+    const totalNetProfit = totalUangKas - totalBiayaOperasional;
 
-    // Sisa Balik Modal
-    const sisaBalikModal = Math.max(0, totalModalInvestasi - totalNetProfit);
-    const surplusProfit = Math.max(0, totalNetProfit - totalModalInvestasi);
+    // 5. Balik Modal = Uang Kas - Modal Masuk/Suntikan
+    const sisaBalikModal = Math.max(0, totalModalInvestasi - totalUangKas);
+    const surplusProfit = Math.max(0, totalUangKas - totalModalInvestasi);
     const progressPercentage = totalModalInvestasi > 0 
-      ? Math.min(100, Math.max(0, Math.round((totalNetProfit / totalModalInvestasi) * 100)))
-      : (totalNetProfit >= 0 ? 100 : 0);
-    const isBreakEven = totalModalInvestasi > 0 ? totalNetProfit >= totalModalInvestasi : true;
+      ? Math.min(100, Math.max(0, Math.round((totalUangKas / totalModalInvestasi) * 100)))
+      : (totalUangKas >= 0 ? 100 : 0);
+    const isBreakEven = totalModalInvestasi > 0 ? totalUangKas >= totalModalInvestasi : true;
 
     return {
       totalModalInvestasi,
       modalSumber,
+      totalUangKas,
+      totalBiayaOperasional,
       totalOmzetKotor,
       totalNetProfit,
       sisaBalikModal,

@@ -219,7 +219,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {formatRupiah(roiInfo.totalNetProfit)}
             </div>
             <MarqueeText
-              text={`Margin: ${roiInfo.totalOmzetKotor > 0 ? ((roiInfo.totalNetProfit / roiInfo.totalOmzetKotor) * 100).toFixed(1) : '0'}% | Omzet: ${formatRupiah(roiInfo.totalOmzetKotor)}`}
+              text={`Saldo Kas (${formatRupiah(roiInfo.totalUangKas)}) - Biaya Ops (${formatRupiah(roiInfo.totalBiayaOperasional)})`}
               speed={16}
               className="text-[11px] text-zinc-400 mt-0.5"
             />
@@ -244,10 +244,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="relative z-10 w-full overflow-hidden">
             <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {formatRupiah(roiInfo.sisaBalikModal)}
+              {roiInfo.isBreakEven ? `+${formatRupiah(roiInfo.surplusProfit)}` : formatRupiah(roiInfo.sisaBalikModal)}
             </div>
             <MarqueeText
-              text={roiInfo.isBreakEven ? 'Lunas (BEP 100%) Modal Investasi Balik' : `${roiInfo.progressPercentage}% Balik (Modal: ${formatRupiah(roiInfo.totalModalInvestasi)})`}
+              text={roiInfo.isBreakEven ? `Lunas BEP 100%! Surplus ${formatRupiah(roiInfo.surplusProfit)} di atas modal` : `Saldo Kas (${formatRupiah(roiInfo.totalUangKas)}) - Modal Masuk (${formatRupiah(roiInfo.totalModalInvestasi)})`}
               speed={16}
               className="text-[11px] text-zinc-400 mt-0.5"
             />

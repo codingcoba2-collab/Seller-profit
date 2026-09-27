@@ -269,7 +269,8 @@ export interface AdsCoinDeposit {
   id: string;
   storeId: string;
   date: string;
-  adsAmount: number;
+  adsAmount: number; // Saldo iklan tetap yang diinput (bisa dipakai belanja iklan di Shopee/TikTok)
+  adsPaymentCost?: number; // Total kas keluar yang dibayar (+10% PPN & biaya transaksi Rp 1.000)
   coinAmount: number;
   notes?: string;
   createdAt: string;

@@ -91,9 +91,39 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
     const omzetBersih = totalOmzetKotor - modalBarangTerjual - totalAdminFee - totalServiceFee - totalIklanTerpakai - totalKoinTerpakai;
     const labaKotor = omzetBersih - totalReturn;
 
-    // 2. Total Pengeluaran Operasional (Cashflow Outflow murni - tidak termasuk pengeluaran gaji karena gaji dipisahkan / dihitung mandiri di kas gaji)
-    const pengeluaranOperasional = filteredCashflows
-      .filter(c => c.type === 'outflow' && c.category !== 'gaji_pegawai')
+    // 2. Akumulasi Saldo Kas & Biaya Operasional Toko
+    // Sesuai rumus: Net Profit = Saldo Kas (Uang Kas) - Biaya Operasional
+    // Saldo Kas adalah Kas Masuk - Kas Keluar dari Ringkasan Saldo Cashflow
+    const totalKasMasuk = filteredCashflows
+      .filter(c => c.type === 'inflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const totalKasKeluar = filteredCashflows
+      .filter(c => c.type === 'outflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const saldoKas = totalKasMasuk - totalKasKeluar;
+
+    // Saldo Kas all-time dari Cashflow (sama persis dengan Ringkasan Saldo Cashflow)
+    const allTotalKasMasuk = cashflows
+      .filter(c => c.type === 'inflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const allTotalKasKeluar = cashflows
+      .filter(c => c.type === 'outflow')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+    const allSaldoKas = allTotalKasMasuk - allTotalKasKeluar;
+
+    // Saldo Kas yang digunakan
+    const totalUangKas = period === 'all' 
+      ? allSaldoKas 
+      : (filteredCashflows.length > 0 ? saldoKas : allSaldoKas);
+
+    // Biaya Operasional Kas (seluruh pengeluaran operasional toko: iklan, koin, packing, lakban, sewa, listrik, dll.)
+    const totalBiayaOperasional = filteredCashflows
+      .filter(c => c.type === 'outflow' && c.category !== 'konsumsi_pribadi' && c.category !== 'prive')
+      .reduce((acc, c) => acc + (c.amount || 0), 0);
+
+    // Pengeluaran operasional di luar gaji pegawai (untuk info rincian)
+    const pengeluaranOperasionalNonGaji = filteredCashflows
+      .filter(c => c.type === 'outflow' && c.category !== 'gaji_pegawai' && c.category !== 'konsumsi_pribadi' && c.category !== 'prive')
       .reduce((acc, c) => acc + c.amount, 0);
 
     // Pengeluaran gaji tercatat di kas (hanya untuk info/tracking)
@@ -101,24 +131,29 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       .filter(c => c.type === 'outflow' && c.category === 'gaji_pegawai')
       .reduce((acc, c) => acc + c.amount, 0);
 
-    // 3. Total Beban Gaji & Insentif Tim (Tidak dimasukkan ke potongan laba bersih toko sesuai instruksi)
+    // 3. Total Beban Gaji & Insentif Tim (payroll breakdown)
     const payrollData = StorageService.calculateStorePayroll(currentUser.storeId, filterByPeriod);
     const totalBebanGaji = payrollData.totalPayroll;
     const totalGajiPokok = payrollData.totalBaseSalary;
     const totalInsentifLive = payrollData.totalIncentives;
     const totalBonusTambahan = payrollData.totalMultiRoleBonus + payrollData.totalMonthlyBonus;
 
-    // 4. Laba Bersih Akhir = Laba Kotor - Pengeluaran Operasional Kas (Tanpa memotong beban gaji di slip maupun kas)
-    const labaBersihAkhir = labaKotor - pengeluaranOperasional;
-    const profitMargin = totalOmzetKotor > 0 ? ((labaBersihAkhir / totalOmzetKotor) * 100).toFixed(1) : '0.0';
+    // 4. Net Profit = Uang Kas - Biaya Operasional
+    const netProfit = totalUangKas - totalBiayaOperasional;
+    const profitMargin = totalUangKas > 0 ? ((netProfit / totalUangKas) * 100).toFixed(1) : '0.0';
 
     return {
       totalOmzetKotor,
+      totalUangKas,
+      totalBiayaOperasional,
+      netProfit,
+      labaBersihAkhir: netProfit,
       labaKotor,
       totalAdminFee,
       totalServiceFee,
       channelList,
-      pengeluaranOperasional,
+      pengeluaranOperasional: totalBiayaOperasional,
+      pengeluaranOperasionalNonGaji,
       pengeluaranGajiDiKas,
       totalBebanGaji,
       totalGajiPokok,
@@ -126,14 +161,13 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       totalBonusTambahan,
       averageHpp,
       modalBarangTerjual,
-      labaBersihAkhir,
       profitMargin,
     };
   }, [inventory, sales, returns, cashflows, attendance, employees, store, period, selectedDate, currentUser.storeId]);
 
   const roi = useMemo(() => {
-    return StorageService.calculateReturnOnInvestment(currentUser.storeId);
-  }, [currentUser.storeId, inventory, sales, returns, cashflows, store]);
+    return StorageService.calculateReturnOnInvestment(currentUser.storeId, period === 'all' ? undefined : filterByPeriod);
+  }, [currentUser.storeId, inventory, sales, returns, cashflows, store, period, selectedDate]);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
@@ -176,8 +210,14 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
               <Sparkles className="w-3 h-3 text-[#25F4EE]" />
               <span>Net Profit Toko</span>
             </div>
-            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${report.labaBersihAkhir >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-              {formatRupiah(report.labaBersihAkhir)}
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${report.netProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+              {formatRupiah(report.netProfit)}
+            </div>
+            <div className="text-[11px] text-zinc-400 flex flex-wrap items-center gap-1 pt-0.5">
+              <span className="font-semibold text-white">Rumus:</span>
+              <span className="text-[#25F4EE]">Saldo Kas ({formatRupiah(report.totalUangKas)})</span>
+              <span>-</span>
+              <span className="text-[#FE2C55]">Biaya Operasional ({formatRupiah(report.totalBiayaOperasional)})</span>
             </div>
           </div>
 
@@ -189,7 +229,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
               </span>
             </div>
             <div className="text-[10px] text-zinc-400 pt-1 border-t border-white/10">
-              Dari Omzet Kotor: <strong className="text-white">{formatRupiah(report.totalOmzetKotor)}</strong>
+              Dari Saldo Kas: <strong className="text-white">{formatRupiah(report.totalUangKas)}</strong>
             </div>
           </div>
         </div>
@@ -204,7 +244,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-                <span>Perhitungan Sisa Balik Modal Toko</span>
+                <span>Perhitungan Balik Modal Toko</span>
                 {roi.isBreakEven ? (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                     BEP 100%
@@ -216,15 +256,17 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
                 )}
               </h3>
               <p className="text-[10px] text-zinc-400">
-                Total modal investasi vs akumulasi laba bersih yang dihasilkan.
+                Rumus: Saldo Kas ({formatRupiah(roi.totalUangKas)}) - Modal Masuk / Suntikan ({formatRupiah(roi.totalModalInvestasi)})
               </p>
             </div>
           </div>
 
           <div className="text-left sm:text-right">
-            <span className="text-[10px] text-zinc-400 block font-semibold">Sisa Belum Balik Modal:</span>
+            <span className="text-[10px] text-zinc-400 block font-semibold">
+              {roi.isBreakEven ? 'Surplus Di Atas Modal:' : 'Sisa Belum Balik Modal:'}
+            </span>
             <span className={`text-base sm:text-lg font-black tracking-tight ${roi.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {formatRupiah(roi.sisaBalikModal)}
+              {roi.isBreakEven ? `+${formatRupiah(roi.surplusProfit)}` : formatRupiah(roi.sisaBalikModal)}
             </span>
           </div>
         </div>
@@ -236,7 +278,7 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
               Progress: <strong className="text-[#25F4EE]">{roi.progressPercentage}%</strong>
             </span>
             <span className="text-zinc-400">
-              Investasi: <strong className="text-white">{formatRupiah(roi.totalModalInvestasi)}</strong>
+              Modal Masuk / Investasi: <strong className="text-white">{formatRupiah(roi.totalModalInvestasi)}</strong>
             </span>
           </div>
           <div className="w-full h-2.5 rounded-full bg-[#0b0c10] border border-white/10 overflow-hidden p-0.5">
@@ -254,33 +296,37 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
         {/* 4 Detail Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
           <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block">Modal Masuk</span>
+            <span className="text-[10px] text-zinc-400 block">Modal Masuk/Suntikan</span>
             <span className="text-xs sm:text-sm font-black text-white">{formatRupiah(roi.totalModalInvestasi)}</span>
             <span className="text-[9px] text-zinc-500 block truncate">
-              {roi.modalSumber === 'pengaturan' ? 'Modal Tetap Awal' : 'Stok Ball Pakaian'}
+              {roi.modalSumber === 'pengaturan' ? 'Modal Tetap Awal' : roi.modalSumber === 'suntikan_kas' ? 'Suntikan Kas' : 'Stok Ball Pakaian'}
             </span>
           </div>
 
           <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block">Akumulasi Net Profit</span>
+            <span className="text-[10px] text-zinc-400 block">Saldo Kas Toko</span>
+            <span className="text-xs sm:text-sm font-black text-[#25F4EE]">
+              {formatRupiah(roi.totalUangKas)}
+            </span>
+            <span className="text-[9px] text-zinc-500 block truncate">Saldo Kas Cashflow</span>
+          </div>
+
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Hasil Balik Modal</span>
+            <span className={`text-xs sm:text-sm font-black ${roi.totalUangKas - roi.totalModalInvestasi >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {roi.totalUangKas - roi.totalModalInvestasi >= 0 ? `+${formatRupiah(roi.surplusProfit)}` : `-${formatRupiah(roi.sisaBalikModal)}`}
+            </span>
+            <span className="text-[9px] text-zinc-500 block truncate">
+              {roi.isBreakEven ? 'Sudah Balik Modal' : `${100 - roi.progressPercentage}% ke BEP`}
+            </span>
+          </div>
+
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block">Net Profit Toko</span>
             <span className={`text-xs sm:text-sm font-black ${roi.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
               {formatRupiah(roi.totalNetProfit)}
             </span>
-            <span className="text-[9px] text-zinc-500 block truncate">All-Time</span>
-          </div>
-
-          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block">Sisa Modal</span>
-            <span className="text-xs sm:text-sm font-black text-amber-400">{formatRupiah(roi.sisaBalikModal)}</span>
-            <span className="text-[9px] text-zinc-500 block truncate">
-              {roi.isBreakEven ? 'Lunas' : `${100 - roi.progressPercentage}% ke BEP`}
-            </span>
-          </div>
-
-          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block">Surplus Profit</span>
-            <span className="text-xs sm:text-sm font-black text-emerald-400">{formatRupiah(roi.surplusProfit)}</span>
-            <span className="text-[9px] text-zinc-500 block truncate">Di atas modal</span>
+            <span className="text-[9px] text-zinc-500 block truncate">Saldo Kas - Biaya Ops</span>
           </div>
         </div>
       </div>
@@ -289,46 +335,46 @@ export const LabaBersihView: React.FC<LabaBersihViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
         <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-zinc-400">1. Laba Kotor Penjualan</span>
+            <span className="text-[11px] font-bold text-zinc-400">1. Saldo Kas Toko</span>
             <div className="p-1.5 rounded-lg bg-[#0b0c10] text-[#25F4EE] border border-white/10">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-base sm:text-lg font-black text-[#25F4EE]">
-            {formatRupiah(report.labaKotor)}
+            {formatRupiah(report.totalUangKas)}
           </div>
           <p className="text-[10px] text-zinc-500 leading-tight">
-            Penjualan live dikurangi modal HPP &amp; biaya admin
+            Saldo kas riil di Ringkasan Cashflow (Kas Masuk - Kas Keluar)
           </p>
         </div>
 
         <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-zinc-400">2. Beban Operasional Kas</span>
+            <span className="text-[11px] font-bold text-zinc-400">2. Biaya Operasional Kas</span>
             <div className="p-1.5 rounded-lg bg-[#0b0c10] text-[#FE2C55] border border-white/10">
               <Wallet className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-base sm:text-lg font-black text-[#FE2C55]">
-            {formatRupiah(report.pengeluaranOperasional)}
+            {formatRupiah(report.totalBiayaOperasional)}
           </div>
           <p className="text-[10px] text-zinc-500 leading-tight">
-            Top-up iklan &amp; koin, packing, lakban, makan/minum tim, sewa &amp; listrik
+            Iklan, koin, packing, lakban, makan/minum, sewa, listrik &amp; beban kas toko
           </p>
         </div>
 
         <div className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-zinc-400">3. Beban Gaji &amp; Insentif</span>
-            <div className="p-1.5 rounded-lg bg-[#0b0c10] text-amber-400 border border-white/10">
+            <span className="text-[11px] font-bold text-zinc-400">3. Net Profit Toko</span>
+            <div className="p-1.5 rounded-lg bg-[#0b0c10] text-emerald-400 border border-white/10">
               <Receipt className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-white">
-            {formatRupiah(report.totalBebanGaji)}
+          <div className={`text-base sm:text-lg font-black ${report.netProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
+            {formatRupiah(report.netProfit)}
           </div>
           <p className="text-[10px] text-zinc-500 leading-tight">
-            Gaji pokok shift, insentif live, bonus rangkap &amp; omzet
+            Hasil: Uang Kas dikurangi Biaya Operasional
           </p>
         </div>
       </div>

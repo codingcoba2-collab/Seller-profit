@@ -71,14 +71,16 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       return;
     }
 
-    // Otomatis +10% + 1000 untuk saldo iklan (misal top up 50k, masuk laporannya jadi 56k)
-    const finalAdsAmount = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
+    // Saldo tetap yang didapat adalah sesuai yang diinput user
+    // Biaya kas keluar otomatis +10% (pajak/admin) + 1000 (biaya transaksi)
+    const adsPaymentCost = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
 
     const newDeposit: AdsCoinDeposit = {
       id: editId || 'adscoin-' + Date.now(),
       storeId: currentUser.storeId,
       date,
-      adsAmount: finalAdsAmount,
+      adsAmount, // Saldo tetap yang diinput user
+      adsPaymentCost, // Total kas keluar yang dibayarkan (+10% + 1000)
       coinAmount,
       notes,
       createdAt: new Date().toISOString(),
@@ -104,7 +106,7 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
     };
 
     const finalAdsBreakdownText = adsAmount > 0 
-      ? `iklan ${formatRupiah(finalAdsAmount)} (Top-up dasar ${formatRupiah(adsAmount)} + 10% + Rp 1.000)` 
+      ? `iklan ${formatRupiah(adsAmount)} (total bayar kas ${formatRupiah(adsPaymentCost)})` 
       : '';
 
     setConfirmModal({
@@ -112,14 +114,14 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
       title: isEditing ? 'Konfirmasi Simpan Perubahan Top-Up' : 'Konfirmasi Simpan Saldo Top-Up',
       message: isEditing
         ? `Apakah Anda yakin ingin menyimpan perubahan data top-up ini?`
-        : `Apakah Anda yakin ingin menyimpan saldo ${finalAdsBreakdownText}${finalAdsAmount > 0 && coinAmount > 0 ? ' dan ' : ''}${coinAmount > 0 ? `koin ${formatRupiah(coinAmount)}` : ''}?`,
+        : `Apakah Anda yakin ingin menyimpan saldo ${finalAdsBreakdownText}${adsAmount > 0 && coinAmount > 0 ? ' dan ' : ''}${coinAmount > 0 ? `koin ${formatRupiah(coinAmount)}` : ''}?`,
       type: isEditing ? 'edit' : 'create',
       confirmText: isEditing ? 'Ya, Simpan Perubahan' : 'Ya, Simpan Saldo',
       onConfirm: executeSave,
     });
   };
 
-  const finalAdsReportedPreview = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
+  const finalAdsPaymentCostPreview = adsAmount > 0 ? (adsAmount + Math.round(adsAmount * 0.1) + 1000) : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
@@ -148,8 +150,8 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
                 <label className="block text-xs font-bold text-[#25F4EE]">
                   Nominal Top-Up Iklan (Rp)
                 </label>
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                  Otomatis +10% + Rp 1.000
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                  Bayar Kas: +10% + Rp 1.000
                 </span>
               </div>
               <CommaNumberInput
@@ -160,27 +162,30 @@ export const TopupSaldoInputView: React.FC<TopupSaldoInputViewProps> = ({
                 className="w-full bg-[#161823] border border-white/10 rounded-xl px-4 py-2.5 text-white font-black text-base focus:outline-hidden focus:border-[#25F4EE]"
               />
 
-              {/* Breakdown Otomatis Masuk Laporan */}
+              {/* Breakdown Saldo Tetap vs Kas Keluar */}
               {adsAmount > 0 && (
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs space-y-1">
-                  <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                    <span>Nominal Dasar:</span>
-                    <span className="font-semibold text-white">{formatRupiah(adsAmount)}</span>
+                  <div className="flex items-center justify-between text-zinc-300 text-[11px]">
+                    <span className="font-bold text-[#25F4EE]">Saldo Iklan (Saldo Tetap):</span>
+                    <span className="font-bold text-[#25F4EE]">{formatRupiah(adsAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                    <span>+ Pajak/Admin 10%:</span>
+                    <span>+ Pajak/PPN Iklan 10%:</span>
                     <span className="text-amber-400">+{formatRupiah(Math.round(adsAmount * 0.1))}</span>
                   </div>
                   <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                    <span>+ Biaya Transaksi:</span>
+                    <span>+ Biaya Admin Transaksi:</span>
                     <span className="text-amber-400">+Rp 1.000</span>
                   </div>
                   <div className="pt-1.5 border-t border-white/10 flex items-center justify-between">
-                    <span className="font-bold text-zinc-200">Masuk Laporan:</span>
-                    <span className="font-black text-sm text-[#25F4EE]">
-                      {formatRupiah(finalAdsReportedPreview)}
+                    <span className="font-bold text-zinc-200">Total Biaya Bayar (Kas Keluar):</span>
+                    <span className="font-black text-sm text-amber-400">
+                      {formatRupiah(finalAdsPaymentCostPreview)}
                     </span>
                   </div>
+                  <p className="text-[10px] text-zinc-400 pt-0.5 italic">
+                    Saldo iklan yang didapat sesuai nominal input, sedangkan uang kas yang keluar dicatat sebesar total biaya bayar.
+                  </p>
                 </div>
               )}
             </div>
