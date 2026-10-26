@@ -142,6 +142,8 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   // Navigation & Sub-tabs
   const [activeTab, setActiveTab] = useState<CashflowTab>('catatan_kas');
   const [activePosPillar, setActivePosPillar] = useState<PosFilter>('all');
+  const [jurnalTypeFilter, setJurnalTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
+  const [utangPiutangAddTrigger, setUtangPiutangAddTrigger] = useState(0);
 
   // Input Modal & Detail Modal
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
@@ -822,9 +824,28 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
   };
 
   // Pos lists for Riwayat Pos Tab
-  const operasionalList = useMemo(() => cashflowList.filter(i => getCashflowPillar(i) === 'operasional'), [cashflowList]);
-  const investasiList = useMemo(() => cashflowList.filter(i => getCashflowPillar(i) === 'investasi'), [cashflowList]);
-  const pendanaanList = useMemo(() => cashflowList.filter(i => getCashflowPillar(i) === 'pendanaan'), [cashflowList]);
+  const operasionalList = useMemo(() => coreCashflowList.filter(i => getCashflowPillar(i) === 'operasional'), [coreCashflowList]);
+  const investasiList = useMemo(() => coreCashflowList.filter(i => getCashflowPillar(i) === 'investasi'), [coreCashflowList]);
+  const pendanaanList = useMemo(() => coreCashflowList.filter(i => getCashflowPillar(i) === 'pendanaan'), [coreCashflowList]);
+
+  const totalOperasionalOutflow = useMemo(() => {
+    return operasionalList.reduce((sum, item) => sum + item.amount, 0);
+  }, [operasionalList]);
+
+  const totalInvestasiOutflow = useMemo(() => {
+    return investasiList.reduce((sum, item) => sum + item.amount, 0);
+  }, [investasiList]);
+
+  const totalPendanaanInflow = useMemo(() => {
+    return pendanaanList.reduce((sum, item) => sum + item.amount, 0);
+  }, [pendanaanList]);
+
+  const filteredPosList = useMemo(() => {
+    return filteredList.filter(item => {
+      if (activePosPillar === 'all') return true;
+      return getCashflowPillar(item) === activePosPillar;
+    });
+  }, [filteredList, activePosPillar]);
 
   // Jurnal Ledger generator (Double-Entry Debit & Credit)
   const jurnalEntries = useMemo(() => {
@@ -841,7 +862,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         totalKredit += item.amount;
         return {
           id: item.id,
+          originalItem: item,
           date: item.date,
+          type: item.type,
           ref: `KM-${item.id.slice(-4)}`,
           debitAccount: 'Kas Toko (Bank/Tunai)',
           kreditAccount: label,
@@ -854,7 +877,9 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
         totalKredit += item.amount;
         return {
           id: item.id,
+          originalItem: item,
           date: item.date,
+          type: item.type,
           ref: `KK-${item.id.slice(-4)}`,
           debitAccount: label,
           kreditAccount: 'Kas Toko (Bank/Tunai)',
@@ -867,6 +892,58 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
 
     return { rows, totalDebit, totalKredit };
   }, [filteredList]);
+
+  const filteredJurnalRows = useMemo(() => {
+    return jurnalEntries.rows.filter(entry => {
+      if (jurnalTypeFilter !== 'all' && entry.type !== jurnalTypeFilter) return false;
+      return true;
+    });
+  }, [jurnalEntries.rows, jurnalTypeFilter]);
+
+  const headerInfo = useMemo(() => {
+    switch (activeTab) {
+      case 'riwayat_pos':
+        return {
+          title: 'Riwayat Pos',
+          subtitle: 'Aliran kas Operasional, Investasi & Pendanaan',
+          actionLabel: 'Input Kas',
+          onAction: () => {
+            resetForm();
+            setIsInputModalOpen(true);
+          },
+        };
+      case 'jurnal':
+        return {
+          title: 'Jurnal Umum',
+          subtitle: 'Pencatatan berpasangan Debit dan Kredit berimbang',
+          actionLabel: 'Input Kas',
+          onAction: () => {
+            resetForm();
+            setIsInputModalOpen(true);
+          },
+        };
+      case 'utang_piutang':
+        return {
+          title: 'Utang & Piutang',
+          subtitle: 'Monitoring tagihan supplier, pinjaman & kasbon',
+          actionLabel: 'Catat Baru',
+          onAction: () => {
+            setUtangPiutangAddTrigger(c => c + 1);
+          },
+        };
+      case 'catatan_kas':
+      default:
+        return {
+          title: 'Catatan Kas',
+          subtitle: 'Semua transaksi kas masuk dan keluar',
+          actionLabel: 'Input Kas',
+          onAction: () => {
+            resetForm();
+            setIsInputModalOpen(true);
+          },
+        };
+    }
+  }, [activeTab]);
 
   const periodLabelMap: Record<string, string> = {
     all: 'Semua Periode',
@@ -894,75 +971,74 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
             </button>
             <div>
-              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">Catatan Kas</h1>
-              <p className="text-[11px] sm:text-sm text-slate-400 mt-0.5">Semua transaksi kas masuk dan keluar</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">{headerInfo.title}</h1>
+              <p className="text-[11px] sm:text-sm text-slate-400 mt-0.5">{headerInfo.subtitle}</p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              resetForm();
-              setIsInputModalOpen(true);
-            }}
+            onClick={headerInfo.onAction}
             className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
           >
             <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#050811] stroke-[2.5]" />
-            <span>Input Kas</span>
+            <span>{headerInfo.actionLabel}</span>
           </button>
         </div>
 
         {/* =========================================================================
             TOP SUMMARY CARDS (SELALU 3 KOLOM SESUAI GAMBAR)
             ========================================================================= */}
-        <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
-          <div className="grid grid-cols-3 divide-x divide-[#142239]">
-            {/* 1. Total Kas Masuk */}
-            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
-                  <ArrowUp className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+        {activeTab === 'catatan_kas' && (
+          <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+            <div className="grid grid-cols-3 divide-x divide-[#142239]">
+              {/* 1. Total Kas Masuk */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                    <ArrowUp className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Total Kas Masuk
+                  </span>
                 </div>
-                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
-                  Total Kas Masuk
-                </span>
+                <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatRupiah(totalInflow)}
+                </div>
               </div>
-              <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
-                {formatRupiah(totalInflow)}
-              </div>
-            </div>
 
-            {/* 2. Total Kas Keluar */}
-            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
-                  <ArrowDown className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+              {/* 2. Total Kas Keluar */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
+                    <ArrowDown className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Total Kas Keluar
+                  </span>
                 </div>
-                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
-                  Total Kas Keluar
-                </span>
+                <div className="text-[#ff3366] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatRupiah(totalOutflow)}
+                </div>
               </div>
-              <div className="text-[#ff3366] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
-                {formatRupiah(totalOutflow)}
-              </div>
-            </div>
 
-            {/* 3. Saldo Kas */}
-            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#00d2ff] flex items-center justify-center shrink-0">
-                  <Wallet className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+              {/* 3. Saldo Kas */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#00d2ff] flex items-center justify-center shrink-0">
+                    <Wallet className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Saldo Kas
+                  </span>
                 </div>
-                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
-                  Saldo Kas
-                </span>
-              </div>
-              <div className="text-[#00d2ff] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
-                {formatRupiah(netCash)}
+                <div className="text-[#00d2ff] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatRupiah(netCash)}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* =========================================================================
             TAB 1: CATATAN KAS (PAS MENYESUAIKAN LAYAR)
@@ -1207,23 +1283,73 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             TAB 2: RIWAYAT POS CASHFLOW (OPERASIONAL, INVESTASI, PENDANAAN)
             ========================================================================= */}
         {activeTab === 'riwayat_pos' && (
-          <div className="space-y-4">
-            {/* Filter Pos */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="space-y-2.5 sm:space-y-3.5">
+            {/* Top 3-Column Summary Card persis seperti Catatan Kas */}
+            <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+              <div className="grid grid-cols-3 divide-x divide-[#142239]">
+                {/* 1. Pos Operasional */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#38bdf8]/10 border border-[#38bdf8] text-[#38bdf8] flex items-center justify-center shrink-0">
+                      <Briefcase className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Pos Operasional
+                    </span>
+                  </div>
+                  <div className="text-[#38bdf8] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                    {formatRupiah(totalOperasionalOutflow)}
+                  </div>
+                </div>
+
+                {/* 2. Pos Investasi */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#fbbf24]/10 border border-[#fbbf24] text-[#fbbf24] flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Pos Investasi
+                    </span>
+                  </div>
+                  <div className="text-[#fbbf24] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                    {formatRupiah(totalInvestasiOutflow)}
+                  </div>
+                </div>
+
+                {/* 3. Pos Pendanaan */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#c084fc]/10 border border-[#c084fc] text-[#c084fc] flex items-center justify-center shrink-0">
+                      <Users className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Pos Pendanaan
+                    </span>
+                  </div>
+                  <div className="text-[#c084fc] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                    {formatRupiah(totalPendanaanInflow)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
               {[
-                { key: 'all', label: 'Semua Pos Arus Kas' },
-                { key: 'operasional', label: 'Pos Operasional' },
-                { key: 'investasi', label: 'Pos Investasi' },
-                { key: 'pendanaan', label: 'Pos Pendanaan' },
+                { key: 'all', label: 'Semua Pos' },
+                { key: 'operasional', label: 'Operasional' },
+                { key: 'investasi', label: 'Investasi' },
+                { key: 'pendanaan', label: 'Pendanaan' },
               ].map(p => (
                 <button
                   key={p.key}
                   type="button"
                   onClick={() => setActivePosPillar(p.key as any)}
-                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                  className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
                     activePosPillar === p.key
-                      ? 'bg-[#00f2fe] text-slate-950 shadow-md shadow-[#00f2fe]/20'
-                      : 'bg-[#0c1527] border border-[#162544] text-slate-300 hover:text-white'
+                      ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                      : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
                   }`}
                 >
                   {p.label}
@@ -1231,109 +1357,174 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               ))}
             </div>
 
-            {/* 3 Pillar Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {/* 1. Operasional */}
-              <div
-                onClick={() => setActivePosPillar('operasional')}
-                className={`p-4 rounded-2xl border transition cursor-pointer space-y-2 ${
-                  activePosPillar === 'operasional' ? 'bg-[#0f233d]/80 border-[#38bdf8]' : 'bg-[#0a1220] border-[#142239]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
-                    <Briefcase className="w-4 h-4" />
-                    <span>Pos Operasional</span>
+            {/* Second Row: Periode Dropdown & Search Input */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                  className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                    <div>
+                      <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                      <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                        {periodLabelMap[periodFilter] || 'Semua Periode'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-slate-400">{operasionalList.length} Transaksi</span>
-                </div>
-                <div className="text-lg font-black text-rose-400">
-                  -{formatRupiah(operasionalList.filter(i => i.type === 'outflow').reduce((a, b) => a + b.amount, 0))}
-                </div>
-                <span className="text-xs text-slate-400 block">Stok ball, ongkir, utilitas & operasional</span>
+                  <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+                </button>
+
+                {isPeriodDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                    {[
+                      { key: 'all', label: 'Semua Periode' },
+                      { key: 'today', label: 'Hari Ini' },
+                      { key: 'weekly', label: '7 Hari Terakhir' },
+                      { key: 'monthly', label: 'Bulan Ini' },
+                      { key: 'specific', label: '📅 Pilih Tanggal' },
+                      { key: 'range', label: '📅 Rentang Tanggal' },
+                    ].map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setPeriodFilter(opt.key as any);
+                          setIsPeriodDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                          periodFilter === opt.key
+                            ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                            : 'text-slate-300 hover:bg-white/5'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* 2. Investasi */}
-              <div
-                onClick={() => setActivePosPillar('investasi')}
-                className={`p-4 rounded-2xl border transition cursor-pointer space-y-2 ${
-                  activePosPillar === 'investasi' ? 'bg-[#2a1e0b]/80 border-[#fbbf24]' : 'bg-[#0a1220] border-[#142239]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Pos Investasi</span>
-                  </div>
-                  <span className="text-[11px] text-slate-400">{investasiList.length} Transaksi</span>
-                </div>
-                <div className="text-lg font-black text-amber-400">
-                  -{formatRupiah(investasiList.filter(i => i.type === 'outflow').reduce((a, b) => a + b.amount, 0))}
-                </div>
-                <span className="text-xs text-slate-400 block">Aset toko, mesin steamer & display</span>
-              </div>
-
-              {/* 3. Pendanaan */}
-              <div
-                onClick={() => setActivePosPillar('pendanaan')}
-                className={`p-4 rounded-2xl border transition cursor-pointer space-y-2 ${
-                  activePosPillar === 'pendanaan' ? 'bg-[#28143d]/80 border-[#c084fc]' : 'bg-[#0a1220] border-[#142239]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
-                    <Users className="w-4 h-4" />
-                    <span>Pos Pendanaan</span>
-                  </div>
-                  <span className="text-[11px] text-slate-400">{pendanaanList.length} Transaksi</span>
-                </div>
-                <div className="text-lg font-black text-purple-300">
-                  +{formatRupiah(pendanaanList.filter(i => i.type === 'inflow').reduce((a, b) => a + b.amount, 0))}
-                </div>
-                <span className="text-xs text-slate-400 block">Modal awal, suntikan modal & prive</span>
+              {/* Search Box */}
+              <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+                <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Cari transaksi pos..."
+                  className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* List for the selected pillar */}
-            <div className="bg-[#09111e]/90 border border-[#14233c] rounded-2xl p-4 space-y-2">
-              <h4 className="text-sm font-bold text-slate-200">
-                Daftar Transaksi Pos {activePosPillar === 'all' ? 'Arus Kas' : activePosPillar.toUpperCase()}:
-              </h4>
-              <div className="divide-y divide-[#14233c]">
-                {cashflowList
-                  .filter(i => activePosPillar === 'all' || getCashflowPillar(i) === activePosPillar)
-                  .map(item => {
-                    const isInflow = item.type === 'inflow';
-                    const { title, badge, badgeClass, icon, iconBg } = getRowDetails(item);
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedDetailItem(item)}
-                        className="py-3 flex items-center justify-between gap-3 hover:bg-white/5 px-2 rounded-xl cursor-pointer transition"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
-                            {icon}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-sm font-bold text-white block truncate">{title}</span>
-                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                              <span>{formatScreenshotDate(item.date)}</span>
-                              <span>•</span>
-                              <span className={`px-2 py-0.5 rounded border ${badgeClass}`}>{badge}</span>
-                            </div>
-                          </div>
-                        </div>
+            {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI CATATAN KAS) */}
+            <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+              <table className="w-full text-left border-collapse table-fixed">
+                <thead>
+                  <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Keterangan</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Kas Masuk</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Kas Keluar</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Pos Arus Kas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#132038]">
+                  {filteredPosList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                        Belum ada riwayat transaksi pada pos ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPosList.map(item => {
+                      const isInflow = item.type === 'inflow';
+                      const pillar = getCashflowPillar(item);
+                      const { title, badge, badgeClass, icon, iconBg } = getRowDetails(item);
 
-                        <div className="text-right whitespace-nowrap">
-                          <span className={`text-sm font-bold block ${isInflow ? 'text-[#00e676]' : 'text-[#ff3366]'}`}>
-                            {isInflow ? '+' : '-'}{formatRupiah(item.amount)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+                      const pillarBadge =
+                        pillar === 'operasional'
+                          ? 'bg-sky-950/80 text-sky-400 border-sky-500/30'
+                          : pillar === 'investasi'
+                          ? 'bg-amber-950/80 text-amber-400 border-amber-500/30'
+                          : 'bg-purple-950/80 text-purple-400 border-purple-500/30';
+
+                      return (
+                        <tr
+                          key={item.id}
+                          onClick={() => setSelectedDetailItem(item)}
+                          className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                          title="Klik untuk melihat rincian keterangan detail transaksi"
+                        >
+                          {/* Tanggal */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                            <span>{formatScreenshotDate(item.date)}</span>
+                          </td>
+
+                          {/* Keterangan */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                            <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                              <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${iconBg}`}>
+                                {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5' })}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                                  {title}
+                                </span>
+                                <span className={`inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-semibold px-0.5 xs:px-1 py-[0.5px] rounded border ${badgeClass} leading-none whitespace-nowrap`}>
+                                  {badge}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Kas Masuk */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                            {isInflow ? (
+                              <span className="text-[#00e676] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                                {formatRupiah(item.amount)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] block pl-0.5">-</span>
+                            )}
+                          </td>
+
+                          {/* Kas Keluar */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                            {!isInflow ? (
+                              <span className="text-[#ff3366] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                                {formatRupiah(item.amount)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] block pl-0.5">-</span>
+                            )}
+                          </td>
+
+                          {/* Pos Pilar */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                            <span className={`inline-block text-[5.5px] xs:text-[6.5px] sm:text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${pillarBadge} whitespace-nowrap capitalize`}>
+                              {pillar}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -1342,97 +1533,231 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
             TAB 3: JURNAL (GENERAL JOURNAL / DEBIT & KREDIT)
             ========================================================================= */}
         {activeTab === 'jurnal' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-[#00f2fe]" />
-                  <span>Jurnal Umum (Buku Kas &amp; Transaksi)</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Pencatatan berpasangan Debit dan Kredit berimbang</p>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 block">Keseimbangan Jurnal</span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
-                  ✓ Balance (Seimbang)
-                </span>
+          <div className="space-y-2.5 sm:space-y-3.5">
+            {/* Top 3-Column Summary Card persis seperti Catatan Kas */}
+            <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+              <div className="grid grid-cols-3 divide-x divide-[#142239]">
+                {/* 1. Total Debit */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                      <ArrowUp className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Total Debit (D)
+                    </span>
+                  </div>
+                  <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                    {formatRupiah(jurnalEntries.totalDebit)}
+                  </div>
+                </div>
+
+                {/* 2. Total Kredit */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
+                      <ArrowDown className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Total Kredit (K)
+                    </span>
+                  </div>
+                  <div className="text-[#ff3366] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                    {formatRupiah(jurnalEntries.totalKredit)}
+                  </div>
+                </div>
+
+                {/* 3. Status Jurnal */}
+                <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#00d2ff] flex items-center justify-center shrink-0">
+                      <BookOpen className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                    </div>
+                    <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                      Status Jurnal
+                    </span>
+                  </div>
+                  <div className="text-[#00d2ff] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-base tracking-tight mt-0.5 whitespace-nowrap">
+                    ✓ Balance
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="bg-[#09111e]/90 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[620px]">
-                  <thead>
-                    <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-sm bg-[#0a1220]">
-                      <th className="py-3 px-4 w-[15%]">Tanggal</th>
-                      <th className="py-3 px-4">Akun &amp; Keterangan Transaksi</th>
-                      <th className="py-3 px-4 w-[12%] text-center">Ref</th>
-                      <th className="py-3 px-4 w-[18%] text-right">Debit (D)</th>
-                      <th className="py-3 px-4 w-[18%] text-right">Kredit (K)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#14233c] text-sm">
-                    {jurnalEntries.rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-10 text-center text-slate-500 text-xs">
-                          Belum ada jurnal transaksi.
-                        </td>
-                      </tr>
-                    ) : (
-                      jurnalEntries.rows.map(entry => (
-                        <React.Fragment key={entry.id}>
-                          {/* Baris Debit */}
-                          <tr className="hover:bg-white/[0.04]">
-                            <td className="py-2.5 px-4 text-slate-300 font-medium whitespace-nowrap">
-                              {formatScreenshotDate(entry.date)}
-                            </td>
-                            <td className="py-2.5 px-4 font-bold text-white">
-                              {entry.debitAccount}
-                            </td>
-                            <td className="py-2.5 px-4 text-center text-slate-400 text-xs font-mono">
-                              {entry.ref}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-emerald-400 font-bold whitespace-nowrap">
-                              {formatRupiah(entry.debitAmount)}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-slate-500">-</td>
-                          </tr>
-                          {/* Baris Kredit (Indented) */}
-                          <tr className="border-b border-[#132038] hover:bg-white/[0.04]">
-                            <td className="py-2 px-4 text-slate-500 text-[11px]"></td>
-                            <td className="py-2 px-4 pl-8 text-slate-300 italic flex items-center justify-between">
-                              <span>&rarr; {entry.kreditAccount}</span>
-                              {entry.notes && (
-                                <span className="text-xs text-slate-400 not-italic truncate max-w-xs ml-2">
-                                  ({entry.notes})
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2 px-4 text-center text-slate-500 text-xs"></td>
-                            <td className="py-2 px-4 text-right text-slate-500">-</td>
-                            <td className="py-2 px-4 text-right text-rose-400 font-bold whitespace-nowrap">
-                              {formatRupiah(entry.kreditAmount)}
-                            </td>
-                          </tr>
-                        </React.Fragment>
-                      ))
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-[#162744] bg-[#0c1527] font-black text-sm">
-                      <td colSpan={3} className="py-3 px-4 text-white uppercase tracking-wider">
-                        Total Jurnal (Debit vs Kredit)
-                      </td>
-                      <td className="py-3 px-4 text-right text-emerald-400 whitespace-nowrap">
-                        {formatRupiah(jurnalEntries.totalDebit)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-rose-400 whitespace-nowrap">
-                        {formatRupiah(jurnalEntries.totalKredit)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+              {[
+                { key: 'all', label: 'Semua Jurnal' },
+                { key: 'inflow', label: 'Debit Kas Masuk' },
+                { key: 'outflow', label: 'Kredit Kas Keluar' },
+              ].map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setJurnalTypeFilter(p.key as any)}
+                  className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                    jurnalTypeFilter === p.key
+                      ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                      : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Second Row: Periode Dropdown & Search Input */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                  className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                    <div>
+                      <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                      <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                        {periodLabelMap[periodFilter] || 'Semua Periode'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+                </button>
+
+                {isPeriodDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                    {[
+                      { key: 'all', label: 'Semua Periode' },
+                      { key: 'today', label: 'Hari Ini' },
+                      { key: 'weekly', label: '7 Hari Terakhir' },
+                      { key: 'monthly', label: 'Bulan Ini' },
+                      { key: 'specific', label: '📅 Pilih Tanggal' },
+                      { key: 'range', label: '📅 Rentang Tanggal' },
+                    ].map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setPeriodFilter(opt.key as any);
+                          setIsPeriodDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                          periodFilter === opt.key
+                            ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                            : 'text-slate-300 hover:bg-white/5'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Search Box */}
+              <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+                <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Cari akun atau keterangan jurnal..."
+                  className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI CATATAN KAS) */}
+            <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+              <table className="w-full text-left border-collapse table-fixed">
+                <thead>
+                  <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Akun / Keterangan</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Debit (D)</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Kredit (K)</th>
+                    <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Ref / Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#132038]">
+                  {filteredJurnalRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                        Belum ada entri jurnal pada periode ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredJurnalRows.map(entry => {
+                      const isInflow = entry.type === 'inflow';
+                      const mainTitle = isInflow ? entry.kreditAccount : entry.debitAccount;
+
+                      return (
+                        <tr
+                          key={entry.id}
+                          onClick={() => setSelectedDetailItem(entry.originalItem)}
+                          className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                          title="Klik untuk melihat rincian keterangan detail transaksi"
+                        >
+                          {/* Tanggal */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                            <span>{formatScreenshotDate(entry.date)}</span>
+                          </td>
+
+                          {/* Akun / Keterangan */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                            <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                              <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${isInflow ? 'bg-[#00e676]/10 border border-[#00e676]/30 text-[#00e676]' : 'bg-[#ff3366]/10 border border-[#ff3366]/30 text-[#ff3366]'}`}>
+                                <BookOpen className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                                  {mainTitle}
+                                </span>
+                                <span className="inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-mono text-slate-400 px-0.5 xs:px-1 py-[0.5px] rounded bg-white/5 border border-white/10 leading-none whitespace-nowrap">
+                                  {entry.ref}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Debit */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                            <span className="text-[#00e676] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                              {formatRupiah(entry.debitAmount)}
+                            </span>
+                          </td>
+
+                          {/* Kredit */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                            <span className="text-[#ff3366] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                              {formatRupiah(entry.kreditAmount)}
+                            </span>
+                          </td>
+
+                          {/* Ref / Status */}
+                          <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                            <span className="inline-block text-[5.5px] xs:text-[6.5px] sm:text-[8px] font-bold px-1.5 py-0.5 rounded-full border bg-emerald-950/80 text-emerald-400 border-emerald-500/30 whitespace-nowrap">
+                              ✓ Balance
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -1446,6 +1771,7 @@ export const CashflowView: React.FC<CashflowViewProps> = ({
               currentUser={currentUser}
               employees={employees}
               tagihanList={tagihanList}
+              externalAddTrigger={utangPiutangAddTrigger}
               onRefresh={loadData}
               onBackToMenu={() => setActiveTab('catatan_kas')}
               onNotify={onNotify}
