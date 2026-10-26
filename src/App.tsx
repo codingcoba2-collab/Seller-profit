@@ -348,19 +348,21 @@ export default function App() {
       <div className="fixed top-0 left-1/4 w-96 h-96 bg-[radial-gradient(circle,_rgba(37,244,238,0.12)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
       <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[radial-gradient(circle,_rgba(254,44,85,0.12)_0%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
 
-      {/* Header & Navbar */}
-      <Navbar
-        currentUser={currentUser}
-        currentRoute={currentRoute}
-        onNavigate={handleNavigate}
-        onLogout={() => setShowLogoutModal(true)}
-        onOpenInstallGuide={() => setShowInstallGuide(true)}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onNotify={handleNotify}
-      />
+      {/* Header & Navbar (Hidden on Cashflow fullscreen view) */}
+      {currentRoute !== '/keuangan/cashflow' && (
+        <Navbar
+          currentUser={currentUser}
+          currentRoute={currentRoute}
+          onNavigate={handleNavigate}
+          onLogout={() => setShowLogoutModal(true)}
+          onOpenInstallGuide={() => setShowInstallGuide(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onNotify={handleNotify}
+        />
+      )}
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-16">
+      <main className={currentRoute === '/keuangan/cashflow' ? 'flex-1' : 'flex-1 pb-16'}>
         <Suspense fallback={<ModuleLoader />}>
           {/* 1. Dashboard Utama */}
         {currentRoute === '/dashboard' && (
@@ -649,16 +651,18 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="spatial-footer border-t border-white/10 bg-[#161823] py-4 text-center text-xs text-zinc-400">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            <strong className="text-white">Seller Profit</strong> • Akuntansi Penjualan Live &amp; Manajemen Toko
+      {currentRoute !== '/keuangan/cashflow' && (
+        <footer className="spatial-footer border-t border-white/10 bg-[#161823] py-4 text-center text-xs text-zinc-400">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+              <strong className="text-white">Seller Profit</strong> • Akuntansi Penjualan Live &amp; Manajemen Toko
+            </div>
+            <div className="text-[11px] text-zinc-500">
+              {currentUser.storeName}
+            </div>
           </div>
-          <div className="text-[11px] text-zinc-500">
-            {currentUser.storeName}
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* PWA Install Guide Modal */}
       <InstallGuideModal
@@ -666,14 +670,16 @@ export default function App() {
         onClose={() => setShowInstallGuide(false)}
       />
 
-      {/* Floating Assistive Touch Nav (Lingkaran Pintasan) */}
-      <FloatingAssistiveNav
-        currentRoute={currentRoute}
-        currentUser={currentUser}
-        onNavigate={handleNavigate}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onOpenLogout={() => setShowLogoutModal(true)}
-      />
+      {/* Floating Assistive Touch Nav (Lingkaran Pintasan - Hidden on Cashflow view) */}
+      {currentRoute !== '/keuangan/cashflow' && (
+        <FloatingAssistiveNav
+          currentRoute={currentRoute}
+          currentUser={currentUser}
+          onNavigate={handleNavigate}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenLogout={() => setShowLogoutModal(true)}
+        />
+      )}
 
       {/* Themed Exit / Logout Confirmation Dialog */}
       <LogoutModal

@@ -315,6 +315,7 @@ export interface CashflowRecord {
   paymentType?: 'gaji_insentif' | 'kasbon'; // Opsi pembayaran gaji & insentif vs kasbon
   proofImageUrl?: string; // Foto bukti transfer / struk pembayaran gaji (base64)
   personalBudgetCategory?: PersonalBudgetCategory; // Optional: kategori pos pribadi ('sehari_hari', 'utang', dll)
+  customSaldo?: number; // Saldo snapshot khusus demo / catatan kas
   recordedBy?: string;
   createdAt: string;
 }
