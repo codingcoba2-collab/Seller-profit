@@ -19,9 +19,32 @@ import {
   ArrowRight,
   Info,
   ClipboardList,
+  Calendar,
+  ChevronDown,
+  X,
+  Package,
+  Shirt
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
+
+function formatScreenshotDate(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const monthName = months[monthIdx] || parts[1];
+      return `${day} ${monthName} ${year}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
 
 interface DaftarBallViewProps {
   currentUser: CurrentUser;
@@ -31,6 +54,7 @@ interface DaftarBallViewProps {
 
 export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   currentUser,
+  onBackToDashboard,
   onNotify,
 }) => {
   const storeId = currentUser.storeId;
@@ -57,6 +81,12 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [qualityFilter, setQualityFilter] = useState<'all' | BallQualityGrade>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly' | 'specific' | 'range'>('all');
+  const [specificDate, setSpecificDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const [selectedDetailBall, setSelectedDetailBall] = useState<BallDataRecord | null>(null);
 
   // Edit form states (for updating existing ball data synced from Sortir & QC)
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -212,25 +242,44 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
   };
 
   // Filtered list
-  const filteredBalls = ballDataList.filter(item => {
-    if (qualityFilter !== 'all' && item.qualityGrade !== qualityFilter) {
-      return false;
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.ballName.toLowerCase().includes(q) ||
-        (item.notes && item.notes.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const filteredBalls = ballDataList
+    .filter(item => {
+      if (qualityFilter !== 'all' && item.qualityGrade !== qualityFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = item.ballName.toLowerCase().includes(q);
+        const matchNote = item.notes && item.notes.toLowerCase().includes(q);
+        if (!matchName && !matchNote) return false;
+      }
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (periodFilter === 'today') {
+        return item.date === todayStr;
+      } else if (periodFilter === 'specific') {
+        return item.date === specificDate;
+      } else if (periodFilter === 'range') {
+        return (item.date || '') >= startDate && (item.date || '') <= endDate;
+      } else if (periodFilter === 'weekly') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return (item.date || '') >= d.toISOString().slice(0, 10);
+      } else if (periodFilter === 'monthly') {
+        const currentMonth = todayStr.slice(0, 7);
+        return item.date?.startsWith(currentMonth);
+      }
+
+      return true;
+    })
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // Summary counts
-  const countSangatBagus = ballDataList.filter(b => b.qualityGrade === 'sangat_bagus').length;
-  const countBagus = ballDataList.filter(b => b.qualityGrade === 'bagus').length;
-  const countBiasa = ballDataList.filter(b => b.qualityGrade === 'biasa').length;
-  const countJelek = ballDataList.filter(b => b.qualityGrade === 'jelek').length;
+  const totalPcsFiltered = filteredBalls.reduce((acc, b) => acc + (b.pcsTotal || 0), 0);
+  const countSuperBagusFiltered = filteredBalls.filter(b => {
+    const q = evaluateBallQuality(b.pcsKepala, b.pcsTotal);
+    return q === 'sangat_bagus' || q === 'bagus';
+  }).length;
 
   const liveKepala = typeof pcsKepala === 'number' ? pcsKepala : 0;
   const liveBadan = typeof pcsBadan === 'number' ? pcsBadan : 0;
@@ -241,125 +290,7 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Ringkasan Statistik Kualitas Ball */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-        <button
-          type="button"
-          onClick={() => setQualityFilter('all')}
-          className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-            qualityFilter === 'all'
-              ? 'bg-[#1c1f2e] border-white/30 shadow-md'
-              : 'bg-[#161823] border-white/10 hover:border-white/20'
-          }`}
-        >
-          <div className="text-[10px] text-zinc-400 font-semibold uppercase">Total Daftar Ball</div>
-          <div className="text-base sm:text-lg font-black text-white mt-0.5">
-            {formatNumber(ballDataList.length)} <span className="text-xs font-normal text-zinc-400">Ball</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setQualityFilter('sangat_bagus')}
-          className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-            qualityFilter === 'sangat_bagus'
-              ? 'bg-emerald-500/20 border-emerald-400 shadow-md'
-              : 'bg-[#161823] border-emerald-500/20 hover:border-emerald-500/40'
-          }`}
-        >
-          <div className="text-[10px] text-emerald-400 font-bold uppercase">Sangat Bagus</div>
-          <div className="text-base sm:text-lg font-black text-emerald-400 mt-0.5">
-            {formatNumber(countSangatBagus)} <span className="text-xs font-normal text-zinc-400">Ball</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setQualityFilter('bagus')}
-          className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-            qualityFilter === 'bagus'
-              ? 'bg-[#25F4EE]/20 border-[#25F4EE] shadow-md'
-              : 'bg-[#161823] border-[#25F4EE]/20 hover:border-[#25F4EE]/40'
-          }`}
-        >
-          <div className="text-[10px] text-[#25F4EE] font-bold uppercase">Bagus</div>
-          <div className="text-base sm:text-lg font-black text-[#25F4EE] mt-0.5">
-            {formatNumber(countBagus)} <span className="text-xs font-normal text-zinc-400">Ball</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setQualityFilter('biasa')}
-          className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-            qualityFilter === 'biasa'
-              ? 'bg-amber-500/20 border-amber-400 shadow-md'
-              : 'bg-[#161823] border-amber-500/20 hover:border-amber-500/40'
-          }`}
-        >
-          <div className="text-[10px] text-amber-400 font-bold uppercase">Biasa</div>
-          <div className="text-base sm:text-lg font-black text-amber-400 mt-0.5">
-            {formatNumber(countBiasa)} <span className="text-xs font-normal text-zinc-400">Ball</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setQualityFilter('jelek')}
-          className={`p-3 rounded-xl border text-left transition cursor-pointer col-span-2 sm:col-span-1 ${
-            qualityFilter === 'jelek'
-              ? 'bg-[#FE2C55]/20 border-[#FE2C55] shadow-md'
-              : 'bg-[#161823] border-[#FE2C55]/20 hover:border-[#FE2C55]/40'
-          }`}
-        >
-          <div className="text-[10px] text-[#FE2C55] font-bold uppercase">Jelek</div>
-          <div className="text-base sm:text-lg font-black text-[#FE2C55] mt-0.5">
-            {formatNumber(countJelek)} <span className="text-xs font-normal text-zinc-400">Ball</span>
-          </div>
-        </button>
-      </div>
-
-      {/* Collapsible Standar Kriteria Kualitas Ball */}
-      {showCriteriaGuide && (
-        <div className="p-4 rounded-2xl bg-[#161823] border border-[#25F4EE]/30 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-black text-[#25F4EE] flex items-center gap-2">
-              <Award className="w-4 h-4" />
-              <span>Aturan Penilaian Kualitas Ball (Otomatis dari Sortir &amp; QC)</span>
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
-              <div className="font-black text-emerald-400">1. Sangat Bagus</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 100 pcs</strong> dan <strong>Total Isi &gt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#25F4EE]/10 border border-[#25F4EE]/30 space-y-1">
-              <div className="font-black text-[#25F4EE]">2. Bagus</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong><br />
-                • Atau <strong>Kepala &gt; 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
-              <div className="font-black text-amber-400">3. Biasa</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &gt; 70 s/d 100 pcs</strong> dan <strong>Isi &lt; 270 pcs</strong><br />
-                • Atau <strong>Kepala &lt; 70 pcs</strong> dan <strong>Isi &gt; 270 pcs</strong>
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 space-y-1">
-              <div className="font-black text-[#FE2C55]">4. Jelek</div>
-              <p className="text-[11px] text-zinc-300 leading-snug">
-                • <strong>Kepala &lt; 70 pcs</strong> dan <strong>Total Isi &lt; 250 pcs</strong> (atau di bawah standar)
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= FORM EDIT BALL (Format Selanjutnya, Tanpa Tanda di Atas) ================= */}
+      {/* ================= FORM EDIT BALL ================= */}
       {viewMode === 'form' && editingBall ? (
         <div className="space-y-4">
           <form onSubmit={handleSubmit} className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
@@ -618,157 +549,544 @@ export const DaftarBallView: React.FC<DaftarBallViewProps> = ({
           </form>
         </div>
       ) : (
-        /* ================= DAFTAR BALL TABLE & CARDS (Otomatis dari Sortir & QC) ================= */
-        <div className="space-y-3">
-          {/* Search & Filter Bar */}
-          <div className="p-3 rounded-2xl bg-[#161823] border border-white/10 flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2 flex-1">
-              <div className="relative w-full sm:w-72">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari nama ball atau catatan..."
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-                />
+        /* ================= RIWAYAT / DAFTAR BALL (STANDARDIZED UI) ================= */
+        <div className="space-y-3 sm:space-y-4">
+          {/* Top Header Bar */}
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              {onBackToDashboard && (
+                <button
+                  type="button"
+                  onClick={onBackToDashboard}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c1527] hover:bg-[#122038] border border-[#162544] flex items-center justify-center text-slate-300 hover:text-white transition cursor-pointer shrink-0"
+                  title="Kembali ke Dashboard"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                </button>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-base md:text-lg font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+                  Riwayat Evaluasi Ball
+                </h1>
+                <p className="text-[9px] xs:text-[10px] sm:text-xs text-slate-400 truncate">
+                  Data terintegrasi sortir, QC &amp; finishing
+                </p>
               </div>
-
-              <ThemedSelect
-                value={qualityFilter}
-                onChange={val => setQualityFilter(val as any)}
-                title="Filter Kualitas Ball"
-                options={[
-                  { value: 'all', label: 'Semua Kualitas Ball' },
-                  { value: 'sangat_bagus', label: 'Sangat Bagus (Kepala > 100 & Isi > 270)' },
-                  { value: 'bagus', label: 'Bagus' },
-                  { value: 'biasa', label: 'Biasa' },
-                  { value: 'jelek', label: 'Jelek (Kepala < 70 & Isi < 250)' },
-                ]}
-                className="px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              />
             </div>
 
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowCriteriaGuide(!showCriteriaGuide)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
-              >
-                <Info className="w-3.5 h-3.5 text-[#25F4EE]" />
-                <span>{showCriteriaGuide ? 'Tutup Standar' : 'Standar Kualitas'}</span>
-              </button>
-              <div className="text-xs text-zinc-400 font-semibold">
-                Total: <strong className="text-white">{filteredBalls.length}</strong> Ball
+            <button
+              type="button"
+              onClick={() => setShowCriteriaGuide(!showCriteriaGuide)}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-[10px] sm:text-xs flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
+            >
+              <Info className="w-3.5 h-3.5 text-[#050811] stroke-[2.5]" />
+              <span>{showCriteriaGuide ? 'Tutup Standar' : 'Standar Kualitas'}</span>
+            </button>
+          </div>
+
+          {/* 3-Column Top Summary Card */}
+          <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+            <div className="grid grid-cols-3 divide-x divide-[#142239]">
+              {/* 1. Total Ball Terdata */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe] text-[#00f2fe] flex items-center justify-center shrink-0">
+                    <Package className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                    Total Terdata
+                  </span>
+                </div>
+                <div className="text-[#00f2fe] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                  {formatNumber(filteredBalls.length)} Ball
+                </div>
+              </div>
+
+              {/* 2. Total Isi Pcs */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                    <Shirt className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                    Total Isi Pcs
+                  </span>
+                </div>
+                <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                  {formatNumber(totalPcsFiltered)} pcs
+                </div>
+              </div>
+
+              {/* 3. Super & Bagus */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#fbbf24]/10 border border-[#fbbf24] text-[#fbbf24] flex items-center justify-center shrink-0">
+                    <Award className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                    Super &amp; Bagus
+                  </span>
+                </div>
+                <div className="text-[#fbbf24] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                  {formatNumber(countSuperBagusFiltered)} Ball
+                </div>
               </div>
             </div>
           </div>
 
-          {filteredBalls.length === 0 ? (
-            <div className="p-10 rounded-2xl bg-[#161823] border border-white/10 text-center space-y-2">
-              <ClipboardList className="w-8 h-8 text-zinc-500 mx-auto" />
-              <p className="text-xs text-zinc-400">
-                Belum ada data ball pada filter ini. Data ball akan otomatis terisi saat Anda mencatat pengerjaan di menu <strong>Sortir, QC &amp; Finishing</strong>.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {filteredBalls.map(ball => {
-                const computedGrade = evaluateBallQuality(ball.pcsKepala, ball.pcsTotal);
-                const qMeta = ballQualityMeta[computedGrade];
-
-                return (
-                  <div
-                    key={ball.id}
-                    className="p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition shadow-md flex flex-col justify-between gap-3"
-                  >
-                    {/* Header Card: Nama Ball, Berat Ball & Kualitas Ball */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#0b0c10] border border-white/10 text-zinc-400 font-semibold">
-                            {formatDateIndo(ball.date)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-md bg-[#25F4EE]/10 border border-[#25F4EE]/30 text-[#25F4EE] font-black">
-                            <Scale className="w-3 h-3" />
-                            <span>Berat: {formatNumber(ball.weightKg)} Kg</span>
-                          </span>
-                        </div>
-                        <h3 className="text-sm sm:text-base font-black text-white mt-1.5 truncate">
-                          {ball.ballName}
-                        </h3>
-                      </div>
-
-                      {/* Badge Kualitas Ball + Actions */}
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <span
-                          className={`px-3 py-1 rounded-xl text-xs font-black border shadow-sm ${qMeta.bgClass} ${qMeta.borderClass} ${qMeta.textClass}`}
-                        >
-                          {qMeta.label}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(ball)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                            title="Edit Data Ball"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(ball)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                            title="Hapus Data Ball"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Rincian Isi & Kelas (Kepala, Badan, Kaki) */}
-                    <div className="grid grid-cols-4 gap-2 p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 text-center">
-                      <div>
-                        <div className="text-[10px] text-zinc-400 font-semibold">Total Isi</div>
-                        <div className="text-xs sm:text-sm font-black text-white">
-                          {formatNumber(ball.pcsTotal)} <span className="text-[10px] font-normal text-zinc-400">pcs</span>
-                        </div>
-                      </div>
-                      <div className="border-l border-white/10">
-                        <div className="text-[10px] text-emerald-400 font-bold">Kepala</div>
-                        <div className="text-xs sm:text-sm font-black text-emerald-400">
-                          {formatNumber(ball.pcsKepala)} <span className="text-[10px] font-normal">pcs</span>
-                        </div>
-                      </div>
-                      <div className="border-l border-white/10">
-                        <div className="text-[10px] text-[#25F4EE] font-bold">Badan</div>
-                        <div className="text-xs sm:text-sm font-black text-[#25F4EE]">
-                          {formatNumber(ball.pcsBadan)} <span className="text-[10px] font-normal">pcs</span>
-                        </div>
-                      </div>
-                      <div className="border-l border-white/10">
-                        <div className="text-[10px] text-amber-400 font-bold">Kaki</div>
-                        <div className="text-xs sm:text-sm font-black text-amber-400">
-                          {formatNumber(ball.pcsKaki)} <span className="text-[10px] font-normal">pcs</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Keterangan Kualitas */}
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 pt-1 border-t border-white/5">
-                      <span>Kriteria: <strong className="text-zinc-300">{qMeta.description}</strong></span>
-                      {ball.notes && (
-                        <span className="truncate max-w-[45%] text-zinc-400 italic" title={ball.notes}>
-                          "{ball.notes}"
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Collapsible Standar Kriteria Kualitas Ball */}
+          {showCriteriaGuide && (
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0a1220] border border-[#00f2fe]/30 shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-black text-[#00f2fe] flex items-center gap-2">
+                  <Award className="w-4 h-4 text-[#00f2fe]" />
+                  <span>Standar Penilaian Kualitas Ball</span>
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+                  <div className="font-black text-emerald-400 text-xs">1. Sangat Bagus</div>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-300 leading-snug">
+                    Kepala &gt; 100 pcs &amp; Total Isi &gt; 270 pcs
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#00f2fe]/10 border border-[#00f2fe]/30 space-y-1">
+                  <div className="font-black text-[#00f2fe] text-xs">2. Bagus</div>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-300 leading-snug">
+                    Kepala &gt; 70-100 pcs &amp; Isi &gt; 270 pcs, atau Kepala &gt; 100 pcs &amp; Isi &lt; 270 pcs
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                  <div className="font-black text-amber-400 text-xs">3. Biasa</div>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-300 leading-snug">
+                    Kepala 70-100 pcs &amp; Isi &lt; 270 pcs, atau Kepala &lt; 70 pcs &amp; Isi &gt; 270 pcs
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#ff3366]/10 border border-[#ff3366]/30 space-y-1">
+                  <div className="font-black text-[#ff3366] text-xs">4. Jelek</div>
+                  <p className="text-[10px] sm:text-[11px] text-zinc-300 leading-snug">
+                    Kepala &lt; 70 pcs &amp; Total Isi &lt; 250 pcs
+                  </p>
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+            {[
+              { id: 'all', label: 'Semua' },
+              { id: 'sangat_bagus', label: 'Sangat Bagus' },
+              { id: 'bagus', label: 'Bagus' },
+              { id: 'biasa', label: 'Biasa' },
+              { id: 'jelek', label: 'Jelek' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setQualityFilter(tab.id as any)}
+                className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                  qualityFilter === tab.id
+                    ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                    : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Second Row: Periode Dropdown + Search Box */}
+          <div className="flex items-center gap-2">
+            {/* Periode Dropdown */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0c1527] border border-[#162544] hover:border-[#00f2fe]/40 text-slate-200 text-[10px] sm:text-xs font-semibold transition cursor-pointer shadow-sm"
+              >
+                <Calendar className="w-3.5 h-3.5 text-[#00f2fe]" />
+                <span>
+                  {periodFilter === 'all' && 'Semua Periode'}
+                  {periodFilter === 'today' && 'Hari Ini'}
+                  {periodFilter === 'weekly' && '7 Hari Terakhir'}
+                  {periodFilter === 'monthly' && 'Bulan Ini'}
+                  {periodFilter === 'specific' && `Tgl: ${formatScreenshotDate(specificDate)}`}
+                  {periodFilter === 'range' && 'Rentang Tgl'}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+
+              {isPeriodDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-64 p-3 bg-[#0c1527] border border-[#162544] rounded-2xl shadow-2xl z-30 space-y-2 text-xs">
+                  <div className="font-bold text-slate-300 pb-1 border-b border-[#142239] text-[11px]">
+                    Pilih Periode Waktu
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter('all');
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg text-left transition ${
+                        periodFilter === 'all' ? 'bg-[#00f2fe] text-black font-bold' : 'text-slate-300 hover:bg-[#142239]'
+                      }`}
+                    >
+                      Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter('today');
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg text-left transition ${
+                        periodFilter === 'today' ? 'bg-[#00f2fe] text-black font-bold' : 'text-slate-300 hover:bg-[#142239]'
+                      }`}
+                    >
+                      Hari Ini
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter('weekly');
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg text-left transition ${
+                        periodFilter === 'weekly' ? 'bg-[#00f2fe] text-black font-bold' : 'text-slate-300 hover:bg-[#142239]'
+                      }`}
+                    >
+                      7 Hari
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter('monthly');
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-lg text-left transition ${
+                        periodFilter === 'monthly' ? 'bg-[#00f2fe] text-black font-bold' : 'text-slate-300 hover:bg-[#142239]'
+                      }`}
+                    >
+                      Bulan Ini
+                    </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#142239] space-y-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-1">Tanggal Tertentu:</label>
+                      <input
+                        type="date"
+                        value={specificDate}
+                        onChange={e => {
+                          setSpecificDate(e.target.value);
+                          setPeriodFilter('specific');
+                        }}
+                        className="w-full px-2 py-1 bg-[#060b14] border border-[#162544] rounded-lg text-white text-[11px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-1">Rentang Tanggal:</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={e => {
+                            setStartDate(e.target.value);
+                            setPeriodFilter('range');
+                          }}
+                          className="px-2 py-1 bg-[#060b14] border border-[#162544] rounded-lg text-white text-[10px]"
+                        />
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={e => {
+                            setEndDate(e.target.value);
+                            setPeriodFilter('range');
+                          }}
+                          className="px-2 py-1 bg-[#060b14] border border-[#162544] rounded-lg text-white text-[10px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPeriodDropdownOpen(false)}
+                    className="w-full py-1 text-center text-[10px] text-slate-400 hover:text-white pt-1"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-[140px]">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari nama ball atau catatan..."
+                className="w-full pl-8 pr-7 py-1.5 text-[10px] sm:text-xs rounded-xl bg-[#0c1527] border border-[#162544] text-white placeholder-slate-500 focus:outline-none focus:border-[#00f2fe]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 5-Column Table */}
+          <div className="bg-[#0a1220] border border-[#142239] rounded-2xl overflow-hidden shadow-xl">
+            <table className="table-fixed w-full border-collapse">
+              <thead>
+                <tr className="border-b border-[#142239] bg-[#0c1527]/90 text-[7px] xs:text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="w-[15%] py-2.5 px-1 xs:px-1.5 sm:px-2.5 text-left font-bold truncate">Tanggal</th>
+                  <th className="w-[35%] py-2.5 px-1 xs:px-1.5 sm:px-2.5 text-left font-bold truncate">Nama Ball</th>
+                  <th className="w-[16.5%] py-2.5 px-0.5 xs:px-1 text-center font-bold truncate">Kepala</th>
+                  <th className="w-[16.5%] py-2.5 px-0.5 xs:px-1 text-center font-bold truncate">Berat</th>
+                  <th className="w-[17%] py-2.5 px-1 xs:px-1.5 sm:px-2.5 text-right font-bold truncate">Total Isi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#142239]/60">
+                {filteredBalls.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-xs text-slate-500">
+                      Tidak ada data ball yang sesuai kriteria
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBalls.map((ball) => {
+                    const computedGrade = evaluateBallQuality(ball.pcsKepala, ball.pcsTotal);
+                    const qMeta = ballQualityMeta[computedGrade];
+
+                    return (
+                      <tr
+                        key={ball.id}
+                        onClick={() => setSelectedDetailBall(ball)}
+                        className="hover:bg-[#0e182c]/80 transition cursor-pointer"
+                      >
+                        {/* Tanggal */}
+                        <td className="py-2 sm:py-2.5 px-1 xs:px-1.5 sm:px-2.5 align-middle">
+                          <span className="text-[6.5px] xs:text-[7.5px] sm:text-[10px] md:text-xs text-slate-300 font-semibold tracking-tight whitespace-nowrap block truncate">
+                            {formatScreenshotDate(ball.date)}
+                          </span>
+                        </td>
+
+                        {/* Nama Ball */}
+                        <td className="py-2 sm:py-2.5 px-1 xs:px-1.5 sm:px-2.5 align-middle min-w-0">
+                          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                            <div className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe]/30 flex items-center justify-center shrink-0">
+                              <Package className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3 sm:h-3 text-[#00f2fe]" />
+                            </div>
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[7px] xs:text-[8px] sm:text-xs font-bold text-white block truncate leading-tight">
+                                {ball.ballName}
+                              </span>
+                              <span className={`inline-block text-[5.5px] xs:text-[6.5px] sm:text-[9px] font-bold px-1 py-0.5 rounded-md border mt-0.5 ${qMeta.bgClass} ${qMeta.textClass} ${qMeta.borderClass}`}>
+                                {qMeta.label}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Kepala */}
+                        <td className="py-2 sm:py-2.5 px-0.5 xs:px-1 text-center align-middle">
+                          <span className="text-[7px] xs:text-[8px] sm:text-xs font-bold text-[#00e676] tabular-nums whitespace-nowrap block truncate">
+                            {formatNumber(ball.pcsKepala)} pcs
+                          </span>
+                        </td>
+
+                        {/* Berat */}
+                        <td className="py-2 sm:py-2.5 px-0.5 xs:px-1 text-center align-middle">
+                          <span className="text-[7px] xs:text-[8px] sm:text-xs font-bold text-slate-300 tabular-nums whitespace-nowrap block truncate">
+                            {formatNumber(ball.weightKg || 45)} Kg
+                          </span>
+                        </td>
+
+                        {/* Total Isi */}
+                        <td className="py-2 sm:py-2.5 px-1 xs:px-1.5 sm:px-2.5 text-right align-middle">
+                          <span className="text-[7px] xs:text-[8px] sm:text-xs font-black text-[#00f2fe] tabular-nums whitespace-nowrap block truncate">
+                            {formatNumber(ball.pcsTotal)} pcs
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedDetailBall && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedDetailBall(null)}
+        >
+          <div
+            className="w-full max-w-md bg-[#0a1220] border border-[#142239] rounded-3xl p-5 shadow-2xl space-y-4 text-white"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#142239]">
+              <div className="min-w-0">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
+                  Detail Evaluasi Ball
+                </span>
+                <span className="text-xs text-slate-300 font-medium">
+                  {formatDateIndo(selectedDetailBall.date)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailBall(null)}
+                className="w-7 h-7 rounded-full bg-[#142239] hover:bg-[#1e3252] flex items-center justify-center text-slate-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quality Grade Banner */}
+            {(() => {
+              const compGrade = evaluateBallQuality(selectedDetailBall.pcsKepala, selectedDetailBall.pcsTotal);
+              const m = ballQualityMeta[compGrade];
+              return (
+                <div className={`p-3.5 rounded-2xl border ${m.bgClass} ${m.borderClass} space-y-1`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-black uppercase tracking-wider ${m.textClass}`}>
+                      Grade: {m.label}
+                    </span>
+                    <Award className={`w-4 h-4 ${m.textClass}`} />
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    {m.description}
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-3 rounded-xl bg-[#0c1527] border border-[#162544] col-span-2">
+                <span className="text-[10px] text-slate-400 block mb-0.5">Nama Ball:</span>
+                <span className="font-bold text-white text-sm block">
+                  {selectedDetailBall.ballName}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#0c1527] border border-[#162544]">
+                <span className="text-[10px] text-slate-400 block mb-0.5">Berat Ball:</span>
+                <span className="font-black text-[#00f2fe] text-sm">
+                  {formatNumber(selectedDetailBall.weightKg || 45)} Kg
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#0c1527] border border-[#162544]">
+                <span className="text-[10px] text-slate-400 block mb-0.5">Total Isi Ball:</span>
+                <span className="font-black text-[#00f2fe] text-sm">
+                  {formatNumber(selectedDetailBall.pcsTotal)} pcs
+                </span>
+              </div>
+            </div>
+
+            {/* Breakdown Kelas (Kepala, Badan, Kaki) */}
+            <div className="p-3 rounded-xl bg-[#0c1527] border border-[#162544] space-y-2">
+              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                Rincian Kelas Hasil Sortir
+              </span>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-lg bg-[#060b14] border border-[#142239]">
+                  <span className="text-[9px] text-[#00e676] font-bold block">Kepala</span>
+                  <span className="text-xs font-black text-[#00e676]">
+                    {formatNumber(selectedDetailBall.pcsKepala)} pcs
+                  </span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">
+                    {selectedDetailBall.pcsTotal > 0 ? Math.round((selectedDetailBall.pcsKepala / selectedDetailBall.pcsTotal) * 100) : 0}%
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-[#060b14] border border-[#142239]">
+                  <span className="text-[9px] text-[#00f2fe] font-bold block">Badan</span>
+                  <span className="text-xs font-black text-[#00f2fe]">
+                    {formatNumber(selectedDetailBall.pcsBadan)} pcs
+                  </span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">
+                    {selectedDetailBall.pcsTotal > 0 ? Math.round((selectedDetailBall.pcsBadan / selectedDetailBall.pcsTotal) * 100) : 0}%
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-[#060b14] border border-[#142239]">
+                  <span className="text-[9px] text-[#fbbf24] font-bold block">Kaki</span>
+                  <span className="text-xs font-black text-[#fbbf24]">
+                    {formatNumber(selectedDetailBall.pcsKaki)} pcs
+                  </span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">
+                    {selectedDetailBall.pcsTotal > 0 ? Math.round((selectedDetailBall.pcsKaki / selectedDetailBall.pcsTotal) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Catatan */}
+            {selectedDetailBall.notes && (
+              <div className="p-3 rounded-xl bg-[#0c1527] border border-[#162544]">
+                <span className="text-[10px] text-slate-400 block mb-0.5">Catatan Evaluasi:</span>
+                <span className="text-xs text-slate-300 italic">
+                  "{selectedDetailBall.notes}"
+                </span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex items-center justify-between gap-2 border-t border-[#142239]">
+              <button
+                type="button"
+                onClick={() => setSelectedDetailBall(null)}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition cursor-pointer"
+              >
+                Tutup
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const b = selectedDetailBall;
+                    setSelectedDetailBall(null);
+                    handleDelete(b);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#ff3366]/15 hover:bg-[#ff3366]/25 border border-[#ff3366]/30 text-[#ff3366] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const b = selectedDetailBall;
+                    setSelectedDetailBall(null);
+                    handleStartEdit(b);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#00f2fe] text-black text-xs font-black shadow-lg shadow-cyan-500/20 hover:bg-[#19e6f1] transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Data</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

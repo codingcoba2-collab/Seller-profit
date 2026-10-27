@@ -18,13 +18,34 @@ import {
   ClipboardList,
   PlusCircle,
   ChevronRight,
-  Users
+  Users,
+  Calendar,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
 import { FuturisticEmployeeCard } from '../components/FuturisticEmployeeCard';
 import { NeonCorners } from '../components/NeonCorners';
+
+function formatScreenshotDate(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const monthName = months[monthIdx] || parts[1];
+      return `${day} ${monthName} ${year}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
 
 interface KehadiranViewProps {
   currentUser: CurrentUser;
@@ -62,10 +83,14 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   });
 
   // Filter states
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly' | 'specific' | 'range'>('all');
+  const [specificDate, setSpecificDate] = useState(getTodayString());
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDetailAtt, setSelectedDetailAtt] = useState<AttendanceRecord | null>(null);
 
   // Form states
   const [date, setDate] = useState(getTodayString());
@@ -233,6 +258,13 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   // Filter & sort list by date desc
   const filteredList = attendanceList
     .filter(a => {
+      // Role filter
+      if (roleFilter !== 'all') {
+        const lowerRole = (a.role || '').toLowerCase();
+        if (!lowerRole.includes(roleFilter.toLowerCase())) return false;
+      }
+
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         if (!a.employeeName.toLowerCase().includes(q) && !(a.notes || '').toLowerCase().includes(q)) {
@@ -240,6 +272,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
         }
       }
       if (periodFilter === 'today') return a.date === getTodayString();
+      if (periodFilter === 'specific') return a.date === specificDate;
       if (periodFilter === 'range') return a.date >= startDate && a.date <= endDate;
       if (periodFilter === 'weekly') {
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
@@ -598,150 +631,426 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
         </div>
       )}
 
-      {/* ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) ================= */}
-      {viewMode === 'output' && (
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-          {/* Unified Action & Filter Bar */}
-          <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                id="btn-back-menu-from-output-kehadiran"
-                type="button"
-                onClick={() => setViewMode('menu')}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-                title="Kembali ke Menu Presensi"
-                aria-label="Kembali ke Menu Presensi"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
-              </button>
+      {/* ================= 3. OUTPUT & LAPORAN STATE (STANDARDIZED SEPERTI CATATAN KAS) ================= */}
+      {viewMode === 'output' && (() => {
+        const periodLabelMap: Record<string, string> = {
+          all: 'Semua Periode',
+          today: 'Hari Ini',
+          weekly: '7 Hari Terakhir',
+          monthly: 'Bulan Ini',
+          specific: 'Pilih Tanggal',
+          range: 'Rentang Tanggal',
+        };
 
-              <div className="relative w-40 sm:w-56">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Cari nama pegawai..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-                />
-              </div>
+        const totalHours = filteredList.reduce((acc, curr) => acc + (curr.hoursWorked || 0), 0);
+        const uniqueEmployees = new Set(filteredList.map(a => a.employeeId || a.employeeName)).size;
 
-              <ThemedSelect
-                value={periodFilter}
-                onChange={val => setPeriodFilter(val as any)}
-                title="Pilih Periode Presensi"
-                options={[
-                  { value: 'all', label: 'Semua Periode' },
-                  { value: 'today', label: 'Hari Ini' },
-                  { value: 'weekly', label: '7 Hari Terakhir' },
-                  { value: 'monthly', label: 'Bulan Ini' },
-                ]}
-                className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-              />
-            </div>
+        return (
+          <div className="w-full min-h-screen bg-[#060b14] text-white">
+            <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-4">
+              {/* Header Bar */}
+              <div className="flex items-center justify-between gap-2 pb-1 border-b border-[#142239]">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <button
+                    id="btn-back-menu-from-output-kehadiran"
+                    type="button"
+                    onClick={() => setViewMode('menu')}
+                    className="p-1.5 sm:p-2 rounded-xl bg-[#0c1527] border border-[#162544] hover:bg-[#142239] text-slate-300 hover:text-white transition cursor-pointer shrink-0"
+                    title="Kembali ke Menu Presensi"
+                  >
+                    <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <div className="min-w-0">
+                    <h1 className="text-sm xs:text-base sm:text-xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+                      Riwayat Presensi Pegawai
+                    </h1>
+                    <p className="text-[9px] xs:text-[10px] sm:text-xs text-slate-400 truncate">
+                      Histori absensi kehadiran, shift kerja, dan jam kerja pegawai
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-zinc-400 font-semibold hidden sm:block">
-                Total: <strong className="text-white">{filteredList.length}</strong>
-              </div>
-
-              <button
-                id="btn-open-form-from-output-kehadiran"
-                type="button"
-                onClick={() => {
-                  handleCancelEdit();
-                  setInputStep(1);
-                  setViewMode('input');
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>+ Presensi Baru</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Card-Based Riwayat Kehadiran (Format Cashflow) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-[#25F4EE]" />
-                <span>Rekap Riwayat Presensi Shift ({filteredList.length})</span>
-              </h3>
-              <div className="text-[11px] text-zinc-400">
-                Terurut dari shift terbaru
-              </div>
-            </div>
-
-            {filteredList.length === 0 ? (
-              <div className="text-center py-12 px-4 bg-[#161823] rounded-2xl border border-white/10 text-zinc-500 text-xs shadow-sm">
-                Belum ada catatan presensi shift pada periode ini.
-              </div>
-            ) : (
-              filteredList.map(att => (
-                <div
-                  key={att.id}
-                  className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
+                <button
+                  id="btn-open-form-from-output-kehadiran"
+                  type="button"
+                  onClick={() => {
+                    handleCancelEdit();
+                    setInputStep(1);
+                    setViewMode('input');
+                  }}
+                  className="px-3.5 py-1.5 sm:px-5 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-[10px] sm:text-xs md:text-sm flex items-center gap-1.5 sm:gap-2 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
                 >
-                  {/* Top Row: Date Badge & Duration Badge on Left, Action Buttons on Right */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                        {formatDateIndo(att.date)}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-                        ⏱️ {att.hoursWorked} Jam Shift
+                  <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#050811] stroke-[2.5]" />
+                  <span>+ Presensi Baru</span>
+                </button>
+              </div>
+
+              {/* =========================================================================
+                  TOP SUMMARY CARDS (SELALU 3 KOLOM SESUAI GAMBAR)
+                  ========================================================================= */}
+              <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+                <div className="grid grid-cols-3 divide-x divide-[#142239]">
+                  {/* 1. Total Shift Hadir */}
+                  <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                      </div>
+                      <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                        Total Hadir
                       </span>
                     </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(att)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                        title="Edit Presensi"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(att.id, `${att.employeeName} (${formatDateIndo(att.date)})`)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                        title="Hapus Presensi"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                      {filteredList.length} Shift
                     </div>
                   </div>
 
-                  {/* Main Row: Pegawai Name on Left, Role Shift Badge on Right */}
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div>
-                      <div className="text-base sm:text-lg font-black text-white tracking-tight">
-                        {att.employeeName}
+                  {/* 2. Total Jam Kerja */}
+                  <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe] text-[#00f2fe] flex items-center justify-center shrink-0">
+                        <Clock className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
                       </div>
+                      <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                        Total Jam
+                      </span>
                     </div>
-
-                    <div className="text-right min-w-0 flex-1 flex justify-end">
-                      <div className="flex items-center gap-1 flex-wrap justify-end">
-                        {formatAttendanceRole(att.role || 'host')}
-                      </div>
+                    <div className="text-[#00f2fe] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                      {totalHours} Jam
                     </div>
                   </div>
 
-                  {/* Bottom Row: Catatan / Keterangan if present */}
-                  {att.notes && (
-                    <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
-                      <span className="text-zinc-500 font-medium">Catatan: </span>
-                      <span>{att.notes}</span>
+                  {/* 3. Pegawai Aktif */}
+                  <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#00d2ff] flex items-center justify-center shrink-0">
+                        <Users className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                      </div>
+                      <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                        Pegawai Aktif
+                      </span>
+                    </div>
+                    <div className="text-[#00d2ff] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                      {uniqueEmployees} Orang
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+                {[
+                  { key: 'all', label: 'Semua' },
+                  { key: 'host', label: 'Host Live' },
+                  { key: 'sortir', label: 'Sortir' },
+                  { key: 'steam', label: 'Steam' },
+                  { key: 'admin', label: 'Admin Toko' },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setRoleFilter(f.key)}
+                    className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                      roleFilter === f.key
+                        ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                        : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Second Row: Periode Dropdown & Search Input (Sebaris pas layar) */}
+              <div className="flex items-center gap-1.5 sm:gap-2.5">
+                {/* Periode Picker Dropdown Pill */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                    className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                      <div>
+                        <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                        <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                          {periodLabelMap[periodFilter] || 'Semua Periode'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+                  </button>
+
+                  {isPeriodDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                      {[
+                        { key: 'all', label: 'Semua Periode' },
+                        { key: 'today', label: 'Hari Ini' },
+                        { key: 'weekly', label: '7 Hari Terakhir' },
+                        { key: 'monthly', label: 'Bulan Ini' },
+                        { key: 'specific', label: '📅 Pilih Tanggal' },
+                        { key: 'range', label: '📅 Rentang Tanggal' },
+                      ].map(opt => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => {
+                            setPeriodFilter(opt.key as any);
+                            setIsPeriodDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                            periodFilter === opt.key
+                              ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                              : 'text-slate-300 hover:bg-white/5'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              ))
+
+                {/* Specific Date input if selected */}
+                {periodFilter === 'specific' && (
+                  <input
+                    type="date"
+                    value={specificDate}
+                    onChange={e => setSpecificDate(e.target.value)}
+                    className="px-2 py-1 text-xs rounded-xl bg-[#0a1322] border border-[#162544] text-white outline-none focus:border-cyan-400"
+                  />
+                )}
+
+                {/* Date Range inputs if selected */}
+                {periodFilter === 'range' && (
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+                    />
+                    <span className="text-slate-500">-</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+                    />
+                  </div>
+                )}
+
+                {/* Search Box */}
+                <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+                  <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Cari nama pegawai / shift..."
+                    className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
+              <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                      <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                      <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Keterangan</th>
+                      <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Jam Shift</th>
+                      <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Tipe Gaji</th>
+                      <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#132038]">
+                    {filteredList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                          Belum ada catatan presensi pada filter ini.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredList.map(att => {
+                        const iconBg = 'bg-[#062c2f] border border-[#0d6e6f] text-[#00f2fe]';
+                        const firstChar = (att.employeeName || 'P').charAt(0).toUpperCase();
+
+                        return (
+                          <tr
+                            key={att.id}
+                            onClick={() => setSelectedDetailAtt(att)}
+                            className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                            title="Klik untuk melihat detail presensi pegawai"
+                          >
+                            {/* Tanggal */}
+                            <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                              <span>{formatScreenshotDate(att.date)}</span>
+                            </td>
+
+                            {/* Keterangan: Icon + Employee Name + Role Badge */}
+                            <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                              <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                                <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm font-bold text-[7px] xs:text-[8px] sm:text-xs ${iconBg}`}>
+                                  {firstChar}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                                    {att.employeeName}
+                                  </span>
+                                  <span className="inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-semibold px-0.5 xs:px-1 py-[0.5px] rounded border bg-[#0d213b] text-[#38bdf8] border-[#1a4275] leading-none whitespace-nowrap">
+                                    {att.role ? att.role.split(',').map(r => roleLabels[r as UserRole] || r).join(', ') : 'Host Live'}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Jam Shift */}
+                            <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                              <span className="text-[#00f2fe] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                                {att.hoursWorked} Jam
+                              </span>
+                            </td>
+
+                            {/* Tipe Gaji */}
+                            <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                              <span className="text-slate-300 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs block truncate">
+                                {att.salaryType === 'hourly' ? 'Per Jam' : 'Bulanan'}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                              <span className="text-[#00e676] font-extrabold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                                Hadir
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Detail Modal */}
+            {selectedDetailAtt && (
+              <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+                <div className="bg-[#0a1220] border border-[#1b2b48] rounded-3xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4">
+                  {/* Header Modal */}
+                  <div className="flex items-center justify-between border-b border-[#14233c] pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-[#00e676]/10 border border-[#00e676] flex items-center justify-center text-[#00e676]">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-black text-white">Detail Presensi Shift</h3>
+                        <p className="text-[10px] text-slate-400">{formatDateIndo(selectedDetailAtt.date)}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailAtt(null)}
+                      className="p-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Jam Kerja Card */}
+                  <div className="p-3 rounded-2xl bg-[#060b14] border border-[#142239] text-center space-y-1">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Durasi Shift</span>
+                    <div className="text-xl sm:text-2xl font-black text-[#00f2fe] tabular-nums">
+                      {selectedDetailAtt.hoursWorked} Jam Kerja
+                    </div>
+                  </div>
+
+                  {/* Metadata Rows */}
+                  <div className="space-y-2 text-xs divide-y divide-[#14233c]">
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-slate-400">Nama Pegawai:</span>
+                      <span className="font-bold text-white">{selectedDetailAtt.employeeName}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-slate-400">Role Pekerjaan:</span>
+                      <span className="font-semibold text-cyan-300">
+                        {selectedDetailAtt.role ? selectedDetailAtt.role.split(',').map(r => roleLabels[r as UserRole] || r).join(', ') : 'Host Live'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-slate-400">Skema Penggajian:</span>
+                      <span className="font-semibold text-white">
+                        {selectedDetailAtt.salaryType === 'hourly' ? 'Hitungan Per Jam' : 'Gaji Pokok Bulanan/Harian'}
+                      </span>
+                    </div>
+
+                    {selectedDetailAtt.notes && (
+                      <div className="pt-2">
+                        <span className="text-slate-400 block mb-1">Catatan Shift:</span>
+                        <p className="text-white bg-[#060b14] p-2.5 rounded-xl border border-[#142239] text-[11px] leading-relaxed">
+                          {selectedDetailAtt.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-[#14233c]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const item = selectedDetailAtt;
+                        handleDelete(item.id, `${item.employeeName} (${formatDateIndo(item.date)})`);
+                        setSelectedDetailAtt(null);
+                      }}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-rose-500/20 text-[#ff3366] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const item = selectedDetailAtt;
+                        setSelectedDetailAtt(null);
+                        handleStartEdit(item);
+                      }}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 text-[#00f2fe] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailAtt(null)}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

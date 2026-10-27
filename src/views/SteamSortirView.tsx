@@ -15,11 +15,36 @@ import {
   ClipboardList,
   RotateCcw,
   Award,
-  Scale
+  Scale,
+  Calendar,
+  ChevronDown,
+  X,
+  Package,
+  Shirt,
+  AlertCircle,
+  Filter
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { ThemedSelect } from '../components/ThemedSelect';
 import { FuturisticEmployeeCard } from '../components/FuturisticEmployeeCard';
+
+function formatScreenshotDate(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const monthName = months[monthIdx] || parts[1];
+      return `${day} ${monthName} ${year}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
 
 interface SteamSortirViewProps {
   currentUser: CurrentUser;
@@ -68,9 +93,14 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   });
 
   // Filter state for Output tab
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly' | 'specific' | 'range'>('all');
+  const [specificDate, setSpecificDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProcessFilter, setSelectedProcessFilter] = useState<'all' | 'sortir' | 'steam' | 'sortir_dan_steam'>('all');
+  const [selectedDetailRecord, setSelectedDetailRecord] = useState<SteamSortirRecord | null>(null);
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -370,6 +400,10 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       const todayStr = new Date().toISOString().slice(0, 10);
       if (periodFilter === 'today') {
         return r.date === todayStr;
+      } else if (periodFilter === 'specific') {
+        return r.date === specificDate;
+      } else if (periodFilter === 'range') {
+        return r.date >= startDate && r.date <= endDate;
       } else if (periodFilter === 'weekly') {
         const d = new Date();
         d.setDate(d.getDate() - 7);
@@ -982,181 +1016,490 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     );
   }
 
-  // ================= 3. OUTPUT & LAPORAN STATE =================
+  // ================= 3. OUTPUT & LAPORAN STATE (STANDARDIZED SEPERTI CATATAN KAS) =================
+  const periodLabelMap: Record<string, string> = {
+    all: 'Semua Periode',
+    today: 'Hari Ini',
+    weekly: '7 Hari Terakhir',
+    monthly: 'Bulan Ini',
+    specific: 'Pilih Tanggal',
+    range: 'Rentang Tanggal',
+  };
+
+  const filteredTotalPcs = filteredRecords.reduce((acc, curr) => acc + (curr.pcsTotal || 0), 0);
+  const filteredTotalLayak = filteredRecords.reduce((acc, curr) => acc + (curr.pcsLayakJual || 0), 0);
+  const filteredTotalReject = filteredRecords.reduce((acc, curr) => acc + (curr.pcsReject || 0), 0);
+
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Filter Bar */}
-      <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-48 sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+    <div className="w-full min-h-screen bg-[#060b14] text-white">
+      <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-4">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between gap-2 pb-1 border-b border-[#142239]">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              id="btn-back-menu-from-output-steam"
+              type="button"
+              onClick={() => setViewMode('menu')}
+              className="p-1.5 sm:p-2 rounded-xl bg-[#0c1527] border border-[#162544] hover:bg-[#142239] text-slate-300 hover:text-white transition cursor-pointer shrink-0"
+              title="Kembali ke Menu Steam & Sortir"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm xs:text-base sm:text-xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+                Riwayat Steam &amp; Sortir
+              </h1>
+              <p className="text-[9px] xs:text-[10px] sm:text-xs text-slate-400 truncate">
+                Histori sortir, steam, dan evaluasi hasil sortir ball
+              </p>
+            </div>
+          </div>
+
+          <button
+            id="btn-open-form-from-output-steam"
+            type="button"
+            onClick={() => {
+              handleCancelEdit();
+              setFormStep(1);
+              setViewMode('input');
+            }}
+            className="px-3.5 py-1.5 sm:px-5 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-[10px] sm:text-xs md:text-sm flex items-center gap-1.5 sm:gap-2 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#050811] stroke-[2.5]" />
+            <span>+ Catat Pengerjaan</span>
+          </button>
+        </div>
+
+        {/* =========================================================================
+            TOP SUMMARY CARDS (SELALU 3 KOLOM SESUAI GAMBAR)
+            ========================================================================= */}
+        <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+          <div className="grid grid-cols-3 divide-x divide-[#142239]">
+            {/* 1. Total Pcs Dikerjakan */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe] text-[#00f2fe] flex items-center justify-center shrink-0">
+                  <Shirt className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Total Disortir
+                </span>
+              </div>
+              <div className="text-[#00f2fe] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {formatNumber(filteredTotalPcs)} pcs
+              </div>
+            </div>
+
+            {/* 2. Total Pcs Layak */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Layak Jual
+                </span>
+              </div>
+              <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {formatNumber(filteredTotalLayak)} pcs
+              </div>
+            </div>
+
+            {/* 3. Total Pcs Reject */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Reject / Rusak
+                </span>
+              </div>
+              <div className="text-[#ff3366] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {formatNumber(filteredTotalReject)} pcs
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedProcessFilter('all')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedProcessFilter === 'all'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Semua
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedProcessFilter('sortir')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedProcessFilter === 'sortir'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Sortir Saja
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedProcessFilter('steam')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedProcessFilter === 'steam'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Steam Saja
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedProcessFilter('sortir_dan_steam')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedProcessFilter === 'sortir_dan_steam'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Sortir + Steam
+          </button>
+        </div>
+
+        {/* Second Row: Periode Dropdown & Search Input (Sebaris pas layar) */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Periode Picker Dropdown Pill */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+              className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+            >
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                <div>
+                  <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                  <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                    {periodLabelMap[periodFilter] || 'Semua Periode'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+            </button>
+
+            {isPeriodDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                {[
+                  { key: 'all', label: 'Semua Periode' },
+                  { key: 'today', label: 'Hari Ini' },
+                  { key: 'weekly', label: '7 Hari Terakhir' },
+                  { key: 'monthly', label: 'Bulan Ini' },
+                  { key: 'specific', label: '📅 Pilih Tanggal' },
+                  { key: 'range', label: '📅 Rentang Tanggal' },
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter(opt.key as any);
+                      setIsPeriodDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      periodFilter === opt.key
+                        ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                        : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Specific Date input if selected */}
+          {periodFilter === 'specific' && (
+            <input
+              type="date"
+              value={specificDate}
+              onChange={e => setSpecificDate(e.target.value)}
+              className="px-2 py-1 text-xs rounded-xl bg-[#0a1322] border border-[#162544] text-white outline-none focus:border-cyan-400"
+            />
+          )}
+
+          {/* Date Range inputs if selected */}
+          {periodFilter === 'range' && (
+            <div className="flex items-center gap-1 text-[10px]">
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+              />
+              <span className="text-slate-500">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+              />
+            </div>
+          )}
+
+          {/* Search Box */}
+          <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+            <Search className="w-3 h-3 text-slate-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari nama ball / petugas..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
+              className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
           </div>
-
-          <ThemedSelect
-            value={selectedProcessFilter}
-            onChange={val => setSelectedProcessFilter(val as any)}
-            title="Pilih Tipe Proses"
-            options={[
-              { value: 'all', label: 'Semua Proses' },
-              { value: 'sortir', label: 'Sortir Saja' },
-              { value: 'steam', label: 'Steam Saja' },
-              { value: 'sortir_dan_steam', label: 'Sortir + Steam' },
-            ]}
-            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          />
-
-          <ThemedSelect
-            value={periodFilter}
-            onChange={val => setPeriodFilter(val as any)}
-            title="Pilih Periode Catatan"
-            options={[
-              { value: 'all', label: 'Semua Periode' },
-              { value: 'today', label: 'Hari Ini' },
-              { value: 'weekly', label: '7 Hari Terakhir' },
-              { value: 'monthly', label: 'Bulan Ini' },
-            ]}
-            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          />
         </div>
 
-        <div className="text-xs text-zinc-400 font-semibold">
-          Total: <strong className="text-white">{filteredRecords.length}</strong> catatan
+        {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
+        <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead>
+              <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Keterangan</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Layak Jual</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Reject</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Total Pcs</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#132038]">
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                    Belum ada catatan pengerjaan sortir/steam pada filter ini.
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map(rec => {
+                  const icon = <Shirt className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />;
+                  const iconBg = 'bg-[#062c2f] border border-[#0d6e6f] text-[#00f2fe]';
+                  const badgeLabel = rec.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : rec.processType === 'steam' ? 'Steam Saja' : 'Sortir Saja';
+                  const badgeClass = rec.processType === 'sortir_dan_steam'
+                    ? 'bg-[#28153e] text-[#c084fc] border-[#4c2473]'
+                    : rec.processType === 'steam'
+                    ? 'bg-[#2d1f0d] text-[#fbbf24] border-[#5d4117]'
+                    : 'bg-[#0d213b] text-[#38bdf8] border-[#1a4275]';
+
+                  return (
+                    <tr
+                      key={rec.id}
+                      onClick={() => setSelectedDetailRecord(rec)}
+                      className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                      title="Klik untuk melihat rincian evaluasi ball & pegawai"
+                    >
+                      {/* Tanggal */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                        <span>{formatScreenshotDate(rec.date)}</span>
+                      </td>
+
+                      {/* Keterangan: Icon + Title + Badge */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                          <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${iconBg}`}>
+                            {icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                              {rec.ballName}
+                            </span>
+                            <span className={`inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-semibold px-0.5 xs:px-1 py-[0.5px] rounded border ${badgeClass} leading-none whitespace-nowrap`}>
+                              {badgeLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Layak Jual */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                        <span className="text-[#00e676] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                          {formatNumber(rec.pcsLayakJual)} pcs
+                        </span>
+                      </td>
+
+                      {/* Reject */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                        <span className="text-[#ff3366] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                          {formatNumber(rec.pcsReject)} pcs
+                        </span>
+                      </td>
+
+                      {/* Total Pcs */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                        <span className="text-white font-extrabold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                          {formatNumber(rec.pcsTotal)} pcs
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* List of Pengerjaan Cards */}
-      <div className="space-y-2">
-        {filteredRecords.length === 0 ? (
-          <div className="text-center py-12 px-4 space-y-3 bg-[#161823] rounded-2xl border border-white/10 shadow-xl">
-            <p className="text-zinc-500 text-xs">
-              Belum ada catatan pengerjaan sortir/steam pada filter ini.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                handleCancelEdit();
-                setFormStep(1);
-                setViewMode('input');
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#25F4EE]/10 hover:bg-[#25F4EE]/20 text-[#25F4EE] border border-[#25F4EE]/30 text-xs font-bold transition"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Catat Pengerjaan Pertama Sekarang</span>
-            </button>
-          </div>
-        ) : (
-          filteredRecords.map(rec => (
-            <div
-              key={rec.id}
-              className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
-            >
-              {/* Top Row: Date Badge & Process Badge on Left, Action Buttons on Right */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                    {formatDateIndo(rec.date)}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-                    {rec.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : rec.processType === 'steam' ? 'Steam' : 'Sortir'}
-                  </span>
+      {/* =========================================================================
+          DETAIL MODAL (POPUP RINCIAN KLIK BARIS)
+          ========================================================================= */}
+      {selectedDetailRecord && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-[#0a1220] border border-[#1b2b48] rounded-3xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-[#14233c] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe] flex items-center justify-center text-[#00f2fe]">
+                  <Shirt className="w-4 h-4" />
                 </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleStartEdit(rec);
-                    }}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                    title="Edit Pengerjaan"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDelete(rec.id, `${rec.ballName} (${rec.pcsTotal} pcs)`);
-                    }}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                    title="Hapus Catatan"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Main Row: Total Pcs on Left, Ball Name & Petugas on Right */}
-              <div className="flex items-baseline justify-between gap-3">
                 <div>
-                  <div className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2 flex-wrap">
-                    <span>{rec.pcsTotal} <span className="text-xs font-semibold text-zinc-400">pcs</span></span>
-                    {rec.ballWeightKg ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-zinc-300 font-semibold">
-                        {rec.ballWeightKg} Kg
-                      </span>
-                    ) : null}
-                    {((rec.pcsKepala || 0) > 0 || (rec.pcsBadan || 0) > 0 || (rec.pcsKaki || 0) > 0 || rec.ballQuality) && (() => {
-                      const qGrade = rec.ballQuality || evaluateBallQuality(rec.pcsKepala || 0, rec.pcsTotal || 0);
-                      const qMeta = ballQualityMeta[qGrade];
-                      return (
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${qMeta.bgClass} ${qMeta.borderClass} ${qMeta.textClass}`}>
-                          Kualitas: {qMeta.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span className="text-emerald-400">Layak: {rec.pcsLayakJual} pcs</span>
-                    <span className="text-zinc-600">•</span>
-                    <span className="text-[#FE2C55]">Reject: {rec.pcsReject} pcs</span>
-                  </div>
-                  {((rec.pcsKepala || 0) > 0 || (rec.pcsBadan || 0) > 0 || (rec.pcsKaki || 0) > 0) && (
-                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[10px] font-bold">
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Kepala: {formatNumber(rec.pcsKepala || 0)} pcs
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/20">
-                        Badan: {formatNumber(rec.pcsBadan || 0)} pcs
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        Kaki: {formatNumber(rec.pcsKaki || 0)} pcs
-                      </span>
-                    </div>
-                  )}
+                  <h3 className="text-sm sm:text-base font-black text-white">Detail Steam &amp; Sortir</h3>
+                  <p className="text-[10px] text-slate-400">{formatDateIndo(selectedDetailRecord.date)}</p>
                 </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailRecord(null)}
+                className="p-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-                <div className="text-right min-w-0 flex-1">
-                  <div className="text-xs sm:text-sm font-bold text-white truncate">
-                    {rec.ballName}
-                  </div>
-                  <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-                    Petugas: {rec.employeeNames && rec.employeeNames.length > 0 ? rec.employeeNames.join(', ') : '-'}
-                  </div>
+            {/* Total Pcs Card */}
+            <div className="p-3 rounded-2xl bg-[#060b14] border border-[#142239] text-center space-y-1">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Pcs Barang</span>
+              <div className="text-xl sm:text-2xl font-black text-[#00f2fe] tabular-nums">
+                {formatNumber(selectedDetailRecord.pcsTotal)} pcs
+              </div>
+              {selectedDetailRecord.ballWeightKg ? (
+                <div className="text-xs text-slate-400">Berat Ball: {selectedDetailRecord.ballWeightKg} Kg</div>
+              ) : null}
+            </div>
+
+            {/* Metadata Rows */}
+            <div className="space-y-2 text-xs divide-y divide-[#14233c]">
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400">Nama Ball:</span>
+                <span className="font-bold text-white">{selectedDetailRecord.ballName}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400">Tipe Pengerjaan:</span>
+                <span className="font-semibold text-cyan-300">
+                  {selectedDetailRecord.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : selectedDetailRecord.processType === 'steam' ? 'Steam' : 'Sortir'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400">Hasil Sortir:</span>
+                <div className="text-right">
+                  <span className="text-emerald-400 font-bold">{formatNumber(selectedDetailRecord.pcsLayakJual)} Layak</span>
+                  <span className="text-slate-500 mx-1">•</span>
+                  <span className="text-[#ff3366] font-bold">{formatNumber(selectedDetailRecord.pcsReject)} Reject</span>
                 </div>
               </div>
 
-              {/* Bottom Row: Notes if present */}
-              {rec.notes && (
-                <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
-                  <span className="text-zinc-500 font-medium">Catatan: </span>
-                  <span>{rec.notes}</span>
+              {((selectedDetailRecord.pcsKepala || 0) > 0 || (selectedDetailRecord.pcsBadan || 0) > 0 || (selectedDetailRecord.pcsKaki || 0) > 0) && (
+                <div className="pt-2">
+                  <span className="text-slate-400 block mb-1">Rincian Grade / Kelas:</span>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="text-[9px] text-emerald-400 font-bold">Kepala</div>
+                      <div className="text-xs font-black text-white">{selectedDetailRecord.pcsKepala || 0} pcs</div>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-[#00f2fe]/10 border border-[#00f2fe]/20">
+                      <div className="text-[9px] text-[#00f2fe] font-bold">Badan</div>
+                      <div className="text-xs font-black text-white">{selectedDetailRecord.pcsBadan || 0} pcs</div>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                      <div className="text-[9px] text-amber-400 font-bold">Kaki</div>
+                      <div className="text-xs font-black text-white">{selectedDetailRecord.pcsKaki || 0} pcs</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedDetailRecord.employeeNames && selectedDetailRecord.employeeNames.length > 0 && (
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-slate-400">Petugas:</span>
+                  <span className="font-semibold text-slate-200">{selectedDetailRecord.employeeNames.join(', ')}</span>
+                </div>
+              )}
+
+              {selectedDetailRecord.notes && (
+                <div className="pt-2">
+                  <span className="text-slate-400 block mb-1">Catatan / Evaluasi:</span>
+                  <p className="text-white bg-[#060b14] p-2.5 rounded-xl border border-[#142239] text-[11px] leading-relaxed">
+                    {selectedDetailRecord.notes}
+                  </p>
                 </div>
               )}
             </div>
-          ))
-        )}
-      </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-2 border-t border-[#14233c]">
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailRecord;
+                  handleDelete(item.id, `${item.ballName} (${item.pcsTotal} pcs)`);
+                  setSelectedDetailRecord(null);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-rose-500/20 text-[#ff3366] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailRecord;
+                  setSelectedDetailRecord(null);
+                  handleStartEdit(item);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 text-[#00f2fe] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDetailRecord(null)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       <ConfirmModal
@@ -1171,3 +1514,4 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
     </div>
   );
 };
+

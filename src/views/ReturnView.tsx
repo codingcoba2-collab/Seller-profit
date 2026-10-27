@@ -18,11 +18,34 @@ import {
   Sparkles,
   ArrowRight,
   ClipboardList,
-  PlusCircle
+  PlusCircle,
+  Calendar,
+  ChevronDown,
+  X,
+  Package,
+  Wallet
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
 import { ThemedSelect } from '../components/ThemedSelect';
+
+function formatScreenshotDate(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const monthName = months[monthIdx] || parts[1];
+      return `${day} ${monthName} ${year}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
 
 interface ReturnViewProps {
   currentUser: CurrentUser;
@@ -63,10 +86,14 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   const [estimatePercentage, setEstimatePercentage] = useState<number>(3);
 
   // Filter states
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'weekly' | 'monthly' | 'specific' | 'range'>('all');
+  const [specificDate, setSpecificDate] = useState(getTodayString());
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'cod' | 'defect' | 'other'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDetailItem, setSelectedDetailItem] = useState<ReturnRecord | null>(null);
 
   // Form states
   const [date, setDate] = useState(getTodayString());
@@ -220,6 +247,19 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
   // Filter & sort
   const filteredList = returnList
     .filter(r => {
+      // Category filter
+      if (categoryFilter === 'cod') {
+        const lower = r.reason.toLowerCase();
+        if (!lower.includes('cod') && !lower.includes('tolak') && !lower.includes('gagal')) return false;
+      } else if (categoryFilter === 'defect') {
+        const lower = r.reason.toLowerCase();
+        if (!lower.includes('cacat') && !lower.includes('rusak') && !lower.includes('reject')) return false;
+      } else if (categoryFilter === 'other') {
+        const lower = r.reason.toLowerCase();
+        if (lower.includes('cod') || lower.includes('cacat') || lower.includes('rusak')) return false;
+      }
+
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         if (!r.reason.toLowerCase().includes(q) && !(r.recordedBy || '').toLowerCase().includes(q)) {
@@ -227,6 +267,7 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
         }
       }
       if (periodFilter === 'today') return r.date === getTodayString();
+      if (periodFilter === 'specific') return r.date === specificDate;
       if (periodFilter === 'range') return r.date >= startDate && r.date <= endDate;
       if (periodFilter === 'weekly') {
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
@@ -577,51 +618,39 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
     );
   }
 
-  // ================= 3. OUTPUT & LAPORAN STATE (Tanpa Tab) =================
+  // ================= 3. OUTPUT & LAPORAN STATE (STANDARDIZED SEPERTI CATATAN KAS) =================
+  const periodLabelMap: Record<string, string> = {
+    all: 'Semua Periode',
+    today: 'Hari Ini',
+    weekly: '7 Hari Terakhir',
+    monthly: 'Bulan Ini',
+    specific: 'Pilih Tanggal',
+    range: 'Rentang Tanggal',
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
-      {/* Unified Action & Filter Bar */}
-      <div className="p-3 bg-[#161823] rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            id="btn-back-menu-from-output-return"
-            type="button"
-            onClick={() => setViewMode('menu')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition border border-white/10 cursor-pointer active:scale-95 shrink-0"
-            title="Kembali ke Menu Retur"
-            aria-label="Kembali ke Menu Retur"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-zinc-400" />
-          </button>
-
-          <div className="relative w-40 sm:w-56">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari alasan / pencatat..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white placeholder-zinc-500 focus:border-[#25F4EE]"
-            />
-          </div>
-
-          <ThemedSelect
-            value={periodFilter}
-            onChange={val => setPeriodFilter(val as any)}
-            title="Pilih Periode Retur"
-            options={[
-              { value: 'all', label: 'Semua Periode' },
-              { value: 'today', label: 'Hari Ini' },
-              { value: 'weekly', label: '7 Hari Terakhir' },
-              { value: 'monthly', label: 'Bulan Ini' },
-            ]}
-            className="px-3 py-1.5 text-xs rounded-xl bg-[#0b0c10] border border-white/10 text-white font-semibold"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-zinc-400 font-semibold hidden sm:block">
-            Total: <strong className="text-white">{filteredList.length}</strong> catatan
+    <div className="w-full min-h-screen bg-[#060b14] text-white">
+      <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-4">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between gap-2 pb-1 border-b border-[#142239]">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              id="btn-back-menu-from-output-return"
+              type="button"
+              onClick={() => setViewMode('menu')}
+              className="p-1.5 sm:p-2 rounded-xl bg-[#0c1527] border border-[#162544] hover:bg-[#142239] text-slate-300 hover:text-white transition cursor-pointer shrink-0"
+              title="Kembali ke Menu Retur"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm xs:text-base sm:text-xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+                Riwayat Retur Paket
+              </h1>
+              <p className="text-[9px] xs:text-[10px] sm:text-xs text-slate-400 truncate">
+                Histori pencatatan retur paket, kerugian &amp; alasan retur
+              </p>
+            </div>
           </div>
 
           <button
@@ -632,81 +661,408 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
               setInputStep(1);
               setViewMode('input');
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25F4EE] text-black font-extrabold text-xs shadow-md shadow-[#25F4EE]/20 hover:bg-[#25F4EE]/90 transition cursor-pointer active:scale-95"
+            className="px-3.5 py-1.5 sm:px-5 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-[10px] sm:text-xs md:text-sm flex items-center gap-1.5 sm:gap-2 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#050811] stroke-[2.5]" />
             <span>+ Catat Retur Baru</span>
           </button>
         </div>
-      </div>
 
-      {/* List of Return Records */}
-      <div className="space-y-2">
-        {filteredList.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 text-xs bg-[#161823] rounded-2xl border border-white/10 shadow-xl">
-            Belum ada catatan paket retur pada periode ini.
-          </div>
-        ) : (
-          filteredList.map(item => (
-            <div
-              key={item.id}
-              className="p-3 sm:p-3.5 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2"
-            >
-              {/* Top Row: Date Badge & Package Count on Left, Action Buttons on Right */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                    {formatDateIndo(item.date)}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FE2C55]/10 text-[#FE2C55] border border-[#FE2C55]/20">
-                    {item.packageCount} Paket
-                  </span>
+        {/* =========================================================================
+            TOP SUMMARY CARDS (SELALU 3 KOLOM SESUAI GAMBAR)
+            ========================================================================= */}
+        <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+          <div className="grid grid-cols-3 divide-x divide-[#142239]">
+            {/* 1. Total Paket Retur */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
+                  <PackageX className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
                 </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleStartEdit(item)}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#25F4EE] transition cursor-pointer"
-                    title="Edit Retur"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item.id, `${item.packageCount} paket - ${item.reason}`)}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                    title="Hapus Catatan"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Total Paket Retur
+                </span>
               </div>
-
-              {/* Main Row: Nominal Retur on Left, Alasan & Pencatat on Right */}
-              <div className="flex items-baseline justify-between gap-3">
-                <div>
-                  <div className="text-base sm:text-lg font-black text-[#FE2C55] tracking-tight">
-                    {formatRupiah(item.totalAmount)}
-                  </div>
-                </div>
-
-                <div className="text-right min-w-0 flex-1">
-                  <div className="text-xs sm:text-sm font-bold text-white truncate">
-                    {item.reason}
-                  </div>
-                  {item.recordedBy && (
-                    <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-                      Pencatat: {item.recordedBy}
-                    </div>
-                  )}
-                </div>
+              <div className="text-white font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {formatNumber(totalPackages)} Paket
               </div>
             </div>
-          ))
-        )}
+
+            {/* 2. Total Nominal Retur */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#ff3366]/10 border border-[#ff3366] text-[#ff3366] flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[2.5]" />
+                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Total Kerugian
+                </span>
+              </div>
+              <div className="text-[#ff3366] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {formatRupiah(totalNominal)}
+              </div>
+            </div>
+
+            {/* 3. Mekanisme Retur */}
+            <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#00d2ff] flex items-center justify-center shrink-0">
+                  <Sliders className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                </div>
+                <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap truncate">
+                  Mekanisme
+                </span>
+              </div>
+              <div className="text-[#00d2ff] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums truncate">
+                {isEstimateMode ? `Estimasi ${estimatePercentage}%` : 'Detail Manual'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('all')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              categoryFilter === 'all'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Semua
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('cod')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              categoryFilter === 'cod'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Gagal COD / Ditolak
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('defect')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              categoryFilter === 'defect'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Barang Cacat / Rusak
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('other')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              categoryFilter === 'other'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Lainnya
+          </button>
+        </div>
+
+        {/* Second Row: Periode Dropdown & Search Input (Sebaris pas layar) */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Periode Picker Dropdown Pill */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+              className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+            >
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                <div>
+                  <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                  <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                    {periodLabelMap[periodFilter] || 'Semua Periode'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+            </button>
+
+            {isPeriodDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                {[
+                  { key: 'all', label: 'Semua Periode' },
+                  { key: 'today', label: 'Hari Ini' },
+                  { key: 'weekly', label: '7 Hari Terakhir' },
+                  { key: 'monthly', label: 'Bulan Ini' },
+                  { key: 'specific', label: '📅 Pilih Tanggal' },
+                  { key: 'range', label: '📅 Rentang Tanggal' },
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter(opt.key as any);
+                      setIsPeriodDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      periodFilter === opt.key
+                        ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                        : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Specific Date input if selected */}
+          {periodFilter === 'specific' && (
+            <input
+              type="date"
+              value={specificDate}
+              onChange={e => setSpecificDate(e.target.value)}
+              className="px-2 py-1 text-xs rounded-xl bg-[#0a1322] border border-[#162544] text-white outline-none focus:border-cyan-400"
+            />
+          )}
+
+          {/* Date Range inputs if selected */}
+          {periodFilter === 'range' && (
+            <div className="flex items-center gap-1 text-[10px]">
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+              />
+              <span className="text-slate-500">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+              />
+            </div>
+          )}
+
+          {/* Search Box */}
+          <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+            <Search className="w-3 h-3 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari alasan retur / pencatat..."
+              className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
+        <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead>
+              <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Keterangan</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Jml Paket</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Pencatat</th>
+                <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Nilai Retur</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#132038]">
+              {filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                    Belum ada catatan paket retur pada filter ini.
+                  </td>
+                </tr>
+              ) : (
+                filteredList.map(item => {
+                  const icon = <PackageX className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />;
+                  const iconBg = 'bg-[#371322] border border-[#831e3d] text-[#ff3366]';
+                  const badgeLabel = `${item.packageCount} Paket`;
+                  const badgeClass = 'bg-[#371322] text-[#ff3366] border-[#831e3d]';
+                  const title = item.reason || 'Paket Retur';
+
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedDetailItem(item)}
+                      className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                      title="Klik untuk melihat rincian riwayat retur"
+                    >
+                      {/* Tanggal */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                        <span>{formatScreenshotDate(item.date)}</span>
+                      </td>
+
+                      {/* Keterangan: Icon + Title + Badge */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                          <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${iconBg}`}>
+                            {icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                              {title}
+                            </span>
+                            <span className={`inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-semibold px-0.5 xs:px-1 py-[0.5px] rounded border ${badgeClass} leading-none whitespace-nowrap`}>
+                              {badgeLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Jml Paket */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                        <span className="text-white font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                          {item.packageCount} Paket
+                        </span>
+                      </td>
+
+                      {/* Pencatat */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                        <span className="text-slate-300 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs block truncate">
+                          {item.recordedBy || 'Admin'}
+                        </span>
+                      </td>
+
+                      {/* Nilai Retur */}
+                      <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                        <span className="text-[#ff3366] font-extrabold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                          {formatRupiah(item.totalAmount)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* =========================================================================
+          DETAIL MODAL (POPUP RINCIAN KLIK BARIS)
+          ========================================================================= */}
+      {selectedDetailItem && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-[#0a1220] border border-[#1b2b48] rounded-3xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-[#14233c] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#ff3366]/10 border border-[#ff3366] flex items-center justify-center text-[#ff3366]">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white">Detail Riwayat Retur</h3>
+                  <p className="text-[10px] text-slate-400">{formatDateIndo(selectedDetailItem.date)}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailItem(null)}
+                className="p-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Total Kerugian Card */}
+            <div className="p-3 rounded-2xl bg-[#060b14] border border-[#142239] text-center space-y-1">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Estimasi Kerugian Retur</span>
+              <div className="text-xl sm:text-2xl font-black text-[#ff3366] tabular-nums">
+                {formatRupiah(selectedDetailItem.totalAmount)}
+              </div>
+            </div>
+
+            {/* Metadata Rows */}
+            <div className="space-y-2 text-xs divide-y divide-[#14233c]">
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400">Tanggal:</span>
+                <span className="font-semibold text-white">{formatDateIndo(selectedDetailItem.date)}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400">Jumlah Paket Retur:</span>
+                <span className="font-bold text-white">{selectedDetailItem.packageCount} Paket</span>
+              </div>
+
+              {selectedDetailItem.recordedBy && (
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-slate-400">Dicatat Oleh:</span>
+                  <span className="text-slate-200">{selectedDetailItem.recordedBy}</span>
+                </div>
+              )}
+
+              {selectedDetailItem.reason && (
+                <div className="pt-2">
+                  <span className="text-slate-400 block mb-1">Alasan / Keterangan:</span>
+                  <p className="text-white bg-[#060b14] p-2.5 rounded-xl border border-[#142239] text-[11px] leading-relaxed">
+                    {selectedDetailItem.reason}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-2 border-t border-[#14233c]">
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailItem;
+                  handleDelete(item.id, `${item.packageCount} paket - ${item.reason}`);
+                  setSelectedDetailItem(null);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-rose-500/20 text-[#ff3366] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const item = selectedDetailItem;
+                  setSelectedDetailItem(null);
+                  handleStartEdit(item);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 text-[#00f2fe] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDetailItem(null)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -719,3 +1075,4 @@ export const ReturnView: React.FC<ReturnViewProps> = ({
     </div>
   );
 };
+
