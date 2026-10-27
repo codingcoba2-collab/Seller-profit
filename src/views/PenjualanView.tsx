@@ -41,7 +41,9 @@ import {
   Printer,
   Sparkles,
   Eye,
-  X
+  X,
+  Calendar,
+  PlusCircle
 } from 'lucide-react';
 import { ConfirmModal, ConfirmActionType } from '../components/ConfirmModal';
 import { MarqueeText } from '../components/MarqueeText';
@@ -92,6 +94,27 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+
+  const periodLabelMap: Record<string, string> = {
+    all: 'Semua Periode',
+    today: 'Hari Ini',
+    weekly: '7 Hari Terakhir',
+    monthly: 'Bulan Ini',
+    range: 'Rentang Tanggal',
+  };
+
+  const formatScreenshotDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const yearShort = parts[0].slice(-2);
+      return `${parseInt(parts[2], 10)} ${months[monthIdx]} '${yearShort}`;
+    }
+    return dateStr;
+  };
 
   // Permission helper
   const isOwnerOrManager = Boolean(currentUser.isOwner || currentUser.roles?.includes('owner') || currentUser.roles?.includes('manager'));
@@ -942,471 +965,347 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
       {viewMode === 'rekap' && (
-        <div className="space-y-3.5 sm:space-y-4">
-          {/* Key Metric Highlights (Compact Modern) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-            {/* Total Omzet */}
-            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1 relative overflow-hidden">
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Total Omzet Penjualan</span>
-                <TrendingUp className="w-3.5 h-3.5 text-[#25F4EE]" />
-              </div>
-              <div className="text-base sm:text-lg font-black text-white">
-                {formatRupiah(metrics.totalOmzet)}
-              </div>
-              <div className="flex items-center gap-1.5 pt-0.5 text-[10px] text-zinc-400 font-medium truncate">
-                <span className="text-[#FE2C55] font-bold">Live: {formatRupiah(metrics.liveOmzet)}</span>
-                <span>•</span>
-                <span className="text-emerald-400 font-bold">Non-Live: {formatRupiah(metrics.nonLiveOmzet)}</span>
-              </div>
-            </div>
-
-            {/* Total Pcs Terjual */}
-            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Pcs Terjual</span>
-                <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-              <div className="text-base sm:text-lg font-black text-white">
-                {formatNumber(metrics.totalPcs)} <span className="text-xs font-semibold text-zinc-400">pcs</span>
-              </div>
-              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
-                Total <strong className="text-zinc-200">{formatNumber(metrics.totalPackages)}</strong> paket / order
+        <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
+          {/* =========================================================================
+              TOP HEADER BAR (PERSIS SEPERTI GAMBAR)
+              ========================================================================= */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setViewMode('menu');
+                }}
+                className="p-1.5 -ml-1 sm:p-2 sm:-ml-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 active:scale-95 transition cursor-pointer"
+                title="Kembali ke Menu Penjualan"
+              >
+                <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">Rekap Penjualan</h1>
+                <p className="text-[11px] sm:text-sm text-slate-400 mt-0.5">Semua riwayat transaksi penjualan live &amp; non-live</p>
               </div>
             </div>
 
-            {/* Rata-Rata Order */}
-            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Rata-Rata AOV</span>
-                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-              </div>
-              <div className="text-base sm:text-lg font-black text-amber-300">
-                {formatRupiah(metrics.avgBasketSize)}
-              </div>
-              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
-                Rata-rata: <strong className="text-zinc-200">{metrics.avgPcsPerOrder} pcs/paket</strong>
-              </div>
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={exportToCSV}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                title="Ekspor CSV"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+              </button>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                title="Cetak Laporan"
+              >
+                <Printer className="w-4 h-4 text-sky-400" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setViewMode('input_live');
+                }}
+                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
+              >
+                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#050811] stroke-[2.5]" />
+                <span>Input Penjualan</span>
+              </button>
             </div>
+          </div>
 
-            {/* Biaya Iklan & Koin */}
-            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#161823] border border-white/10 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold">
-                <span>Iklan &amp; Koin</span>
-                <Megaphone className="w-3.5 h-3.5 text-[#FE2C55]" />
+          {/* =========================================================================
+              TOP SUMMARY CARDS (SELALU 3 KOLOM SESUAI GAMBAR)
+              ========================================================================= */}
+          <div className="bg-[#0a1220] border border-[#142239] rounded-2xl p-1.5 xs:p-2 sm:p-4 shadow-xl">
+            <div className="grid grid-cols-3 divide-x divide-[#142239]">
+              {/* 1. Total Omzet */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00e676]/10 border border-[#00e676] text-[#00e676] flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Total Omzet
+                  </span>
+                </div>
+                <div className="text-[#00e676] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatRupiah(metrics.totalOmzet)}
+                </div>
               </div>
-              <div className="text-base sm:text-lg font-black text-[#FE2C55]">
-                {formatRupiah(metrics.totalAds + metrics.totalCoin)}
+
+              {/* 2. Total Pcs Terjual */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 rounded-full bg-[#00f2fe]/10 border border-[#00f2fe] text-[#00f2fe] flex items-center justify-center shrink-0">
+                    <PackageCheck className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Pcs Terjual
+                  </span>
+                </div>
+                <div className="text-[#00f2fe] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatNumber(metrics.totalPcs)} pcs
+                </div>
               </div>
-              <div className="text-[10px] text-zinc-400 pt-0.5 truncate">
-                Ads: {formatRupiah(metrics.totalAds)} • Koin: {formatRupiah(metrics.totalCoin)}
+
+              {/* 3. Total Order / Paket */}
+              <div className="flex flex-col justify-center px-0.5 xs:px-1 sm:px-3 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4.5 sm:h-4.5 text-[#c084fc] flex items-center justify-center shrink-0">
+                    <Layers className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                  </div>
+                  <span className="text-[7px] xs:text-[7.5px] sm:text-[10px] md:text-xs font-semibold text-slate-200 whitespace-nowrap">
+                    Total Paket
+                  </span>
+                </div>
+                <div className="text-[#c084fc] font-black text-[8px] xs:text-[9px] sm:text-sm md:text-lg tracking-tight mt-0.5 whitespace-nowrap tabular-nums">
+                  {formatNumber(metrics.totalPackages)} pkt
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Filter Bar */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-[#161823] border border-white/10 shadow-xl space-y-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-[#25F4EE]" />
-                <span className="text-xs font-black text-white">Filter &amp; Pencarian Penjualan</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {(periodFilter !== 'all' || typeFilter !== 'all' || channelFilter !== 'all' || categoryFilter !== 'all' || searchQuery.trim() !== '') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPeriodFilter('all');
-                      setTypeFilter('all');
-                      setChannelFilter('all');
-                      setCategoryFilter('all');
-                      setSearchQuery('');
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-400 text-xs font-bold transition cursor-pointer"
-                    title="Reset semua filter dan pencarian"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Reset</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={exportToCSV}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                  title="Ekspor Data ke CSV"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                  title="Cetak Laporan Penjualan"
-                >
-                  <Printer className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Print</span>
-                </button>
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setTypeFilter('all')}
+              className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                typeFilter === 'all'
+                  ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                  : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+              }`}
+            >
+              Semua Penjualan
+            </button>
 
-                {salesList.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteAll}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FE2C55]/10 hover:bg-[#FE2C55]/20 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-bold transition cursor-pointer active:scale-95 shadow-xs"
-                    title="Hapus seluruh riwayat penjualan toko"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Hapus Semua ({salesList.length})</span>
-                  </button>
-                )}
-              </div>
+            <button
+              type="button"
+              onClick={() => setTypeFilter('live')}
+              className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                typeFilter === 'live'
+                  ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                  : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+              }`}
+            >
+              🔴 Live Streaming
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTypeFilter('non_live')}
+              className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                typeFilter === 'non_live'
+                  ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                  : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+              }`}
+            >
+              🏪 Non-Live / Toko
+            </button>
+          </div>
+
+          {/* Second Row: Periode Dropdown & Search Input */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Periode Picker Dropdown Pill */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between gap-1.5 sm:gap-2.5 cursor-pointer transition text-left"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#00e5ff] shrink-0" />
+                  <div>
+                    <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-medium block leading-none">Periode</span>
+                    <span className="text-[9px] sm:text-[11px] text-white font-semibold block leading-tight mt-0.5 whitespace-nowrap">
+                      {periodLabelMap[periodFilter] || 'Semua Periode'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className={`w-2.5 h-2.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+              </button>
+
+              {isPeriodDropdownOpen && (
+                <div className="absolute left-0 top-full mt-2 z-50 w-52 sm:w-56 rounded-2xl bg-[#0d1627] border border-[#1b2b48] shadow-2xl p-2 space-y-1 animate-in fade-in zoom-in-95">
+                  {[
+                    { key: 'all', label: 'Semua Periode' },
+                    { key: 'today', label: 'Hari Ini' },
+                    { key: 'weekly', label: '7 Hari Terakhir' },
+                    { key: 'monthly', label: 'Bulan Ini' },
+                    { key: 'range', label: '📅 Rentang Tanggal' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => {
+                        setPeriodFilter(opt.key as any);
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                        periodFilter === opt.key
+                          ? 'bg-[#00f2fe]/15 text-[#00f2fe] border border-[#00f2fe]/30'
+                          : 'text-slate-300 hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {periodFilter === opt.key && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Search Input Bar */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Date Range inputs if selected */}
+            {periodFilter === 'range' && (
+              <div className="flex items-center gap-1 text-[10px]">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+                />
+                <span className="text-slate-500">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="px-1.5 py-1 text-[10px] rounded-lg bg-[#0a1322] border border-[#162544] text-white outline-none"
+                />
+              </div>
+            )}
+
+            {/* Search Box */}
+            <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+              <Search className="w-3 h-3 text-slate-400 shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari transaksi berdasarkan catatan, channel, nama host, admin, nomor ID..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#25F4EE]/60 transition"
+                placeholder="Cari transaksi penjualan..."
+                className="w-full bg-transparent text-white placeholder-slate-500 text-[10px] sm:text-xs focus:outline-none"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs cursor-pointer p-0.5"
-                  title="Hapus kata kunci pencarian"
+                  className="p-0.5 text-slate-400 hover:text-white cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-2.5 h-2.5" />
                 </button>
-              )}
-            </div>
-
-            {/* Filter Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 text-xs">
-              {/* Periode */}
-              <div>
-                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
-                  Periode Waktu
-                </label>
-                <ThemedSelect
-                  value={periodFilter}
-                  onChange={val => setPeriodFilter(val as any)}
-                  title="Pilih Periode Waktu"
-                  options={[
-                    { value: 'all', label: 'Semua Waktu' },
-                    { value: 'today', label: 'Hari Ini' },
-                    { value: 'weekly', label: '7 Hari Terakhir' },
-                    { value: 'monthly', label: 'Bulan Ini' },
-                    { value: 'range', label: 'Rentang Tanggal' },
-                  ]}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Tipe Penjualan */}
-              <div>
-                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
-                  Tipe Penjualan
-                </label>
-                <ThemedSelect
-                  value={typeFilter}
-                  onChange={val => setTypeFilter(val as any)}
-                  title="Pilih Tipe Penjualan"
-                  options={[
-                    { value: 'all', label: 'Semua Tipe (Live & Non-Live)' },
-                    { value: 'live', label: '🔴 Live Streaming Saja' },
-                    { value: 'non_live', label: '🏪 Non-Live / Marketplace / Offline' },
-                  ]}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Channel */}
-              <div>
-                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
-                  Channel Penjualan
-                </label>
-                <ThemedSelect
-                  value={channelFilter}
-                  onChange={val => setChannelFilter(val)}
-                  title="Pilih Channel Penjualan"
-                  options={[
-                    { value: 'all', label: 'Semua Channel' },
-                    { value: 'shopee', label: 'Shopee' },
-                    { value: 'tiktok', label: 'TikTok' },
-                    { value: 'tokopedia', label: 'Tokopedia' },
-                    { value: 'offline', label: 'Offline' },
-                    { value: 'whatsapp', label: 'WhatsApp' },
-                    { value: 'instagram', label: 'Instagram' },
-                    { value: 'website', label: 'Website' },
-                    { value: 'lainnya', label: 'Lainnya' },
-                  ]}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Kategori Fashion */}
-              <div>
-                <label className="block text-[10px] text-zinc-400 font-bold uppercase mb-1">
-                  Kategori Fashion
-                </label>
-                <ThemedSelect
-                  value={categoryFilter}
-                  onChange={val => setCategoryFilter(val)}
-                  title="Pilih Kategori Fashion"
-                  options={[
-                    { value: 'all', label: 'Semua Kategori Fashion' },
-                    ...Object.entries(fashionCategoryLabels).map(([key, val]) => ({
-                      value: key,
-                      label: val,
-                    })),
-                  ]}
-                  className="w-full px-3 py-2 rounded-xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                />
-              </div>
-
-              {/* Date range picker if selected */}
-              {periodFilter === 'range' && (
-                <div className="col-span-2 sm:col-span-4 lg:col-span-1 flex items-center gap-1.5">
-                  <div className="flex-1">
-                    <label className="block text-[9px] text-zinc-400 font-bold uppercase mb-0.5">Dari</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#0b0c10] border border-white/10 text-[11px] text-white"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[9px] text-zinc-400 font-bold uppercase mb-0.5">Sampai</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#0b0c10] border border-white/10 text-[11px] text-white"
-                    />
-                  </div>
-                </div>
               )}
             </div>
           </div>
 
-          {/* Card-Based Transaction List */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#25F4EE]" />
-                <span>Daftar Transaksi Penjualan ({filteredSales.length})</span>
-              </h3>
-              <div className="text-[11px] text-zinc-400">
-                Terurut dari tanggal terbaru
-              </div>
-            </div>
+          {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
+          <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
+            <table className="w-full text-left border-collapse table-fixed">
+              <thead>
+                <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Channel &amp; Keterangan</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Pcs</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Paket</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Omzet</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#132038]">
+                {filteredSales.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                      Belum ada riwayat transaksi penjualan pada periode ini.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSales.map(sale => {
+                    const isLive = sale.salesType === 'live' || !sale.salesType;
+                    const cleanName = StorageService.getCleanChannelName(sale.salesChannel || sale.channelName);
+                    const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
+                      label: cleanName,
+                      color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
+                    };
+                    const categoryLabel = fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion';
+                    const hostsOrAdmins = isLive
+                      ? (sale.hostNames && sale.hostNames.length > 0 ? sale.hostNames.join(', ') : 'Host Live')
+                      : (sale.adminNames && sale.adminNames.length > 0 ? sale.adminNames.filter(Boolean).join(', ') : sale.adminName || 'Admin / Kasir');
 
-            {filteredSales.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center space-y-3 bg-[#161823] rounded-3xl border border-white/10 shadow-xl">
-                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
-                  <ShoppingBag className="w-6 h-6" />
-                </div>
-                <div className="text-sm font-bold text-zinc-300">
-                  {salesList.length === 0 ? 'Belum Ada Data Penjualan Tercatat' : 'Tidak Ada Data Penjualan yang Cocok'}
-                </div>
-                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  {salesList.length === 0
-                    ? 'Mulai catat transaksi penjualan sesi Live streaming atau pesanan reguler/offline sekarang.'
-                    : 'Coba sesuaikan kata kunci pencarian atau reset filter di atas.'}
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  {salesList.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPeriodFilter('all');
-                        setTypeFilter('all');
-                        setChannelFilter('all');
-                        setCategoryFilter('all');
-                        setSearchQuery('');
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
-                    >
-                      Reset Filter Pencarian
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetForm();
-                      setViewMode('input_live');
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#FE2C55]/20 hover:bg-[#FE2C55]/30 border border-[#FE2C55]/40 text-xs font-bold text-[#FE2C55] transition cursor-pointer"
-                  >
-                    + Catat Penjualan Live
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetForm();
-                      setViewMode('input_non_live');
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-bold text-emerald-400 transition cursor-pointer"
-                  >
-                    + Catat Non-Live
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredSales.map(sale => {
-                  const isLive = sale.salesType === 'live' || !sale.salesType;
-                  const cleanName = StorageService.getCleanChannelName(sale.salesChannel || sale.channelName);
-                  const channelInfo = salesChannelLabels[sale.salesChannel as SalesChannel] || {
-                    label: cleanName,
-                    color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
-                  };
-                  const feeInfo = StorageService.getFeeForChannel(currentUser.storeId, sale.salesChannel || sale.channelName);
-                  const categoryLabel = fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion Umum';
-                  const hostsOrAdmins = isLive
-                    ? (sale.hostNames && sale.hostNames.length > 0 ? sale.hostNames.join(', ') : 'Host Live')
-                    : (sale.adminNames && sale.adminNames.length > 0 ? sale.adminNames.filter(Boolean).join(', ') : sale.adminName || 'Admin / Kasir');
+                    return (
+                      <tr
+                        key={sale.id}
+                        onClick={() => setViewingDetailSale(sale)}
+                        className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
+                        title="Klik untuk melihat rincian keterangan detail transaksi"
+                      >
+                        {/* Tanggal */}
+                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                          <span>{formatScreenshotDate(sale.date)}</span>
+                        </td>
 
-                  return (
-                    <div
-                      key={sale.id}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-[#161823] border border-white/10 hover:border-white/20 transition-all shadow-sm space-y-2.5"
-                    >
-                      {/* Top Row: Badges (Date & Channel / Type) on Left, Action Buttons on Right */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-[#0b0c10] border border-white/10 text-zinc-300">
-                            {formatDateIndo(sale.date)}
-                          </span>
-
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300">
-                            {channelInfo.label}
-                          </span>
-
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                            Admin {feeInfo.adminPercentage}%
-                          </span>
-
-                          {isLive ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FE2C55]/15 text-[#FE2C55] border border-[#FE2C55]/30">
-                              <Video className="w-3 h-3" />
-                              <span>LIVE</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              <Store className="w-3 h-3" />
-                              <span>NON-LIVE</span>
-                            </span>
-                          )}
-
-                          {isLive && sale.saleFormat && (
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              sale.saleFormat === 'satuan'
-                                ? 'bg-[#25F4EE]/15 text-[#25F4EE] border border-[#25F4EE]/30'
-                                : sale.saleFormat === 'campuran'
-                                ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
-                                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                        {/* Channel & Keterangan */}
+                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
+                          <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
+                            <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                              isLive 
+                                ? 'bg-[#FE2C55]/20 border border-[#FE2C55]/40 text-[#FE2C55]' 
+                                : 'bg-[#00f2fe]/20 border border-[#00f2fe]/40 text-[#00f2fe]'
                             }`}>
-                              {sale.saleFormat === 'satuan' ? '🏷️ Satuan' : sale.saleFormat === 'campuran' ? '🔀 Campuran' : '📦 Bundling'}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setViewingDetailSale(sale)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition cursor-pointer"
-                            title="Lihat Detail Transaksi"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(sale)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#25F4EE]/20 text-[#25F4EE] transition cursor-pointer"
-                            title="Edit Data Penjualan"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(sale)}
-                            className="p-1.5 rounded-lg bg-white/5 hover:bg-[#FE2C55]/20 text-[#FE2C55] transition cursor-pointer"
-                            title="Hapus Data Penjualan"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Main Row: Bold Omzet on Left, Category & Details on Right */}
-                      <div className="flex items-baseline justify-between gap-3">
-                        <div>
-                          <div className="text-base sm:text-lg font-black text-[#25F4EE] tracking-tight">
-                            {formatRupiah(sale.omzet)}
-                          </div>
-                          <div className="text-[11px] text-zinc-400 font-medium mt-0.5 flex items-center gap-2">
-                            <span>
-                              <strong className="text-white font-bold">{formatNumber(sale.pcsSold)}</strong> pcs
-                            </span>
-                            <span>•</span>
-                            <span>{formatNumber(sale.packagesSold)} paket</span>
-                          </div>
-                        </div>
-
-                        <div className="text-right min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-bold text-white truncate">
-                            {categoryLabel}
-                          </div>
-                          <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-                            {isLive ? `🎤 ${hostsOrAdmins}` : `💼 ${hostsOrAdmins}`}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Optional Info: Size Breakdown or Ads/Coin */}
-                      {((sale.selectedSizes && sale.selectedSizes.length > 0) || (sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0) && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px]">
-                          {sale.selectedSizes && sale.selectedSizes.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="text-zinc-500">Size:</span>
-                              {sale.selectedSizes.map(sz => (
-                                <span key={sz} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-bold">
-                                  {sz}{sale.sizeBreakdown?.[sz] !== undefined ? `:${sale.sizeBreakdown[sz]}` : ''}
+                              {isLive ? (
+                                <Video className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />
+                              ) : (
+                                <Store className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
+                                {channelInfo.label}
+                              </span>
+                              <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                <span className={`inline-block text-[5px] xs:text-[5.5px] sm:text-[6.5px] font-bold px-1 py-[0.5px] rounded border ${
+                                  isLive
+                                    ? 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/30'
+                                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                } leading-none whitespace-nowrap`}>
+                                  {isLive ? 'LIVE' : 'NON-LIVE'}
                                 </span>
-                              ))}
+                                <span className="text-[5.5px] xs:text-[6px] sm:text-[7px] text-slate-400 truncate">
+                                  {categoryLabel} • {hostsOrAdmins}
+                                </span>
+                              </div>
                             </div>
-                          ) : <div />}
+                          </div>
+                        </td>
 
-                          {((sale.adsUsed || 0) > 0 || (sale.coinUsed || 0) > 0) && (
-                            <div className="text-zinc-400">
-                              Ads/Koin: <strong className="text-amber-400">Rp {formatNumber((sale.adsUsed || 0) + (sale.coinUsed || 0))}</strong>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        {/* Pcs */}
+                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                          <span className="text-[#00f2fe] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                            {formatNumber(sale.pcsSold)} pcs
+                          </span>
+                        </td>
 
-                      {/* Bottom Row: Notes */}
-                      {sale.notes && (
-                        <div className="pt-1.5 border-t border-white/5 text-[11px] text-zinc-400 leading-snug">
-                          <span className="text-zinc-500 font-medium">Catatan: </span>
-                          <span>{sale.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        {/* Paket */}
+                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
+                          <span className="text-slate-300 font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                            {formatNumber(sale.packagesSold)} pkt
+                          </span>
+                        </td>
+
+                        {/* Omzet */}
+                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
+                          <span className="text-[#00e676] font-black text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                            {formatRupiah(sale.omzet)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
