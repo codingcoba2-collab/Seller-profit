@@ -364,21 +364,35 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   };
 
   const handleCancelEdit = () => {
+    const wasEditing = Boolean(editingId);
     resetForm();
-    setViewMode('menu');
+    if (wasEditing) {
+      setViewMode('rekap');
+    } else {
+      setViewMode('menu');
+    }
   };
 
   useEffect(() => {
     registerSubViewBackHandler(() => {
+      if (viewingDetailSale) {
+        setViewingDetailSale(null);
+        return true;
+      }
       if (viewMode !== 'menu') {
+        const wasEditing = Boolean(editingId);
         resetForm();
-        setViewMode('menu');
+        if (wasEditing) {
+          setViewMode('rekap');
+        } else {
+          setViewMode('menu');
+        }
         return true;
       }
       return false;
     });
     return () => registerSubViewBackHandler(null);
-  }, [viewMode]);
+  }, [viewMode, editingId, viewingDetailSale]);
 
   const liveIncentivePreview = useMemo(() => {
     if (viewMode !== 'input_live' || selectedHostIds.length === 0) return [];
@@ -1200,6 +1214,18 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                 </button>
               )}
             </div>
+
+            {salesList.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 cursor-pointer transition shrink-0 text-[10px] sm:text-xs font-bold active:scale-95"
+                title="Hapus Seluruh Riwayat Penjualan"
+              >
+                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">Hapus Semua</span>
+              </button>
+            )}
           </div>
 
           {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
@@ -1207,11 +1233,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Tanggal</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[35%] whitespace-nowrap">Channel &amp; Keterangan</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Pcs</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[16.5%] whitespace-nowrap">Paket</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[17%] whitespace-nowrap">Omzet</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[14%] whitespace-nowrap">Tanggal</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[32%] whitespace-nowrap">Channel &amp; Keterangan</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Pcs</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Paket</th>
+                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[24%] whitespace-nowrap">Omzet &amp; Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#132038]">
@@ -1294,11 +1320,37 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                           </span>
                         </td>
 
-                        {/* Omzet */}
+                        {/* Omzet & Aksi */}
                         <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
-                          <span className="text-[#00e676] font-black text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
-                            {formatRupiah(sale.omzet)}
-                          </span>
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="text-[#00e676] font-black text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                              {formatRupiah(sale.omzet)}
+                            </span>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEdit(sale);
+                                }}
+                                className="p-0.5 sm:p-1 rounded-md bg-[#25F4EE]/10 hover:bg-[#25F4EE]/25 text-[#25F4EE] opacity-80 hover:opacity-100 transition cursor-pointer"
+                                title="Edit Transaksi Penjualan Ini"
+                              >
+                                <Edit3 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(sale);
+                                }}
+                                className="p-0.5 sm:p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 opacity-80 hover:opacity-100 transition cursor-pointer"
+                                title="Hapus Transaksi Penjualan Ini"
+                              >
+                                <Trash2 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1315,11 +1367,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         <div className="space-y-4 max-w-4xl mx-auto">
           <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-black text-white">
-                {liveFormStep === 1 && 'Platform & Petugas Live Bertugas'}
-                {liveFormStep === 2 && 'Hasil Sesi Penjualan & Biaya Live'}
-                {liveFormStep === 3 && 'Rincian Ukuran Terjual & Sinkronisasi Insentif'}
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  title="Kembali ke Riwayat Penjualan"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                  <span>{editingId ? 'Kembali ke Riwayat' : 'Kembali'}</span>
+                </button>
+                <h3 className="text-sm font-black text-white">
+                  {editingId ? 'Edit Sesi Live • ' : ''}
+                  {liveFormStep === 1 && 'Platform & Petugas Live Bertugas'}
+                  {liveFormStep === 2 && 'Hasil Sesi Penjualan & Biaya Live'}
+                  {liveFormStep === 3 && 'Rincian Ukuran Terjual & Sinkronisasi Insentif'}
+                </h3>
+              </div>
             </div>
 
             {errorMessage && (
@@ -1903,10 +1967,22 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
         <div className="space-y-4 max-w-4xl mx-auto">
           <div className="bg-[#161823] p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-black text-white">
-                {nonLiveFormStep === 1 && 'Saluran Penjualan & Petugas Kasir'}
-                {nonLiveFormStep === 2 && 'Hasil Transaksi, Ukuran & Catatan'}
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  title="Kembali ke Riwayat Penjualan"
+                >
+                  <ArrowLeft className="w-4 h-4 text-emerald-400" />
+                  <span>{editingId ? 'Kembali ke Riwayat' : 'Kembali'}</span>
+                </button>
+                <h3 className="text-sm font-black text-white">
+                  {editingId ? 'Edit Penjualan Non-Live • ' : ''}
+                  {nonLiveFormStep === 1 && 'Saluran Penjualan & Petugas Kasir'}
+                  {nonLiveFormStep === 2 && 'Hasil Transaksi, Ukuran & Catatan'}
+                </h3>
+              </div>
             </div>
 
             {errorMessage && (
@@ -2251,22 +2327,47 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       {viewingDetailSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#25F4EE]/15 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE]">
-                  <ShoppingBag className="w-5 h-5" />
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setViewingDetailSale(null)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 text-xs font-bold transition cursor-pointer active:scale-95 shrink-0"
+                  title="Kembali ke Riwayat Penjualan"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                  <span>Kembali</span>
+                </button>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#25F4EE]/15 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0">
+                  <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Detail Transaksi Penjualan</h3>
-                  <p className="text-xs text-zinc-400">{formatDateIndo(viewingDetailSale.date)}</p>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-black text-white truncate">Detail Transaksi Penjualan</h3>
+                  <p className="text-[11px] sm:text-xs text-zinc-400">{formatDateIndo(viewingDetailSale.date)}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setViewingDetailSale(null)}
-                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = viewingDetailSale;
+                    setViewingDetailSale(null);
+                    handleDelete(s);
+                  }}
+                  className="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
+                  title="Hapus Transaksi Penjualan Ini"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingDetailSale(null)}
+                  className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                  title="Tutup Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-4 text-xs">
@@ -2429,25 +2530,43 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  const s = viewingDetailSale;
-                  setViewingDetailSale(null);
-                  handleStartEdit(s);
-                }}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer"
-              >
-                Edit Transaksi Ini
-              </button>
+            <div className="px-5 sm:px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setViewingDetailSale(null)}
-                className="px-5 py-2 rounded-xl bg-[#25F4EE] text-[#0b0c10] font-black text-xs transition hover:opacity-90 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white font-bold text-xs transition cursor-pointer active:scale-95"
               >
-                Tutup
+                <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
+                <span>Kembali</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = viewingDetailSale;
+                    setViewingDetailSale(null);
+                    handleDelete(s);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/30 font-bold text-xs transition cursor-pointer active:scale-95"
+                  title="Hapus Transaksi Penjualan Ini"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Hapus Transaksi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = viewingDetailSale;
+                    setViewingDetailSale(null);
+                    handleStartEdit(s);
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black text-xs shadow-lg shadow-[#25F4EE]/25 active:scale-95 transition cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit Data Penjualan</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

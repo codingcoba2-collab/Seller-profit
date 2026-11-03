@@ -326,9 +326,10 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       message: `Apakah Anda yakin ingin menghapus data pegawai ${empName ? `"${empName}"` : 'ini'}? Tindakan ini tidak dapat dibatalkan.`,
       type: 'delete',
       confirmText: 'Ya, Hapus Pegawai',
-      onConfirm: () => {
+      onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        StorageService.deleteEmployee(id);
+        setEmployees(prev => prev.filter(e => e.id !== id));
+        await StorageService.deleteEmployee(id);
         loadData();
         onNotify('Data pegawai berhasil dihapus.', 'info');
         if (editingId === id) {

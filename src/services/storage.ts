@@ -53,6 +53,8 @@ const STORAGE_KEYS = {
   ANNOUNCEMENTS: 'seller_profit_announcements',
   USER_PROFILES: 'seller_profit_user_profiles',
   TAGIHAN: 'seller_profit_tagihan',
+  DELETED_EMPLOYEES: 'seller_profit_deleted_employee_ids',
+  DELETED_SALES: 'seller_profit_deleted_sales_ids',
 };
 
 export const DEFAULT_CHANNEL_FEES: ChannelFeeConfig[] = [
@@ -550,6 +552,86 @@ export class StorageService {
     return Array.from(map.values());
   }
 
+  public static getDeletedEmployeeIds(): Set<string> {
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.DELETED_EMPLOYEES);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch {}
+    return new Set<string>();
+  }
+
+  public static recordDeletedEmployeeId(id: string, username?: string): void {
+    try {
+      const set = this.getDeletedEmployeeIds();
+      if (id) set.add(id);
+      if (username) set.add(username.toLowerCase().trim().replace(/\s+/g, ''));
+      this.safeSetItem(STORAGE_KEYS.DELETED_EMPLOYEES, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  public static clearDeletedEmployeeId(id: string, username?: string): void {
+    try {
+      const set = this.getDeletedEmployeeIds();
+      if (id) set.delete(id);
+      if (username) set.delete(username.toLowerCase().trim().replace(/\s+/g, ''));
+      this.safeSetItem(STORAGE_KEYS.DELETED_EMPLOYEES, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  public static getDeletedSaleIds(): Set<string> {
+    try {
+      const raw = this.safeGetItem(STORAGE_KEYS.DELETED_SALES);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch {}
+    return new Set<string>();
+  }
+
+  public static recordDeletedSaleId(id: string): void {
+    try {
+      if (!id) return;
+      const set = this.getDeletedSaleIds();
+      set.add(id);
+      this.safeSetItem(STORAGE_KEYS.DELETED_SALES, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  public static clearDeletedSaleId(id: string): void {
+    try {
+      if (!id) return;
+      const set = this.getDeletedSaleIds();
+      set.delete(id);
+      this.safeSetItem(STORAGE_KEYS.DELETED_SALES, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  public static deduplicateEmployees(list: Employee[]): Employee[] {
+    const map = new Map<string, Employee>();
+    (list || []).forEach(emp => {
+      if (!emp || !emp.id) return;
+      const cleanUsername = emp.username ? emp.username.trim().toLowerCase().replace(/\s+/g, '') : '';
+      // Key by storeId + username if present to prevent multiple copies of same employee in one store
+      const key = cleanUsername ? `${emp.storeId || ''}__${cleanUsername}` : emp.id;
+      if (!map.has(key)) {
+        map.set(key, emp);
+      } else {
+        const existing = map.get(key)!;
+        // Keep the one with newer createdAt or more fields
+        const time1 = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+        const time2 = emp.createdAt ? new Date(emp.createdAt).getTime() : 0;
+        if (time2 >= time1) {
+          map.set(key, emp);
+        }
+      }
+    });
+    return Array.from(map.values());
+  }
+
   // Sync a single record to cloud firestore safely without undefined errors
   public static async syncToCloud(collectionName: string, docId: string, data: any): Promise<boolean> {
     if (!db) return false;
@@ -608,26 +690,51 @@ export class StorageService {
         }
       }
 
-      // 2. Sync Employees
+      // 2. Sync Employees (with strict tombstone respect and deduplication)
       const empSnap = await getDocs(collection(db, 'employees'));
       FirestoreTelemetry.recordReads(empSnap.size || 1, 'employees', 'Sinkronisasi daftar pegawai');
       const localEmps = this.getAllEmployeesRaw();
+      const deletedIds = this.getDeletedEmployeeIds();
+
       if (!empSnap.empty) {
         const cloudEmployees: Employee[] = [];
         empSnap.forEach(d => {
-          cloudEmployees.push(d.data() as Employee);
+          const emp = d.data() as Employee;
+          if (emp && emp.id) {
+            const cleanUser = emp.username?.trim().toLowerCase().replace(/\s+/g, '');
+            // If this employee was marked deleted locally, purge it from Firestore
+            if (deletedIds.has(emp.id) || (cleanUser && deletedIds.has(cleanUser))) {
+              this.deleteFromCloud('employees', d.id);
+            } else {
+              cloudEmployees.push(emp);
+            }
+          }
         });
-        const mergedEmps = this.mergeLists(cloudEmployees, localEmps);
+
+        const dedupedCloud = this.deduplicateEmployees(cloudEmployees);
+        const filteredLocal = this.deduplicateEmployees(
+          localEmps.filter(e => !deletedIds.has(e.id) && !deletedIds.has(e.username?.trim().toLowerCase().replace(/\s+/g, '')))
+        );
+
+        // Merge without resurrecting deleted items
+        const mergedEmps = this.deduplicateEmployees(this.mergeLists(dedupedCloud, filteredLocal));
         this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(mergedEmps));
-        // Push any local employees missing in cloud so they NEVER get deleted!
-        localEmps.forEach(emp => {
-          if (!cloudEmployees.some(c => c.id === emp.id)) {
+
+        // Push local employees missing in cloud ONLY if they are not in deletedIds
+        mergedEmps.forEach(emp => {
+          const cleanUser = emp.username?.trim().toLowerCase().replace(/\s+/g, '');
+          const isDeleted = deletedIds.has(emp.id) || (cleanUser && deletedIds.has(cleanUser));
+          if (!isDeleted && !dedupedCloud.some(c => c.id === emp.id)) {
             this.syncToCloud('employees', emp.id, emp);
           }
         });
       } else {
-        // Seed local employees to Firestore if empty
-        for (const emp of localEmps) {
+        // Seed local employees to Firestore if empty, filtering out deleted ones
+        const validLocal = localEmps.filter(e => {
+          const cleanUser = e.username?.trim().toLowerCase().replace(/\s+/g, '');
+          return !deletedIds.has(e.id) && !(cleanUser && deletedIds.has(cleanUser));
+        });
+        for (const emp of validLocal) {
           await this.syncToCloud('employees', emp.id, emp);
         }
       }
@@ -692,15 +799,26 @@ export class StorageService {
         // 3. Sync sales
         const salesSnap = await getDocs(collection(db, 'sales'));
         FirestoreTelemetry.recordReads(salesSnap.size || 1, 'sales', 'Sinkronisasi transaksi penjualan');
+        const deletedSaleIds = this.getDeletedSaleIds();
         const localSalesRaw = this.safeGetItem(STORAGE_KEYS.SALES);
-        const localSales: SalesRecord[] = localSalesRaw ? JSON.parse(localSalesRaw) : [];
+        let localSales: SalesRecord[] = localSalesRaw ? JSON.parse(localSalesRaw) : [];
+        localSales = localSales.filter(s => !deletedSaleIds.has(s.id));
+        
         if (!salesSnap.empty) {
           const cloudSales: SalesRecord[] = [];
-          salesSnap.forEach(d => cloudSales.push(d.data() as SalesRecord));
-          const merged = this.mergeLists(cloudSales, localSales);
+          salesSnap.forEach(d => {
+            const saleData = d.data() as SalesRecord;
+            if (deletedSaleIds.has(saleData.id)) {
+              // Purge deleted sale from cloud
+              deleteDoc(d.ref).catch(() => {});
+            } else {
+              cloudSales.push(saleData);
+            }
+          });
+          const merged = this.mergeLists(cloudSales, localSales).filter(s => !deletedSaleIds.has(s.id));
           this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
           localSales.forEach(s => {
-            if (!cloudSales.some(c => c.id === s.id)) {
+            if (!cloudSales.some(c => c.id === s.id) && !deletedSaleIds.has(s.id)) {
               this.syncToCloud('sales', s.id, s);
             }
           });
@@ -812,15 +930,27 @@ export class StorageService {
       }, (err) => console.warn('Realtime stores listener notice:', err));
       this.activeUnsubscribes.push(unsubStores);
 
-      // 2. Realtime listener for Employees
+      // 2. Realtime listener for Employees (filtered by tombstones & deduplicated)
       const unsubEmployees = onSnapshot(collection(db, 'employees'), (snapshot) => {
         const changes = snapshot.docChanges().length;
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'employees', 'Pembaruan realtime Pegawai');
         const cloudEmps: Employee[] = [];
-        snapshot.forEach(docSnap => cloudEmps.push(docSnap.data() as Employee));
-        const localEmps = this.getAllEmployeesRaw();
-        const merged = this.mergeLists(cloudEmps, localEmps);
-        this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(merged));
+        const deletedIds = this.getDeletedEmployeeIds();
+
+        snapshot.forEach(docSnap => {
+          const emp = docSnap.data() as Employee;
+          if (emp && emp.id) {
+            const cleanUser = emp.username?.trim().toLowerCase().replace(/\s+/g, '');
+            if (deletedIds.has(emp.id) || (cleanUser && deletedIds.has(cleanUser))) {
+              this.deleteFromCloud('employees', docSnap.id);
+            } else {
+              cloudEmps.push(emp);
+            }
+          }
+        });
+
+        const deduped = this.deduplicateEmployees(cloudEmps);
+        this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(deduped));
         this.notifyListeners('employees');
         this.notifyListeners('stores_and_employees');
       }, (err) => console.warn('Realtime employees listener notice:', err));
@@ -830,11 +960,17 @@ export class StorageService {
       const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
         const changes = snapshot.docChanges().length;
         if (changes > 0) FirestoreTelemetry.recordReads(changes, 'sales', 'Pembaruan realtime Penjualan');
+        const deletedSaleIds = this.getDeletedSaleIds();
         const cloudSales: SalesRecord[] = [];
-        snapshot.forEach(docSnap => cloudSales.push(docSnap.data() as SalesRecord));
+        snapshot.forEach(docSnap => {
+          const s = docSnap.data() as SalesRecord;
+          if (!deletedSaleIds.has(s.id)) {
+            cloudSales.push(s);
+          }
+        });
         const localRaw = this.safeGetItem(STORAGE_KEYS.SALES);
         const localSales: SalesRecord[] = localRaw ? JSON.parse(localRaw) : [];
-        const merged = this.mergeLists(cloudSales, localSales);
+        const merged = this.mergeLists(cloudSales, localSales).filter(s => !deletedSaleIds.has(s.id));
         this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(merged));
         this.notifyListeners('sales');
         this.notifyListeners('all');
@@ -1308,9 +1444,33 @@ export class StorageService {
   // EMPLOYEES
   private static getAllEmployeesRaw(): Employee[] {
     const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
-    let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
-    let hasMigration = false;
+    const deletedIds = this.getDeletedEmployeeIds();
+    let all: Employee[] = [];
 
+    if (raw !== null) {
+      try {
+        const parsed = JSON.parse(raw);
+        all = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        all = [];
+      }
+    } else {
+      // First boot default demo data
+      all = DEFAULT_EMPLOYEES.filter(e => !deletedIds.has(e.id));
+      this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(all));
+    }
+
+    // Filter out any tombstoned deleted employees
+    all = all.filter(e => {
+      if (!e || !e.id) return false;
+      const cleanUser = e.username?.trim().toLowerCase().replace(/\s+/g, '');
+      return !deletedIds.has(e.id) && !(cleanUser && deletedIds.has(cleanUser));
+    });
+
+    // Deduplicate employees to prevent 1 employee appearing multiple times
+    all = this.deduplicateEmployees(all);
+
+    let hasMigration = false;
     all = all.map(emp => {
       if (emp.roles?.includes('host') && emp.incentiveConfigs?.host) {
         const hostCfg = emp.incentiveConfigs.host;
@@ -1337,42 +1497,114 @@ export class StorageService {
       return emp;
     });
 
-    if (!raw || hasMigration) {
-      this.saveEmployees(all);
+    if (hasMigration) {
+      this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(all));
     }
     return all;
   }
 
   static getEmployees(storeId: string): Employee[] {
     const all = this.getAllEmployeesRaw();
-    return all.filter(e => e.storeId === storeId);
+    const deletedIds = this.getDeletedEmployeeIds();
+    const filtered = all.filter(e => {
+      if (e.storeId !== storeId) return false;
+      const cleanUser = e.username?.trim().toLowerCase().replace(/\s+/g, '');
+      return !deletedIds.has(e.id) && !(cleanUser && deletedIds.has(cleanUser));
+    });
+    return this.deduplicateEmployees(filtered);
   }
 
   static saveEmployees(employees: Employee[]) {
-    this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-    employees.forEach(emp => this.syncToCloud('employees', emp.id, emp));
+    const deletedIds = this.getDeletedEmployeeIds();
+    const cleanList = this.deduplicateEmployees(
+      employees.filter(e => {
+        if (!e || !e.id) return false;
+        const cleanUser = e.username?.trim().toLowerCase().replace(/\s+/g, '');
+        return !deletedIds.has(e.id) && !(cleanUser && deletedIds.has(cleanUser));
+      })
+    );
+
+    this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cleanList));
+    cleanList.forEach(emp => this.syncToCloud('employees', emp.id, emp));
     this.notifyListeners('employees');
+    this.notifyListeners('stores_and_employees');
   }
 
   static addOrUpdateEmployee(emp: Employee) {
     const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
-    let all: Employee[] = raw ? JSON.parse(raw) : DEFAULT_EMPLOYEES;
-    const idx = all.findIndex(e => e.id === emp.id);
+    let all: Employee[] = raw ? JSON.parse(raw) : [];
+    const cleanUser = emp.username?.trim().toLowerCase().replace(/\s+/g, '');
+
+    // Clear tombstone if re-registering
+    this.clearDeletedEmployeeId(emp.id, cleanUser);
+
+    // Look up by ID or by (storeId + username) to prevent duplicate entries
+    const idx = all.findIndex(e => 
+      e.id === emp.id || 
+      (cleanUser && e.storeId === emp.storeId && e.username?.trim().toLowerCase().replace(/\s+/g, '') === cleanUser)
+    );
+
     if (idx !== -1) {
+      // Retain the existing ID to avoid generating multiple docs in Firestore
+      emp.id = all[idx].id;
       all[idx] = emp;
     } else {
       all.push(emp);
     }
-    this.saveEmployees(all);
+
+    const deduped = this.deduplicateEmployees(all);
+    this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(deduped));
     this.syncToCloud('employees', emp.id, emp);
+    this.notifyListeners('employees');
+    this.notifyListeners('stores_and_employees');
   }
 
-  static deleteEmployee(id: string) {
+  static async deleteEmployee(id: string): Promise<boolean> {
     const raw = this.safeGetItem(STORAGE_KEYS.EMPLOYEES);
     let all: Employee[] = raw ? JSON.parse(raw) : [];
-    all = all.filter(e => e.id !== id);
-    this.saveEmployees(all);
-    this.deleteFromCloud('employees', id);
+    const target = all.find(e => e.id === id);
+    const targetUsername = target?.username?.trim().toLowerCase().replace(/\s+/g, '');
+    const targetStoreId = target?.storeId;
+
+    // 1. Record tombstone immediately so neither onSnapshot nor syncFromCloud will resurrect it
+    this.recordDeletedEmployeeId(id, targetUsername);
+
+    // 2. Filter local list by ID and matching username in this store
+    all = all.filter(e => {
+      if (e.id === id) return false;
+      const u = e.username?.trim().toLowerCase().replace(/\s+/g, '');
+      if (targetUsername && targetStoreId && e.storeId === targetStoreId && u === targetUsername) {
+        return false;
+      }
+      return true;
+    });
+
+    const deduped = this.deduplicateEmployees(all);
+    this.safeSetItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(deduped));
+    this.notifyListeners('employees');
+    this.notifyListeners('stores_and_employees');
+
+    // 3. Delete from Firestore cloud
+    await this.deleteFromCloud('employees', id);
+
+    // 4. Also delete any duplicate docs in Firestore that shared this username & storeId
+    if (db && targetUsername && targetStoreId) {
+      try {
+        const q = query(
+          collection(db, 'employees'), 
+          where('storeId', '==', targetStoreId),
+          where('username', '==', targetUsername)
+        );
+        const snap = await getDocs(q);
+        for (const docSnap of snap.docs) {
+          await deleteDoc(doc(db, 'employees', docSnap.id));
+        }
+      } catch (err) {
+        console.warn('Delete duplicate employee cloud records notice:', err);
+      }
+    }
+
+    return true;
   }
 
   // INVENTORY (BALL MODAL & STOK)
@@ -1490,7 +1722,8 @@ export class StorageService {
     try {
       const all: SalesRecord[] = JSON.parse(raw);
       if (!Array.isArray(all)) return [];
-      return all.filter(s => s.storeId === storeId);
+      const deletedIds = this.getDeletedSaleIds();
+      return all.filter(s => s && s.storeId === storeId && !deletedIds.has(s.id));
     } catch {
       return [];
     }
@@ -1498,8 +1731,11 @@ export class StorageService {
 
   static addSale(sale: SalesRecord) {
     try {
+      this.clearDeletedSaleId(sale.id);
       const raw = this.safeGetItem(STORAGE_KEYS.SALES);
       let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
+      const deletedIds = this.getDeletedSaleIds();
+      all = all.filter(s => !deletedIds.has(s.id));
       all.unshift(sale);
       this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
       this.syncToCloud('sales', sale.id, sale);
@@ -1513,6 +1749,7 @@ export class StorageService {
 
   static updateSale(sale: SalesRecord) {
     try {
+      this.clearDeletedSaleId(sale.id);
       const raw = this.safeGetItem(STORAGE_KEYS.SALES);
       let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
       const idx = all.findIndex(s => s.id === sale.id);
@@ -1531,6 +1768,7 @@ export class StorageService {
 
   static deleteSale(id: string) {
     try {
+      this.recordDeletedSaleId(id);
       const raw = this.safeGetItem(STORAGE_KEYS.SALES);
       let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
       all = all.filter(s => s.id !== id);
@@ -1549,6 +1787,7 @@ export class StorageService {
       const raw = this.safeGetItem(STORAGE_KEYS.SALES);
       let all: SalesRecord[] = raw ? JSON.parse(raw) : [];
       const toDelete = all.filter(s => s.storeId === storeId);
+      toDelete.forEach(item => this.recordDeletedSaleId(item.id));
       all = all.filter(s => s.storeId !== storeId);
       this.safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(all));
 
@@ -1562,6 +1801,7 @@ export class StorageService {
         try {
           const snap = await getDocs(query(collection(db, 'sales'), where('storeId', '==', storeId)));
           for (const docItem of snap.docs) {
+            this.recordDeletedSaleId(docItem.id);
             await deleteDoc(docItem.ref);
           }
         } catch (cloudErr) {
