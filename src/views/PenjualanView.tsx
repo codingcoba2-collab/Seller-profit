@@ -38,6 +38,8 @@ import {
   Tag,
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Printer,
   Sparkles,
   Eye,
@@ -88,7 +90,9 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
   // Filter states for Rekap tab
   const [searchQuery, setSearchQuery] = useState('');
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'range' | 'weekly' | 'monthly' | 'specific_month'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getTodayString().slice(0, 7));
+  const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
   const [typeFilter, setTypeFilter] = useState<'all' | 'live' | 'non_live'>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -96,11 +100,27 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   const [endDate, setEndDate] = useState(getTodayString());
   const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
 
+  const formatMonthLabel = (ym: string) => {
+    if (!ym || !ym.includes('-')) return ym || '-';
+    const [y, m] = ym.split('-');
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const idx = parseInt(m, 10) - 1;
+    return `${months[idx] || m} ${y}`;
+  };
+
+  const shiftSelectedMonth = (delta: number) => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    const nextYm = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonth(nextYm);
+  };
+
   const periodLabelMap: Record<string, string> = {
     all: 'Semua Periode',
     today: 'Hari Ini',
     weekly: '7 Hari Terakhir',
     monthly: 'Bulan Ini',
+    specific_month: formatMonthLabel(selectedMonth),
     range: 'Rentang Tanggal',
   };
 
@@ -752,11 +772,37 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
           return s.date >= weekAgo && s.date <= todayStr;
         }
         if (periodFilter === 'monthly') return s.date.startsWith(todayStr.slice(0, 7));
+        if (periodFilter === 'specific_month') return s.date.startsWith(selectedMonth);
 
         return true;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [salesList, searchQuery, typeFilter, channelFilter, categoryFilter, periodFilter, startDate, endDate, todayStr]);
+  }, [salesList, searchQuery, typeFilter, channelFilter, categoryFilter, periodFilter, selectedMonth, startDate, endDate, todayStr]);
+
+  // Rekap Penjualan Per Bulan (mengikuti filter tipe/channel/search)
+  const monthlyBreakdown = useMemo(() => {
+    const map = new Map<string, { month: string; omzet: number; pcs: number; packages: number; count: number }>();
+    salesList.forEach(s => {
+      if (typeFilter === 'live' && s.salesType !== 'live' && s.salesType !== undefined) return;
+      if (typeFilter === 'non_live' && (s.salesType === 'live' || !s.salesType)) return;
+      if (channelFilter !== 'all') {
+        const itemKey = StorageService.normalizeChannelKey(s.salesChannel || s.channelName);
+        const filterKey = StorageService.normalizeChannelKey(channelFilter);
+        if (itemKey !== filterKey) return;
+      }
+      if (categoryFilter !== 'all' && s.category !== categoryFilter) return;
+
+      const ym = s.date ? s.date.slice(0, 7) : '';
+      if (!ym) return;
+      const existing = map.get(ym) || { month: ym, omzet: 0, pcs: 0, packages: 0, count: 0 };
+      existing.omzet += s.omzet || 0;
+      existing.pcs += s.pcsSold || 0;
+      existing.packages += s.packagesSold || 0;
+      existing.count += 1;
+      map.set(ym, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
+  }, [salesList, typeFilter, channelFilter, categoryFilter]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -976,37 +1022,31 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3.5 sm:space-y-4 text-white font-sans">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-3 space-y-2.5 sm:space-y-3 text-white font-sans">
       {/* ================= TAB 1: REKAP SEMUA DATA PENJUALAN ================= */}
       {viewMode === 'rekap' && (
-        <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
+        <div className="max-w-4xl mx-auto space-y-2 sm:space-y-3">
           {/* =========================================================================
-              TOP HEADER BAR (PERSIS SEPERTI GAMBAR)
+              TOP ACTION BAR (RINGKAS TANPA HEADING REKAP PENJUALAN)
               ========================================================================= */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  setViewMode('menu');
-                }}
-                className="p-1.5 -ml-1 sm:p-2 sm:-ml-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 active:scale-95 transition cursor-pointer"
-                title="Kembali ke Menu Penjualan"
-              >
-                <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
-              </button>
-              <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">Rekap Penjualan</h1>
-                <p className="text-[11px] sm:text-sm text-slate-400 mt-0.5">Semua riwayat transaksi penjualan live &amp; non-live</p>
-              </div>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setViewMode('menu');
+              }}
+              className="p-1.5 -ml-1 sm:p-2 sm:-ml-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 active:scale-95 transition cursor-pointer"
+              title="Kembali ke Menu Penjualan"
+            >
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+            </button>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={exportToCSV}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                className="p-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
                 title="Ekspor CSV"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
@@ -1014,7 +1054,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               <button
                 type="button"
                 onClick={handlePrint}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
+                className="p-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm"
                 title="Cetak Laporan"
               >
                 <Printer className="w-4 h-4 text-sky-400" />
@@ -1025,7 +1065,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   resetForm();
                   setViewMode('input_live');
                 }}
-                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#00f2fe] hover:bg-[#19e6f1] active:scale-95 text-[#050811] font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,242,254,0.35)] transition cursor-pointer shrink-0"
               >
                 <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#050811] stroke-[2.5]" />
                 <span>Input Penjualan</span>
@@ -1122,10 +1162,85 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             >
               🏪 Non-Live / Toko
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowMonthlyBreakdown(prev => !prev)}
+              className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+                showMonthlyBreakdown
+                  ? 'bg-[#c084fc] text-black shadow-lg shadow-purple-500/25'
+                  : 'bg-[#0c1527] border border-[#162544] text-[#c084fc] hover:text-white hover:bg-[#122038]'
+              }`}
+            >
+              📅 Rekap Per Bulan
+            </button>
           </div>
 
+          {/* Panel Ringkasan Penjualan Per Bulan */}
+          {showMonthlyBreakdown && (
+            <div className="bg-[#0a1220] border border-[#1a2b49] rounded-2xl p-2.5 sm:p-3.5 shadow-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] sm:text-xs font-bold text-[#c084fc] flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Ringkasan Penjualan Per Bulan (Klik bulan untuk memfilter)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMonthlyBreakdown(false)}
+                  className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded-lg bg-white/5 cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+              {monthlyBreakdown.length === 0 ? (
+                <p className="text-[11px] text-slate-500 py-2 text-center">Belum ada data penjualan bulanan.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-[#14233c]">
+                  <table className="w-full text-left border-collapse table-fixed">
+                    <thead>
+                      <tr className="bg-[#08101c] border-b border-[#14233c] text-slate-400 text-[8.5px] min-[375px]:text-[9.5px] sm:text-[11px] font-semibold">
+                        <th className="py-1.5 px-2 w-[32%]">Bulan</th>
+                        <th className="py-1.5 px-1.5 w-[16%]">Sesi</th>
+                        <th className="py-1.5 px-1.5 w-[16%]">Pcs</th>
+                        <th className="py-1.5 px-1.5 w-[16%]">Paket</th>
+                        <th className="py-1.5 px-2 text-right w-[20%]">Omzet</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#132038]">
+                      {monthlyBreakdown.map(row => {
+                        const isSelected = periodFilter === 'specific_month' && selectedMonth === row.month;
+                        return (
+                          <tr
+                            key={row.month}
+                            onClick={() => {
+                              setSelectedMonth(row.month);
+                              setPeriodFilter('specific_month');
+                            }}
+                            className={`cursor-pointer transition text-[8.5px] min-[375px]:text-[9.5px] sm:text-xs ${
+                              isSelected ? 'bg-[#c084fc]/15 text-white' : 'hover:bg-[#0e1c36]'
+                            }`}
+                          >
+                            <td className="py-1.5 px-2 font-bold text-white truncate">
+                              {formatMonthLabel(row.month)}
+                            </td>
+                            <td className="py-1.5 px-1.5 text-slate-300 whitespace-nowrap tabular-nums">{row.count}x</td>
+                            <td className="py-1.5 px-1.5 text-[#00f2fe] font-bold whitespace-nowrap tabular-nums">{formatNumber(row.pcs)}</td>
+                            <td className="py-1.5 px-1.5 text-slate-300 font-bold whitespace-nowrap tabular-nums">{formatNumber(row.packages)}</td>
+                            <td className="py-1.5 px-2 text-right text-[#00e676] font-black whitespace-nowrap tabular-nums">
+                              {formatRupiah(row.omzet)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Second Row: Periode Dropdown & Search Input */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5">
             {/* Periode Picker Dropdown Pill */}
             <div className="relative shrink-0">
               <button
@@ -1152,6 +1267,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                     { key: 'today', label: 'Hari Ini' },
                     { key: 'weekly', label: '7 Hari Terakhir' },
                     { key: 'monthly', label: 'Bulan Ini' },
+                    { key: 'specific_month', label: '🗓️ Pilih Bulan' },
                     { key: 'range', label: '📅 Rentang Tanggal' },
                   ].map(opt => (
                     <button
@@ -1175,6 +1291,34 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               )}
             </div>
 
+            {/* Specific Month Picker if selected */}
+            {periodFilter === 'specific_month' && (
+              <div className="flex items-center gap-1 bg-[#0a1322] border border-[#162544] rounded-xl px-1.5 py-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedMonth(-1)}
+                  className="p-0.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                  title="Bulan Sebelumnya"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={e => e.target.value && setSelectedMonth(e.target.value)}
+                  className="bg-transparent text-[10px] sm:text-xs font-bold text-[#00f2fe] outline-none cursor-pointer"
+                />
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedMonth(1)}
+                  className="p-0.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                  title="Bulan Berikutnya"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Date Range inputs if selected */}
             {periodFilter === 'range' && (
               <div className="flex items-center gap-1 text-[10px]">
@@ -1195,7 +1339,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             )}
 
             {/* Search Box */}
-            <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-0 transition">
+            <div className="bg-[#0a1322] border border-[#162544] hover:border-cyan-500/40 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 flex-1 min-w-[130px] transition">
               <Search className="w-3 h-3 text-slate-400 shrink-0" />
               <input
                 type="text"
@@ -1228,22 +1372,23 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
             )}
           </div>
 
-          {/* Table Container (LEBAR PAS KE LAYAR 100% PERSIS SEPERTI GAMBAR) */}
+          {/* Table Container (LEBAR PAS KE LAYAR 100%, TULISAN DATA JELAS TANPA TERPOTONG) */}
           <div className="bg-[#09111e]/95 border border-[#14233c] rounded-2xl overflow-hidden shadow-2xl w-full">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[6.5px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs bg-[#0a1220]">
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[14%] whitespace-nowrap">Tanggal</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[32%] whitespace-nowrap">Channel &amp; Keterangan</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Pcs</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-left w-[15%] whitespace-nowrap">Paket</th>
-                  <th className="py-1.5 sm:py-2.5 px-0.5 xs:px-1 sm:px-2 text-right w-[24%] whitespace-nowrap">Omzet &amp; Aksi</th>
+                <tr className="border-b border-[#14233c] text-slate-300 font-semibold text-[8.5px] min-[375px]:text-[9.5px] sm:text-[11px] md:text-xs bg-[#0a1220]">
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-left w-[16%] whitespace-nowrap">Tanggal</th>
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-left w-[20%] whitespace-nowrap">Channel</th>
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-left w-[13%] whitespace-nowrap">Pcs</th>
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-left w-[13%] whitespace-nowrap">Paket</th>
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-left w-[22%] whitespace-nowrap">Omzet</th>
+                  <th className="py-2 sm:py-2.5 px-1 sm:px-2 text-center w-[16%] whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#132038]">
                 {filteredSales.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                    <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
                       Belum ada riwayat transaksi penjualan pada periode ini.
                     </td>
                   </tr>
@@ -1255,101 +1400,86 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                       label: cleanName,
                       color: isLive ? 'from-[#FE2C55] to-[#25F4EE]' : 'from-blue-500 to-indigo-600',
                     };
-                    const categoryLabel = fashionCategoryLabels[sale.category as FashionCategory] || sale.category || 'Fashion';
-                    const hostsOrAdmins = isLive
-                      ? (sale.hostNames && sale.hostNames.length > 0 ? sale.hostNames.join(', ') : 'Host Live')
-                      : (sale.adminNames && sale.adminNames.length > 0 ? sale.adminNames.filter(Boolean).join(', ') : sale.adminName || 'Admin / Kasir');
 
                     return (
                       <tr
                         key={sale.id}
                         onClick={() => setViewingDetailSale(sale)}
                         className="border-b border-[#132038] last:border-b-0 hover:bg-[#0e1c36] transition cursor-pointer group"
-                        title="Klik untuk melihat rincian keterangan detail transaksi"
+                        title="Klik untuk melihat rincian detail transaksi"
                       >
                         {/* Tanggal */}
-                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
+                        <td className="py-1.5 sm:py-2 px-1 sm:px-2 text-[8.5px] min-[375px]:text-[9.5px] sm:text-[10.5px] md:text-xs font-medium text-slate-300 whitespace-nowrap">
                           <span>{formatScreenshotDate(sale.date)}</span>
                         </td>
 
-                        {/* Channel & Keterangan */}
-                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2">
-                          <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 min-w-0">
-                            <div className={`w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-                              isLive 
-                                ? 'bg-[#FE2C55]/20 border border-[#FE2C55]/40 text-[#FE2C55]' 
+                        {/* Channel Only */}
+                        <td className="py-1.5 sm:py-2 px-1 sm:px-2">
+                          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                            <div className={`w-3.5 h-3.5 min-[375px]:w-4 min-[375px]:h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                              isLive
+                                ? 'bg-[#FE2C55]/20 border border-[#FE2C55]/40 text-[#FE2C55]'
                                 : 'bg-[#00f2fe]/20 border border-[#00f2fe]/40 text-[#00f2fe]'
                             }`}>
                               {isLive ? (
-                                <Video className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />
+                                <Video className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                               ) : (
-                                <Store className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />
+                                <Store className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                               )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[7px] xs:text-[7.5px] sm:text-[9.5px] md:text-xs font-bold text-white block leading-tight truncate group-hover:text-cyan-300 transition">
-                                {channelInfo.label}
-                              </span>
-                              <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                <span className={`inline-block text-[5px] xs:text-[5.5px] sm:text-[6.5px] font-bold px-1 py-[0.5px] rounded border ${
-                                  isLive
-                                    ? 'bg-[#FE2C55]/15 text-[#FE2C55] border-[#FE2C55]/30'
-                                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                } leading-none whitespace-nowrap`}>
-                                  {isLive ? 'LIVE' : 'NON-LIVE'}
-                                </span>
-                                <span className="text-[5.5px] xs:text-[6px] sm:text-[7px] text-slate-400 truncate">
-                                  {categoryLabel} • {hostsOrAdmins}
-                                </span>
-                              </div>
-                            </div>
+                            <span className="text-[8.5px] min-[375px]:text-[9.5px] sm:text-[11px] md:text-xs font-bold text-white leading-tight truncate group-hover:text-cyan-300 transition">
+                              {channelInfo.label}
+                            </span>
                           </div>
                         </td>
 
                         {/* Pcs */}
-                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
-                          <span className="text-[#00f2fe] font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                        <td className="py-1.5 sm:py-2 px-1 sm:px-2 text-left">
+                          <span className="text-[#00f2fe] font-bold text-[8.5px] min-[375px]:text-[9.5px] sm:text-[10.5px] md:text-xs whitespace-nowrap tabular-nums block">
                             {formatNumber(sale.pcsSold)} pcs
                           </span>
                         </td>
 
                         {/* Paket */}
-                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-left">
-                          <span className="text-slate-300 font-bold text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                        <td className="py-1.5 sm:py-2 px-1 sm:px-2 text-left">
+                          <span className="text-slate-300 font-bold text-[8.5px] min-[375px]:text-[9.5px] sm:text-[10.5px] md:text-xs whitespace-nowrap tabular-nums block">
                             {formatNumber(sale.packagesSold)} pkt
                           </span>
                         </td>
 
-                        {/* Omzet & Aksi */}
-                        <td className="py-1 xs:py-1.5 sm:py-2 px-0.5 xs:px-1 sm:px-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-[#00e676] font-black text-[6.5px] xs:text-[7px] sm:text-[8.5px] md:text-xs whitespace-nowrap tabular-nums block">
-                              {formatRupiah(sale.omzet)}
-                            </span>
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartEdit(sale);
-                                }}
-                                className="p-0.5 sm:p-1 rounded-md bg-[#25F4EE]/10 hover:bg-[#25F4EE]/25 text-[#25F4EE] opacity-80 hover:opacity-100 transition cursor-pointer"
-                                title="Edit Transaksi Penjualan Ini"
-                              >
-                                <Edit3 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(sale);
-                                }}
-                                className="p-0.5 sm:p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 opacity-80 hover:opacity-100 transition cursor-pointer"
-                                title="Hapus Transaksi Penjualan Ini"
-                              >
-                                <Trash2 className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
-                              </button>
-                            </div>
+                        {/* Omzet (Digeser ke kiri, tidak mepet kanan) */}
+                        <td className="py-1.5 sm:py-2 px-1 sm:px-2 text-left">
+                          <span className="text-[#00e676] font-black text-[8.5px] min-[375px]:text-[9.5px] sm:text-[10.5px] md:text-xs whitespace-nowrap tabular-nums block">
+                            {formatRupiah(sale.omzet)}
+                          </span>
+                        </td>
+
+                        {/* Aksi Edit & Hapus */}
+                        <td className="py-1.5 sm:py-2 px-0.5 sm:px-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEdit(sale);
+                              }}
+                              className="inline-flex items-center gap-0.5 p-1 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-[#25F4EE]/15 hover:bg-[#25F4EE]/25 border border-[#25F4EE]/30 text-[#25F4EE] text-[9px] sm:text-[10px] font-bold transition cursor-pointer active:scale-95"
+                              title="Edit Data Penjualan Ini"
+                            >
+                              <Edit3 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(sale);
+                              }}
+                              className="inline-flex items-center justify-center p-1 sm:p-1.5 rounded-md sm:rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition cursor-pointer active:scale-95"
+                              title="Hapus Transaksi Penjualan Ini"
+                            >
+                              <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1445,24 +1575,6 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                           </div>
                         );
                       })()}
-                    </div>
-
-                    {/* Kategori Fashion */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        Kategori Produk Fashion yang Dijual
-                      </label>
-                      <ThemedSelect
-                        value={category}
-                        onChange={val => setCategory(val as FashionCategory)}
-                        title="Pilih Kategori Produk Fashion"
-                        color="cyan"
-                        options={Object.entries(fashionCategoryLabels).map(([key, val]) => ({
-                          value: key,
-                          label: val,
-                        }))}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-[#0b0c10] border border-white/10 text-xs text-white font-medium"
-                      />
                     </div>
                   </div>
 
@@ -2325,22 +2437,26 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
 
       {/* ================= DETAIL MODAL ================= */}
       {viewingDetailSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-white/10 flex items-center justify-between bg-white/5">
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div
+          onClick={() => setViewingDetailSale(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-[#161823] border border-white/15 rounded-3xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden flex flex-col"
+          >
+            {/* Header Modal Sticky */}
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 flex items-center justify-between bg-[#1b1e2b] shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   type="button"
                   onClick={() => setViewingDetailSale(null)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 text-xs font-bold transition cursor-pointer active:scale-95 shrink-0"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 text-xs font-bold transition cursor-pointer active:scale-95 shrink-0"
                   title="Kembali ke Riwayat Penjualan"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
                   <span>Kembali</span>
                 </button>
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#25F4EE]/15 border border-[#25F4EE]/30 flex items-center justify-center text-[#25F4EE] shrink-0">
-                  <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-black text-white truncate">Detail Transaksi Penjualan</h3>
                   <p className="text-[11px] sm:text-xs text-zinc-400">{formatDateIndo(viewingDetailSale.date)}</p>
@@ -2370,60 +2486,61 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#0b0c10] border border-white/10">
-                <div>
-                  <span className="text-[10px] text-zinc-400 block">Tipe Penjualan</span>
-                  <span className="font-bold text-white text-sm">
-                    {viewingDetailSale.salesType === 'non_live' ? '🏪 Non-Live / Marketplace / Offline' : '🔴 Live Streaming'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-400 block">Channel Penjualan</span>
-                  <span className="font-bold text-[#25F4EE] text-sm">
-                    {viewingDetailSale.channelName || viewingDetailSale.salesChannel || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-400 block">Kategori Fashion</span>
-                  <span className="font-bold text-zinc-200">
-                    {fashionCategoryLabels[viewingDetailSale.category as FashionCategory] || viewingDetailSale.category || 'Fashion Umum'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-zinc-400 block">Total Omzet</span>
-                  <span className="font-black text-base text-[#25F4EE]">
-                    {formatRupiah(viewingDetailSale.omzet)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Rincian Biaya Admin Channel untuk Transaksi Ini */}
+            {/* Body Modal Scrollable */}
+            <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+              {/* Data Omzet Hari Itu + Rincian Biaya Admin Channel */}
               {(() => {
                 const feeInfo = StorageService.getFeeForChannel(currentUser.storeId, viewingDetailSale.salesChannel || viewingDetailSale.channelName);
                 const adminCut = Math.round(((feeInfo.adminPercentage || 0) / 100) * (viewingDetailSale.omzet || 0));
                 const serviceCut = (viewingDetailSale.packagesSold || 0) * (feeInfo.serviceFeePerOrder || 0);
                 const totalCut = adminCut + serviceCut;
                 const netOmzet = (viewingDetailSale.omzet || 0) - totalCut - (viewingDetailSale.adsUsed || 0) - (viewingDetailSale.coinUsed || 0);
+                const sameDayOmzet = salesList
+                  .filter(s => s.date === viewingDetailSale.date)
+                  .reduce((sum, s) => sum + (s.omzet || 0), 0);
 
                 return (
-                  <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-white">
-                      <span>Skema Biaya Channel: {feeInfo.channelName}</span>
-                      <span className="text-amber-400 font-extrabold">Admin {feeInfo.adminPercentage}%</span>
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#00e676]/10 to-[#00f2fe]/10 border border-[#00e676]/30 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider block">
+                          Omzet Hari Itu ({formatDateIndo(viewingDetailSale.date)})
+                        </span>
+                        <span className="text-lg sm:text-xl font-black text-[#00e676] tabular-nums">
+                          {formatRupiah(viewingDetailSale.omzet || 0)}
+                        </span>
+                        {sameDayOmzet > (viewingDetailSale.omzet || 0) && (
+                          <span className="text-[10px] text-[#00f2fe] font-semibold block mt-0.5">
+                            Akumulasi hari itu: {formatRupiah(sameDayOmzet)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-zinc-400 block">Channel</span>
+                        <span className="text-xs sm:text-sm font-black text-white">
+                          {StorageService.getCleanChannelName(viewingDetailSale.salesChannel || viewingDetailSale.channelName)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="space-y-1 text-xs pt-1 border-t border-white/5">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Potongan Admin ({feeInfo.adminPercentage}% x {formatRupiah(viewingDetailSale.omzet || 0)}):</span>
-                        <strong className="text-rose-400 font-bold">- {formatRupiah(adminCut)}</strong>
+
+                    <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-white">
+                        <span>Skema Biaya Channel: {feeInfo.channelName}</span>
+                        <span className="text-amber-400 font-extrabold">Admin {feeInfo.adminPercentage}%</span>
                       </div>
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Biaya Layanan ({feeInfo.serviceFeePerOrder === 0 ? 'Rp 0' : `${formatRupiah(feeInfo.serviceFeePerOrder)} x ${viewingDetailSale.packagesSold || 0} paket`}):</span>
-                        <strong className="text-rose-400 font-bold">- {formatRupiah(serviceCut)}</strong>
-                      </div>
-                      <div className="flex justify-between text-zinc-300 font-bold pt-1 border-t border-white/5">
-                        <span>Estimasi Omzet Diterima Bersih:</span>
-                        <strong className="text-[#25F4EE]">{formatRupiah(netOmzet)}</strong>
+                      <div className="space-y-1 text-xs pt-1 border-t border-white/5">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Potongan Admin ({feeInfo.adminPercentage}% x {formatRupiah(viewingDetailSale.omzet || 0)}):</span>
+                          <strong className="text-rose-400 font-bold">- {formatRupiah(adminCut)}</strong>
+                        </div>
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Biaya Layanan ({feeInfo.serviceFeePerOrder === 0 ? 'Rp 0' : `${formatRupiah(feeInfo.serviceFeePerOrder)} x ${viewingDetailSale.packagesSold || 0} paket`}):</span>
+                          <strong className="text-rose-400 font-bold">- {formatRupiah(serviceCut)}</strong>
+                        </div>
+                        <div className="flex justify-between text-zinc-300 font-bold pt-1 border-t border-white/5">
+                          <span>Estimasi Omzet Diterima Bersih:</span>
+                          <strong className="text-[#25F4EE]">{formatRupiah(netOmzet)}</strong>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2439,34 +2556,28 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                   <span className="text-zinc-400">Jumlah Paket / Order:</span>
                   <span className="font-bold text-white">{formatNumber(viewingDetailSale.packagesSold)} paket</span>
                 </div>
-                {viewingDetailSale.selectedSizes && viewingDetailSale.selectedSizes.length > 0 && (
-                  <div className="py-2.5 border-b border-white/5 space-y-2">
-                    <span className="text-zinc-400 block font-medium">Distribusi Ukuran / Size Terjual:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {viewingDetailSale.selectedSizes.map(sz => (
-                        <span key={sz} className="px-2.5 py-1 rounded-xl text-xs font-black bg-[#25F4EE]/10 text-[#25F4EE] border border-[#25F4EE]/30">
-                          Size {sz}: {viewingDetailSale.sizeBreakdown?.[sz] ?? 0} pcs
-                        </span>
-                      ))}
+                {viewingDetailSale.salesType !== 'non_live' && (
+                  <>
+                    <div className="flex justify-between py-2 border-b border-white/5">
+                      <span className="text-zinc-400 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#25F4EE]" />
+                        Durasi Live:
+                      </span>
+                      <span className="font-bold text-[#25F4EE]">
+                        {viewingDetailSale.hoursWorked ? `${viewingDetailSale.hoursWorked} jam` : '-'}
+                      </span>
                     </div>
-                    {viewingDetailSale.sizeNotes && (
-                      <p className="text-[11px] text-zinc-400 italic">
-                        Catatan size: {viewingDetailSale.sizeNotes}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {viewingDetailSale.salesType === 'live' && (
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-zinc-400">Format Penjualan:</span>
-                    <span className="font-bold text-[#25F4EE]">
-                      {viewingDetailSale.saleFormat === 'satuan'
-                        ? '🏷️ Jual Satuan (Pcs)'
-                        : viewingDetailSale.saleFormat === 'campuran'
-                        ? '🔀 Campuran Satuan & Bundling'
-                        : '📦 Jual Bundling (Paket)'}
-                    </span>
-                  </div>
+                    <div className="flex justify-between py-2 border-b border-white/5">
+                      <span className="text-zinc-400">Format Penjualan:</span>
+                      <span className="font-bold text-[#25F4EE]">
+                        {viewingDetailSale.saleFormat === 'satuan'
+                          ? '🏷️ Jual Satuan (Pcs)'
+                          : viewingDetailSale.saleFormat === 'campuran'
+                          ? '🔀 Campuran Satuan & Bundling'
+                          : '📦 Jual Bundling (Paket)'}
+                      </span>
+                    </div>
+                  </>
                 )}
                 {viewingDetailSale.hostNames && viewingDetailSale.hostNames.length > 0 && (
                   <div className="py-2 border-b border-white/5 space-y-2">
@@ -2530,17 +2641,18 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
               </div>
             </div>
 
-            <div className="px-5 sm:px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between gap-3">
+            {/* Footer Modal Sticky */}
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-white/10 bg-[#1b1e2b] flex items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setViewingDetailSale(null)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white font-bold text-xs transition cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white font-bold text-xs transition cursor-pointer active:scale-95"
               >
                 <ArrowLeft className="w-4 h-4 text-[#25F4EE]" />
                 <span>Kembali</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -2548,11 +2660,11 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                     setViewingDetailSale(null);
                     handleDelete(s);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/30 font-bold text-xs transition cursor-pointer active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/30 font-bold text-xs transition cursor-pointer active:scale-95"
                   title="Hapus Transaksi Penjualan Ini"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>Hapus Transaksi</span>
+                  <span className="hidden sm:inline">Hapus</span>
                 </button>
                 <button
                   type="button"
@@ -2561,7 +2673,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
                     setViewingDetailSale(null);
                     handleStartEdit(s);
                   }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black text-xs shadow-lg shadow-[#25F4EE]/25 active:scale-95 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-xl bg-[#25F4EE] hover:bg-[#25F4EE]/90 text-black font-black text-xs shadow-lg shadow-[#25F4EE]/25 active:scale-95 transition cursor-pointer"
                 >
                   <Edit3 className="w-4 h-4" />
                   <span>Edit Data Penjualan</span>
