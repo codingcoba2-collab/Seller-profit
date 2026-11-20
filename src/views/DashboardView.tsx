@@ -5,13 +5,11 @@ import { formatRupiah, formatNumber } from '../utils/formatters';
 import { CATEGORIES, RoutePath } from '../services/navigation';
 import {
   TrendingUp,
-  Wallet,
   Coins,
   Megaphone,
   Package,
   Layers,
   Flame,
-  Sparkles,
   CheckCircle2,
 } from 'lucide-react';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
@@ -37,7 +35,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [adsCoinInfo, setAdsCoinInfo] = useState(() => StorageService.calculateAdsAndCoins(currentUser.storeId));
   const [hppInfo, setHppInfo] = useState(() => StorageService.calculateHPP(currentUser.storeId));
   const [salesList, setSalesList] = useState(() => StorageService.getSales(currentUser.storeId));
-  const [roiInfo, setRoiInfo] = useState(() => StorageService.calculateReturnOnInvestment(currentUser.storeId));
 
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -75,7 +72,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setAdsCoinInfo(StorageService.calculateAdsAndCoins(currentUser.storeId));
       setHppInfo(StorageService.calculateHPP(currentUser.storeId));
       setSalesList(StorageService.getSales(currentUser.storeId));
-      setRoiInfo(StorageService.calculateReturnOnInvestment(currentUser.storeId));
       setAnnouncements(StorageService.getActiveAnnouncements(currentUser.storeId));
     };
 
@@ -105,15 +101,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <RunningTextBanner messages={runningMessages} speed={20} iconType="volume" badgeText="LIVE INFO" />
       </div>
 
-      {/* 2. METRIK UTAMA DASHBOARD (5 KARTU SESUAI PERMINTAAN USER & SCREENSHOT):
-          - Omzet Hari Ini
-          - HPP
-          - Sisa Stok
-          - Sisa Saldo Iklan
-          - Sisa Saldo Koin
-          Layout: 2 kolom pada mobile (grid-cols-2), responsif 3-5 kolom pada layar besar
-      */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+      {/* 2. METRIK UTAMA DASHBOARD */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3.5">
         {/* Card 1: Omzet Hari Ini - Variasi Kabel Samping Magenta */}
         <div 
           id="card-stat-omzet-hari-ini"
@@ -174,7 +163,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           id="card-stat-sisa-stok"
           onClick={() => onNavigate('/persiapan/modal-stok')}
-          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
+          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 md:col-span-1 overflow-hidden"
         >
           <NeonCorners variant="side-left" color="emerald" />
           <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
@@ -192,62 +181,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <MarqueeText
               text={`Terjual: ${formatNumber(stockInfo.totalPcsSold)} pcs`}
-              speed={16}
-              className="text-[11px] text-zinc-400 mt-0.5"
-            />
-          </div>
-        </div>
-
-        {/* Card 4: Net Profit (Laba Bersih Toko) - Variasi Kabel Ujung Atas Cyan */}
-        <div 
-          id="card-stat-net-profit"
-          onClick={() => onNavigate('/keuangan/laba-bersih')}
-          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-[#25F4EE]/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group overflow-hidden"
-        >
-          <NeonCorners variant="corner-top-left" color="cyan" />
-          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
-            <MarqueeText
-              text="Net Profit Toko"
-              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
-            />
-            <div className="w-6 h-6 rounded-lg bg-[#25F4EE]/10 border border-[#25F4EE]/20 flex items-center justify-center text-[#25F4EE] shrink-0">
-              <Sparkles className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="relative z-10 w-full overflow-hidden">
-            <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.totalNetProfit >= 0 ? 'text-[#25F4EE]' : 'text-[#FE2C55]'}`}>
-              {formatRupiah(roiInfo.totalNetProfit)}
-            </div>
-            <MarqueeText
-              text={`Saldo Kas (${formatRupiah(roiInfo.totalUangKas)}) - Biaya Ops (${formatRupiah(roiInfo.totalBiayaOperasional)})`}
-              speed={16}
-              className="text-[11px] text-zinc-400 mt-0.5"
-            />
-          </div>
-        </div>
-
-        {/* Card 5: Sisa Balik Modal (BEP) - Variasi Kabel Samping Amber */}
-        <div 
-          id="card-stat-sisa-balik-modal"
-          onClick={() => onNavigate('/keuangan/laba-bersih')}
-          className="spatial-card relative p-3.5 sm:p-4 rounded-2xl hover:border-amber-400/40 transition-all cursor-pointer shadow-md flex flex-col justify-between gap-2.5 active:scale-[0.99] group col-span-2 sm:col-span-1 overflow-hidden"
-        >
-          <NeonCorners variant="side-left" color="amber" />
-          <div className="flex items-center justify-between gap-1 relative z-10 w-full overflow-hidden">
-            <MarqueeText
-              text="Sisa Balik Modal"
-              className="text-xs text-zinc-400 font-bold group-hover:text-white transition-colors"
-            />
-            <div className="w-6 h-6 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
-              <Wallet className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="relative z-10 w-full overflow-hidden">
-            <div className={`text-lg sm:text-xl font-black tracking-tight truncate ${roiInfo.isBreakEven ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {roiInfo.isBreakEven ? `+${formatRupiah(roiInfo.surplusProfit)}` : formatRupiah(roiInfo.sisaBalikModal)}
-            </div>
-            <MarqueeText
-              text={roiInfo.isBreakEven ? `Lunas BEP 100%! Surplus ${formatRupiah(roiInfo.surplusProfit)} di atas modal` : `Saldo Kas (${formatRupiah(roiInfo.totalUangKas)}) - Modal Masuk (${formatRupiah(roiInfo.totalModalInvestasi)})`}
               speed={16}
               className="text-[11px] text-zinc-400 mt-0.5"
             />
