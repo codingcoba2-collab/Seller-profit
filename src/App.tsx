@@ -47,6 +47,7 @@ const LiveChatView = lazy(() => import('./views/LiveChatView').then(m => ({ defa
 const ContactListView = lazy(() => import('./views/ContactListView').then(m => ({ default: m.ContactListView })));
 const PengumumanView = lazy(() => import('./views/PengumumanView').then(m => ({ default: m.PengumumanView })));
 const DeveloperMonitorView = lazy(() => import('./views/DeveloperMonitorView').then(m => ({ default: m.DeveloperMonitorView })));
+const EmployeePortalView = lazy(() => import('./views/employee/EmployeePortalView').then(m => ({ default: m.EmployeePortalView })));
 
 import { ProfileModal } from './components/ProfileModal';
 
@@ -338,6 +339,89 @@ export default function App() {
           onClose={() => setShowInstallGuide(false)}
           onNotify={handleNotify}
         />
+      </>
+    );
+  }
+
+  // Dedicated bright, simplified Employee Portal for non-owner roles
+  if (!currentUser.isOwner) {
+    return (
+      <>
+        <Suspense
+          fallback={
+            <div className="employee-portal-shell min-h-screen flex items-center justify-center bg-[#F6F8FB] text-slate-600 text-sm font-medium">
+              Memuat ruang kerja pegawai...
+            </div>
+          }
+        >
+          <EmployeePortalView
+            currentUser={currentUser}
+            onNotify={handleNotify}
+            onOpenProfile={() => setShowProfileModal(true)}
+            onOpenLogout={() => setShowLogoutModal(true)}
+            onOpenInstallGuide={() => setShowInstallGuide(true)}
+          />
+        </Suspense>
+
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          currentUser={currentUser}
+          onProfileUpdated={(updatedUser) => setCurrentUser(updatedUser)}
+          onNotify={handleNotify}
+        />
+
+        <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-[10000] flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] sm:w-full pointer-events-none">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold bg-white ${
+                toast.type === 'success'
+                  ? 'border-emerald-200 text-emerald-800'
+                  : toast.type === 'error'
+                  ? 'border-rose-200 text-rose-700'
+                  : 'border-slate-200 text-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                {toast.type === 'success' && (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                )}
+                {toast.type === 'error' && (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                {toast.type === 'info' && (
+                  <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                )}
+                <span>{toast.message}</span>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <InstallGuideModal
+          isOpen={showInstallGuide}
+          onClose={() => setShowInstallGuide(false)}
+          onNotify={handleNotify}
+        />
+
+        <LogoutModal
+          isOpen={showLogoutModal}
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={() => {
+            setShowLogoutModal(false);
+            handleLogout();
+          }}
+          currentUser={currentUser}
+        />
+
+        <ProcessingModal />
       </>
     );
   }

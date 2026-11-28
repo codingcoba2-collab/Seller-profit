@@ -1190,6 +1190,60 @@ body:not([data-theme-mode="light"])::before {
   transform-origin: center center;
 }
 
+/* ==========================================================================
+   BRIGHT EMPLOYEE PORTAL THEME (NON-OWNER WORKSPACE)
+   Isolates clean light surfaces & typography from dark cyber overrides
+   ========================================================================== */
+.employee-portal-shell {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f6f8fb;
+  color: #0f172a;
+}
+
+.employee-portal-shell .font-mono-num {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.employee-portal-shell input,
+.employee-portal-shell select,
+.employee-portal-shell textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.employee-portal-shell input::placeholder,
+.employee-portal-shell textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.employee-portal-shell input:focus,
+.employee-portal-shell select:focus,
+.employee-portal-shell textarea:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+  outline: none !important;
+}
+
+.employee-portal-shell option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.employee-portal-shell ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.employee-portal-shell ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.employee-portal-shell ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 
 
 
