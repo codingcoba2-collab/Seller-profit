@@ -18,6 +18,8 @@ import {
   salesChannelLabels,
 } from '../../utils/formatters';
 import { EmployeeConfirmModal } from './EmployeeConfirmModal';
+import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
+import { getEmployeePermissions, isOwnEmployeeRecord } from '../../utils/employeePermissions';
 import {
   Calendar,
   CalendarCheck,
@@ -84,6 +86,8 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
 }) => {
   const storeId = currentUser.storeId;
   const todayStr = getTodayString();
+  const permissions = useMemo(() => getEmployeePermissions(currentUser), [currentUser]);
+  const myEmployee = useMemo(() => resolveCurrentEmployeeProfile(currentUser), [currentUser]);
 
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>(() => StorageService.getAttendance(storeId));
   const [salesList, setSalesList] = useState<SalesRecord[]>(() => StorageService.getSales(storeId));
@@ -295,14 +299,16 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => onGoToInput(activeSubTab)}
-          className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Input Baru</span>
-        </button>
+        {permissions.allowedInputTabs.includes(activeSubTab) && (
+          <button
+            type="button"
+            onClick={() => onGoToInput(activeSubTab)}
+            className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Input Baru</span>
+          </button>
+        )}
       </div>
 
       {/* ===================================================================== */}
@@ -350,53 +356,62 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredAttendance.map((att) => (
-                    <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
-                        {formatShortDate(att.date)}
-                      </td>
-                      <td className="py-2.5 px-2.5 font-semibold text-slate-900 truncate">
-                        {att.employeeName}
-                      </td>
-                      <td className="py-2.5 px-2.5 text-slate-600 truncate">
-                        {formatAttendanceRole(att.role)}
-                      </td>
-                      <td className="py-2.5 px-2.5 font-semibold text-blue-600 font-mono-num whitespace-nowrap">
-                        {att.salaryType === 'hourly' ? `${att.hoursWorked} jam` : '1 shift'}
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onEditAttendance(att)}
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
-                            title="Edit"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setConfirmDelete({
-                                isOpen: true,
-                                title: 'Hapus Data Kehadiran',
-                                message: `Hapus absensi ${att.employeeName} tanggal ${formatDateIndo(att.date)}?`,
-                                onConfirm: () => {
-                                  setConfirmDelete((p) => ({ ...p, isOpen: false }));
-                                  StorageService.deleteAttendance(att.id);
-                                  onNotify('Data kehadiran dihapus.', 'info');
-                                },
-                              })
-                            }
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredAttendance.map((att) => {
+                    const canModifyAtt =
+                      !permissions.canOnlySelfAttendance ||
+                      isOwnEmployeeRecord(currentUser, myEmployee, att.employeeId, att.employeeName);
+                    return (
+                      <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
+                          {formatShortDate(att.date)}
+                        </td>
+                        <td className="py-2.5 px-2.5 font-semibold text-slate-900 truncate">
+                          {att.employeeName}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-slate-600 truncate">
+                          {formatAttendanceRole(att.role)}
+                        </td>
+                        <td className="py-2.5 px-2.5 font-semibold text-blue-600 font-mono-num whitespace-nowrap">
+                          {att.salaryType === 'hourly' ? `${att.hoursWorked} jam` : '1 shift'}
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          {canModifyAtt ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => onEditAttendance(att)}
+                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
+                                title="Edit"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setConfirmDelete({
+                                    isOpen: true,
+                                    title: 'Hapus Data Kehadiran',
+                                    message: `Hapus absensi ${att.employeeName} tanggal ${formatDateIndo(att.date)}?`,
+                                    onConfirm: () => {
+                                      setConfirmDelete((p) => ({ ...p, isOpen: false }));
+                                      StorageService.deleteAttendance(att.id);
+                                      onNotify('Data kehadiran dihapus.', 'info');
+                                    },
+                                  })
+                                }
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                title="Hapus"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -525,39 +540,43 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                           {formatRupiah(sale.omzet)}
                         </td>
                         <td className="py-2 px-1 sm:px-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditSale(sale);
-                              }}
-                              className="p-1 sm:p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDelete({
-                                  isOpen: true,
-                                  title: 'Hapus Transaksi Penjualan',
-                                  message: `Hapus penjualan ${chLabel} tanggal ${formatDateIndo(sale.date)} senilai ${formatRupiah(sale.omzet)}?`,
-                                  onConfirm: () => {
-                                    setConfirmDelete((p) => ({ ...p, isOpen: false }));
-                                    StorageService.deleteSale(sale.id);
-                                    onNotify('Data penjualan dihapus.', 'info');
-                                  },
-                                });
-                              }}
-                              className="p-1 sm:p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            </button>
-                          </div>
+                          {permissions.canEditSales ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditSale(sale);
+                                }}
+                                className="p-1 sm:p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
+                                title="Edit"
+                              >
+                                <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDelete({
+                                    isOpen: true,
+                                    title: 'Hapus Transaksi Penjualan',
+                                    message: `Hapus penjualan ${chLabel} tanggal ${formatDateIndo(sale.date)} senilai ${formatRupiah(sale.omzet)}?`,
+                                    onConfirm: () => {
+                                      setConfirmDelete((p) => ({ ...p, isOpen: false }));
+                                      StorageService.deleteSale(sale.id);
+                                      onNotify('Data penjualan dihapus.', 'info');
+                                    },
+                                  });
+                                }}
+                                className="p-1 sm:p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                title="Hapus"
+                              >
+                                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">-</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -638,35 +657,39 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                         {formatNumber(inv.pcsCount)} pcs
                       </td>
                       <td className="py-2.5 px-2 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onEditInventory(inv)}
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
-                            title="Edit"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setConfirmDelete({
-                                isOpen: true,
-                                title: 'Hapus Data Stok',
-                                message: `Hapus stok masuk "${inv.ballType}" (${formatNumber(inv.pcsCount)} pcs)?`,
-                                onConfirm: () => {
-                                  setConfirmDelete((p) => ({ ...p, isOpen: false }));
-                                  StorageService.deleteInventory(inv.id);
-                                  onNotify('Data stok dihapus.', 'info');
-                                },
-                              })
-                            }
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {permissions.canEditStock ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => onEditInventory(inv)}
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
+                              title="Edit"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setConfirmDelete({
+                                  isOpen: true,
+                                  title: 'Hapus Data Stok',
+                                  message: `Hapus stok masuk "${inv.ballType}" (${formatNumber(inv.pcsCount)} pcs)?`,
+                                  onConfirm: () => {
+                                    setConfirmDelete((p) => ({ ...p, isOpen: false }));
+                                    StorageService.deleteInventory(inv.id);
+                                    onNotify('Data stok dihapus.', 'info');
+                                  },
+                                })
+                              }
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -741,39 +764,43 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                         {formatNumber(rec.pcsLayakJual || 0)} pcs
                       </td>
                       <td className="py-2.5 px-2 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditMeasurement(rec);
-                            }}
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
-                            title="Edit"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmDelete({
-                                isOpen: true,
-                                title: 'Hapus Data Pengukuran',
-                                message: `Hapus pengukuran "${rec.ballName}" (${formatNumber(rec.pcsTotal || 0)} pcs)?`,
-                                onConfirm: () => {
-                                  setConfirmDelete((p) => ({ ...p, isOpen: false }));
-                                  StorageService.deleteSteamSortir(rec.id);
-                                  onNotify('Data pengukuran dihapus.', 'info');
-                                },
-                              })
-                            }}
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {permissions.canEditMeasurement ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditMeasurement(rec);
+                              }}
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
+                              title="Edit"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDelete({
+                                  isOpen: true,
+                                  title: 'Hapus Data Pengukuran',
+                                  message: `Hapus pengukuran "${rec.ballName}" (${formatNumber(rec.pcsTotal || 0)} pcs)?`,
+                                  onConfirm: () => {
+                                    setConfirmDelete((p) => ({ ...p, isOpen: false }));
+                                    StorageService.deleteSteamSortir(rec.id);
+                                    onNotify('Data pengukuran dihapus.', 'info');
+                                  },
+                                });
+                              }}
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -902,18 +929,20 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
               >
                 Tutup
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const target = detailSale;
-                  setDetailSale(null);
-                  onEditSale(target);
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Penjualan</span>
-              </button>
+              {permissions.canEditSales && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = detailSale;
+                    setDetailSale(null);
+                    onEditSale(target);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Penjualan</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -990,18 +1019,20 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
               >
                 Tutup
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const target = detailMeasurement;
-                  setDetailMeasurement(null);
-                  onEditMeasurement(target);
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Pengukuran</span>
-              </button>
+              {permissions.canEditMeasurement && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = detailMeasurement;
+                    setDetailMeasurement(null);
+                    onEditMeasurement(target);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Pengukuran</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -7,6 +7,8 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { ProcessingModal } from './components/ProcessingModal';
 import { FloatingAssistiveNav } from './components/FloatingAssistiveNav';
 import { LogoutModal } from './components/LogoutModal';
+import { AppUpdatePrompt } from './components/AppUpdatePrompt';
+import { UpdateAppModal } from './components/UpdateAppModal';
 import { AppLogo } from './components/AppLogo';
 import { SoundFx } from './services/soundFx';
 import { networkService } from './services/networkService';
@@ -74,6 +76,7 @@ export default function App() {
   const [topupEditId, setTopupEditId] = useState<string | null>(null);
   const [directChatContactId, setDirectChatContactId] = useState<string | null>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
@@ -339,6 +342,7 @@ export default function App() {
           onClose={() => setShowInstallGuide(false)}
           onNotify={handleNotify}
         />
+        <AppUpdatePrompt variant="dark" />
       </>
     );
   }
@@ -360,6 +364,7 @@ export default function App() {
             onOpenProfile={() => setShowProfileModal(true)}
             onOpenLogout={() => setShowLogoutModal(true)}
             onOpenInstallGuide={() => setShowInstallGuide(true)}
+            onOpenUpdateModal={() => setShowUpdateModal(true)}
           />
         </Suspense>
 
@@ -421,6 +426,13 @@ export default function App() {
           currentUser={currentUser}
         />
 
+        <UpdateAppModal
+          isOpen={showUpdateModal}
+          onClose={() => setShowUpdateModal(false)}
+          onNotify={handleNotify}
+        />
+
+        <AppUpdatePrompt variant="light" />
         <ProcessingModal />
       </>
     );
@@ -775,6 +787,9 @@ export default function App() {
         }}
         currentUser={currentUser}
       />
+
+      {/* Automatic App Update Prompt */}
+      <AppUpdatePrompt variant="dark" />
 
       {/* Futuristic Global Processing HUD Popup */}
       <ProcessingModal />

@@ -10,6 +10,10 @@ import {
 import { StorageService } from '../../services/storage';
 import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
 import {
+  getEmployeePermissions,
+  isOwnEmployeeRecord,
+} from '../../utils/employeePermissions';
+import {
   formatDateIndo,
   getTodayString,
   roleLabels,
@@ -35,6 +39,7 @@ import {
   Megaphone,
   Package,
   PlusCircle,
+  RefreshCw,
   Ruler,
   TrendingUp,
   User,
@@ -49,6 +54,7 @@ interface EmployeePortalViewProps {
   onOpenProfile: () => void;
   onOpenLogout: () => void;
   onOpenInstallGuide?: () => void;
+  onOpenUpdateModal?: () => void;
 }
 
 export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
@@ -57,6 +63,7 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
   onOpenProfile,
   onOpenLogout,
   onOpenInstallGuide,
+  onOpenUpdateModal,
 }) => {
   const storeId = currentUser.storeId;
   const todayStr = getTodayString();
@@ -88,6 +95,11 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
     [currentUser]
   );
 
+  const permissions = useMemo(
+    () => getEmployeePermissions(currentUser),
+    [currentUser]
+  );
+
   const roleText = useMemo(() => {
     const roles = currentUser.roles?.length ? currentUser.roles : employeeProfile.roles;
     if (!roles || roles.length === 0) return 'Pegawai Toko';
@@ -102,6 +114,10 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
   };
 
   const openInputTab = (tab: EmployeeInputSubTab) => {
+    if (!permissions.allowedInputTabs.includes(tab)) {
+      onNotify('Peran Anda hanya dapat mengakses menu input yang diizinkan.', 'error');
+      return;
+    }
     clearEditing();
     setInputSubTab(tab);
     setSection('input');
@@ -270,6 +286,18 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
 
           {/* Right Zone */}
           <div className="flex items-center gap-2 shrink-0">
+            {onOpenUpdateModal && (
+              <button
+                type="button"
+                onClick={onOpenUpdateModal}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+                title="Cek & Update Aplikasi Terbaru"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Update</span>
+              </button>
+            )}
+
             {onOpenInstallGuide && (
               <button
                 type="button"
@@ -350,45 +378,60 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
               </div>
             )}
 
-            {/* 1. INPUT (PALING ATAS) */}
+            {/* 1. INPUT (PALING ATAS — HANYA TAMPILKAN MENU SESUAI ROLE) */}
             <section aria-labelledby="heading-input" className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 id="heading-input" className="text-sm font-bold text-slate-800 uppercase tracking-wider">
                   Input
                 </h2>
-                <span className="text-xs text-slate-500">Pilih menu pencatatan</span>
+                <span className="text-xs text-slate-500">Sesuai akses role Anda</span>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {inputMenuButtons.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => openInputTab(item.key)}
-                      className="group bg-white border border-slate-200 hover:border-blue-500 hover:shadow-sm rounded-2xl p-4 text-left transition cursor-pointer flex flex-col justify-between gap-3.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.accentClass}`}
+              {(() => {
+                const visibleInputButtons = inputMenuButtons.filter((b) =>
+                  permissions.allowedInputTabs.includes(b.key)
+                );
+                const gridCols =
+                  visibleInputButtons.length === 1
+                    ? 'grid-cols-1 sm:grid-cols-2'
+                    : visibleInputButtons.length === 2
+                    ? 'grid-cols-2'
+                    : visibleInputButtons.length === 3
+                    ? 'grid-cols-2 sm:grid-cols-3'
+                    : 'grid-cols-2 lg:grid-cols-4';
+                return (
+                  <div className={`grid ${gridCols} gap-3`}>
+                    {visibleInputButtons.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => openInputTab(item.key)}
+                          className="group bg-white border border-slate-200 hover:border-blue-500 hover:shadow-sm rounded-2xl p-4 text-left transition cursor-pointer flex flex-col justify-between gap-3.5"
                         >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <PlusCircle className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition shrink-0" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition">
-                          {item.title}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5 leading-snug">
-                          {item.subtitle}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.accentClass}`}
+                            >
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <PlusCircle className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition shrink-0" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition">
+                              {item.title}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5 leading-snug">
+                              {item.subtitle}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
 
             {/* 2. DATA (TOMBOL KLIK MASUK KE PAGE DATA) */}
@@ -497,24 +540,43 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
             onNotify={onNotify}
             onGoToInput={(tab) => openInputTab(tab)}
             onEditAttendance={(att) => {
+              if (
+                permissions.canOnlySelfAttendance &&
+                !isOwnEmployeeRecord(currentUser, employeeProfile, att.employeeId, att.employeeName)
+              ) {
+                onNotify('Kehadiran hanya dapat diubah untuk data milik Anda sendiri.', 'error');
+                return;
+              }
               clearEditing();
               setEditingAttendance(att);
               setInputSubTab('kehadiran');
               setSection('input');
             }}
             onEditSale={(sale) => {
+              if (!permissions.canEditSales) {
+                onNotify('Hanya Admin yang dapat mengubah data penjualan.', 'error');
+                return;
+              }
               clearEditing();
               setEditingSale(sale);
               setInputSubTab('penjualan');
               setSection('input');
             }}
             onEditInventory={(inv) => {
+              if (!permissions.canEditStock) {
+                onNotify('Hanya bagian Sortir & Ukur yang dapat mengubah data stok.', 'error');
+                return;
+              }
               clearEditing();
               setEditingInventory(inv);
               setInputSubTab('stok');
               setSection('input');
             }}
             onEditMeasurement={(rec) => {
+              if (!permissions.canEditMeasurement) {
+                onNotify('Hanya bagian Sortir & Ukur yang dapat mengubah data pengukuran.', 'error');
+                return;
+              }
               clearEditing();
               setEditingMeasurement(rec);
               setInputSubTab('pengukuran');

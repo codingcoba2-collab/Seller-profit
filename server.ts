@@ -266,8 +266,36 @@ Harap berikan hasil evaluasi dalam format JSON murni tanpa markdown wrapping den
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.use(
+      express.static(distPath, {
+        setHeaders(res, filePath) {
+          const baseName = path.basename(filePath);
+          if (
+            baseName === 'index.html' ||
+            baseName === 'version.json' ||
+            baseName === 'sw.js' ||
+            baseName === 'registerSW.js' ||
+            baseName === 'manifest.webmanifest' ||
+            baseName === 'manifest.json' ||
+            baseName.startsWith('workbox-')
+          ) {
+            res.setHeader(
+              'Cache-Control',
+              'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+            );
+            res.setHeader('Pragma', 'no-cache');
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      })
+    );
+    app.get('*', (_req, res) => {
+      res.setHeader(
+        'Cache-Control',
+        'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+      );
+      res.setHeader('Pragma', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

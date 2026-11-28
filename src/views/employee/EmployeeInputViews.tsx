@@ -24,6 +24,11 @@ import {
 } from '../../utils/formatters';
 import { CommaNumberInput } from '../../components/CommaNumberInput';
 import { EmployeeConfirmModal } from './EmployeeConfirmModal';
+import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
+import {
+  getEmployeePermissions,
+  isOwnEmployeeRecord,
+} from '../../utils/employeePermissions';
 import {
   ArrowLeft,
   CalendarCheck,
@@ -95,38 +100,79 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
     onConfirm: () => {},
   });
 
+  const permissions = getEmployeePermissions(currentUser);
+  const myEmployee = resolveCurrentEmployeeProfile(currentUser);
+  const myWorkRoles = myEmployee.roles?.filter((r) => ALL_WORK_ROLES.includes(r));
+  const allowedWorkRolesForSelf =
+    myWorkRoles && myWorkRoles.length > 0 ? myWorkRoles : ['host' as UserRole];
+
+  useEffect(() => {
+    if (!permissions.allowedInputTabs.includes(activeSubTab)) {
+      onChangeSubTab('kehadiran');
+    }
+  }, [activeSubTab, permissions.allowedInputTabs, onChangeSubTab]);
+
   // =========================================================================
-  // 1. KEHADIRAN STATE
+  // 1. KEHADIRAN STATE (Aturan: Pegawai selain Owner hanya input diri sendiri)
   // =========================================================================
-  const defaultEmp = employees.find(
-    (e) => e.id === currentUser.id || e.username.toLowerCase() === currentUser.username.toLowerCase()
-  ) || employees[0];
+  const defaultEmp = permissions.canOnlySelfAttendance
+    ? myEmployee
+    : employees.find(
+        (e) => e.id === currentUser.id || e.username.toLowerCase() === currentUser.username.toLowerCase()
+      ) || myEmployee;
 
   const [attDate, setAttDate] = useState(getTodayString());
   const [attEmpId, setAttEmpId] = useState(defaultEmp?.id || currentUser.id);
-  const [attRoles, setAttRoles] = useState<UserRole[]>(
-    defaultEmp?.roles?.filter((r) => ALL_WORK_ROLES.includes(r)) || ['host']
-  );
+  const [attRoles, setAttRoles] = useState<UserRole[]>(allowedWorkRolesForSelf);
   const [attHours, setAttHours] = useState<number>(defaultEmp?.salaryType === 'hourly' ? 4 : 1);
   const [attNotes, setAttNotes] = useState('');
 
   useEffect(() => {
+    if (permissions.canOnlySelfAttendance) {
+      setAttEmpId(myEmployee.id);
+    }
+  }, [permissions.canOnlySelfAttendance, myEmployee.id]);
+
+  useEffect(() => {
     if (editingAttendance) {
+      if (
+        permissions.canOnlySelfAttendance &&
+        !isOwnEmployeeRecord(
+          currentUser,
+          myEmployee,
+          editingAttendance.employeeId,
+          editingAttendance.employeeName
+        )
+      ) {
+        onNotify('Anda hanya dapat mengubah data kehadiran milik Anda sendiri.', 'error');
+        onClearEditing();
+        return;
+      }
       setAttDate(editingAttendance.date || getTodayString());
-      setAttEmpId(editingAttendance.employeeId);
+      setAttEmpId(
+        permissions.canOnlySelfAttendance ? myEmployee.id : editingAttendance.employeeId
+      );
       const parsedRoles = (editingAttendance.role || '')
         .split(',')
         .map((r) => r.trim())
         .filter(Boolean) as UserRole[];
-      setAttRoles(parsedRoles.length > 0 ? parsedRoles : ['host']);
+      const validParsed = permissions.canOnlySelfAttendance
+        ? parsedRoles.filter((r) => allowedWorkRolesForSelf.includes(r))
+        : parsedRoles;
+      setAttRoles(validParsed.length > 0 ? validParsed : allowedWorkRolesForSelf);
       setAttHours(editingAttendance.hoursWorked || 4);
       setAttNotes(editingAttendance.notes || '');
     }
   }, [editingAttendance]);
 
-  const selectedAttEmp = employees.find((e) => e.id === attEmpId) || defaultEmp;
+  const selectedAttEmp = permissions.canOnlySelfAttendance
+    ? myEmployee
+    : employees.find((e) => e.id === attEmpId) || defaultEmp;
 
   const handleToggleAttRole = (role: UserRole) => {
+    if (permissions.canOnlySelfAttendance && !allowedWorkRolesForSelf.includes(role)) {
+      return;
+    }
     if (attRoles.includes(role)) {
       if (attRoles.length <= 1) {
         onNotify('Minimal satu role pekerjaan harus dipilih.', 'info');
@@ -140,13 +186,28 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
   const handleSaveAttendance = (e: React.FormEvent) => {
     e.preventDefault();
-    const empName = selectedAttEmp?.name || currentUser.name;
-    const empSalaryType = selectedAttEmp?.salaryType || 'hourly';
+    if (
+      editingAttendance &&
+      permissions.canOnlySelfAttendance &&
+      !isOwnEmployeeRecord(
+        currentUser,
+        myEmployee,
+        editingAttendance.employeeId,
+        editingAttendance.employeeName
+      )
+    ) {
+      onNotify('Kehadiran hanya dapat diubah untuk diri sendiri.', 'error');
+      return;
+    }
+
+    const targetEmp = permissions.canOnlySelfAttendance ? myEmployee : selectedAttEmp;
+    const empName = targetEmp?.name || currentUser.name;
+    const empSalaryType = targetEmp?.salaryType || 'hourly';
     const record: AttendanceRecord = {
       id: editingAttendance ? editingAttendance.id : 'att-' + Date.now(),
       storeId,
       date: attDate,
-      employeeId: selectedAttEmp?.id || currentUser.id,
+      employeeId: targetEmp?.id || currentUser.id,
       employeeName: empName,
       role: attRoles.join(','),
       rolesExecuted: attRoles,
@@ -220,6 +281,10 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
   const handleSaveSale = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!permissions.canInputSales) {
+      onNotify('Hanya role Admin yang dapat menginput atau mengubah penjualan.', 'error');
+      return;
+    }
     if (saleOmzet <= 0) {
       onNotify('Nominal omzet penjualan harus lebih dari Rp 0.', 'error');
       return;
@@ -315,6 +380,10 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
   const handleSaveStok = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!permissions.canInputStock) {
+      onNotify('Hanya role Sortir & Ukur yang dapat menginput atau mengubah stok.', 'error');
+      return;
+    }
     if (!stokName.trim()) {
       onNotify('Nama barang / kode ball wajib diisi.', 'error');
       return;
@@ -430,6 +499,10 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
   const handleSaveMeasurement = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!permissions.canInputMeasurement) {
+      onNotify('Hanya role Sortir & Ukur yang dapat menginput atau mengubah pengukuran.', 'error');
+      return;
+    }
     const finalName = measBallName.trim();
     if (!finalName) {
       onNotify('Pilih dari stok atau ketik nama barang/ball yang diukur.', 'error');
@@ -498,11 +571,18 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
     });
   };
 
+  const visibleInputTabs = INPUT_TABS.filter((tab) =>
+    permissions.allowedInputTabs.includes(tab.key)
+  );
+  const availableAttRoles = permissions.canOnlySelfAttendance
+    ? allowedWorkRolesForSelf
+    : ALL_WORK_ROLES;
+
   return (
     <div className="space-y-5">
-      {/* Sub-navigation Segmented Tabs */}
+      {/* Sub-navigation Segmented Tabs (Sesuai Izin Role) */}
       <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200 rounded-xl overflow-x-auto">
-        {INPUT_TABS.map((tab) => {
+        {visibleInputTabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeSubTab === tab.key;
           return (
@@ -537,7 +617,9 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
                 {editingAttendance ? 'Edit Data Kehadiran' : 'Input Kehadiran'}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Catat absensi shift atau jam kerja untuk sinkronisasi perhitungan gaji
+                {permissions.canOnlySelfAttendance
+                  ? 'Presensi kehadiran hanya dapat dicatat untuk akun Anda sendiri'
+                  : 'Catat absensi shift atau jam kerja untuk sinkronisasi perhitungan gaji'}
               </p>
             </div>
             {editingAttendance && (
@@ -565,37 +647,44 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pegawai</label>
-              <select
-                value={attEmpId}
-                onChange={(e) => {
-                  const nextId = e.target.value;
-                  setAttEmpId(nextId);
-                  const found = employees.find((x) => x.id === nextId);
-                  if (found) {
-                    const workRoles = found.roles.filter((r) => ALL_WORK_ROLES.includes(r));
-                    if (workRoles.length > 0) setAttRoles(workRoles);
-                    setAttHours(found.salaryType === 'hourly' ? 4 : 1);
-                  }
-                }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
-              >
-                {employees.length === 0 ? (
-                  <option value={currentUser.id}>{currentUser.name}</option>
-                ) : (
-                  employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.roles.map((r) => roleLabels[r] || r).join(', ')})
-                    </option>
-                  ))
-                )}
-              </select>
+              {permissions.canOnlySelfAttendance ? (
+                <div className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-800 flex items-center justify-between gap-2">
+                  <span className="truncate">{myEmployee.name || currentUser.name}</span>
+                  <span className="text-[11px] font-medium text-blue-600 shrink-0">Diri Sendiri</span>
+                </div>
+              ) : (
+                <select
+                  value={attEmpId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setAttEmpId(nextId);
+                    const found = employees.find((x) => x.id === nextId);
+                    if (found) {
+                      const workRoles = found.roles.filter((r) => ALL_WORK_ROLES.includes(r));
+                      if (workRoles.length > 0) setAttRoles(workRoles);
+                      setAttHours(found.salaryType === 'hourly' ? 4 : 1);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                >
+                  {employees.length === 0 ? (
+                    <option value={currentUser.id}>{currentUser.name}</option>
+                  ) : (
+                    employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.roles.map((r) => roleLabels[r] || r).join(', ')})
+                      </option>
+                    ))
+                  )}
+                </select>
+              )}
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-2">Role Pekerjaan Saat Hadir</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {ALL_WORK_ROLES.map((r) => {
+            <div className={`grid ${availableAttRoles.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
+              {availableAttRoles.map((r) => {
                 const checked = attRoles.includes(r);
                 return (
                   <button

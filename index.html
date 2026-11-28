@@ -2,6 +2,17 @@
 <html lang="id">
   <head>
     <script>
+      // Strip temporary cache-busting query param cleanly after fresh reload
+      (function() {
+        try {
+          if (typeof window !== 'undefined' && window.location && window.location.search.indexOf('_appv=') !== -1) {
+            var u = new URL(window.location.href);
+            u.searchParams.delete('_appv');
+            window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+          }
+        } catch (err) {}
+      })();
+
       // Gracefully handle Vite HMR websocket and suppress benign [vite] notices in sandboxed container
       (function() {
         // 1. Inert WebSocket stub for 'vite-hmr' subprotocol when HMR is disabled in container

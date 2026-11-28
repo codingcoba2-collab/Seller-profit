@@ -11,6 +11,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { SoundFx } from '../services/soundFx';
+import { appUpdateService } from '../services/appUpdateService';
 
 interface UpdateAppModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
   const [isDone, setIsDone] = useState(false);
 
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [hasRemoteUpdate, setHasRemoteUpdate] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -39,6 +41,9 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
       setStatusMessage('');
       setStep(0);
       setCountdown(null);
+      appUpdateService.checkForUpdates(true).then((found) => {
+        setHasRemoteUpdate(found);
+      });
     }
   }, [isOpen]);
 
@@ -59,9 +64,11 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
   const triggerReload = () => {
     SoundFx.playRobotButtonClick();
     try {
-      window.location.reload();
+      const url = new URL(window.location.href);
+      url.searchParams.set('_appv', Date.now().toString());
+      window.location.replace(url.toString());
     } catch {
-      window.location.href = window.location.href;
+      window.location.reload();
     }
   };
 
@@ -70,95 +77,29 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
     setIsUpdating(true);
     setIsDone(false);
     setStep(1);
-    setStatusMessage('1/4: Memeriksa dan membersihkan penyimpanan cache browser...');
-
-    // Helper to run async task with timeout so it NEVER hangs
-    const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-      return Promise.race([
-        promise,
-        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-      ]);
-    };
+    setStatusMessage('1/3: Membersihkan cache lama & memeriksa versi terbaru...');
 
     try {
-      // Step 1: Clear browser CacheStorage (max 1200ms)
-      await withTimeout(
-        (async () => {
-          if (typeof window !== 'undefined' && 'caches' in window) {
-            try {
-              const cacheKeys = await caches.keys();
-              for (const key of cacheKeys) {
-                try {
-                  await caches.delete(key);
-                } catch {}
-              }
-            } catch {}
-          }
-        })(),
-        1200,
-        undefined
-      );
-
-      // Smooth step pacing
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 200));
       setStep(2);
-      setStatusMessage('2/4: Memperbarui & sinkronisasi Service Worker PWA...');
+      setStatusMessage('2/3: Memperbarui Service Worker & aset aplikasi...');
 
-      // Step 2: Unregister / update service worker (max 1500ms)
-      await withTimeout(
-        (async () => {
-          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-            try {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              for (const reg of registrations) {
-                try {
-                  if (reg.waiting) {
-                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                  }
-                  if (isHardReset) {
-                    await reg.unregister();
-                  } else {
-                    await reg.update().catch(() => {});
-                  }
-                } catch {}
-              }
-            } catch {}
-          }
-        })(),
-        1500,
-        undefined
-      );
-
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 200));
       setStep(3);
-      setStatusMessage('3/4: Memvalidasi aset terbaru & membersihkan data sementara...');
-
-      // Step 3: Clear session storage safely (preserving local storage database!)
-      try {
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.clear();
-        }
-      } catch {}
-
-      await new Promise(r => setTimeout(r, 350));
-      setStep(4);
-      setIsUpdating(false);
-      setIsDone(true);
-      setStatusMessage('4/4: Pembaruan Berhasil 100%! Aplikasi siap digunakan.');
-      setCountdown(4);
-      SoundFx.playOutfitEquipSound();
+      setStatusMessage('3/3: Memuat ulang ke versi terbaru sekarang...');
 
       if (onNotify) {
-        onNotify('Aplikasi berhasil diperbarui ke versi terbaru!', 'success');
+        onNotify('Memperbarui aplikasi ke versi terbaru...', 'info');
       }
 
+      await appUpdateService.applyInstantUpdate(isHardReset);
     } catch (err) {
       console.error('Update app error:', err);
-      setStep(4);
+      setStep(3);
       setIsUpdating(false);
       setIsDone(true);
-      setStatusMessage('Pembaruan selesai! Silakan muat ulang untuk menerapkan versi terbaru.');
-      setCountdown(4);
+      setStatusMessage('Pembaruan selesai! Silakan klik untuk membuka versi terbaru.');
+      setCountdown(1);
     }
   };
 
@@ -201,6 +142,13 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
           </div>
         </div>
 
+        {hasRemoteUpdate && !statusMessage && (
+          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Versi terbaru terdeteksi! Klik Update Sekarang untuk langsung menerapkannya.</span>
+          </div>
+        )}
+
         {/* What's New List */}
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
@@ -211,11 +159,11 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
           <div className="p-3.5 rounded-2xl bg-[#0b0c10] border border-white/5 space-y-2 text-xs text-zinc-300 max-h-48 overflow-y-auto">
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#25F4EE] shrink-0 mt-0.5" />
-              <span><strong>Skema Insentif Berjenjang:</strong> Opsi perhitungan hanya pada selisih paket di atas target (misal laku 17 paket dari target 15, 15 tarif dasar + 2 tarif berjenjang).</span>
+              <span><strong>Notifikasi Update Otomatis:</strong> Mendeteksi perubahan menu &amp; kode secara otomatis agar langsung bisa diperbarui.</span>
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span><strong>Update Instan PWA:</strong> Pembersihan cache mendalam &amp; reload otomatis tanpa perlu uninstall.</span>
+              <span><strong>Portal Khusus Pegawai:</strong> Tampilan terang modern dengan menu Input, Data, dan Gaji terpisah untuk selain Owner.</span>
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
@@ -239,7 +187,7 @@ export const UpdateAppModal: React.FC<UpdateAppModalProps> = ({
             <div className="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="bg-[#25F4EE] h-full transition-all duration-300"
-                style={{ width: `${(step / 4) * 100}%` }}
+                style={{ width: `${Math.min(100, (step / 3) * 100)}%` }}
               />
             </div>
           </div>
