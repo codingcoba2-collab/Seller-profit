@@ -3394,10 +3394,10 @@ export class StorageService {
       .filter(l => l.processType === 'steam' || l.processType === 'sortir_dan_steam')
       .reduce((acc, l) => acc + (l.totalCost || 0), 0);
     const logsSortirCost = steamSortirLogs
-      .filter(l => l.processType === 'sortir' || l.processType === 'sortir_dan_steam')
+      .filter(l => l.processType === 'sortir' || l.processType === 'sortir_dan_steam' || l.processType === 'bongkar_ball')
       .reduce((acc, l) => acc + (l.totalCost || 0), 0);
 
-    // Hitung biaya kehadiran pekerja role sortir & steam sebagai penambah HPP Final
+    // Hitung biaya kehadiran pekerja role sortir, steam & bongkar ball sebagai penambah HPP Final
     let totalBiayaSortirKehadiran = 0;
     let totalBiayaSteamKehadiran = 0;
 
@@ -3415,9 +3415,11 @@ export class StorageService {
       const rolesExec = (att.rolesExecuted || []).map(r => r.toLowerCase());
 
       const isSortir = attRoleStr.includes('sortir') || 
+                       attRoleStr.includes('bongkar_ball') ||
                        rolesExec.includes('sortir') || 
-                       (emp.roles.length === 1 && emp.roles[0] === 'sortir') ||
-                       (!att.role && emp.roles.includes('sortir'));
+                       rolesExec.includes('bongkar_ball') ||
+                       (emp.roles.length === 1 && (emp.roles[0] === 'sortir' || emp.roles[0] === 'bongkar_ball')) ||
+                       (!att.role && (emp.roles.includes('sortir') || emp.roles.includes('bongkar_ball')));
 
       const isSteam = attRoleStr.includes('steam') || 
                       rolesExec.includes('steam') || 
@@ -3434,7 +3436,7 @@ export class StorageService {
       }
     });
 
-    // Hitung biaya Insentif tim sortir & steam sebagai komponen penambah HPP Final (HANYA DARI BARANG LAYAK JUAL)
+    // Hitung biaya Insentif tim sortir, steam & bongkar ball sebagai komponen penambah HPP Final (HANYA DARI BARANG LAYAK JUAL)
     let totalInsentifSortir = 0;
     let totalInsentifSteam = 0;
 
@@ -3449,6 +3451,28 @@ export class StorageService {
             return isMatchRole && isMatchEmp;
           });
           // Hanya hitung pcs yang layak jual (reject tidak dihitung)
+          const totalPcsWorked = workerLogs.reduce((acc, l) => {
+            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
+            return acc + pcsLayak;
+          }, 0);
+
+          if (config.type === 'per_ball_pcs') {
+            totalInsentifSortir += totalPcsWorked * (config.rate || 0);
+          } else if (config.type === 'fixed_amount') {
+            totalInsentifSortir += (config.rate || 0);
+          }
+        }
+      }
+
+      if (emp.roles.includes('bongkar_ball')) {
+        const config = emp.incentiveConfigs?.bongkar_ball;
+        if (config && config.type !== 'none') {
+          const workerLogs = steamSortirLogs.filter(log => {
+            const isMatchRole = log.processType === 'bongkar_ball';
+            const isMatchEmp = log.employeeIds?.includes(emp.id) || 
+              log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
+            return isMatchRole && isMatchEmp;
+          });
           const totalPcsWorked = workerLogs.reduce((acc, l) => {
             const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
             return acc + pcsLayak;
@@ -3553,9 +3577,11 @@ export class StorageService {
         const rolesExec = (att.rolesExecuted || []).map(r => r.toLowerCase());
         const isSortirOrSteam = attRoleStr.includes('sortir') || 
                                 attRoleStr.includes('steam') || 
+                                attRoleStr.includes('bongkar_ball') ||
                                 rolesExec.includes('sortir') || 
                                 rolesExec.includes('steam') ||
-                                (!att.role && emp.roles.every(r => r === 'sortir' || r === 'steam'));
+                                rolesExec.includes('bongkar_ball') ||
+                                (!att.role && emp.roles.every(r => r === 'sortir' || r === 'steam' || r === 'bongkar_ball'));
 
         if (isSortirOrSteam) {
           hppLaborSalary += shiftCost;
@@ -3852,9 +3878,12 @@ export class StorageService {
               amount,
             });
           }
-        } else if (role === 'sortir' || role === 'steam') {
+        } else if (role === 'sortir' || role === 'steam' || role === 'bongkar_ball') {
           const workerLogs = steamSortirLogs.filter(log => {
-            const isMatchRole = log.processType === role || log.processType === 'sortir_dan_steam';
+            const isMatchRole =
+              role === 'bongkar_ball'
+                ? log.processType === 'bongkar_ball'
+                : log.processType === role || log.processType === 'sortir_dan_steam';
             const isMatchEmp = log.employeeIds?.includes(emp.id) || 
               log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
             return isMatchRole && isMatchEmp;
@@ -3865,13 +3894,15 @@ export class StorageService {
             return acc + pcsLayak;
           }, 0);
 
+          const roleDisplay = role === 'bongkar_ball' ? 'Bongkar Ball' : role;
+
           if (config.type === 'per_ball_pcs') {
             const amount = totalPcsWorked * (config.rate || 0);
             totalIncentives += amount;
             hppSortirSteamIncentives += amount;
             incentiveBreakdowns.push({
               role,
-              desc: `${totalPcsWorked} pcs layak jual (${role}) x Rp ${(config.rate || 0).toLocaleString('id-ID')} (Masuk HPP)`,
+              desc: `${totalPcsWorked} pcs layak jual (${roleDisplay}) x Rp ${(config.rate || 0).toLocaleString('id-ID')} (Masuk HPP)`,
               amount,
               isHppIncentive: true,
             });
@@ -3881,11 +3912,20 @@ export class StorageService {
             hppSortirSteamIncentives += amount;
             incentiveBreakdowns.push({
               role,
-              desc: `Insentif Tetap ${role} (Masuk HPP)`,
+              desc: `Insentif Tetap ${roleDisplay} (Masuk HPP)`,
               amount,
               isHppIncentive: true,
             });
           }
+        } else if (config.type === 'fixed_amount') {
+          const amount = config.rate || 0;
+          totalIncentives += amount;
+          operationalIncentives += amount;
+          incentiveBreakdowns.push({
+            role,
+            desc: `Insentif Tetap (${role === 'training' ? 'Training' : role})`,
+            amount,
+          });
         }
       });
 
@@ -4050,7 +4090,7 @@ export class StorageService {
 
     const paymentRecords = cashflows.filter(c => 
       c.type === 'outflow' && 
-      (c.category === 'gaji' || c.category === 'gaji_pegawai') &&
+      (c.category === 'gaji' || c.category === 'gaji_pegawai' || c.category === 'kasbon') &&
       (c.employeeId === employeeId || (!c.employeeId && c.description?.toLowerCase().includes(employeeId.toLowerCase())))
     );
 

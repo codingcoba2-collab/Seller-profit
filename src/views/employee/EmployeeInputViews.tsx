@@ -14,6 +14,7 @@ import {
   UserRole,
 } from '../../types';
 import {
+  ballQualityMeta,
   evaluateBallQuality,
   formatDateIndo,
   formatNumber,
@@ -26,6 +27,7 @@ import { CommaNumberInput } from '../../components/CommaNumberInput';
 import { EmployeeConfirmModal } from './EmployeeConfirmModal';
 import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
 import {
+  EmployeeModuleTab,
   getEmployeePermissions,
   isOwnEmployeeRecord,
 } from '../../utils/employeePermissions';
@@ -34,12 +36,15 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock,
+  Flame,
   Package,
+  PackageOpen,
   Ruler,
+  Scissors,
   TrendingUp,
 } from 'lucide-react';
 
-export type EmployeeInputSubTab = 'kehadiran' | 'penjualan' | 'stok' | 'pengukuran';
+export type EmployeeInputSubTab = EmployeeModuleTab;
 
 interface EmployeeInputViewsProps {
   activeSubTab: EmployeeInputSubTab;
@@ -58,10 +63,13 @@ const INPUT_TABS: { key: EmployeeInputSubTab; label: string; icon: React.Compone
   { key: 'kehadiran', label: 'Kehadiran', icon: CalendarCheck },
   { key: 'penjualan', label: 'Penjualan', icon: TrendingUp },
   { key: 'stok', label: 'Stok', icon: Package },
+  { key: 'steam', label: 'Steam', icon: Flame },
+  { key: 'bongkar_ball', label: 'Bongkar Ball', icon: PackageOpen },
+  { key: 'sortir', label: 'Sortir', icon: Scissors },
   { key: 'pengukuran', label: 'Pengukuran', icon: Ruler },
 ];
 
-const ALL_WORK_ROLES: UserRole[] = ['host', 'admin_toko', 'sortir', 'steam'];
+const ALL_WORK_ROLES: UserRole[] = ['host', 'admin_toko', 'sortir', 'steam', 'bongkar_ball', 'training'];
 
 export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
   activeSubTab,
@@ -126,6 +134,13 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
   const [attRoles, setAttRoles] = useState<UserRole[]>(allowedWorkRolesForSelf);
   const [attHours, setAttHours] = useState<number>(defaultEmp?.salaryType === 'hourly' ? 4 : 1);
   const [attNotes, setAttNotes] = useState('');
+  const [attTrainingTraineeName, setAttTrainingTraineeName] = useState(
+    defaultEmp?.roles?.includes('training') ? defaultEmp.trainingTraineeName || '' : ''
+  );
+  const [attTrainingTrainerId, setAttTrainingTrainerId] = useState('');
+  const [attTrainingTrainerName, setAttTrainingTrainerName] = useState(
+    defaultEmp?.roles?.includes('training') ? defaultEmp.trainingTrainerName || defaultEmp.name || '' : ''
+  );
 
   useEffect(() => {
     if (permissions.canOnlySelfAttendance) {
@@ -156,12 +171,18 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
         .split(',')
         .map((r) => r.trim())
         .filter(Boolean) as UserRole[];
+      const selfSelectableRoles = Array.from(
+        new Set([...allowedWorkRolesForSelf, 'bongkar_ball' as UserRole, 'training' as UserRole])
+      );
       const validParsed = permissions.canOnlySelfAttendance
-        ? parsedRoles.filter((r) => allowedWorkRolesForSelf.includes(r))
+        ? parsedRoles.filter((r) => selfSelectableRoles.includes(r))
         : parsedRoles;
       setAttRoles(validParsed.length > 0 ? validParsed : allowedWorkRolesForSelf);
       setAttHours(editingAttendance.hoursWorked || 4);
       setAttNotes(editingAttendance.notes || '');
+      setAttTrainingTraineeName(editingAttendance.trainingTraineeName || '');
+      setAttTrainingTrainerId(editingAttendance.trainingTrainerId || '');
+      setAttTrainingTrainerName(editingAttendance.trainingTrainerName || '');
     }
   }, [editingAttendance]);
 
@@ -170,7 +191,10 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
     : employees.find((e) => e.id === attEmpId) || defaultEmp;
 
   const handleToggleAttRole = (role: UserRole) => {
-    if (permissions.canOnlySelfAttendance && !allowedWorkRolesForSelf.includes(role)) {
+    const selfSelectableRoles = Array.from(
+      new Set([...allowedWorkRolesForSelf, 'bongkar_ball' as UserRole, 'training' as UserRole])
+    );
+    if (permissions.canOnlySelfAttendance && !selfSelectableRoles.includes(role)) {
       return;
     }
     if (attRoles.includes(role)) {
@@ -181,6 +205,14 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       setAttRoles(attRoles.filter((r) => r !== role));
     } else {
       setAttRoles([...attRoles, role]);
+      if (role === 'training') {
+        if (!attTrainingTraineeName && selectedAttEmp?.trainingTraineeName) {
+          setAttTrainingTraineeName(selectedAttEmp.trainingTraineeName);
+        }
+        if (!attTrainingTrainerName) {
+          setAttTrainingTrainerName(selectedAttEmp?.trainingTrainerName || selectedAttEmp?.name || currentUser.name || '');
+        }
+      }
     }
   };
 
@@ -200,6 +232,16 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       return;
     }
 
+    const isTraining = attRoles.includes('training');
+    if (isTraining && !attTrainingTraineeName.trim()) {
+      onNotify('Nama calon pegawai yang ditraining wajib diisi.', 'error');
+      return;
+    }
+    if (isTraining && !attTrainingTrainerName.trim()) {
+      onNotify('Atas nama trainer yang melatih wajib diisi.', 'error');
+      return;
+    }
+
     const targetEmp = permissions.canOnlySelfAttendance ? myEmployee : selectedAttEmp;
     const empName = targetEmp?.name || currentUser.name;
     const empSalaryType = targetEmp?.salaryType || 'hourly';
@@ -214,6 +256,15 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       salaryType: empSalaryType,
       hoursWorked: empSalaryType === 'hourly' ? Math.max(0.5, attHours || 1) : 1,
       notes: attNotes.trim(),
+      recordedById: editingAttendance?.recordedById || currentUser.id,
+      recordedBy: editingAttendance?.recordedBy || currentUser.name,
+      ...(isTraining
+        ? {
+            trainingTraineeName: attTrainingTraineeName.trim(),
+            trainingTrainerName: attTrainingTrainerName.trim(),
+            ...(attTrainingTrainerId ? { trainingTrainerId: attTrainingTrainerId } : {}),
+          }
+        : {}),
       createdAt: editingAttendance ? editingAttendance.createdAt : new Date().toISOString(),
     };
 
@@ -232,6 +283,9 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
         }
         onClearEditing();
         setAttNotes('');
+        setAttTrainingTraineeName('');
+        setAttTrainingTrainerId('');
+        setAttTrainingTrainerName('');
         onDoneNavigateToData('kehadiran');
       },
     });
@@ -324,7 +378,8 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       adsUsed: saleAds,
       coinUsed: saleType === 'live' ? saleCoin : 0,
       notes: saleNotes.trim(),
-      recordedBy: currentUser.name,
+      recordedById: editingSale?.recordedById || currentUser.id,
+      recordedBy: editingSale?.recordedBy || currentUser.name,
       createdAt: editingSale ? editingSale.createdAt : new Date().toISOString(),
     };
 
@@ -413,6 +468,8 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       returnMechanism: editingInventory?.returnMechanism || 'detail',
       estimateReturnPercentage: editingInventory?.estimateReturnPercentage || 3,
       notes: stokNotes.trim(),
+      recordedById: editingInventory?.recordedById || currentUser.id,
+      recordedBy: editingInventory?.recordedBy || currentUser.name,
       createdAt: editingInventory ? editingInventory.createdAt : new Date().toISOString(),
     };
 
@@ -441,12 +498,386 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
   };
 
   // =========================================================================
-  // 4. PENGUKURAN STATE (Sortir, QC & Ukur Barang)
+  // 4. STEAM STATE (Input Steam & Finishing)
+  // =========================================================================
+  const [steamDate, setSteamDate] = useState(getTodayString());
+  const [steamInventoryId, setSteamInventoryId] = useState('');
+  const [steamBallName, setSteamBallName] = useState('');
+  const [steamTotal, setSteamTotal] = useState<number>(0);
+  const [steamReject, setSteamReject] = useState<number>(0);
+  const [steamEmpIds, setSteamEmpIds] = useState<string[]>([currentUser.id]);
+  const [steamNotes, setSteamNotes] = useState('');
+
+  useEffect(() => {
+    if (editingMeasurement && editingMeasurement.processType === 'steam') {
+      setSteamDate(editingMeasurement.date || getTodayString());
+      setSteamInventoryId(editingMeasurement.ballInventoryId || editingMeasurement.inventoryBallId || '');
+      setSteamBallName(editingMeasurement.ballName || '');
+      setSteamTotal(editingMeasurement.pcsTotal || editingMeasurement.totalPcsProcessed || 0);
+      setSteamReject(editingMeasurement.pcsReject || 0);
+      setSteamEmpIds(
+        editingMeasurement.employeeIds && editingMeasurement.employeeIds.length > 0
+          ? editingMeasurement.employeeIds
+          : [currentUser.id]
+      );
+      setSteamNotes(editingMeasurement.notes || '');
+    }
+  }, [editingMeasurement, currentUser.id]);
+
+  const handleSelectSteamInventory = (ballId: string) => {
+    setSteamInventoryId(ballId);
+    const found = inventoryList.find((b) => b.id === ballId);
+    if (found) {
+      setSteamBallName(found.ballType);
+      if (found.pcsCount) setSteamTotal(found.pcsCount);
+    }
+  };
+
+  const steamLayakJual = Math.max(0, (steamTotal || 0) - (steamReject || 0));
+
+  const handleSaveSteam = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!permissions.canInputSteam) {
+      onNotify('Anda tidak memiliki izin untuk menginput atau mengubah data steam.', 'error');
+      return;
+    }
+    const finalName = steamBallName.trim();
+    if (!finalName) {
+      onNotify('Pilih dari stok atau ketik nama barang/ball yang di-steam.', 'error');
+      return;
+    }
+    if (steamTotal <= 0) {
+      onNotify('Total pcs yang di-steam harus lebih dari 0.', 'error');
+      return;
+    }
+
+    const empNames = steamEmpIds
+      .map((id) => employees.find((emp) => emp.id === id)?.name)
+      .filter(Boolean) as string[];
+
+    const isEditingThis = editingMeasurement?.processType === 'steam';
+    const record: SteamSortirRecord = {
+      id: isEditingThis && editingMeasurement ? editingMeasurement.id : 'steam-' + Date.now(),
+      storeId,
+      date: steamDate,
+      ballInventoryId: steamInventoryId || undefined,
+      inventoryBallId: steamInventoryId || undefined,
+      ballName: finalName,
+      ballWeightKg: isEditingThis && editingMeasurement?.ballWeightKg ? editingMeasurement.ballWeightKg : 45,
+      processType: 'steam',
+      employeeIds: steamEmpIds.length > 0 ? steamEmpIds : [currentUser.id],
+      employeeNames: empNames.length > 0 ? empNames : [currentUser.name],
+      pcsKepala: 0,
+      pcsBadan: 0,
+      pcsKaki: 0,
+      pcsTotal: steamTotal,
+      totalPcsProcessed: steamTotal,
+      pcsLayakJual: steamLayakJual,
+      pcsReject: steamReject || 0,
+      costPerPcs: 0,
+      totalCost: 0,
+      status: 'selesai',
+      notes: steamNotes.trim(),
+      recordedById: isEditingThis && editingMeasurement?.recordedById ? editingMeasurement.recordedById : currentUser.id,
+      recordedBy: isEditingThis && editingMeasurement?.recordedBy ? editingMeasurement.recordedBy : currentUser.name,
+      createdAt: isEditingThis && editingMeasurement ? editingMeasurement.createdAt : new Date().toISOString(),
+    };
+
+    setConfirmState({
+      isOpen: true,
+      title: isEditingThis ? 'Simpan Perubahan Steam' : 'Simpan Data Steam',
+      message: `${isEditingThis ? 'Perbarui' : 'Simpan'} hasil steam "${finalName}" sebanyak ${formatNumber(steamTotal)} pcs (${formatNumber(steamLayakJual)} layak jual)?`,
+      onConfirm: () => {
+        setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        if (isEditingThis) {
+          StorageService.updateSteamSortir(record);
+          onNotify('Data steam berhasil diperbarui.', 'success');
+        } else {
+          StorageService.addSteamSortir(record);
+          onNotify('Data steam berhasil disimpan.', 'success');
+        }
+        onClearEditing();
+        setSteamInventoryId('');
+        setSteamBallName('');
+        setSteamTotal(0);
+        setSteamReject(0);
+        setSteamNotes('');
+        onDoneNavigateToData('steam');
+      },
+    });
+  };
+
+  // =========================================================================
+  // 5. BONGKAR BALL STATE (Input Bongkar Ball)
+  // =========================================================================
+  const [bbDate, setBbDate] = useState(getTodayString());
+  const [bbInventoryId, setBbInventoryId] = useState('');
+  const [bbBallName, setBbBallName] = useState('');
+  const [bbWeightKg, setBbWeightKg] = useState<number>(45);
+  const [bbKepala, setBbKepala] = useState<number>(0);
+  const [bbBadan, setBbBadan] = useState<number>(0);
+  const [bbKaki, setBbKaki] = useState<number>(0);
+  const [bbTotal, setBbTotal] = useState<number>(0);
+  const [bbReject, setBbReject] = useState<number>(0);
+  const [bbEmpIds, setBbEmpIds] = useState<string[]>([currentUser.id]);
+  const [bbNotes, setBbNotes] = useState('');
+
+  useEffect(() => {
+    if (editingMeasurement && editingMeasurement.processType === 'bongkar_ball') {
+      setBbDate(editingMeasurement.date || getTodayString());
+      setBbInventoryId(editingMeasurement.ballInventoryId || editingMeasurement.inventoryBallId || '');
+      setBbBallName(editingMeasurement.ballName || '');
+      setBbWeightKg(editingMeasurement.ballWeightKg || 45);
+      setBbKepala(editingMeasurement.pcsKepala || 0);
+      setBbBadan(editingMeasurement.pcsBadan || 0);
+      setBbKaki(editingMeasurement.pcsKaki || 0);
+      setBbTotal(editingMeasurement.pcsTotal || editingMeasurement.totalPcsProcessed || 0);
+      setBbReject(editingMeasurement.pcsReject || 0);
+      setBbEmpIds(
+        editingMeasurement.employeeIds && editingMeasurement.employeeIds.length > 0
+          ? editingMeasurement.employeeIds
+          : [currentUser.id]
+      );
+      setBbNotes(editingMeasurement.notes || '');
+    }
+  }, [editingMeasurement, currentUser.id]);
+
+  const handleSelectBbInventory = (ballId: string) => {
+    setBbInventoryId(ballId);
+    const found = inventoryList.find((b) => b.id === ballId);
+    if (found) {
+      setBbBallName(found.ballType);
+      if (found.weightKg) setBbWeightKg(found.weightKg);
+      if (found.pcsCount) setBbTotal(found.pcsCount);
+    }
+  };
+
+  const handleBbClassUpdate = (k: number, b: number, f: number) => {
+    setBbKepala(k);
+    setBbBadan(b);
+    setBbKaki(f);
+    const sum = k + b + f;
+    if (sum > 0) setBbTotal(sum);
+  };
+
+  const bbLayakJual = Math.max(0, (bbTotal || 0) - (bbReject || 0));
+
+  const handleSaveBongkarBall = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!permissions.canInputBongkarBall) {
+      onNotify('Anda tidak memiliki izin untuk menginput atau mengubah data bongkar ball.', 'error');
+      return;
+    }
+    const finalName = bbBallName.trim();
+    if (!finalName) {
+      onNotify('Pilih dari stok atau ketik nama / kode ball yang dibongkar.', 'error');
+      return;
+    }
+    if (bbTotal <= 0) {
+      onNotify('Total isi hasil bongkar ball (pcs) harus lebih dari 0.', 'error');
+      return;
+    }
+
+    const empNames = bbEmpIds
+      .map((id) => employees.find((emp) => emp.id === id)?.name)
+      .filter(Boolean) as string[];
+
+    const isEditingThis = editingMeasurement?.processType === 'bongkar_ball';
+    const record: SteamSortirRecord = {
+      id: isEditingThis && editingMeasurement ? editingMeasurement.id : 'bongkar-ball-' + Date.now(),
+      storeId,
+      date: bbDate,
+      ballInventoryId: bbInventoryId || undefined,
+      inventoryBallId: bbInventoryId || undefined,
+      ballName: finalName,
+      ballWeightKg: bbWeightKg || 45,
+      processType: 'bongkar_ball',
+      employeeIds: bbEmpIds.length > 0 ? bbEmpIds : [currentUser.id],
+      employeeNames: empNames.length > 0 ? empNames : [currentUser.name],
+      pcsKepala: bbKepala || 0,
+      pcsBadan: bbBadan || 0,
+      pcsKaki: bbKaki || 0,
+      ballQuality: evaluateBallQuality(bbKepala || 0, bbTotal),
+      pcsTotal: bbTotal,
+      totalPcsProcessed: bbTotal,
+      pcsLayakJual: bbLayakJual,
+      pcsReject: bbReject || 0,
+      costPerPcs: 0,
+      totalCost: 0,
+      status: 'selesai',
+      notes: bbNotes.trim(),
+      recordedById: isEditingThis && editingMeasurement?.recordedById ? editingMeasurement.recordedById : currentUser.id,
+      recordedBy: isEditingThis && editingMeasurement?.recordedBy ? editingMeasurement.recordedBy : currentUser.name,
+      createdAt: isEditingThis && editingMeasurement ? editingMeasurement.createdAt : new Date().toISOString(),
+    };
+
+    setConfirmState({
+      isOpen: true,
+      title: isEditingThis ? 'Simpan Perubahan Bongkar Ball' : 'Simpan Data Bongkar Ball',
+      message: `${isEditingThis ? 'Perbarui' : 'Simpan'} hasil bongkar "${finalName}" (${bbWeightKg || 45} kg) sebanyak ${formatNumber(bbTotal)} pcs?`,
+      onConfirm: () => {
+        setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        if (isEditingThis) {
+          StorageService.updateSteamSortir(record);
+          onNotify('Data bongkar ball berhasil diperbarui.', 'success');
+        } else {
+          StorageService.addSteamSortir(record);
+          onNotify('Data bongkar ball berhasil disimpan.', 'success');
+        }
+        onClearEditing();
+        setBbInventoryId('');
+        setBbBallName('');
+        setBbKepala(0);
+        setBbBadan(0);
+        setBbKaki(0);
+        setBbTotal(0);
+        setBbReject(0);
+        setBbNotes('');
+        onDoneNavigateToData('bongkar_ball');
+      },
+    });
+  };
+
+  // =========================================================================
+  // 6. SORTIR STATE (Input Sortir Kelas & Kualitas)
+  // =========================================================================
+  const [sortirDate, setSortirDate] = useState(getTodayString());
+  const [sortirInventoryId, setSortirInventoryId] = useState('');
+  const [sortirBallName, setSortirBallName] = useState('');
+  const [sortirWeightKg, setSortirWeightKg] = useState<number>(45);
+  const [sortirKepala, setSortirKepala] = useState<number>(0);
+  const [sortirBadan, setSortirBadan] = useState<number>(0);
+  const [sortirKaki, setSortirKaki] = useState<number>(0);
+  const [sortirTotal, setSortirTotal] = useState<number>(0);
+  const [sortirReject, setSortirReject] = useState<number>(0);
+  const [sortirEmpIds, setSortirEmpIds] = useState<string[]>([currentUser.id]);
+  const [sortirNotes, setSortirNotes] = useState('');
+
+  useEffect(() => {
+    if (editingMeasurement && editingMeasurement.processType === 'sortir') {
+      setSortirDate(editingMeasurement.date || getTodayString());
+      setSortirInventoryId(editingMeasurement.ballInventoryId || editingMeasurement.inventoryBallId || '');
+      setSortirBallName(editingMeasurement.ballName || '');
+      setSortirWeightKg(editingMeasurement.ballWeightKg || 45);
+      setSortirKepala(editingMeasurement.pcsKepala || 0);
+      setSortirBadan(editingMeasurement.pcsBadan || 0);
+      setSortirKaki(editingMeasurement.pcsKaki || 0);
+      setSortirTotal(editingMeasurement.pcsTotal || editingMeasurement.totalPcsProcessed || 0);
+      setSortirReject(editingMeasurement.pcsReject || 0);
+      setSortirEmpIds(
+        editingMeasurement.employeeIds && editingMeasurement.employeeIds.length > 0
+          ? editingMeasurement.employeeIds
+          : [currentUser.id]
+      );
+      setSortirNotes(editingMeasurement.notes || '');
+    }
+  }, [editingMeasurement, currentUser.id]);
+
+  const handleSelectSortirInventory = (ballId: string) => {
+    setSortirInventoryId(ballId);
+    const found = inventoryList.find((b) => b.id === ballId);
+    if (found) {
+      setSortirBallName(found.ballType);
+      if (found.weightKg) setSortirWeightKg(found.weightKg);
+      if (found.pcsCount) setSortirTotal(found.pcsCount);
+    }
+  };
+
+  const handleSortirClassUpdate = (k: number, b: number, f: number) => {
+    setSortirKepala(k);
+    setSortirBadan(b);
+    setSortirKaki(f);
+    const sum = k + b + f;
+    if (sum > 0) setSortirTotal(sum);
+  };
+
+  const sortirLayakJual = Math.max(0, (sortirTotal || 0) - (sortirReject || 0));
+  const sortirQualityGrade = evaluateBallQuality(sortirKepala || 0, sortirTotal);
+  const sortirQualityInfo = ballQualityMeta[sortirQualityGrade];
+
+  const handleSaveSortir = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!permissions.canInputSortir) {
+      onNotify('Anda tidak memiliki izin untuk menginput atau mengubah data sortir.', 'error');
+      return;
+    }
+    const finalName = sortirBallName.trim();
+    if (!finalName) {
+      onNotify('Pilih dari stok atau ketik nama barang/ball yang disortir.', 'error');
+      return;
+    }
+    if (sortirTotal <= 0) {
+      onNotify('Total pcs disortir harus lebih dari 0.', 'error');
+      return;
+    }
+
+    const empNames = sortirEmpIds
+      .map((id) => employees.find((emp) => emp.id === id)?.name)
+      .filter(Boolean) as string[];
+
+    const isEditingThis = editingMeasurement?.processType === 'sortir';
+    const record: SteamSortirRecord = {
+      id: isEditingThis && editingMeasurement ? editingMeasurement.id : 'sortir-' + Date.now(),
+      storeId,
+      date: sortirDate,
+      ballInventoryId: sortirInventoryId || undefined,
+      inventoryBallId: sortirInventoryId || undefined,
+      ballName: finalName,
+      ballWeightKg: sortirWeightKg || 45,
+      processType: 'sortir',
+      employeeIds: sortirEmpIds.length > 0 ? sortirEmpIds : [currentUser.id],
+      employeeNames: empNames.length > 0 ? empNames : [currentUser.name],
+      pcsKepala: sortirKepala || 0,
+      pcsBadan: sortirBadan || 0,
+      pcsKaki: sortirKaki || 0,
+      ballQuality: sortirQualityGrade,
+      pcsTotal: sortirTotal,
+      totalPcsProcessed: sortirTotal,
+      pcsLayakJual: sortirLayakJual,
+      pcsReject: sortirReject || 0,
+      costPerPcs: 0,
+      totalCost: 0,
+      status: 'selesai',
+      notes: sortirNotes.trim(),
+      recordedById: isEditingThis && editingMeasurement?.recordedById ? editingMeasurement.recordedById : currentUser.id,
+      recordedBy: isEditingThis && editingMeasurement?.recordedBy ? editingMeasurement.recordedBy : currentUser.name,
+      createdAt: isEditingThis && editingMeasurement ? editingMeasurement.createdAt : new Date().toISOString(),
+    };
+
+    setConfirmState({
+      isOpen: true,
+      title: isEditingThis ? 'Simpan Perubahan Sortir' : 'Simpan Data Sortir',
+      message: `${isEditingThis ? 'Perbarui' : 'Simpan'} hasil sortir "${finalName}" sebanyak ${formatNumber(sortirTotal)} pcs (${formatNumber(sortirLayakJual)} layak jual)?`,
+      onConfirm: () => {
+        setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        if (isEditingThis) {
+          StorageService.updateSteamSortir(record);
+          onNotify('Data sortir berhasil diperbarui.', 'success');
+        } else {
+          StorageService.addSteamSortir(record);
+          onNotify('Data sortir berhasil disimpan.', 'success');
+        }
+        onClearEditing();
+        setSortirInventoryId('');
+        setSortirBallName('');
+        setSortirKepala(0);
+        setSortirBadan(0);
+        setSortirKaki(0);
+        setSortirTotal(0);
+        setSortirReject(0);
+        setSortirNotes('');
+        onDoneNavigateToData('sortir');
+      },
+    });
+  };
+
+  // =========================================================================
+  // 7. PENGUKURAN STATE (Sortir, QC & Ukur Barang)
   // =========================================================================
   const [measDate, setMeasDate] = useState(getTodayString());
   const [measInventoryId, setMeasInventoryId] = useState('');
   const [measBallName, setMeasBallName] = useState('');
-  const [measProcess, setMeasProcess] = useState<'sortir' | 'steam' | 'sortir_dan_steam'>('sortir');
+  const [measProcess, setMeasProcess] = useState<'sortir' | 'steam' | 'bongkar_ball' | 'sortir_dan_steam'>('sortir');
   const [measWeightKg, setMeasWeightKg] = useState<number>(45);
   const [measKepala, setMeasKepala] = useState<number>(0);
   const [measBadan, setMeasBadan] = useState<number>(0);
@@ -540,7 +971,8 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       totalCost: 0,
       status: 'selesai',
       notes: measNotes.trim(),
-      recordedBy: currentUser.name,
+      recordedById: editingMeasurement?.recordedById || currentUser.id,
+      recordedBy: editingMeasurement?.recordedBy || currentUser.name,
       createdAt: editingMeasurement ? editingMeasurement.createdAt : new Date().toISOString(),
     };
 
@@ -575,7 +1007,7 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
     permissions.allowedInputTabs.includes(tab.key)
   );
   const availableAttRoles = permissions.canOnlySelfAttendance
-    ? allowedWorkRolesForSelf
+    ? Array.from(new Set([...allowedWorkRolesForSelf, 'bongkar_ball' as UserRole, 'training' as UserRole]))
     : ALL_WORK_ROLES;
 
   return (
@@ -663,6 +1095,15 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
                       const workRoles = found.roles.filter((r) => ALL_WORK_ROLES.includes(r));
                       if (workRoles.length > 0) setAttRoles(workRoles);
                       setAttHours(found.salaryType === 'hourly' ? 4 : 1);
+                      if (found.roles.includes('training')) {
+                        setAttTrainingTraineeName(found.trainingTraineeName || '');
+                        setAttTrainingTrainerName(found.trainingTrainerName || found.name || '');
+                        setAttTrainingTrainerId('');
+                      } else {
+                        setAttTrainingTraineeName('');
+                        setAttTrainingTrainerName('');
+                        setAttTrainingTrainerId('');
+                      }
                     }
                   }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
@@ -683,7 +1124,7 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-2">Role Pekerjaan Saat Hadir</label>
-            <div className={`grid ${availableAttRoles.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
+            <div className={`grid ${availableAttRoles.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'} gap-2`}>
               {availableAttRoles.map((r) => {
                 const checked = attRoles.includes(r);
                 return (
@@ -702,6 +1143,82 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
                 );
               })}
             </div>
+
+            {attRoles.includes('training') && (
+              <div className="mt-3 p-4 rounded-xl bg-orange-50/80 border border-orange-200 space-y-3">
+                <div className="text-xs font-bold text-orange-800">
+                  Data Sesi Training
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Nama Calon Pegawai yang Ditraining <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={attTrainingTraineeName}
+                      onChange={(e) => setAttTrainingTraineeName(e.target.value)}
+                      placeholder="Contoh: Rina (Calon Host)"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Atas Nama Siapa yang Trainingnya (Trainer / Pendamping) <span className="text-rose-600">*</span>
+                    </label>
+                    <div className="space-y-1.5">
+                      <select
+                        value={
+                          attTrainingTrainerId
+                            ? attTrainingTrainerId
+                            : attTrainingTrainerName === currentUser.name
+                              ? '__owner__'
+                              : attTrainingTrainerName
+                                ? '__manual__'
+                                : ''
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === '__owner__') {
+                            setAttTrainingTrainerId(currentUser.id);
+                            setAttTrainingTrainerName(currentUser.name);
+                          } else if (v === '__manual__' || v === '') {
+                            setAttTrainingTrainerId('');
+                            setAttTrainingTrainerName('');
+                          } else {
+                            const foundTrainer = employees.find((em) => em.id === v);
+                            setAttTrainingTrainerId(v);
+                            setAttTrainingTrainerName(foundTrainer?.name || '');
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-medium"
+                      >
+                        <option value="">-- Pilih Trainer / Ketik Manual --</option>
+                        <option value="__owner__">{currentUser.name} (Akun Aktif)</option>
+                        {employees.map((em) => (
+                          <option key={em.id} value={em.id}>
+                            {em.name} ({em.roles.map((r) => roleLabels[r] || r).join(', ')})
+                          </option>
+                        ))}
+                        <option value="__manual__">Ketik Nama Manual...</option>
+                      </select>
+                      <input
+                        type="text"
+                        required
+                        value={attTrainingTrainerName}
+                        onChange={(e) => {
+                          setAttTrainingTrainerId('');
+                          setAttTrainingTrainerName(e.target.value);
+                        }}
+                        placeholder="Nama trainer / penanggung jawab training"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1172,7 +1689,609 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* FORM 4: INPUT PENGUKURAN */}
+      {/* FORM 4: INPUT STEAM */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'steam' && (
+        <form onSubmit={handleSaveSteam} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {editingMeasurement?.processType === 'steam' ? 'Edit Data Steam' : 'Input Steam Barang'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Catat jumlah baju yang selesai di-steam, layak jual, dan reject
+              </p>
+            </div>
+            {editingMeasurement?.processType === 'steam' && (
+              <button
+                type="button"
+                onClick={onClearEditing}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer"
+              >
+                Batal Edit
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tanggal Steam</label>
+              <input
+                type="date"
+                value={steamDate}
+                onChange={(e) => setSteamDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih dari Stok (Opsional)</label>
+              <select
+                value={steamInventoryId}
+                onChange={(e) => handleSelectSteamInventory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+              >
+                <option value="">-- Ketik nama barang secara manual --</option>
+                {inventoryList.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.ballType} ({formatNumber(b.pcsCount)} pcs)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama Barang / Ball</label>
+              <input
+                type="text"
+                value={steamBallName}
+                onChange={(e) => setSteamBallName(e.target.value)}
+                placeholder="Misal: Ball Kemeja Flanel #04"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Total Pcs Di-Steam</label>
+              <CommaNumberInput
+                value={steamTotal}
+                onChange={setSteamTotal}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Barang Reject / Rusak (Pcs)</label>
+              <CommaNumberInput
+                value={steamReject}
+                onChange={setSteamReject}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Layak Jual (Otomatis)</label>
+              <div className="px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm font-bold text-emerald-700 font-mono-num">
+                {formatNumber(steamLayakJual)} pcs
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Petugas Steam</label>
+              <div className="flex flex-wrap gap-1.5">
+                {employees.map((emp) => {
+                  const selected = steamEmpIds.includes(emp.id);
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() =>
+                        setSteamEmpIds((prev) =>
+                          prev.includes(emp.id) ? prev.filter((x) => x !== emp.id) : [...prev, emp.id]
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        selected
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {emp.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan Steam (Opsional)</label>
+              <input
+                type="text"
+                value={steamNotes}
+                onChange={(e) => setSteamNotes(e.target.value)}
+                placeholder="Misal: Steam uap shift siang, rapih siap gantung"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => onDoneNavigateToData('steam')}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+            >
+              Lihat Data Steam
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{editingMeasurement?.processType === 'steam' ? 'Simpan Perubahan' : 'Simpan Steam'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ===================================================================== */}
+      {/* FORM 5: INPUT BONGKAR BALL */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'bongkar_ball' && (
+        <form onSubmit={handleSaveBongkarBall} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {editingMeasurement?.processType === 'bongkar_ball' ? 'Edit Data Bongkar Ball' : 'Input Bongkar Ball'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Catat pembongkaran ball karung, berat ball, dan total isi pcs hasil bongkar
+              </p>
+            </div>
+            {editingMeasurement?.processType === 'bongkar_ball' && (
+              <button
+                type="button"
+                onClick={onClearEditing}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer"
+              >
+                Batal Edit
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tanggal Bongkar Ball</label>
+              <input
+                type="date"
+                value={bbDate}
+                onChange={(e) => setBbDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih dari Stok (Opsional)</label>
+              <select
+                value={bbInventoryId}
+                onChange={(e) => handleSelectBbInventory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+              >
+                <option value="">-- Ketik nama ball secara manual --</option>
+                {inventoryList.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.ballType} ({formatNumber(b.pcsCount)} pcs)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama / Kode Ball</label>
+              <input
+                type="text"
+                value={bbBallName}
+                onChange={(e) => setBbBallName(e.target.value)}
+                placeholder="Misal: Ball Hoodie Korea #12"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Berat Ball (Kg)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={bbWeightKg}
+                  onChange={(e) => setBbWeightKg(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold font-mono-num"
+                />
+                <div className="flex items-center gap-1 shrink-0">
+                  {[40, 45, 50, 100].map((kg) => (
+                    <button
+                      key={kg}
+                      type="button"
+                      onClick={() => setBbWeightKg(kg)}
+                      className={`px-2.5 py-2 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        bbWeightKg === kg
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {kg}kg
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+              Rincian kelas di bawah bersifat opsional saat bongkar karung — isi jika langsung dipisahkan saat buka ball.
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="text-xs font-semibold text-slate-700">
+              Rincian Kelas Awal Hasil Bongkar (Opsional - Otomatis Menjumlah Total Isi)
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Kepala</label>
+                <CommaNumberInput
+                  value={bbKepala}
+                  onChange={(v) => handleBbClassUpdate(v, bbBadan, bbKaki)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Badan</label>
+                <CommaNumberInput
+                  value={bbBadan}
+                  onChange={(v) => handleBbClassUpdate(bbKepala, v, bbKaki)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Kaki</label>
+                <CommaNumberInput
+                  value={bbKaki}
+                  onChange={(v) => handleBbClassUpdate(bbKepala, bbBadan, v)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Total Isi Hasil Bongkar (Pcs)</label>
+              <CommaNumberInput
+                value={bbTotal}
+                onChange={setBbTotal}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Reject / Rusak (Pcs)</label>
+              <CommaNumberInput
+                value={bbReject}
+                onChange={setBbReject}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Layak Jual (Otomatis)</label>
+              <div className="px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm font-bold text-emerald-700 font-mono-num">
+                {formatNumber(bbLayakJual)} pcs
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Petugas Bongkar Ball</label>
+              <div className="flex flex-wrap gap-1.5">
+                {employees.map((emp) => {
+                  const selected = bbEmpIds.includes(emp.id);
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() =>
+                        setBbEmpIds((prev) =>
+                          prev.includes(emp.id) ? prev.filter((x) => x !== emp.id) : [...prev, emp.id]
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        selected
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {emp.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan (Opsional)</label>
+              <input
+                type="text"
+                value={bbNotes}
+                onChange={(e) => setBbNotes(e.target.value)}
+                placeholder="Misal: Ball segel utuh, isi campur jaket & crewneck"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => onDoneNavigateToData('bongkar_ball')}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+            >
+              Lihat Data Bongkar Ball
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{editingMeasurement?.processType === 'bongkar_ball' ? 'Simpan Perubahan' : 'Simpan Bongkar Ball'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ===================================================================== */}
+      {/* FORM 6: INPUT SORTIR */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'sortir' && (
+        <form onSubmit={handleSaveSortir} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {editingMeasurement?.processType === 'sortir' ? 'Edit Data Sortir' : 'Input Sortir Barang'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Catat hasil penyortiran per kelas (Kepala, Badan, Kaki), kualitas ball, layak jual &amp; reject
+              </p>
+            </div>
+            {editingMeasurement?.processType === 'sortir' && (
+              <button
+                type="button"
+                onClick={onClearEditing}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer"
+              >
+                Batal Edit
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tanggal Sortir</label>
+              <input
+                type="date"
+                value={sortirDate}
+                onChange={(e) => setSortirDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih dari Stok (Opsional)</label>
+              <select
+                value={sortirInventoryId}
+                onChange={(e) => handleSelectSortirInventory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+              >
+                <option value="">-- Ketik nama barang secara manual --</option>
+                {inventoryList.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.ballType} ({formatNumber(b.pcsCount)} pcs)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Berat Barang / Ball (Kg)</label>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={sortirWeightKg}
+                onChange={(e) => setSortirWeightKg(parseFloat(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold font-mono-num"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama Barang / Ball</label>
+            <input
+              type="text"
+              value={sortirBallName}
+              onChange={(e) => setSortirBallName(e.target.value)}
+              placeholder="Misal: Ball Blouse Korea #08"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
+              required
+            />
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-semibold text-slate-700">
+                Rincian Kelas Sortir (Otomatis Menjumlah Total Disortir)
+              </div>
+              {sortirTotal > 0 && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700">
+                  Kualitas Ball: {sortirQualityInfo.label}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Kepala</label>
+                <CommaNumberInput
+                  value={sortirKepala}
+                  onChange={(v) => handleSortirClassUpdate(v, sortirBadan, sortirKaki)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Badan</label>
+                <CommaNumberInput
+                  value={sortirBadan}
+                  onChange={(v) => handleSortirClassUpdate(sortirKepala, v, sortirKaki)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">Kelas Kaki</label>
+                <CommaNumberInput
+                  value={sortirKaki}
+                  onChange={(v) => handleSortirClassUpdate(sortirKepala, sortirBadan, v)}
+                  suffix="pcs"
+                  placeholder="0"
+                  className="!bg-white !text-slate-900 !border-slate-300 !text-xs !py-2 font-mono-num"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Total Pcs Disortir</label>
+              <CommaNumberInput
+                value={sortirTotal}
+                onChange={setSortirTotal}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Barang Reject / Cacat (Pcs)</label>
+              <CommaNumberInput
+                value={sortirReject}
+                onChange={setSortirReject}
+                suffix="pcs"
+                placeholder="0"
+                className="!bg-white !text-slate-900 !border-slate-300 !text-sm !py-2.5 font-mono-num"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Layak Jual (Otomatis)</label>
+              <div className="px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm font-bold text-emerald-700 font-mono-num">
+                {formatNumber(sortirLayakJual)} pcs
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Petugas Sortir</label>
+              <div className="flex flex-wrap gap-1.5">
+                {employees.map((emp) => {
+                  const selected = sortirEmpIds.includes(emp.id);
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() =>
+                        setSortirEmpIds((prev) =>
+                          prev.includes(emp.id) ? prev.filter((x) => x !== emp.id) : [...prev, emp.id]
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        selected
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {emp.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan Sortir (Opsional)</label>
+              <input
+                type="text"
+                value={sortirNotes}
+                onChange={(e) => setSortirNotes(e.target.value)}
+                placeholder="Catatan kualitas, noda, atau pembagian grade"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => onDoneNavigateToData('sortir')}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+            >
+              Lihat Data Sortir
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{editingMeasurement?.processType === 'sortir' ? 'Simpan Perubahan' : 'Simpan Sortir'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ===================================================================== */}
+      {/* FORM 7: INPUT PENGUKURAN */}
       {/* ===================================================================== */}
       {activeSubTab === 'pengukuran' && (
         <form onSubmit={handleSaveMeasurement} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
@@ -1212,11 +2331,12 @@ export const EmployeeInputViews: React.FC<EmployeeInputViewsProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Jenis Proses</label>
               <select
                 value={measProcess}
-                onChange={(e) => setMeasProcess(e.target.value as 'sortir' | 'steam' | 'sortir_dan_steam')}
+                onChange={(e) => setMeasProcess(e.target.value as 'sortir' | 'steam' | 'bongkar_ball' | 'sortir_dan_steam')}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
               >
                 <option value="sortir">Sortir &amp; Pengukuran</option>
                 <option value="steam">Steam / Finishing</option>
+                <option value="bongkar_ball">Bongkar Ball</option>
                 <option value="sortir_dan_steam">Sortir + Steam Lengkap</option>
               </select>
             </div>

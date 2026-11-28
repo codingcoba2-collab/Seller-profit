@@ -15,6 +15,7 @@ import {
   formatDateIndo,
   formatNumber,
   formatRupiah,
+  formatTrainingSummary,
   getTodayString,
   roleLabels,
 } from '../../utils/formatters';
@@ -48,6 +49,7 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => StorageService.getAttendance(storeId));
   const [sales, setSales] = useState<SalesRecord[]>(() => StorageService.getSales(storeId));
   const [measurements, setMeasurements] = useState<SteamSortirRecord[]>(() => StorageService.getSteamSortir(storeId));
+  const [refreshTick, setRefreshTick] = useState(0);
   const [previewProof, setPreviewProof] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
       setAttendance(StorageService.getAttendance(storeId));
       setSales(StorageService.getSales(storeId));
       setMeasurements(StorageService.getSteamSortir(storeId));
+      setRefreshTick((t) => t + 1);
     };
     const unsub = StorageService.subscribe(refresh);
     return () => unsub();
@@ -82,8 +85,17 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
       return true;
     };
 
-    return calculateSingleEmployeeSalary(storeId, employee, attendance, sales, measurements, filterFn);
-  }, [storeId, employee, attendance, sales, measurements, period, selectedMonth, todayStr]);
+    const targetMonth =
+      period === 'monthly'
+        ? todayStr.slice(0, 7)
+        : period === 'specific_month'
+        ? selectedMonth
+        : undefined;
+
+    return calculateSingleEmployeeSalary(storeId, employee, attendance, sales, measurements, filterFn, {
+      targetMonth,
+    });
+  }, [storeId, employee, attendance, sales, measurements, period, selectedMonth, todayStr, refreshTick]);
 
   const getPcsSoldForAttendance = (att: AttendanceRecord): number => {
     const attDate = (att.date || '').slice(0, 10);
@@ -211,12 +223,38 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
             <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono-num tracking-tight mt-1">
               {formatRupiah(salary.totalGrandSalary)}
             </div>
+            {salary.previousUnpaidCarryover > 0 && (
+              <div className="text-[11px] font-semibold text-amber-700 mt-1">
+                Gaji Periode Ini: {formatRupiah(salary.currentPeriodSalary)} + Sisa Bulan Lalu: {formatRupiah(salary.previousUnpaidCarryover)}
+              </div>
+            )}
           </div>
 
           <div className={`px-3 py-1.5 rounded-lg border text-xs font-semibold self-start sm:self-center ${statusMeta.cls}`}>
             {statusMeta.label}
           </div>
         </div>
+
+        {salary.previousUnpaidCarryover > 0 && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2 font-bold text-amber-900">
+              <span>Akumulasi Sisa Gaji Bulan Lalu (Belum Terbayar)</span>
+              <span className="font-mono-num text-amber-700">+ {formatRupiah(salary.previousUnpaidCarryover)}</span>
+            </div>
+            {salary.carryoverBreakdown.length > 0 && (
+              <div className="space-y-0.5 text-[11px] text-amber-800">
+                {salary.carryoverBreakdown.map((c) => (
+                  <div key={c.month} className="flex items-center justify-between gap-2">
+                    <span>
+                      • {formatMonthLabel(c.month)} (Hak {formatRupiah(c.earned)} - Bayar {formatRupiah(c.paid)})
+                    </span>
+                    <span className="font-semibold font-mono-num">sisa {formatRupiah(c.unpaidEnd)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
@@ -319,6 +357,7 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
             <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
               {sortedAttendanceRecords.map((att) => {
                 const pcsSold = getPcsSoldForAttendance(att);
+                const trainingInfo = formatTrainingSummary(att);
                 return (
                   <div
                     key={att.id}
@@ -327,6 +366,11 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-slate-900 truncate">{formatDateIndo(att.date)}</div>
                       <div className="text-[11px] text-slate-500">{formatAttendanceRole(att.role)}</div>
+                      {trainingInfo && (
+                        <div className="text-[11px] text-orange-700 font-semibold truncate mt-0.5">
+                          {trainingInfo}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 shrink-0">
                       <div className="text-right font-mono-num">

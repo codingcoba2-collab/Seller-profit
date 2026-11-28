@@ -69,6 +69,8 @@ export const roleLabels: Record<string, string> = {
   admin_toko: 'Admin Toko',
   sortir: 'Sortir',
   steam: 'Steam',
+  bongkar_ball: 'Bongkar Ball',
+  training: 'Training',
   multi_role: 'Bonus Rangkap Role',
   monthly_bonus: 'Bonus Target Omzet Bulanan',
 };
@@ -81,6 +83,8 @@ export const roleBadgeColors: Record<string, string> = {
   admin_toko: 'bg-[#25F4EE]/15 text-[#25F4EE] border-[#25F4EE]/30',
   sortir: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
   steam: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  bongkar_ball: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  training: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
   multi_role: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
 };
 
@@ -145,6 +149,18 @@ export const formatAttendanceRole = (roleStr: string | undefined): string => {
     return roleLabels[parts[0]] || parts[0];
   }
   return parts.map(p => roleLabels[p] || p).join(' & ');
+};
+
+export const formatTrainingSummary = (att: {
+  trainingTraineeName?: string;
+  trainingTrainerName?: string;
+}): string | null => {
+  const trainee = (att.trainingTraineeName || '').trim();
+  const trainer = (att.trainingTrainerName || '').trim();
+  if (!trainee && !trainer) return null;
+  if (trainee && trainer) return `Calon: ${trainee} • a.n. ${trainer}`;
+  if (trainee) return `Calon: ${trainee}`;
+  return `a.n. ${trainer}`;
 };
 
 /**

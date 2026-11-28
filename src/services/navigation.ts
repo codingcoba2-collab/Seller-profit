@@ -131,7 +131,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Sortir & QC',
         icon: Scissors,
         iconColor: 'text-teal-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -141,7 +141,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Kualitas Ball',
         icon: Package,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -184,7 +184,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Presensi Tim',
         icon: Clock,
         iconColor: 'text-blue-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -204,7 +204,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Analisis Tren',
         icon: BarChart3,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -232,7 +232,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Evaluasi AI',
         icon: Award,
         iconColor: 'text-amber-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -242,7 +242,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'AI Bundling',
         icon: Calculator,
         iconColor: 'text-emerald-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
     ],
@@ -267,7 +267,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Payroll Tim',
         icon: Receipt,
         iconColor: 'text-cyan-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -319,7 +319,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Live Info',
         icon: Megaphone,
         iconColor: 'text-[#FE2C55]',
-        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -329,7 +329,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Chat & Personal',
         icon: MessageCircle,
         iconColor: 'text-[#25F4EE]',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -339,7 +339,7 @@ export const CATEGORIES: CategoryDefinition[] = [
         badgeText: 'Contact List',
         icon: Users,
         iconColor: 'text-emerald-400',
-        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam'],
+        allowedRoles: ['owner', 'manager', 'investor', 'admin_toko', 'host', 'sortir', 'steam', 'bongkar_ball', 'training'],
         allEmployeesCanView: true,
       },
       {
@@ -550,7 +550,11 @@ export function isRouteAllowed(route: RoutePath, user: CurrentUser): boolean {
     return true;
   }
 
-  if (route === '/penjualan/transaksi' || route === '/penjualan/retur') {
+  if (route === '/penjualan/transaksi') {
+    return user.isOwner || isManager || user.roles.includes('admin_toko') || user.roles.includes('host');
+  }
+
+  if (route === '/penjualan/retur') {
     return user.isOwner || isManager || user.roles.includes('admin_toko');
   }
 

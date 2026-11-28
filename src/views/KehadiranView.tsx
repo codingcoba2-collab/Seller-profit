@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storage';
 import { registerSubViewBackHandler } from '../services/navigation';
 import { AttendanceRecord, CurrentUser, Employee, UserRole } from '../types';
-import { formatDateIndo, getTodayString, roleLabels, roleBadgeColors, formatAttendanceRole } from '../utils/formatters';
+import { formatDateIndo, getTodayString, roleLabels, roleBadgeColors, formatAttendanceRole, formatTrainingSummary } from '../utils/formatters';
 import { 
   CalendarCheck, 
   Trash2, 
@@ -99,6 +99,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
   const [selectedRolesList, setSelectedRolesList] = useState<UserRole[]>([]);
   const [hoursWorked, setHoursWorked] = useState<number>(4);
   const [notes, setNotes] = useState('');
+  const [trainingTraineeName, setTrainingTraineeName] = useState('');
+  const [trainingTrainerId, setTrainingTrainerId] = useState('');
+  const [trainingTrainerName, setTrainingTrainerName] = useState('');
 
   const loadData = () => {
     const attList = StorageService.getAttendance(currentUser.storeId);
@@ -113,6 +116,11 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       setSelectedRole(matched.roles.join(','));
       setSelectedRolesList(matched.roles);
       setHoursWorked(matched.salaryType === 'hourly' ? 4 : 1);
+      if (matched.roles.includes('training')) {
+        setTrainingTraineeName(matched.trainingTraineeName || '');
+        setTrainingTrainerName(matched.trainingTrainerName || matched.name || '');
+        setTrainingTrainerId('');
+      }
     }
   };
 
@@ -143,6 +151,15 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       setSelectedRole(emp.roles.join(','));
       setSelectedRolesList(emp.roles);
       setHoursWorked(emp.salaryType === 'hourly' ? 4 : 1);
+      if (emp.roles.includes('training')) {
+        setTrainingTraineeName(emp.trainingTraineeName || '');
+        setTrainingTrainerName(emp.trainingTrainerName || emp.name || '');
+        setTrainingTrainerId('');
+      } else {
+        setTrainingTraineeName('');
+        setTrainingTrainerName('');
+        setTrainingTrainerId('');
+      }
     }
   };
 
@@ -156,6 +173,14 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       nextRoles = selectedRolesList.filter(r => r !== role);
     } else {
       nextRoles = [...selectedRolesList, role];
+      if (role === 'training' && currentEmp) {
+        if (!trainingTraineeName && currentEmp.trainingTraineeName) {
+          setTrainingTraineeName(currentEmp.trainingTraineeName);
+        }
+        if (!trainingTrainerName) {
+          setTrainingTrainerName(currentEmp.trainingTrainerName || currentEmp.name || '');
+        }
+      }
     }
     setSelectedRolesList(nextRoles);
     setSelectedRole(nextRoles.join(','));
@@ -170,6 +195,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     setSelectedRolesList(splitRoles.length > 0 ? splitRoles : ['host']);
     setHoursWorked(att.hoursWorked || (att.salaryType === 'hourly' ? 4 : 1));
     setNotes(att.notes || '');
+    setTrainingTraineeName(att.trainingTraineeName || '');
+    setTrainingTrainerId(att.trainingTrainerId || '');
+    setTrainingTrainerName(att.trainingTrainerName || '');
     setInputStep(1);
     setViewMode('input');
   };
@@ -178,6 +206,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     setEditingId(null);
     setDate(getTodayString());
     setNotes('');
+    setTrainingTraineeName('');
+    setTrainingTrainerId('');
+    setTrainingTrainerName('');
     setInputStep(1);
   };
 
@@ -185,6 +216,16 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
     e.preventDefault();
     if (!currentEmp) {
       onNotify('Pilih pegawai terlebih dahulu!', 'error');
+      return;
+    }
+
+    const isTraining = selectedRolesList.includes('training');
+    if (isTraining && !trainingTraineeName.trim()) {
+      onNotify('Nama calon pegawai yang ditraining wajib diisi!', 'error');
+      return;
+    }
+    if (isTraining && !trainingTrainerName.trim()) {
+      onNotify('Atas nama trainer yang melatih wajib diisi!', 'error');
       return;
     }
 
@@ -201,6 +242,15 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       salaryType: currentEmp.salaryType,
       hoursWorked: currentEmp.salaryType === 'hourly' ? (hoursWorked || 0) : 1,
       notes,
+      recordedById: currentUser.id,
+      recordedBy: currentUser.name,
+      ...(isTraining
+        ? {
+            trainingTraineeName: trainingTraineeName.trim(),
+            trainingTrainerName: trainingTrainerName.trim(),
+            ...(trainingTrainerId ? { trainingTrainerId } : {}),
+          }
+        : {}),
       createdAt: new Date().toISOString(),
     };
 
@@ -267,7 +317,12 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        if (!a.employeeName.toLowerCase().includes(q) && !(a.notes || '').toLowerCase().includes(q)) {
+        if (
+          !a.employeeName.toLowerCase().includes(q) &&
+          !(a.notes || '').toLowerCase().includes(q) &&
+          !(a.trainingTraineeName || '').toLowerCase().includes(q) &&
+          !(a.trainingTrainerName || '').toLowerCase().includes(q)
+        ) {
           return false;
         }
       }
@@ -545,7 +600,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {(['host', 'admin', 'operator', 'packing', 'steam', 'sortir', 'kasir'] as UserRole[]).map(roleKey => {
+                      {(['host', 'admin_toko', 'sortir', 'steam', 'bongkar_ball', 'training'] as UserRole[]).map(roleKey => {
                         const isRegistered = currentEmp.roles.includes(roleKey);
                         const isChecked = selectedRolesList.includes(roleKey);
                         return (
@@ -569,6 +624,85 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                         );
                       })}
                     </div>
+
+                    {selectedRolesList.includes('training') && (
+                      <div className="mt-3 p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/30 space-y-3">
+                        <div className="text-xs font-black text-orange-300 flex items-center gap-1.5">
+                          <span>🎓 Data Sesi Training</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Nama Calon Pegawai yang Ditraining <span className="text-[#FE2C55]">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={trainingTraineeName}
+                              onChange={e => setTrainingTraineeName(e.target.value)}
+                              placeholder="Contoh: Rina (Calon Host)"
+                              className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Atas Nama Siapa yang Trainingnya (Trainer / Pendamping) <span className="text-[#FE2C55]">*</span>
+                            </label>
+                            <div className="space-y-1.5">
+                              <select
+                                value={
+                                  trainingTrainerId
+                                    ? trainingTrainerId
+                                    : trainingTrainerName === currentUser.name
+                                      ? '__owner__'
+                                      : trainingTrainerName
+                                        ? '__manual__'
+                                        : ''
+                                }
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  if (v === '__owner__') {
+                                    setTrainingTrainerId(currentUser.id);
+                                    setTrainingTrainerName(currentUser.name);
+                                  } else if (v === '__manual__') {
+                                    setTrainingTrainerId('');
+                                    setTrainingTrainerName('');
+                                  } else if (v === '') {
+                                    setTrainingTrainerId('');
+                                    setTrainingTrainerName('');
+                                  } else {
+                                    const foundTrainer = employees.find(em => em.id === v);
+                                    setTrainingTrainerId(v);
+                                    setTrainingTrainerName(foundTrainer?.name || '');
+                                  }
+                                }}
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                              >
+                                <option value="">-- Pilih Trainer / Ketik Manual --</option>
+                                <option value="__owner__">{currentUser.name} (Owner / Akun Aktif)</option>
+                                {employees.map(em => (
+                                  <option key={em.id} value={em.id}>
+                                    {em.name} ({em.roles.map(r => roleLabels[r] || r).join(', ')})
+                                  </option>
+                                ))}
+                                <option value="__manual__">Ketik Nama Manual...</option>
+                              </select>
+                              <input
+                                type="text"
+                                required
+                                value={trainingTrainerName}
+                                onChange={e => {
+                                  setTrainingTrainerId('');
+                                  setTrainingTrainerName(e.target.value);
+                                }}
+                                placeholder="Nama trainer / penanggung jawab training"
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -744,7 +878,9 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                   { key: 'host', label: 'Host Live' },
                   { key: 'sortir', label: 'Sortir' },
                   { key: 'steam', label: 'Steam' },
+                  { key: 'bongkar_ball', label: 'Bongkar Ball' },
                   { key: 'admin', label: 'Admin Toko' },
+                  { key: 'training', label: 'Training' },
                 ].map(f => (
                   <button
                     key={f.key}
@@ -887,6 +1023,7 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                       filteredList.map(att => {
                         const iconBg = 'bg-[#062c2f] border border-[#0d6e6f] text-[#00f2fe]';
                         const firstChar = (att.employeeName || 'P').charAt(0).toUpperCase();
+                        const trainingInfo = formatTrainingSummary(att);
 
                         return (
                           <tr
@@ -911,8 +1048,13 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                                     {att.employeeName}
                                   </span>
                                   <span className="inline-block mt-0.5 text-[5.5px] xs:text-[6px] sm:text-[7px] font-semibold px-0.5 xs:px-1 py-[0.5px] rounded border bg-[#0d213b] text-[#38bdf8] border-[#1a4275] leading-none whitespace-nowrap">
-                                    {att.role ? att.role.split(',').map(r => roleLabels[r as UserRole] || r).join(', ') : 'Host Live'}
+                                    {att.role ? att.role.split(',').map(r => roleLabels[r.trim() as UserRole] || r).join(', ') : 'Host Live'}
                                   </span>
+                                  {trainingInfo && (
+                                    <span className="block mt-0.5 text-[6px] xs:text-[6.5px] sm:text-[8px] text-orange-300 font-semibold truncate">
+                                      🎓 {trainingInfo}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -988,9 +1130,28 @@ export const KehadiranView: React.FC<KehadiranViewProps> = ({
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-slate-400">Role Pekerjaan:</span>
                       <span className="font-semibold text-cyan-300">
-                        {selectedDetailAtt.role ? selectedDetailAtt.role.split(',').map(r => roleLabels[r as UserRole] || r).join(', ') : 'Host Live'}
+                        {selectedDetailAtt.role ? selectedDetailAtt.role.split(',').map(r => roleLabels[r.trim() as UserRole] || r).join(', ') : 'Host Live'}
                       </span>
                     </div>
+
+                    {((selectedDetailAtt.role || '').toLowerCase().includes('training') ||
+                      selectedDetailAtt.trainingTraineeName ||
+                      selectedDetailAtt.trainingTrainerName) && (
+                      <>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="text-orange-300">Calon Pegawai Ditraining:</span>
+                          <span className="font-bold text-white">
+                            {selectedDetailAtt.trainingTraineeName || '-'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="text-orange-300">Atas Nama Trainer:</span>
+                          <span className="font-bold text-orange-200">
+                            {selectedDetailAtt.trainingTrainerName || '-'}
+                          </span>
+                        </div>
+                      </>
+                    )}
 
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-slate-400">Skema Penggajian:</span>

@@ -8,7 +8,7 @@ import {
   UserRole,
 } from '../types';
 import { StorageService } from '../services/storage';
-import { formatRupiah } from './formatters';
+import { formatRupiah, roleLabels } from './formatters';
 import { calculateHostPeriodIncentives } from './incentiveCalculator';
 
 export interface EmployeeSalaryBreakdownItem {
@@ -17,12 +17,23 @@ export interface EmployeeSalaryBreakdownItem {
   amount: number;
 }
 
+export interface MonthlyCarryoverEntry {
+  month: string; // YYYY-MM
+  earned: number;
+  paid: number;
+  carryoverIn: number;
+  unpaidEnd: number;
+}
+
 export interface EmployeeSalarySummary {
   employee: Employee;
   totalBaseSalary: number;
   totalHours: number;
   totalDays: number;
   totalIncentive: number;
+  currentPeriodSalary: number;
+  previousUnpaidCarryover: number;
+  carryoverBreakdown: MonthlyCarryoverEntry[];
   totalGrandSalary: number;
   attendanceCount: number;
   attendanceRecords: AttendanceRecord[];
@@ -60,17 +71,20 @@ export function resolveCurrentEmployeeProfile(currentUser: CurrentUser): Employe
   };
 }
 
-export function calculateSingleEmployeeSalary(
+function evaluatePeriodEarnings(
   storeId: string,
   emp: Employee,
   allAttendance: AttendanceRecord[],
   allSales: SalesRecord[],
   steamSortirLogs: SteamSortirRecord[],
-  filterByPeriod: (dateStr: string) => boolean
-): EmployeeSalarySummary {
+  filterByPeriod: (dateStr: string) => boolean,
+  requireActivityForFixedAndStoreBonus: boolean
+) {
+  const empNameLower = (emp.name || '').trim().toLowerCase();
+
   const empAttendance = allAttendance.filter(
     (a) =>
-      (a.employeeId === emp.id || a.employeeName?.toLowerCase() === emp.name.toLowerCase()) &&
+      (a.employeeId === emp.id || a.employeeName?.trim().toLowerCase() === empNameLower) &&
       filterByPeriod(a.date)
   );
 
@@ -99,6 +113,42 @@ export function calculateSingleEmployeeSalary(
 
   let empTotalPackages = 0;
   let empTotalPcs = 0;
+  let hasEmployeeSalesOrLogs = false;
+
+  const hasSalesMatch = filteredSales.some(
+    (s) =>
+      s.hostIds?.includes(emp.id) ||
+      s.hostNames?.some((hn) => hn.toLowerCase().includes(empNameLower)) ||
+      s.adminIds?.includes(emp.id) ||
+      s.adminId === emp.id ||
+      s.adminNames?.some((an) => an.toLowerCase().includes(empNameLower)) ||
+      (s.adminName && s.adminName.toLowerCase().includes(empNameLower))
+  );
+
+  const hasSortirSteamMatch = steamSortirLogs.some(
+    (log) =>
+      filterByPeriod(log.date) &&
+      (log.employeeIds?.includes(emp.id) ||
+        log.employeeNames?.some((en) => en.toLowerCase().includes(empNameLower)))
+  );
+
+  if (hasSalesMatch || hasSortirSteamMatch) {
+    hasEmployeeSalesOrLogs = true;
+  }
+
+  const hasAnyEmployeeActivity = empAttendance.length > 0 || hasEmployeeSalesOrLogs;
+
+  if (requireActivityForFixedAndStoreBonus && !hasAnyEmployeeActivity) {
+    return {
+      empAttendance,
+      totalBaseSalary: 0,
+      totalHours: 0,
+      totalDays: 0,
+      totalIncentive: 0,
+      incentiveBreakdowns: [],
+      earnedTotal: 0,
+    };
+  }
 
   emp.roles.forEach((role) => {
     const config = emp.incentiveConfigs?.[role];
@@ -121,8 +171,8 @@ export function calculateSingleEmployeeSalary(
         (s) =>
           s.adminIds?.includes(emp.id) ||
           s.adminId === emp.id ||
-          s.adminNames?.some((an) => an.toLowerCase().includes(emp.name.toLowerCase())) ||
-          (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
+          s.adminNames?.some((an) => an.toLowerCase().includes(empNameLower)) ||
+          (s.adminName && s.adminName.toLowerCase().includes(empNameLower))
       );
 
       const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
@@ -181,12 +231,15 @@ export function calculateSingleEmployeeSalary(
           amount,
         });
       }
-    } else if (role === 'sortir' || role === 'steam') {
+    } else if (role === 'sortir' || role === 'steam' || role === 'bongkar_ball') {
       const workerLogs = steamSortirLogs.filter((log) => {
-        const isMatchRole = log.processType === role || log.processType === 'sortir_dan_steam';
+        const isMatchRole =
+          role === 'bongkar_ball'
+            ? log.processType === 'bongkar_ball'
+            : log.processType === role || log.processType === 'sortir_dan_steam';
         const isMatchEmp =
           log.employeeIds?.includes(emp.id) ||
-          log.employeeNames?.some((en) => en.toLowerCase().includes(emp.name.toLowerCase()));
+          log.employeeNames?.some((en) => en.toLowerCase().includes(empNameLower));
         return isMatchRole && isMatchEmp && filterByPeriod(log.date);
       });
 
@@ -203,10 +256,26 @@ export function calculateSingleEmployeeSalary(
         totalIncentive += amount;
         incentiveBreakdowns.push({
           role,
-          desc: `${totalPcsWorked} pcs layak jual (${role}) x ${formatRupiah(config.rate)}`,
+          desc: `${totalPcsWorked} pcs layak jual (${roleLabels[role] || role}) x ${formatRupiah(config.rate)}`,
+          amount,
+        });
+      } else if (config.type === 'fixed_amount') {
+        const amount = config.rate || 0;
+        totalIncentive += amount;
+        incentiveBreakdowns.push({
+          role,
+          desc: `Insentif Tetap ${roleLabels[role] || role}`,
           amount,
         });
       }
+    } else if (config.type === 'fixed_amount') {
+      const amount = config.rate || 0;
+      totalIncentive += amount;
+      incentiveBreakdowns.push({
+        role,
+        desc: `Insentif Tetap ${roleLabels[role] || role}`,
+        amount,
+      });
     }
   });
 
@@ -277,7 +346,180 @@ export function calculateSingleEmployeeSalary(
     }
   }
 
-  const totalGrandSalary = totalBaseSalary + totalIncentive;
+  return {
+    empAttendance,
+    totalBaseSalary,
+    totalHours,
+    totalDays,
+    totalIncentive,
+    incentiveBreakdowns,
+    earnedTotal: totalBaseSalary + totalIncentive,
+  };
+}
+
+/**
+ * Menghitung akumulasi sisa gaji yang belum terbayarkan dari bulan-bulan sebelumnya (< targetMonth).
+ * Setiap bulan dihitung berurutan:
+ *   sisaAkhirBulan = max(0, carryoverMasuk + hakGajiBulanIni - totalTerbayarBulanIni)
+ * sehingga sisa gaji yang belum lunas terus terbawa ke bulan-bulan selanjutnya sampai terbayar.
+ */
+export function calculatePreviousMonthsUnpaidCarryover(
+  storeId: string,
+  emp: Employee,
+  allAttendance: AttendanceRecord[],
+  allSales: SalesRecord[],
+  steamSortirLogs: SteamSortirRecord[],
+  targetMonth: string
+): { previousUnpaidCarryover: number; carryoverBreakdown: MonthlyCarryoverEntry[] } {
+  if (!targetMonth || !/^\d{4}-\d{2}$/.test(targetMonth)) {
+    return { previousUnpaidCarryover: 0, carryoverBreakdown: [] };
+  }
+
+  const empNameLower = (emp.name || '').trim().toLowerCase();
+  const allCashflows = StorageService.getCashflow(storeId);
+  const monthSet = new Set<string>();
+
+  const addValidMonth = (dateStr?: string) => {
+    if (!dateStr || dateStr.length < 7) return;
+    const ym = dateStr.slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym) && ym < targetMonth) {
+      monthSet.add(ym);
+    }
+  };
+
+  allAttendance.forEach((a) => {
+    if (a.employeeId === emp.id || a.employeeName?.trim().toLowerCase() === empNameLower) {
+      addValidMonth(a.date);
+    }
+  });
+
+  allSales.forEach((s) => {
+    const isMatched =
+      s.hostIds?.includes(emp.id) ||
+      s.hostNames?.some((hn) => hn.toLowerCase().includes(empNameLower)) ||
+      s.adminIds?.includes(emp.id) ||
+      s.adminId === emp.id ||
+      s.adminNames?.some((an) => an.toLowerCase().includes(empNameLower)) ||
+      (s.adminName && s.adminName.toLowerCase().includes(empNameLower));
+    if (isMatched) {
+      addValidMonth(s.date);
+    }
+  });
+
+  steamSortirLogs.forEach((l) => {
+    if (
+      l.employeeIds?.includes(emp.id) ||
+      l.employeeNames?.some((en) => en.toLowerCase().includes(empNameLower))
+    ) {
+      addValidMonth(l.date);
+    }
+  });
+
+  allCashflows.forEach((c) => {
+    if (
+      c.type === 'outflow' &&
+      (c.category === 'gaji' || c.category === 'gaji_pegawai' || c.category === 'kasbon') &&
+      (c.employeeId === emp.id || (!c.employeeId && c.description?.toLowerCase().includes(emp.id.toLowerCase())))
+    ) {
+      addValidMonth(c.date);
+    }
+  });
+
+  const sortedMonths = Array.from(monthSet).sort((a, b) => a.localeCompare(b));
+  if (sortedMonths.length === 0) {
+    return { previousUnpaidCarryover: 0, carryoverBreakdown: [] };
+  }
+
+  let runningCarryover = 0;
+  const history: MonthlyCarryoverEntry[] = [];
+
+  sortedMonths.forEach((ym) => {
+    const monthFilter = (d: string) => Boolean(d && d.slice(0, 7) === ym);
+    const { earnedTotal } = evaluatePeriodEarnings(
+      storeId,
+      emp,
+      allAttendance,
+      allSales,
+      steamSortirLogs,
+      monthFilter,
+      true
+    );
+
+    const paymentSummary = StorageService.getEmployeeSalaryPaymentSummary(
+      storeId,
+      emp.id,
+      0,
+      monthFilter
+    );
+    const paid = paymentSummary.totalPaid;
+    const unpaidEnd = Math.max(0, runningCarryover + earnedTotal - paid);
+
+    if (earnedTotal > 0 || paid > 0 || runningCarryover > 0) {
+      history.push({
+        month: ym,
+        earned: earnedTotal,
+        paid,
+        carryoverIn: runningCarryover,
+        unpaidEnd,
+      });
+    }
+
+    runningCarryover = unpaidEnd;
+  });
+
+  if (runningCarryover <= 0) {
+    return { previousUnpaidCarryover: 0, carryoverBreakdown: [] };
+  }
+
+  // Ambil hanya rangkaian bulan sejak sisa terakhir kali 0 agar rinciannya relevan
+  let lastSettledIdx = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].unpaidEnd === 0) {
+      lastSettledIdx = i;
+      break;
+    }
+  }
+  const activeChain = history.slice(lastSettledIdx + 1);
+
+  return {
+    previousUnpaidCarryover: runningCarryover,
+    carryoverBreakdown: activeChain,
+  };
+}
+
+export function calculateSingleEmployeeSalary(
+  storeId: string,
+  emp: Employee,
+  allAttendance: AttendanceRecord[],
+  allSales: SalesRecord[],
+  steamSortirLogs: SteamSortirRecord[],
+  filterByPeriod: (dateStr: string) => boolean,
+  options?: { targetMonth?: string }
+): EmployeeSalarySummary {
+  const periodResult = evaluatePeriodEarnings(
+    storeId,
+    emp,
+    allAttendance,
+    allSales,
+    steamSortirLogs,
+    filterByPeriod,
+    false
+  );
+
+  const { previousUnpaidCarryover, carryoverBreakdown } = options?.targetMonth
+    ? calculatePreviousMonthsUnpaidCarryover(
+        storeId,
+        emp,
+        allAttendance,
+        allSales,
+        steamSortirLogs,
+        options.targetMonth
+      )
+    : { previousUnpaidCarryover: 0, carryoverBreakdown: [] };
+
+  const currentPeriodSalary = periodResult.earnedTotal;
+  const totalGrandSalary = currentPeriodSalary + previousUnpaidCarryover;
+
   const paymentSummary = StorageService.getEmployeeSalaryPaymentSummary(
     storeId,
     emp.id,
@@ -287,14 +529,17 @@ export function calculateSingleEmployeeSalary(
 
   return {
     employee: emp,
-    totalBaseSalary,
-    totalHours,
-    totalDays,
-    totalIncentive,
+    totalBaseSalary: periodResult.totalBaseSalary,
+    totalHours: periodResult.totalHours,
+    totalDays: periodResult.totalDays,
+    totalIncentive: periodResult.totalIncentive,
+    currentPeriodSalary,
+    previousUnpaidCarryover,
+    carryoverBreakdown,
     totalGrandSalary,
-    attendanceCount: empAttendance.length,
-    attendanceRecords: empAttendance,
-    incentiveBreakdowns,
+    attendanceCount: periodResult.empAttendance.length,
+    attendanceRecords: periodResult.empAttendance,
+    incentiveBreakdowns: periodResult.incentiveBreakdowns,
     totalPaid: paymentSummary.totalPaid,
     totalGajiPaid: paymentSummary.totalGajiPaid,
     totalKasbon: paymentSummary.totalKasbon,

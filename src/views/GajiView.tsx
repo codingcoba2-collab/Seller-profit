@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService } from '../services/storage';
 import { registerSubViewBackHandler } from '../services/navigation';
 import { Employee, AttendanceRecord, SalesRecord, BallInventory, CurrentUser, PeriodFilter, UserRole, CashflowRecord } from '../types';
-import { formatRupiah, formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors } from '../utils/formatters';
-import { calculateHostPeriodIncentives } from '../utils/incentiveCalculator';
+import { formatRupiah, formatNumber, formatDateIndo, getTodayString, roleLabels, roleBadgeColors, formatAttendanceRole, formatTrainingSummary } from '../utils/formatters';
+import { calculateSingleEmployeeSalary } from '../utils/employeeSalary';
 import { CommaNumberInput } from '../components/CommaNumberInput';
 import { 
   Receipt, 
@@ -37,6 +37,13 @@ interface GajiViewProps {
   onBackToDashboard: () => void;
   onNotify?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
+
+const formatShortMonth = (ym: string): string => {
+  if (!ym || !ym.includes('-')) return ym;
+  const [y, m] = ym.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return `${months[parseInt(m, 10) - 1] || m} ${y}`;
+};
 
 export const GajiView: React.FC<GajiViewProps> = ({
   currentUser,
@@ -159,248 +166,25 @@ export const GajiView: React.FC<GajiViewProps> = ({
     return true;
   };
 
-  // Calculate salary for each employee + Cashflow Payment status
+  // Calculate salary for each employee + Cashflow Payment status + Unpaid Carryover
   const calculatedSalaryData = useMemo(() => {
     const steamSortirLogs = StorageService.getSteamSortir(currentUser.storeId);
+    const targetMonth = period === 'monthly' ? selectedDate.slice(0, 7) : undefined;
 
     return employees.map(emp => {
-      // 1. Attendance & Base Salary
-      const empAttendance = allAttendance.filter(a => 
-        (a.employeeId === emp.id || a.employeeName === emp.name) && filterByPeriod(a.date)
-      );
-
-      let totalBaseSalary = 0;
-      let totalHours = 0;
-      let totalDays = 0;
-
-      empAttendance.forEach(att => {
-        if (att.salaryType === 'hourly') {
-          const hrs = att.hoursWorked || 0;
-          totalHours += hrs;
-          totalBaseSalary += hrs * (emp.salaryRate || 0);
-        } else {
-          totalDays += 1;
-          totalBaseSalary += (emp.salaryRate || 0);
-        }
-      });
-
-      // 2. Insentif Per Role (Host, Admin Toko, Sortir, Steam)
-      let totalIncentive = 0;
-      const incentiveBreakdowns: { role: UserRole | 'multi_role' | 'monthly_bonus'; desc: string; amount: number }[] = [];
-
-      const filteredSales = allSales.filter(s => filterByPeriod(s.date));
-      const totalStoreOmzet = filteredSales.reduce((acc, s) => acc + (s.omzet || 0), 0);
-      const totalStorePackages = filteredSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-      const totalStorePcs = filteredSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-
-      // Track total packages & pcs for this employee
-      let empTotalPackages = 0;
-      let empTotalPcs = 0;
-
-      emp.roles.forEach(role => {
-        const config = emp.incentiveConfigs?.[role];
-        if (!config || config.type === 'none') return;
-
-        if (role === 'host') {
-          const hostResult = calculateHostPeriodIncentives(filteredSales, emp);
-          empTotalPackages += hostResult.totalPackages;
-          empTotalPcs += hostResult.totalPcs;
-          totalIncentive += hostResult.totalIncentive;
-          hostResult.breakdown.forEach(b => {
-            incentiveBreakdowns.push({
-              role: 'host',
-              desc: b.desc,
-              amount: b.amount,
-            });
-          });
-        } else if (role === 'admin_toko') {
-          const adminSales = filteredSales.filter(s => 
-            s.adminIds?.includes(emp.id) || 
-            s.adminId === emp.id || 
-            s.adminNames?.some(an => an.toLowerCase().includes(emp.name.toLowerCase())) ||
-            (s.adminName && s.adminName.toLowerCase().includes(emp.name.toLowerCase()))
-          );
-
-          const adminPkgs = adminSales.reduce((acc, s) => acc + (s.packagesSold || 0), 0);
-          const adminPcs = adminSales.reduce((acc, s) => acc + (s.pcsSold || 0), 0);
-          empTotalPackages += adminPkgs;
-          empTotalPcs += adminPcs;
-
-          const threshold = config.tierThresholdPackages || 0;
-          const isTierAchieved = Boolean(config.hasTierRule && threshold > 0 && adminPkgs >= threshold);
-          const tierMode = config.tierCalculationMode || 'excess_only';
-          const effectiveRate = isTierAchieved && config.tierRate ? config.tierRate : (config.rate || 0);
-
-          if (config.type === 'per_package_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const basePkgs = Math.min(adminPkgs, threshold);
-              const excessPkgs = Math.max(0, adminPkgs - threshold);
-              amount = (basePkgs * (config.rate || 0)) + (excessPkgs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePkgs} paket dasar x ${formatRupiah(config.rate)} + ${excessPkgs} paket selisih x ${formatRupiah(config.tierRate)}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = adminPkgs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPkgs} paket dicatat x ${formatRupiah(effectiveRate)}`;
-            } else {
-              amount = adminPkgs * (config.rate || 0);
-              desc = `${adminPkgs} paket dicatat & dipacking saat live x ${formatRupiah(config.rate)}`;
-            }
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role: 'admin_toko',
-              desc,
-              amount,
-            });
-          } else if (config.type === 'per_pcs_sold') {
-            let amount = 0;
-            let desc = '';
-            if (isTierAchieved && tierMode === 'excess_only') {
-              const excessRatio = adminPkgs > 0 ? Math.max(0, adminPkgs - threshold) / adminPkgs : 0;
-              const excessPcs = Math.round(adminPcs * excessRatio);
-              const basePcs = Math.max(0, adminPcs - excessPcs);
-              amount = (basePcs * (config.rate || 0)) + (excessPcs * (config.tierRate || 0));
-              desc = `✨ Tier Progresif (Target ${threshold} paket): ${basePcs} pcs dasar x ${formatRupiah(config.rate)} + ${excessPcs} pcs selisih x ${formatRupiah(config.tierRate)}`;
-            } else if (isTierAchieved && tierMode === 'all_units') {
-              amount = adminPcs * effectiveRate;
-              desc = `✨ Target Tier Tercapai (≥ ${threshold} paket): ${adminPcs} pcs dicatat x ${formatRupiah(effectiveRate)}`;
-            } else {
-              amount = adminPcs * (config.rate || 0);
-              desc = `${adminPcs} pcs dicatat x ${formatRupiah(config.rate)}`;
-            }
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role: 'admin_toko',
-              desc,
-              amount,
-            });
-          } else if (config.type === 'fixed_amount') {
-            const amount = effectiveRate;
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role: 'admin_toko',
-              desc: isTierAchieved ? `✨ Target Tier Tercapai: Insentif Admin Flat ${formatRupiah(effectiveRate)}` : `Insentif Tetap Admin Toko`,
-              amount,
-            });
-          }
-        } else if (role === 'sortir' || role === 'steam') {
-          const workerLogs = steamSortirLogs.filter(log => {
-            const isMatchRole = log.processType === role || log.processType === 'sortir_dan_steam';
-            const isMatchEmp = log.employeeIds?.includes(emp.id) || 
-              log.employeeNames?.some(en => en.toLowerCase().includes(emp.name.toLowerCase()));
-            return isMatchRole && isMatchEmp && filterByPeriod(log.date);
-          });
-
-          // Hanya hitung pcs yang layak jual (reject tidak dihitung)
-          const totalPcsWorked = workerLogs.reduce((acc, l) => {
-            const pcsLayak = l.pcsLayakJual !== undefined ? l.pcsLayakJual : Math.max(0, (l.pcsTotal || 0) - (l.pcsReject || 0));
-            return acc + pcsLayak;
-          }, 0);
-
-          if (config.type === 'per_ball_pcs') {
-            const amount = totalPcsWorked * (config.rate || 0);
-            totalIncentive += amount;
-            incentiveBreakdowns.push({
-              role,
-              desc: `${totalPcsWorked} pcs layak jual (${role}) x ${formatRupiah(config.rate)}`,
-              amount,
-            });
-          }
-        }
-      });
-
-      // 3. Bonus Rangkap Role Penjualan Paket
-      if (emp.roles.length > 1 && emp.multiRoleSalesRule?.active) {
-        const rule = emp.multiRoleSalesRule;
-        const evaluatedPackages = empTotalPackages > 0 ? empTotalPackages : totalStorePackages;
-        const evaluatedPcs = empTotalPcs > 0 ? empTotalPcs : totalStorePcs;
-
-        if (evaluatedPackages >= (rule.thresholdPackages || 0)) {
-          let bonusAmount = 0;
-          let bonusLabel = '';
-
-          if (rule.benefitType === 'bonus_per_package') {
-            bonusAmount = evaluatedPackages * (rule.benefitValue || 0);
-            bonusLabel = `Bonus Rangkap Role (${evaluatedPackages} paket x ${formatRupiah(rule.benefitValue)})`;
-          } else if (rule.benefitType === 'bonus_per_pcs') {
-            bonusAmount = evaluatedPcs * (rule.benefitValue || 0);
-            bonusLabel = `Bonus Rangkap Role (${evaluatedPcs} pcs x ${formatRupiah(rule.benefitValue)})`;
-          } else if (rule.benefitType === 'hourly_rate_override') {
-            bonusAmount = totalHours * (rule.benefitValue || 0);
-            bonusLabel = `Kenaikan Gaji Pokok Rangkap Role (${totalHours} jam x ${formatRupiah(rule.benefitValue)})`;
-          } else {
-            bonusAmount = rule.benefitValue || 0;
-            bonusLabel = `Bonus Tetap Rangkap Role (Tembus ${rule.thresholdPackages} paket)`;
-          }
-
-          if (bonusAmount > 0) {
-            totalIncentive += bonusAmount;
-            incentiveBreakdowns.push({
-              role: 'multi_role',
-              desc: `🎁 ${bonusLabel} (Target: ≥ ${rule.thresholdPackages} paket)`,
-              amount: bonusAmount,
-            });
-          }
-        }
-      }
-
-      // 4. Bonus Bulanan Pencapaian Target Omzet Toko
-      if (emp.monthlyOmzetBonusRule?.active) {
-        const omzetRule = emp.monthlyOmzetBonusRule;
-        if (totalStoreOmzet >= (omzetRule.targetOmzet || 0)) {
-          let omzetBonusAmount = 0;
-          let bonusDescText = '';
-          if (omzetRule.bonusType === 'percentage') {
-            omzetBonusAmount = Math.round(((omzetRule.bonusValue || 0) / 100) * totalStoreOmzet);
-            bonusDescText = `🏆 Bonus Capai Target Omzet Toko (${omzetRule.bonusValue}% dari Omzet ${formatRupiah(totalStoreOmzet)})`;
-          } else if (omzetRule.bonusType === 'percentage_laba_bersih') {
-            const payrollSummary = StorageService.calculateStorePayroll(currentUser.storeId, filterByPeriod);
-            const employeePayroll = payrollSummary.employeeSalaries.find(e => e.employee.id === emp.id);
-            omzetBonusAmount = employeePayroll?.monthlyOmzetBonus || 0;
-            bonusDescText = employeePayroll?.monthlyOmzetBonusDesc || `🏆 Bonus Capai Target Omzet Toko (${omzetRule.bonusValue}% dari Laba Bersih Toko)`;
-          } else {
-            omzetBonusAmount = omzetRule.bonusValue || 0;
-            bonusDescText = `🏆 Bonus Capai Target Omzet Toko (Flat ${formatRupiah(omzetBonusAmount)})`;
-          }
-
-          if (omzetBonusAmount > 0) {
-            totalIncentive += omzetBonusAmount;
-            incentiveBreakdowns.push({
-              role: 'monthly_bonus',
-              desc: bonusDescText,
-              amount: omzetBonusAmount,
-            });
-          }
-        }
-      }
-
-      const totalGrandSalary = totalBaseSalary + totalIncentive;
-
-      // 5. Payment Summary from Cashflow Records (Paid vs Unpaid + Proof Images + Kasbon)
-      const paymentSummary = StorageService.getEmployeeSalaryPaymentSummary(
+      const summary = calculateSingleEmployeeSalary(
         currentUser.storeId,
-        emp.id,
-        totalGrandSalary,
-        filterByPeriod
+        emp,
+        allAttendance,
+        allSales,
+        steamSortirLogs,
+        filterByPeriod,
+        { targetMonth }
       );
 
       return {
         emp,
-        totalBaseSalary,
-        totalHours,
-        totalDays,
-        totalIncentive,
-        totalGrandSalary,
-        attendanceCount: empAttendance.length,
-        attendanceRecords: empAttendance,
-        incentiveBreakdowns,
-        totalPaid: paymentSummary.totalPaid,
-        totalGajiPaid: paymentSummary.totalGajiPaid,
-        totalKasbon: paymentSummary.totalKasbon,
-        hasKasbon: paymentSummary.hasKasbon,
-        remainingUnpaid: paymentSummary.remainingUnpaid,
-        paymentStatus: paymentSummary.status,
-        payments: paymentSummary.payments,
+        ...summary,
       };
     });
   }, [employees, allAttendance, allSales, allInventory, cashflows, period, selectedDate, currentUser.storeId]);
@@ -721,10 +505,36 @@ export const GajiView: React.FC<GajiViewProps> = ({
                       </strong>
                     </div>
 
+                    {selectedItem.previousUnpaidCarryover > 0 && (
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-amber-300 font-bold">
+                            Sisa Gaji Bulan Lalu (Belum Terbayar):
+                          </span>
+                          <strong className="text-amber-300 font-black">
+                            + {formatRupiah(selectedItem.previousUnpaidCarryover)}
+                          </strong>
+                        </div>
+                        {selectedItem.carryoverBreakdown.length > 0 && (
+                          <div className="text-[10.5px] text-amber-200/80 flex flex-wrap gap-x-3 gap-y-0.5 pt-0.5">
+                            {selectedItem.carryoverBreakdown.map((c) => (
+                              <span key={c.month}>
+                                • {formatShortMonth(c.month)}: sisa {formatRupiah(c.unpaidEnd)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Status Pembayaran Kas & Sisa Gaji */}
                     <div className="p-3 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-zinc-400">Total Hak Gaji:</span>
+                        <span className="text-zinc-400">
+                          {selectedItem.previousUnpaidCarryover > 0
+                            ? 'Total Hak Gaji (Bulan Ini + Sisa Lalu):'
+                            : 'Total Hak Gaji:'}
+                        </span>
                         <strong className="text-white">{formatRupiah(selectedItem.totalGrandSalary)}</strong>
                       </div>
 
@@ -877,18 +687,31 @@ export const GajiView: React.FC<GajiViewProps> = ({
                     <span>Riwayat Presensi &amp; Jam Kerja:</span>
                     <span className="text-zinc-400 text-[10px]">{detailData.attendanceRecords.length} catatan</span>
                   </h4>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                     {detailData.attendanceRecords.length === 0 ? (
                       <p className="text-zinc-500 text-[11px] p-2 bg-[#0b0c10] rounded-xl">Tidak ada catatan presensi di periode ini.</p>
                     ) : (
-                      detailData.attendanceRecords.map(att => (
-                        <div key={att.id} className="p-2 rounded-xl bg-[#0b0c10] border border-white/5 flex items-center justify-between text-[11px]">
-                          <span className="text-zinc-300">{formatDateIndo(att.date)}</span>
-                          <span className="font-semibold text-[#25F4EE]">
-                            {att.salaryType === 'hourly' ? `${att.hoursWorked} Jam` : '1 Hari'} ({formatRupiah(att.salaryType === 'hourly' ? att.hoursWorked * selectedEmpForDetail.salaryRate : selectedEmpForDetail.salaryRate)})
-                          </span>
-                        </div>
-                      ))
+                      detailData.attendanceRecords.map(att => {
+                        const trainingInfo = formatTrainingSummary(att);
+                        return (
+                          <div key={att.id} className="p-2.5 rounded-xl bg-[#0b0c10] border border-white/5 space-y-1 text-[11px]">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="text-zinc-200 font-semibold">{formatDateIndo(att.date)}</span>
+                                <span className="text-zinc-400 ml-2">({formatAttendanceRole(att.role)})</span>
+                              </div>
+                              <span className="font-semibold text-[#25F4EE] shrink-0">
+                                {att.salaryType === 'hourly' ? `${att.hoursWorked} Jam` : '1 Hari'} ({formatRupiah(att.salaryType === 'hourly' ? att.hoursWorked * selectedEmpForDetail.salaryRate : selectedEmpForDetail.salaryRate)})
+                              </span>
+                            </div>
+                            {trainingInfo && (
+                              <div className="text-[10.5px] text-orange-300 font-semibold">
+                                🎓 {trainingInfo}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -1038,15 +861,33 @@ export const GajiView: React.FC<GajiViewProps> = ({
                 {/* Total Summary */}
                 <div className="p-4 rounded-2xl bg-[#0b0c10] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>Gaji Pokok:</span>
+                    <span>Gaji Pokok (Periode Ini):</span>
                     <span className="text-white">{formatRupiah(detailData.totalBaseSalary)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>Total Insentif:</span>
+                    <span>Total Insentif (Periode Ini):</span>
                     <span className="text-white">{formatRupiah(detailData.totalIncentive)}</span>
                   </div>
+                  {detailData.previousUnpaidCarryover > 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1 my-1">
+                      <div className="flex items-center justify-between text-xs text-amber-300 font-bold">
+                        <span>Sisa Gaji Bulan Lalu (Belum Terbayar):</span>
+                        <span>+ {formatRupiah(detailData.previousUnpaidCarryover)}</span>
+                      </div>
+                      {detailData.carryoverBreakdown.map(c => (
+                        <div key={c.month} className="flex items-center justify-between text-[10.5px] text-amber-200/80">
+                          <span>• {formatShortMonth(c.month)} (Hak {formatRupiah(c.earned)} - Bayar {formatRupiah(c.paid)})</span>
+                          <span>sisa {formatRupiah(c.unpaidEnd)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-zinc-300 pt-1 border-t border-white/5">
-                    <span>Subtotal Hak Gaji:</span>
+                    <span>
+                      {detailData.previousUnpaidCarryover > 0
+                        ? 'Subtotal Hak Gaji (Bulan Ini + Sisa Lalu):'
+                        : 'Subtotal Hak Gaji:'}
+                    </span>
                     <span className="text-white font-bold">{formatRupiah(detailData.totalGrandSalary)}</span>
                   </div>
 

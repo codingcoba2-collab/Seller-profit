@@ -99,7 +99,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProcessFilter, setSelectedProcessFilter] = useState<'all' | 'sortir' | 'steam' | 'sortir_dan_steam'>('all');
+  const [selectedProcessFilter, setSelectedProcessFilter] = useState<'all' | 'sortir' | 'steam' | 'bongkar_ball' | 'sortir_dan_steam'>('all');
   const [selectedDetailRecord, setSelectedDetailRecord] = useState<SteamSortirRecord | null>(null);
 
   // Form State
@@ -107,7 +107,7 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const [ballInventoryId, setBallInventoryId] = useState('');
   const [customBallName, setCustomBallName] = useState('');
   const [ballWeightKg, setBallWeightKg] = useState<number | ''>(45);
-  const [processType, setProcessType] = useState<'sortir' | 'steam' | 'sortir_dan_steam'>('sortir');
+  const [processType, setProcessType] = useState<'sortir' | 'steam' | 'bongkar_ball' | 'sortir_dan_steam'>('sortir');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [pcsKepala, setPcsKepala] = useState<number | ''>('');
   const [pcsBadan, setPcsBadan] = useState<number | ''>('');
@@ -124,9 +124,9 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
   const employeeList = StorageService.getEmployees(storeId);
   const steamSortirRecords = StorageService.getSteamSortir(storeId);
 
-  // Filter employees with sortir/steam/owner role
+  // Filter employees with sortir/steam/bongkar_ball/training/owner role
   const sortirSteamEmployees = employeeList.filter(
-    e => e.roles?.includes('sortir') || e.roles?.includes('steam') || e.roles?.includes('owner') || e.roles?.includes('admin_toko')
+    e => e.roles?.includes('sortir') || e.roles?.includes('steam') || e.roles?.includes('bongkar_ball') || e.roles?.includes('training') || e.roles?.includes('owner') || e.roles?.includes('admin_toko')
   );
 
   const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -330,7 +330,8 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
       totalCost: 0,
       status,
       notes,
-      recordedBy: currentUser.name,
+      recordedById: editingRecord?.recordedById || currentUser.id,
+      recordedBy: editingRecord?.recordedBy || currentUser.name,
       createdAt: editingRecord ? editingRecord.createdAt : new Date().toISOString(),
     };
 
@@ -632,10 +633,11 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Jenis Proses Pengerjaan <span className="text-[#FE2C55]">*</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { id: 'sortir', label: 'Sortir QC Saja' },
-                    { id: 'steam', label: 'Steam Saja' },
+                    { id: 'sortir', label: 'Sortir QC' },
+                    { id: 'steam', label: 'Steam' },
+                    { id: 'bongkar_ball', label: 'Bongkar Ball' },
                     { id: 'sortir_dan_steam', label: 'Sortir + Steam' },
                   ].map(proc => (
                     <button
@@ -1162,6 +1164,18 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
 
           <button
             type="button"
+            onClick={() => setSelectedProcessFilter('bongkar_ball')}
+            className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedProcessFilter === 'bongkar_ball'
+                ? 'bg-[#00f2fe] text-black shadow-lg shadow-cyan-500/25'
+                : 'bg-[#0c1527] border border-[#162544] text-[#94a3b8] hover:text-white hover:bg-[#122038]'
+            }`}
+          >
+            Bongkar Ball
+          </button>
+
+          <button
+            type="button"
             onClick={() => setSelectedProcessFilter('sortir_dan_steam')}
             className={`px-3.5 sm:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition cursor-pointer shrink-0 ${
               selectedProcessFilter === 'sortir_dan_steam'
@@ -1299,12 +1313,22 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
                 filteredRecords.map(rec => {
                   const icon = <Shirt className="w-1.5 h-1.5 xs:w-1.5 xs:h-1.5 sm:w-2.5 sm:h-2.5" />;
                   const iconBg = 'bg-[#062c2f] border border-[#0d6e6f] text-[#00f2fe]';
-                  const badgeLabel = rec.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : rec.processType === 'steam' ? 'Steam Saja' : 'Sortir Saja';
-                  const badgeClass = rec.processType === 'sortir_dan_steam'
-                    ? 'bg-[#28153e] text-[#c084fc] border-[#4c2473]'
-                    : rec.processType === 'steam'
-                    ? 'bg-[#2d1f0d] text-[#fbbf24] border-[#5d4117]'
-                    : 'bg-[#0d213b] text-[#38bdf8] border-[#1a4275]';
+                  const badgeLabel =
+                    rec.processType === 'sortir_dan_steam'
+                      ? 'Sortir + Steam'
+                      : rec.processType === 'steam'
+                      ? 'Steam Saja'
+                      : rec.processType === 'bongkar_ball'
+                      ? 'Bongkar Ball'
+                      : 'Sortir Saja';
+                  const badgeClass =
+                    rec.processType === 'sortir_dan_steam'
+                      ? 'bg-[#28153e] text-[#c084fc] border-[#4c2473]'
+                      : rec.processType === 'steam'
+                      ? 'bg-[#2d1f0d] text-[#fbbf24] border-[#5d4117]'
+                      : rec.processType === 'bongkar_ball'
+                      ? 'bg-[#1f163b] text-[#a78bfa] border-[#4c3585]'
+                      : 'bg-[#0d213b] text-[#38bdf8] border-[#1a4275]';
 
                   return (
                     <tr
@@ -1411,7 +1435,13 @@ export const SteamSortirView: React.FC<SteamSortirViewProps> = ({
               <div className="flex justify-between items-center pt-2">
                 <span className="text-slate-400">Tipe Pengerjaan:</span>
                 <span className="font-semibold text-cyan-300">
-                  {selectedDetailRecord.processType === 'sortir_dan_steam' ? 'Sortir + Steam' : selectedDetailRecord.processType === 'steam' ? 'Steam' : 'Sortir'}
+                  {selectedDetailRecord.processType === 'sortir_dan_steam'
+                    ? 'Sortir + Steam'
+                    : selectedDetailRecord.processType === 'steam'
+                    ? 'Steam'
+                    : selectedDetailRecord.processType === 'bongkar_ball'
+                    ? 'Bongkar Ball'
+                    : 'Sortir'}
                 </span>
               </div>
 

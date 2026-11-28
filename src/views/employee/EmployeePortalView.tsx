@@ -12,6 +12,7 @@ import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
 import {
   getEmployeePermissions,
   isOwnEmployeeRecord,
+  isRecordInputtedByUser,
 } from '../../utils/employeePermissions';
 import {
   formatDateIndo,
@@ -34,13 +35,17 @@ import {
   ChevronRight,
   Database,
   Download,
+  Flame,
+  GraduationCap,
   Home,
   LogOut,
   Megaphone,
   Package,
+  PackageOpen,
   PlusCircle,
   RefreshCw,
   Ruler,
+  Scissors,
   TrendingUp,
   User,
   Wallet,
@@ -125,6 +130,10 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
   };
 
   const openDataTab = (tab: EmployeeDataSubTab) => {
+    if (!permissions.allowedDataTabs.includes(tab)) {
+      onNotify('Peran Anda hanya dapat mengakses data yang diizinkan.', 'error');
+      return;
+    }
     setDataSubTab(tab);
     setSection('data');
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -166,6 +175,27 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
       accentClass: 'bg-amber-50 text-amber-600',
     },
     {
+      key: 'steam',
+      title: 'Input Steam',
+      subtitle: 'Proses steam & finishing',
+      icon: Flame,
+      accentClass: 'bg-orange-50 text-orange-600',
+    },
+    {
+      key: 'bongkar_ball',
+      title: 'Input Bongkar Ball',
+      subtitle: 'Bongkar ball & isi pcs',
+      icon: PackageOpen,
+      accentClass: 'bg-violet-50 text-violet-600',
+    },
+    {
+      key: 'sortir',
+      title: 'Input Sortir',
+      subtitle: 'Sortir kelas & QC',
+      icon: Scissors,
+      accentClass: 'bg-teal-50 text-teal-600',
+    },
+    {
       key: 'pengukuran',
       title: 'Pengukuran',
       subtitle: 'Barang diukur & QC',
@@ -203,9 +233,30 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
       accentClass: 'bg-amber-50 text-amber-600',
     },
     {
+      key: 'steam',
+      title: 'Data Steam',
+      subtitle: 'Lihat hasil pengerjaan steam & finishing',
+      icon: Flame,
+      accentClass: 'bg-orange-50 text-orange-600',
+    },
+    {
+      key: 'bongkar_ball',
+      title: 'Data Bongkar Ball',
+      subtitle: 'Lihat riwayat bongkar ball & isi pcs',
+      icon: PackageOpen,
+      accentClass: 'bg-violet-50 text-violet-600',
+    },
+    {
+      key: 'sortir',
+      title: 'Data Sortir',
+      subtitle: 'Lihat hasil sortir kelas Kepala/Badan/Kaki',
+      icon: Scissors,
+      accentClass: 'bg-teal-50 text-teal-600',
+    },
+    {
       key: 'pengukuran',
       title: 'Total Barang yang Diukur',
-      subtitle: 'Lihat total barang diukur, layak & reject',
+      subtitle: 'Lihat semua data barang diukur, layak & reject',
       icon: Ruler,
       accentClass: 'bg-indigo-50 text-indigo-600',
     },
@@ -269,6 +320,12 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
                   type="button"
                   onClick={() => {
                     if (nav.key === 'home') clearEditing();
+                    if (nav.key === 'input' && !permissions.allowedInputTabs.includes(inputSubTab)) {
+                      setInputSubTab(permissions.allowedInputTabs[0] || 'kehadiran');
+                    }
+                    if (nav.key === 'data' && !permissions.allowedDataTabs.includes(dataSubTab)) {
+                      setDataSubTab(permissions.allowedDataTabs[0] || 'kehadiran');
+                    }
                     setSection(nav.key);
                     window.scrollTo({ top: 0, behavior: 'instant' });
                   }}
@@ -361,6 +418,25 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
               <p className="text-xs sm:text-sm text-slate-500">{roleText}</p>
             </div>
 
+            {/* Training Role Info Banner */}
+            {(currentUser.roles?.includes('training') || employeeProfile.roles?.includes('training')) && (
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-orange-900">
+                    Akun Role Training Aktif
+                  </div>
+                  <p className="text-xs text-orange-700 mt-0.5 leading-relaxed">
+                    {employeeProfile.trainingTraineeName || employeeProfile.trainingTrainerName
+                      ? `Calon Pegawai: ${employeeProfile.trainingTraineeName || '-'} • Trainer / a.n.: ${employeeProfile.trainingTrainerName || '-'}`
+                      : 'Saat mencatat Kehadiran, isi nama calon pegawai yang ditraining serta nama trainer pendamping agar muncul di rincian.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Optional Store Announcement */}
             {latestAnnouncement && (
               <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-start gap-3">
@@ -434,45 +510,58 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
               })()}
             </section>
 
-            {/* 2. DATA (TOMBOL KLIK MASUK KE PAGE DATA) */}
+            {/* 2. DATA (TOMBOL KLIK MASUK KE PAGE DATA SESUAI AKSES ROLE) */}
             <section aria-labelledby="heading-data" className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 id="heading-data" className="text-sm font-bold text-slate-800 uppercase tracking-wider">
                   Data
                 </h2>
-                <span className="text-xs text-slate-500">Klik untuk buka halaman data</span>
+                <span className="text-xs text-slate-500">
+                  {permissions.canViewAllData
+                    ? 'Semua data toko'
+                    : permissions.canViewSalesData
+                    ? 'Data penjualan & inputan Anda'
+                    : 'Hanya data yang Anda inputkan'}
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {dataMenuButtons.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => openDataTab(item.key)}
-                      className="group bg-white border border-slate-200 hover:border-blue-500 hover:shadow-sm rounded-2xl px-4 py-3.5 text-left transition cursor-pointer flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.accentClass}`}
+              {(() => {
+                const visibleDataButtons = dataMenuButtons.filter((b) =>
+                  permissions.allowedDataTabs.includes(b.key)
+                );
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {visibleDataButtons.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => openDataTab(item.key)}
+                          className="group bg-white border border-slate-200 hover:border-blue-500 hover:shadow-sm rounded-2xl px-4 py-3.5 text-left transition cursor-pointer flex items-center justify-between gap-3"
                         >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition truncate">
-                            {item.title}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.accentClass}`}
+                            >
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-xs text-slate-500 truncate mt-0.5">
+                                {item.subtitle}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-slate-500 truncate mt-0.5">
-                            {item.subtitle}
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
 
             {/* 3. GAJI (TOMBOL KLIK MASUK KE PAGE GAJI) */}
@@ -567,19 +656,45 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
                 onNotify('Hanya bagian Sortir & Ukur yang dapat mengubah data stok.', 'error');
                 return;
               }
+              if (!permissions.canViewAllData && !isRecordInputtedByUser(currentUser, employeeProfile, inv, false)) {
+                onNotify('Anda hanya dapat mengubah data stok yang Anda inputkan sendiri.', 'error');
+                return;
+              }
               clearEditing();
               setEditingInventory(inv);
               setInputSubTab('stok');
               setSection('input');
             }}
             onEditMeasurement={(rec) => {
-              if (!permissions.canEditMeasurement) {
-                onNotify('Hanya bagian Sortir & Ukur yang dapat mengubah data pengukuran.', 'error');
+              const targetTab: EmployeeInputSubTab =
+                rec.processType === 'steam'
+                  ? 'steam'
+                  : rec.processType === 'bongkar_ball'
+                  ? 'bongkar_ball'
+                  : rec.processType === 'sortir'
+                  ? 'sortir'
+                  : 'pengukuran';
+
+              const canEditTarget =
+                targetTab === 'steam'
+                  ? permissions.canEditSteam
+                  : targetTab === 'bongkar_ball'
+                  ? permissions.canEditBongkarBall
+                  : targetTab === 'sortir'
+                  ? permissions.canEditSortir
+                  : permissions.canEditMeasurement;
+
+              if (!canEditTarget) {
+                onNotify('Peran Anda tidak memiliki izin untuk mengubah data ini.', 'error');
+                return;
+              }
+              if (!permissions.canViewAllData && !isRecordInputtedByUser(currentUser, employeeProfile, rec, false)) {
+                onNotify('Anda hanya dapat mengubah data yang Anda inputkan sendiri.', 'error');
                 return;
               }
               clearEditing();
               setEditingMeasurement(rec);
-              setInputSubTab('pengukuran');
+              setInputSubTab(targetTab);
               setSection('input');
             }}
           />
@@ -613,6 +728,12 @@ export const EmployeePortalView: React.FC<EmployeePortalViewProps> = ({
               type="button"
               onClick={() => {
                 if (item.key === 'home') clearEditing();
+                if (item.key === 'input' && !permissions.allowedInputTabs.includes(inputSubTab)) {
+                  setInputSubTab(permissions.allowedInputTabs[0] || 'kehadiran');
+                }
+                if (item.key === 'data' && !permissions.allowedDataTabs.includes(dataSubTab)) {
+                  setDataSubTab(permissions.allowedDataTabs[0] || 'kehadiran');
+                }
                 setSection(item.key);
                 window.scrollTo({ top: 0, behavior: 'instant' });
               }}

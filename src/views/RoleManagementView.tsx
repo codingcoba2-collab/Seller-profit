@@ -34,7 +34,7 @@ interface RoleManagementViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const ALL_ROLES: UserRole[] = ['owner', 'manager', 'investor', 'host', 'admin_toko', 'sortir', 'steam'];
+const ALL_ROLES: UserRole[] = ['owner', 'manager', 'investor', 'host', 'admin_toko', 'sortir', 'steam', 'bongkar_ball', 'training'];
 
 export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   currentUser,
@@ -87,6 +87,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['host']);
   const [salaryType, setSalaryType] = useState<SalaryType>('hourly');
   const [salaryRate, setSalaryRate] = useState<number>(30000);
+  const [trainingTraineeName, setTrainingTraineeName] = useState('');
+  const [trainingTrainerName, setTrainingTrainerName] = useState('');
 
   // Modal Buatkan Password Baru untuk Pegawai (saat pegawai minta password baru)
   const [resetModalEmp, setResetModalEmp] = useState<Employee | null>(null);
@@ -141,6 +143,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     },
     sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
     steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
+    bongkar_ball: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs bongkar ball' },
+    training: { type: 'none', rate: 0, description: 'Insentif / honor pendampingan training' },
     owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
   });
 
@@ -254,8 +258,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       },
       sortir: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs sortir' },
       steam: { type: 'per_ball_pcs', rate: 200, description: 'Insentif per pcs steam' },
+      bongkar_ball: { type: 'per_ball_pcs', rate: 150, description: 'Insentif per pcs bongkar ball' },
+      training: { type: 'none', rate: 0, description: 'Insentif / honor pendampingan training' },
       owner: { type: 'none', rate: 0, description: 'Tanpa insentif tambahan' },
     });
+    setTrainingTraineeName('');
+    setTrainingTrainerName('');
     setMultiRoleActive(false);
     setMultiRoleThreshold(100);
     setMultiRoleBenefitType('bonus_per_package');
@@ -283,6 +291,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
     setSelectedRoles(emp.roles);
     setSalaryType(emp.salaryType);
     setSalaryRate(emp.salaryRate);
+    setTrainingTraineeName(emp.trainingTraineeName || '');
+    setTrainingTrainerName(emp.trainingTrainerName || '');
     if (emp.incentiveConfigs) {
       setIncentiveMap(prev => ({
         ...prev,
@@ -409,6 +419,12 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
       salaryType,
       salaryRate,
       isActive: true,
+      ...(selectedRoles.includes('training') && trainingTraineeName.trim()
+        ? { trainingTraineeName: trainingTraineeName.trim() }
+        : {}),
+      ...(selectedRoles.includes('training') && trainingTrainerName.trim()
+        ? { trainingTrainerName: trainingTrainerName.trim() }
+        : {}),
       incentiveConfigs: formattedIncentiveConfigs,
       multiRoleSalesRule: {
         active: multiRoleActive,
@@ -591,6 +607,13 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                         {emp.monthlyOmzetBonusRule?.active && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                             🏆 Target Omzet Toko
+                          </span>
+                        )}
+
+                        {emp.roles.includes('training') && (emp.trainingTraineeName || emp.trainingTrainerName) && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                            🎓 {emp.trainingTraineeName ? `Calon: ${emp.trainingTraineeName}` : 'Training'}
+                            {emp.trainingTrainerName ? ` • a.n. ${emp.trainingTrainerName}` : ''}
                           </span>
                         )}
                       </div>
@@ -800,6 +823,8 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                       admin_toko: 'Pencatatan pesanan harian, status packing, dan operasional toko',
                       sortir: 'Pencatatan sortir ball pakaian baru dan grading kualitas',
                       steam: 'Pencatatan proses steam, finishing pakaian, dan kelayakan jual',
+                      bongkar_ball: 'Pembongkaran ball baru, pengecekan berat, isi pcs awal, dan sortir awal',
+                      training: 'Masa pelatihan / pendampingan calon pegawai baru beserta nama trainer penanggung jawab',
                     };
 
                     return (
@@ -829,6 +854,78 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                     );
                   })}
                 </div>
+
+                {selectedRoles.includes('training') && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-orange-500/10 border border-orange-500/30 space-y-3">
+                    <div>
+                      <h4 className="text-xs font-black text-orange-300">
+                        🎓 Pengaturan Default Role Training (Opsional)
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        Akan otomatis terisi saat mencatat presensi role Training dan muncul di rincian. Bisa diubah per shift saat presensi.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                          Nama Calon Pegawai yang Ditraining
+                        </label>
+                        <input
+                          type="text"
+                          value={trainingTraineeName}
+                          onChange={e => setTrainingTraineeName(e.target.value)}
+                          placeholder="Contoh: Rina (Calon Host)"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                          Atas Nama Siapa yang Trainingnya (Trainer / Pendamping)
+                        </label>
+                        <div className="space-y-1.5">
+                          <select
+                            value={
+                              trainingTrainerName === currentUser.name || employees.some(em => em.name === trainingTrainerName)
+                                ? trainingTrainerName
+                                : trainingTrainerName
+                                  ? '__manual__'
+                                  : ''
+                            }
+                            onChange={e => {
+                              const v = e.target.value;
+                              if (v === '__manual__') {
+                                if (trainingTrainerName === currentUser.name || employees.some(em => em.name === trainingTrainerName)) {
+                                  setTrainingTrainerName('');
+                                }
+                              } else {
+                                setTrainingTrainerName(v);
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                          >
+                            <option value="">-- Pilih Trainer / Ketik Manual --</option>
+                            <option value={currentUser.name}>{currentUser.name} (Owner / Akun Aktif)</option>
+                            {employees
+                              .filter(em => em.name !== currentUser.name)
+                              .map(em => (
+                                <option key={em.id} value={em.name}>
+                                  {em.name} ({em.roles.map(r => roleLabels[r] || r).join(', ')})
+                                </option>
+                              ))}
+                            <option value="__manual__">Ketik Nama Trainer Manual...</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={trainingTrainerName}
+                            onChange={e => setTrainingTrainerName(e.target.value)}
+                            placeholder="Nama trainer / penanggung jawab training"
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-[#0b0c10] border border-white/15 text-white focus:border-orange-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -921,7 +1018,7 @@ export const RoleManagementView: React.FC<RoleManagementViewProps> = ({
                                   { value: 'per_package_sold', label: 'Per Paket Dicatat & Packing' },
                                   { value: 'per_pcs_sold', label: 'Per Pcs Dicatat' },
                                 ] : []),
-                                ...((role === 'sortir' || role === 'steam') ? [
+                                ...((role === 'sortir' || role === 'steam' || role === 'bongkar_ball') ? [
                                   { value: 'per_ball_pcs', label: 'Per Pcs Layak Jual (Reject Tidak Dihitung)' },
                                 ] : []),
                                 { value: 'fixed_amount', label: 'Nominal Tetap (Flat)' },

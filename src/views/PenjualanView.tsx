@@ -580,6 +580,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       coinUsed,
       adsUsed,
       notes,
+      recordedById: currentUser.id,
       recordedBy: currentUser.name,
       createdAt: new Date().toISOString(),
     };
@@ -653,6 +654,7 @@ export const PenjualanView: React.FC<PenjualanViewProps> = ({
       coinUsed: 0,
       paymentMethod,
       notes,
+      recordedById: currentUser.id,
       recordedBy: currentUser.name,
       createdAt: new Date().toISOString(),
     };

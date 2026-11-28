@@ -13,13 +13,19 @@ import {
   formatDateIndo,
   formatNumber,
   formatRupiah,
+  formatTrainingSummary,
   getTodayString,
   inventoryUnitLabels,
   salesChannelLabels,
 } from '../../utils/formatters';
 import { EmployeeConfirmModal } from './EmployeeConfirmModal';
 import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
-import { getEmployeePermissions, isOwnEmployeeRecord } from '../../utils/employeePermissions';
+import {
+  EmployeeModuleTab,
+  getEmployeePermissions,
+  isOwnEmployeeRecord,
+  isRecordInputtedByUser,
+} from '../../utils/employeePermissions';
 import {
   Calendar,
   ChevronLeft,
@@ -32,7 +38,7 @@ import {
   X,
 } from 'lucide-react';
 
-export type EmployeeDataSubTab = 'kehadiran' | 'penjualan' | 'stok' | 'pengukuran';
+export type EmployeeDataSubTab = EmployeeModuleTab;
 
 interface EmployeeDataViewsProps {
   activeSubTab: EmployeeDataSubTab;
@@ -50,6 +56,9 @@ const DATA_TITLES: Record<EmployeeDataSubTab, string> = {
   kehadiran: 'Data Kehadiran',
   penjualan: 'Data Omzet & Pcs Terjual',
   stok: 'Data Stok Masuk, Keluar & Sisa',
+  steam: 'Data Pengerjaan Steam',
+  bongkar_ball: 'Data Bongkar Ball',
+  sortir: 'Data Sortir & QC',
   pengukuran: 'Data Total Barang Diukur',
 };
 
@@ -71,6 +80,7 @@ const formatMonthLabel = (ym: string) => {
 
 export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
   activeSubTab,
+  onChangeSubTab,
   currentUser,
   onNotify,
   onGoToInput,
@@ -83,6 +93,12 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
   const todayStr = getTodayString();
   const permissions = useMemo(() => getEmployeePermissions(currentUser), [currentUser]);
   const myEmployee = useMemo(() => resolveCurrentEmployeeProfile(currentUser), [currentUser]);
+
+  useEffect(() => {
+    if (!permissions.allowedDataTabs.includes(activeSubTab)) {
+      onChangeSubTab?.(permissions.allowedDataTabs[0] || 'kehadiran');
+    }
+  }, [activeSubTab, permissions.allowedDataTabs, onChangeSubTab]);
 
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>(() => StorageService.getAttendance(storeId));
   const [salesList, setSalesList] = useState<SalesRecord[]>(() => StorageService.getSales(storeId));
@@ -107,6 +123,7 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>(() => todayStr.slice(0, 7));
   const [showMonthlySales, setShowMonthlySales] = useState(false);
 
+  const [detailAttendance, setDetailAttendance] = useState<AttendanceRecord | null>(null);
   const [detailSale, setDetailSale] = useState<SalesRecord | null>(null);
   const [detailMeasurement, setDetailMeasurement] = useState<SteamSortirRecord | null>(null);
 
@@ -147,15 +164,24 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
   const filteredAttendance = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return attendanceList
+      .filter((a) => permissions.canViewAllData || isRecordInputtedByUser(currentUser, myEmployee, a, true))
       .filter((a) => matchPeriod(a.date))
-      .filter((a) => !q || a.employeeName.toLowerCase().includes(q) || (a.notes || '').toLowerCase().includes(q))
+      .filter(
+        (a) =>
+          !q ||
+          a.employeeName.toLowerCase().includes(q) ||
+          (a.notes || '').toLowerCase().includes(q) ||
+          (a.trainingTraineeName || '').toLowerCase().includes(q) ||
+          (a.trainingTrainerName || '').toLowerCase().includes(q)
+      )
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [attendanceList, searchQuery, periodFilter, selectedMonth, todayStr]);
+  }, [attendanceList, permissions.canViewAllData, currentUser, myEmployee, searchQuery, periodFilter, selectedMonth, todayStr]);
 
   const attTotalHours = filteredAttendance.reduce((sum, a) => sum + (a.salaryType === 'hourly' ? a.hoursWorked || 0 : 0), 0);
   const attDailyShifts = filteredAttendance.filter((a) => a.salaryType !== 'hourly').length;
 
   const filteredSales = useMemo(() => {
+    if (!permissions.canViewSalesData) return [];
     const q = searchQuery.trim().toLowerCase();
     return salesList
       .filter((s) => matchPeriod(s.date))
@@ -165,13 +191,14 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
         return ch.includes(q) || (s.notes || '').toLowerCase().includes(q) || (s.hostNames || []).join(' ').toLowerCase().includes(q);
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [salesList, searchQuery, periodFilter, selectedMonth, todayStr]);
+  }, [salesList, permissions.canViewSalesData, searchQuery, periodFilter, selectedMonth, todayStr]);
 
   const salesTotalOmzet = filteredSales.reduce((sum, s) => sum + (s.omzet || 0), 0);
   const salesTotalPcs = filteredSales.reduce((sum, s) => sum + (s.pcsSold || 0), 0);
   const salesTotalPackages = filteredSales.reduce((sum, s) => sum + (s.packagesSold || 0), 0);
 
   const monthlySalesSummary = useMemo(() => {
+    if (!permissions.canViewSalesData) return [];
     const map = new Map<string, { month: string; omzet: number; pcs: number; packages: number; count: number }>();
     salesList.forEach((s) => {
       const ym = s.date ? s.date.slice(0, 7) : '';
@@ -184,23 +211,40 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
       map.set(ym, cur);
     });
     return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [salesList]);
+  }, [salesList, permissions.canViewSalesData]);
 
   const filteredInventory = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return inventoryList
+      .filter((i) => permissions.canViewAllData || isRecordInputtedByUser(currentUser, myEmployee, i, false))
       .filter((i) => matchPeriod(i.date))
       .filter((i) => !q || i.ballType.toLowerCase().includes(q) || (i.notes || '').toLowerCase().includes(q))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [inventoryList, searchQuery, periodFilter, selectedMonth, todayStr]);
+  }, [inventoryList, permissions.canViewAllData, currentUser, myEmployee, searchQuery, periodFilter, selectedMonth, todayStr]);
+
+  const myStokTotalPcs = filteredInventory.reduce((sum, i) => sum + (i.pcsCount || 0), 0);
+  const myStokTotalKg = filteredInventory.reduce((sum, i) => sum + (i.weightKg || 0), 0);
 
   const filteredMeasurements = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return measurementList
+      .filter((m) => permissions.canViewAllData || isRecordInputtedByUser(currentUser, myEmployee, m, false))
+      .filter((m) => {
+        if (activeSubTab === 'steam') return m.processType === 'steam';
+        if (activeSubTab === 'bongkar_ball') return m.processType === 'bongkar_ball';
+        if (activeSubTab === 'sortir') return m.processType === 'sortir';
+        return true;
+      })
       .filter((m) => matchPeriod(m.date))
-      .filter((m) => !q || (m.ballName || '').toLowerCase().includes(q) || (m.notes || '').toLowerCase().includes(q))
+      .filter(
+        (m) =>
+          !q ||
+          (m.ballName || '').toLowerCase().includes(q) ||
+          (m.notes || '').toLowerCase().includes(q) ||
+          (m.employeeNames || []).join(' ').toLowerCase().includes(q)
+      )
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [measurementList, searchQuery, periodFilter, selectedMonth, todayStr]);
+  }, [measurementList, permissions.canViewAllData, currentUser, myEmployee, activeSubTab, searchQuery, periodFilter, selectedMonth, todayStr]);
 
   const measTotalPcs = filteredMeasurements.reduce((sum, m) => sum + (m.pcsTotal || m.totalPcsProcessed || 0), 0);
   const measLayakPcs = filteredMeasurements.reduce((sum, m) => sum + (m.pcsLayakJual || 0), 0);
@@ -208,10 +252,19 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="px-1">
+      <div className="px-1 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
-          {DATA_TITLES[activeSubTab]}
+          {!permissions.canViewAllData && activeSubTab === 'stok'
+            ? 'Data Stok yang Diinputkan'
+            : DATA_TITLES[activeSubTab]}
         </h2>
+        {!permissions.canViewAllData && (
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">
+            {activeSubTab === 'penjualan'
+              ? 'Akses Data Penjualan Toko'
+              : 'Hanya Data Inputan Anda'}
+          </span>
+        )}
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -338,16 +391,26 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                     const canModifyAtt =
                       !permissions.canOnlySelfAttendance ||
                       isOwnEmployeeRecord(currentUser, myEmployee, att.employeeId, att.employeeName);
+                    const trainingInfo = formatTrainingSummary(att);
                     return (
-                      <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr
+                        key={att.id}
+                        onClick={() => setDetailAttendance(att)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      >
                         <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
                           {formatShortDate(att.date)}
                         </td>
                         <td className="py-2.5 px-2.5 font-semibold text-slate-900 truncate">
                           {att.employeeName}
                         </td>
-                        <td className="py-2.5 px-2.5 text-slate-600 truncate">
-                          {formatAttendanceRole(att.role)}
+                        <td className="py-2.5 px-2.5 text-slate-600">
+                          <div className="truncate font-medium">{formatAttendanceRole(att.role)}</div>
+                          {trainingInfo && (
+                            <div className="text-[10px] text-orange-700 font-semibold truncate mt-0.5">
+                              {trainingInfo}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5 font-semibold text-blue-600 font-mono-num whitespace-nowrap">
                           {att.salaryType === 'hourly' ? `${att.hoursWorked} jam` : '1 shift'}
@@ -357,7 +420,10 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => onEditAttendance(att)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditAttendance(att);
+                                }}
                                 className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
                                 title="Edit"
                               >
@@ -365,7 +431,8 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setConfirmDelete({
                                     isOpen: true,
                                     title: 'Hapus Data Kehadiran',
@@ -375,8 +442,8 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                                       StorageService.deleteAttendance(att.id);
                                       onNotify('Data kehadiran dihapus.', 'info');
                                     },
-                                  })
-                                }
+                                  });
+                                }}
                                 className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
                                 title="Hapus"
                               >
@@ -577,35 +644,58 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
       {/* ===================================================================== */}
       {activeSubTab === 'stok' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Stok Masuk</div>
-              <div className="text-base sm:text-xl font-bold text-blue-600 font-mono-num mt-0.5">
-                {formatNumber(stockSummary.totalPcsIn)} pcs
-              </div>
-              {stockSummary.totalPcsReject > 0 && (
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  Reject: {formatNumber(stockSummary.totalPcsReject)} pcs
+          {permissions.canViewAllData ? (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Stok Masuk</div>
+                <div className="text-base sm:text-xl font-bold text-blue-600 font-mono-num mt-0.5">
+                  {formatNumber(stockSummary.totalPcsIn)} pcs
                 </div>
-              )}
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Stok Keluar</div>
-              <div className="text-base sm:text-xl font-bold text-amber-600 font-mono-num mt-0.5">
-                {formatNumber(stockSummary.totalPcsSold)} pcs
+                {stockSummary.totalPcsReject > 0 && (
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Reject: {formatNumber(stockSummary.totalPcsReject)} pcs
+                  </div>
+                )}
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Stok Keluar</div>
+                <div className="text-base sm:text-xl font-bold text-amber-600 font-mono-num mt-0.5">
+                  {formatNumber(stockSummary.totalPcsSold)} pcs
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Sisa Stok</div>
+                <div
+                  className={`text-base sm:text-xl font-bold font-mono-num mt-0.5 ${
+                    stockSummary.remainingStock < 0 ? 'text-rose-600' : 'text-emerald-600'
+                  }`}
+                >
+                  {formatNumber(stockSummary.remainingStock)} pcs
+                </div>
               </div>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Sisa Stok</div>
-              <div
-                className={`text-base sm:text-xl font-bold font-mono-num mt-0.5 ${
-                  stockSummary.remainingStock < 0 ? 'text-rose-600' : 'text-emerald-600'
-                }`}
-              >
-                {formatNumber(stockSummary.remainingStock)} pcs
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Stok Diinput</div>
+                <div className="text-base sm:text-xl font-bold text-blue-600 font-mono-num mt-0.5">
+                  {formatNumber(myStokTotalPcs)} pcs
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Jumlah Batch</div>
+                <div className="text-base sm:text-xl font-bold text-slate-900 font-mono-num mt-0.5">
+                  {formatNumber(filteredInventory.length)} data
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Total Berat</div>
+                <div className="text-base sm:text-xl font-bold text-emerald-600 font-mono-num mt-0.5">
+                  {formatNumber(myStokTotalKg)} kg
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <table className="w-full text-left border-collapse table-fixed">
@@ -685,115 +775,273 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 4: DATA TOTAL BARANG YANG DIUKUR */}
+      {/* TAB 4-7: DATA STEAM, BONGKAR BALL, SORTIR & PENGUKURAN */}
       {/* ===================================================================== */}
-      {activeSubTab === 'pengukuran' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Total Diukur</div>
-              <div className="text-base sm:text-xl font-bold text-slate-900 font-mono-num mt-0.5">
-                {formatNumber(measTotalPcs)} pcs
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Layak Jual</div>
-              <div className="text-base sm:text-xl font-bold text-emerald-600 font-mono-num mt-0.5">
-                {formatNumber(measLayakPcs)} pcs
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
-              <div className="text-[11px] font-medium text-slate-500">Reject</div>
-              <div className="text-base sm:text-xl font-bold text-rose-600 font-mono-num mt-0.5">
-                {formatNumber(measRejectPcs)} pcs
-              </div>
-            </div>
-          </div>
+      {(activeSubTab === 'steam' ||
+        activeSubTab === 'bongkar_ball' ||
+        activeSubTab === 'sortir' ||
+        activeSubTab === 'pengukuran') && (() => {
+        const totalLabel =
+          activeSubTab === 'steam'
+            ? 'Total Di-Steam'
+            : activeSubTab === 'bongkar_ball'
+            ? 'Total Dibongkar'
+            : activeSubTab === 'sortir'
+            ? 'Total Disortir'
+            : 'Total Diukur';
 
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <table className="w-full text-left border-collapse table-fixed">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] sm:text-xs font-semibold text-slate-600">
-                  <th className="py-2.5 px-2.5 w-[20%]">Tanggal</th>
-                  <th className="py-2.5 px-2.5 w-[30%]">Barang / Ball</th>
-                  <th className="py-2.5 px-2.5 w-[18%]">Diukur</th>
-                  <th className="py-2.5 px-2.5 w-[17%]">Layak</th>
-                  <th className="py-2.5 px-2 text-center w-[15%]">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-[10px] sm:text-xs">
-                {filteredMeasurements.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400">
-                      Belum ada data pengukuran barang pada periode ini.
-                    </td>
+        const emptyLabel =
+          activeSubTab === 'steam'
+            ? 'Belum ada data pengerjaan steam pada periode ini.'
+            : activeSubTab === 'bongkar_ball'
+            ? 'Belum ada data bongkar ball pada periode ini.'
+            : activeSubTab === 'sortir'
+            ? 'Belum ada data sortir pada periode ini.'
+            : 'Belum ada data pengukuran barang pada periode ini.';
+
+        const canEditThisTab =
+          activeSubTab === 'steam'
+            ? permissions.canEditSteam
+            : activeSubTab === 'bongkar_ball'
+            ? permissions.canEditBongkarBall
+            : activeSubTab === 'sortir'
+            ? permissions.canEditSortir
+            : permissions.canEditMeasurement;
+
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">{totalLabel}</div>
+                <div className="text-base sm:text-xl font-bold text-slate-900 font-mono-num mt-0.5">
+                  {formatNumber(measTotalPcs)} pcs
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Layak Jual</div>
+                <div className="text-base sm:text-xl font-bold text-emerald-600 font-mono-num mt-0.5">
+                  {formatNumber(measLayakPcs)} pcs
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+                <div className="text-[11px] font-medium text-slate-500">Reject</div>
+                <div className="text-base sm:text-xl font-bold text-rose-600 font-mono-num mt-0.5">
+                  {formatNumber(measRejectPcs)} pcs
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <table className="w-full text-left border-collapse table-fixed">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] sm:text-xs font-semibold text-slate-600">
+                    <th className="py-2.5 px-2.5 w-[20%]">Tanggal</th>
+                    <th className="py-2.5 px-2.5 w-[30%]">Barang / Ball</th>
+                    <th className="py-2.5 px-2.5 w-[18%]">Total Pcs</th>
+                    <th className="py-2.5 px-2.5 w-[17%]">Layak</th>
+                    <th className="py-2.5 px-2 text-center w-[15%]">Aksi</th>
                   </tr>
-                ) : (
-                  filteredMeasurements.map((rec) => (
-                    <tr
-                      key={rec.id}
-                      onClick={() => setDetailMeasurement(rec)}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                    >
-                      <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
-                        {formatShortDate(rec.date)}
-                      </td>
-                      <td className="py-2.5 px-2.5 font-semibold text-slate-900 truncate">
-                        {rec.ballName}
-                      </td>
-                      <td className="py-2.5 px-2.5 font-bold text-blue-600 font-mono-num whitespace-nowrap">
-                        {formatNumber(rec.pcsTotal || rec.totalPcsProcessed || 0)} pcs
-                      </td>
-                      <td className="py-2.5 px-2.5 font-semibold text-emerald-600 font-mono-num whitespace-nowrap">
-                        {formatNumber(rec.pcsLayakJual || 0)} pcs
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        {permissions.canEditMeasurement ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditMeasurement(rec);
-                              }}
-                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDelete({
-                                  isOpen: true,
-                                  title: 'Hapus Data Pengukuran',
-                                  message: `Hapus pengukuran "${rec.ballName}" (${formatNumber(rec.pcsTotal || 0)} pcs)?`,
-                                  onConfirm: () => {
-                                    setConfirmDelete((p) => ({ ...p, isOpen: false }));
-                                    StorageService.deleteSteamSortir(rec.id);
-                                    onNotify('Data pengukuran dihapus.', 'info');
-                                  },
-                                });
-                              }}
-                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">-</span>
-                        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[10px] sm:text-xs">
+                  {filteredMeasurements.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        {emptyLabel}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredMeasurements.map((rec) => {
+                      const processBadge =
+                        rec.processType === 'steam'
+                          ? 'Steam'
+                          : rec.processType === 'bongkar_ball'
+                          ? 'Bongkar Ball'
+                          : rec.processType === 'sortir_dan_steam'
+                          ? 'Sortir + Steam'
+                          : 'Sortir';
+                      return (
+                        <tr
+                          key={rec.id}
+                          onClick={() => setDetailMeasurement(rec)}
+                          className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        >
+                          <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap">
+                            {formatShortDate(rec.date)}
+                          </td>
+                          <td className="py-2.5 px-2.5">
+                            <div className="font-semibold text-slate-900 truncate">{rec.ballName}</div>
+                            {activeSubTab === 'pengukuran' && (
+                              <span className="inline-block text-[9px] font-semibold text-slate-500">
+                                {processBadge}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-2.5 font-bold text-blue-600 font-mono-num whitespace-nowrap">
+                            {formatNumber(rec.pcsTotal || rec.totalPcsProcessed || 0)} pcs
+                          </td>
+                          <td className="py-2.5 px-2.5 font-semibold text-emerald-600 font-mono-num whitespace-nowrap">
+                            {formatNumber(rec.pcsLayakJual || 0)} pcs
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            {canEditThisTab ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditMeasurement(rec);
+                                  }}
+                                  className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 cursor-pointer"
+                                  title="Edit"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDelete({
+                                      isOpen: true,
+                                      title: `Hapus Data ${processBadge}`,
+                                      message: `Hapus data ${processBadge.toLowerCase()} "${rec.ballName}" (${formatNumber(rec.pcsTotal || 0)} pcs)?`,
+                                      onConfirm: () => {
+                                        setConfirmDelete((p) => ({ ...p, isOpen: false }));
+                                        StorageService.deleteSteamSortir(rec.id);
+                                        onNotify(`Data ${processBadge.toLowerCase()} dihapus.`, 'info');
+                                      },
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* DETAIL MODAL: KEHADIRAN */}
+      {detailAttendance && (() => {
+        const canModifyDetail =
+          !permissions.canOnlySelfAttendance ||
+          isOwnEmployeeRecord(currentUser, myEmployee, detailAttendance.employeeId, detailAttendance.employeeName);
+        const isTrainingAtt =
+          (detailAttendance.role || '').toLowerCase().includes('training') ||
+          Boolean(detailAttendance.trainingTraineeName) ||
+          Boolean(detailAttendance.trainingTrainerName);
+
+        return (
+          <div
+            onClick={() => setDetailAttendance(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden flex flex-col"
+            >
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Detail Kehadiran Shift</h3>
+                  <p className="text-xs text-slate-500">{formatDateIndo(detailAttendance.date)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailAttendance(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-semibold text-blue-700 uppercase">Durasi Kerja</div>
+                    <div className="text-lg font-bold text-blue-700 font-mono-num">
+                      {detailAttendance.salaryType === 'hourly' ? `${detailAttendance.hoursWorked} jam` : '1 shift harian'}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-slate-500">Pegawai</div>
+                    <div className="text-xs font-bold text-slate-900">{detailAttendance.employeeName}</div>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  <div className="py-2 flex justify-between gap-3">
+                    <span className="text-slate-500">Role Pekerjaan</span>
+                    <span className="font-semibold text-slate-900 text-right">
+                      {formatAttendanceRole(detailAttendance.role)}
+                    </span>
+                  </div>
+
+                  {isTrainingAtt && (
+                    <>
+                      <div className="py-2 flex justify-between gap-3">
+                        <span className="text-orange-700 font-medium">Calon Pegawai Ditraining</span>
+                        <span className="font-bold text-slate-900 text-right">
+                          {detailAttendance.trainingTraineeName || '-'}
+                        </span>
+                      </div>
+                      <div className="py-2 flex justify-between gap-3">
+                        <span className="text-orange-700 font-medium">Atas Nama Trainer</span>
+                        <span className="font-bold text-orange-700 text-right">
+                          {detailAttendance.trainingTrainerName || '-'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {detailAttendance.notes && (
+                    <div className="py-2">
+                      <span className="text-slate-500 block mb-1">Catatan</span>
+                      <p className="text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                        {detailAttendance.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDetailAttendance(null)}
+                  className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold cursor-pointer"
+                >
+                  Tutup
+                </button>
+                {canModifyDetail && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = detailAttendance;
+                      setDetailAttendance(null);
+                      onEditAttendance(target);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Kehadiran</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* DETAIL MODAL: PENJUALAN */}
       {detailSale && (
@@ -978,6 +1226,18 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
               </div>
               <div className="divide-y divide-slate-100 pt-1">
                 <div className="py-2 flex justify-between">
+                  <span className="text-slate-500">Jenis Proses</span>
+                  <span className="font-semibold text-blue-600">
+                    {detailMeasurement.processType === 'steam'
+                      ? 'Steam'
+                      : detailMeasurement.processType === 'bongkar_ball'
+                      ? 'Bongkar Ball'
+                      : detailMeasurement.processType === 'sortir_dan_steam'
+                      ? 'Sortir + Steam'
+                      : 'Sortir'}
+                  </span>
+                </div>
+                <div className="py-2 flex justify-between">
                   <span className="text-slate-500">Berat</span>
                   <span className="font-semibold text-slate-900 font-mono-num">{detailMeasurement.ballWeightKg || 45} kg</span>
                 </div>
@@ -1014,7 +1274,7 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                   className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit Pengukuran</span>
+                  <span>Edit Data</span>
                 </button>
               )}
             </div>

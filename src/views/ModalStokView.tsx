@@ -251,6 +251,8 @@ export const ModalStokView: React.FC<ModalStokViewProps> = ({
       returnMechanism,
       estimateReturnPercentage,
       notes,
+      recordedById: currentUser.id,
+      recordedBy: currentUser.name,
       createdAt: new Date().toISOString(),
     };
 

@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'manager' | 'investor' | 'host' | 'admin_toko' | 'sortir' | 'steam';
+export type UserRole = 'owner' | 'manager' | 'investor' | 'host' | 'admin_toko' | 'sortir' | 'steam' | 'bongkar_ball' | 'training';
 
 export type SalaryType = 'hourly' | 'daily';
 
@@ -71,6 +71,9 @@ export interface Employee {
   // Req 8 & Req 9 rules
   multiRoleSalesRule?: MultiRoleSalesRule;
   monthlyOmzetBonusRule?: MonthlyOmzetBonusRule;
+  // Default info jika pegawai bertipe role training
+  trainingTraineeName?: string;
+  trainingTrainerName?: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -201,6 +204,8 @@ export interface BallInventory {
   returnMechanism: 'estimate' | 'detail';
   estimateReturnPercentage: number;
   notes?: string;
+  recordedById?: string;
+  recordedBy?: string;
   createdAt: string;
 }
 
@@ -214,7 +219,12 @@ export interface AttendanceRecord {
   rolesExecuted?: UserRole[];
   salaryType: SalaryType;
   hoursWorked: number; // if hourly, e.g. 4.5 hours; if daily: 1 shift
+  trainingTraineeName?: string; // Nama calon pegawai yang ditraining
+  trainingTrainerId?: string; // ID penanggung jawab / trainer (atas nama siapa)
+  trainingTrainerName?: string; // Nama penanggung jawab / trainer (atas nama siapa yang trainingnya)
   notes?: string;
+  recordedById?: string;
+  recordedBy?: string;
   createdAt: string;
 }
 
@@ -250,6 +260,7 @@ export interface SalesRecord {
   adsUsed?: number; // iklan marketplace live / ads non-live
   paymentMethod?: PaymentMethod | string;
   notes?: string; // Catatan invoice / pesanan pelanggan
+  recordedById?: string;
   recordedBy: string;
   createdAt: string;
 }
@@ -484,9 +495,10 @@ export interface SteamSortirRecord {
   weightKg?: number; // Berat ball (kg)
   ballWeightKg?: number;
   totalPcsProcessed?: number;
+  recordedById?: string;
   recordedBy?: string;
   sortirRecordId?: string;
-  processType: 'sortir' | 'steam' | 'sortir_dan_steam';
+  processType: 'sortir' | 'steam' | 'bongkar_ball' | 'sortir_dan_steam';
   employeeIds: string[];
   employeeNames: string[];
   pcsTotal: number;

@@ -43,6 +43,8 @@
         "ballCount": { "type": "number" },
         "totalCost": { "type": "number" },
         "notes": { "type": "string" },
+        "recordedById": { "type": "string" },
+        "recordedBy": { "type": "string" },
         "createdAt": { "type": "string" }
       },
       "required": ["id", "storeId", "totalCost"]
@@ -59,7 +61,12 @@
         "date": { "type": "string" },
         "shift": { "type": "string" },
         "status": { "type": "string" },
-        "hoursWorked": { "type": "number" }
+        "hoursWorked": { "type": "number" },
+        "trainingTraineeName": { "type": "string" },
+        "trainingTrainerId": { "type": "string" },
+        "trainingTrainerName": { "type": "string" },
+        "recordedById": { "type": "string" },
+        "recordedBy": { "type": "string" }
       },
       "required": ["id", "storeId", "employeeId", "date"]
     },
@@ -77,7 +84,9 @@
         "omzet": { "type": "number" },
         "pcsSold": { "type": "number" },
         "packageCount": { "type": "number" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "recordedById": { "type": "string" },
+        "recordedBy": { "type": "string" }
       },
       "required": ["id", "storeId", "date", "omzet"]
     },
@@ -126,7 +135,7 @@
     },
     "SteamSortir": {
       "title": "SteamSortir",
-      "description": "Steam and sorting operational logs and staff processing productivity",
+      "description": "Steam, bongkar ball, and sorting operational logs and staff processing productivity",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -134,7 +143,9 @@
         "date": { "type": "string" },
         "employeeId": { "type": "string" },
         "type": { "type": "string" },
-        "pcsProcessed": { "type": "number" }
+        "pcsProcessed": { "type": "number" },
+        "recordedById": { "type": "string" },
+        "recordedBy": { "type": "string" }
       },
       "required": ["id", "storeId", "date", "pcsProcessed"]
     },
