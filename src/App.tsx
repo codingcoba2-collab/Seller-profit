@@ -138,32 +138,76 @@ export default function App() {
     [currentUser, handleNotify]
   );
 
-  // Realtime network monitoring (Strict Online-Only App Policy)
+  // Complete boot sequence helper so recovery from offline never stays stuck on LoadingScreen
+  const hasBootedRef = React.useRef(false);
+  const isOfflineStuckRef = React.useRef(false);
+
+  const finalizeBootSession = useCallback((delayMs: number = 3500) => {
+    StorageService.syncStoresAndEmployeesFromCloud();
+    return setTimeout(() => {
+      const user = StorageService.getCurrentUser();
+      const initialPath = normalizePath(window.location.pathname);
+
+      if (user) {
+        setCurrentUser(user);
+        StorageService.syncAllFromCloud(user.storeId);
+        if (isRouteAllowed(initialPath, user)) {
+          setCurrentRoute(initialPath);
+          window.history.replaceState({}, '', initialPath);
+        } else {
+          setCurrentRoute('/dashboard');
+          window.history.replaceState({}, '', '/dashboard');
+        }
+        const targetName = user.name || user.username || user.storeName || 'Seller';
+        SoundFx.playRobotVoiceWelcome(targetName);
+      } else {
+        setCurrentRoute('/dashboard');
+      }
+      hasBootedRef.current = true;
+      setIsLoading(false);
+    }, delayMs);
+  }, []);
+
+  // Realtime network monitoring (Strict Online-Only App Policy without false positives)
   useEffect(() => {
     let offlineTimer: NodeJS.Timeout | null = null;
+    let resumeTimer: NodeJS.Timeout | null = null;
 
     const unsub = networkService.subscribe((online) => {
       setIsOnline(online);
       if (!online) {
-        setIsLoading(true);
-        setIsOfflineStuck(true);
-        if (offlineTimer) clearTimeout(offlineTimer);
-        // Notif tidak ada koneksi muncul gak lama kemudian (~2.5 detik)
-        offlineTimer = setTimeout(() => {
-          setShowOfflineAlert(true);
-        }, 2500);
+        const trulyDisconnected = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (!hasBootedRef.current || trulyDisconnected) {
+          isOfflineStuckRef.current = true;
+          setIsOfflineStuck(true);
+          if (!hasBootedRef.current) {
+            setIsLoading(true);
+          }
+          if (offlineTimer) clearTimeout(offlineTimer);
+          offlineTimer = setTimeout(() => {
+            setShowOfflineAlert(true);
+          }, 2500);
+        }
       } else {
         if (offlineTimer) clearTimeout(offlineTimer);
         setShowOfflineAlert(false);
         setIsOfflineStuck(false);
+        if (isOfflineStuckRef.current) {
+          isOfflineStuckRef.current = false;
+          if (!hasBootedRef.current) {
+            if (resumeTimer) clearTimeout(resumeTimer);
+            resumeTimer = finalizeBootSession(800);
+          }
+        }
       }
     });
 
     return () => {
       unsub();
       if (offlineTimer) clearTimeout(offlineTimer);
+      if (resumeTimer) clearTimeout(resumeTimer);
     };
-  }, []);
+  }, [finalizeBootSession]);
 
   // Initialize store, session & URL route on mount with online network check
   useEffect(() => {
@@ -182,40 +226,17 @@ export default function App() {
       setIsOnline(online);
 
       if (!online) {
+        isOfflineStuckRef.current = true;
         setIsLoading(true);
         setIsOfflineStuck(true);
-        // Tampilkan notifikasi tidak ada koneksi gak lama kemudian
         offlineAlertTimer = setTimeout(() => {
           setShowOfflineAlert(true);
         }, 2500);
         return;
       }
 
-      // Step 2: Start immediate cloud synchronization if online
-      StorageService.syncStoresAndEmployeesFromCloud();
-
-      // Step 3: Complete boot sequence
-      bootTimer = setTimeout(() => {
-        const user = StorageService.getCurrentUser();
-        const initialPath = normalizePath(window.location.pathname);
-
-        if (user) {
-          setCurrentUser(user);
-          StorageService.syncAllFromCloud(user.storeId);
-          if (isRouteAllowed(initialPath, user)) {
-            setCurrentRoute(initialPath);
-            window.history.replaceState({}, '', initialPath);
-          } else {
-            setCurrentRoute('/dashboard');
-            window.history.replaceState({}, '', '/dashboard');
-          }
-          const targetName = user.name || user.username || user.storeName || 'Seller';
-          SoundFx.playRobotVoiceWelcome(targetName);
-        } else {
-          setCurrentRoute('/dashboard');
-        }
-        setIsLoading(false);
-      }, 3500);
+      // Step 2 & 3: Start cloud sync and complete boot sequence
+      bootTimer = finalizeBootSession(3500);
     };
 
     initializeApp();
@@ -224,7 +245,7 @@ export default function App() {
       if (bootTimer) clearTimeout(bootTimer);
       if (offlineAlertTimer) clearTimeout(offlineAlertTimer);
     };
-  }, []);
+  }, [finalizeBootSession]);
 
   // Manual retry connection handler
   const handleRetryConnection = async () => {
@@ -234,6 +255,7 @@ export default function App() {
     setIsRetryingConnection(false);
 
     if (online) {
+      isOfflineStuckRef.current = false;
       setIsOnline(true);
       setIsOfflineStuck(false);
       setShowOfflineAlert(false);
@@ -248,6 +270,7 @@ export default function App() {
         SoundFx.playRobotVoiceWelcome(targetName);
       }
       setTimeout(() => {
+        hasBootedRef.current = true;
         setIsLoading(false);
       }, 800);
     } else {

@@ -29,6 +29,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [audioSrc, setAudioSrc] = useState<string>('');
   const [audioStarted, setAudioStarted] = useState<boolean>(false);
   const hasStartedAudio = useRef<boolean>(false);
+  const isOfflineRef = useRef<boolean>(isOffline);
+
+  useEffect(() => {
+    isOfflineRef.current = isOffline;
+  }, [isOffline]);
 
   // 1. Fetch pre-rendered 4.8s time machine warp audio WAV Blob URL
   useEffect(() => {
@@ -97,7 +102,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
     const startTime = performance.now();
     const interval = setInterval(() => {
-      if (isOffline) {
+      if (isOfflineRef.current) {
         setProgress(35);
         if (audioElRef.current) {
           audioElRef.current.pause();

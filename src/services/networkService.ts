@@ -28,7 +28,6 @@ class NetworkService {
 
   public subscribe(listener: NetworkListener): () => void {
     this.listeners.add(listener);
-    // Initial call
     listener(this.isOnline);
     return () => {
       this.listeners.delete(listener);
@@ -36,7 +35,7 @@ class NetworkService {
   }
 
   private notify() {
-    this.listeners.forEach(fn => {
+    this.listeners.forEach((fn) => {
       try {
         fn(this.isOnline);
       } catch (err) {
@@ -52,16 +51,45 @@ class NetworkService {
       return;
     }
 
-    // When browser says online, actively ping the health endpoint to confirm real internet transit
-    const verified = await this.checkConnection();
-    this.isOnline = verified;
-    this.notify();
+    // Optimistically reflect browser online state immediately, then verify
+    if (!this.isOnline) {
+      this.isOnline = true;
+      this.notify();
+    }
+    await this.checkConnection();
+  }
+
+  private async probeEndpoint(url: string, timeoutMs: number): Promise<'ok' | 'abort' | 'network_error'> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      // Any reachable HTTP response (< 500, including 200/304/404) proves network transit succeeded
+      return res.status > 0 && res.status < 500 ? 'ok' : 'network_error';
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name === 'AbortError') {
+        return 'abort';
+      }
+      return 'network_error';
+    }
   }
 
   public async checkConnection(): Promise<boolean> {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.isOnline = false;
-      this.notify();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (this.isOnline !== false) {
+        this.isOnline = false;
+        this.notify();
+      }
       return false;
     }
 
@@ -71,33 +99,36 @@ class NetworkService {
 
     this.checkPromise = (async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const ts = Date.now();
+        // Probe static/runtime endpoints available across Vite dev, Node server, and Vercel
+        const primary = await this.probeEndpoint(`/version.json?_net=${ts}`, 4000);
+        if (primary === 'ok') {
+          if (this.isOnline !== true) {
+            this.isOnline = true;
+            this.notify();
+          }
+          return true;
+        }
 
-        // Ping local endpoint or fallback timestamp
-        const res = await fetch(`/api/health?t=${Date.now()}`, {
-          method: 'GET',
-          cache: 'no-store',
-          signal: controller.signal,
-        });
+        const fallback = await this.probeEndpoint(`/index.html?_net=${ts}`, 4000);
+        if (fallback === 'ok') {
+          if (this.isOnline !== true) {
+            this.isOnline = true;
+            this.notify();
+          }
+          return true;
+        }
 
-        clearTimeout(timeoutId);
-        const ok = res.status >= 200 && res.status < 400;
-        const prev = this.isOnline;
-        this.isOnline = ok;
-        if (prev !== ok) {
+        // On slow networks (AbortError) or browser online status, avoid false offline lock
+        const browserOnline = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
+        const resolved =
+          primary === 'abort' || fallback === 'abort' ? browserOnline : false;
+
+        if (this.isOnline !== resolved) {
+          this.isOnline = resolved;
           this.notify();
         }
-        return ok;
-      } catch (e) {
-        // If fetch aborted or failed, respect browser navigator.onLine status
-        const browserOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-        const prev = this.isOnline;
-        this.isOnline = browserOnline;
-        if (prev !== browserOnline) {
-          this.notify();
-        }
-        return browserOnline;
+        return resolved;
       } finally {
         this.checkPromise = null;
       }
