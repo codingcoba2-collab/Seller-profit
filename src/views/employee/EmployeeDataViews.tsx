@@ -22,17 +22,13 @@ import { resolveCurrentEmployeeProfile } from '../../utils/employeeSalary';
 import { getEmployeePermissions, isOwnEmployeeRecord } from '../../utils/employeePermissions';
 import {
   Calendar,
-  CalendarCheck,
   ChevronLeft,
   ChevronRight,
   Clock,
   Edit3,
-  Package,
   Plus,
-  Ruler,
   Search,
   Trash2,
-  TrendingUp,
   X,
 } from 'lucide-react';
 
@@ -40,7 +36,7 @@ export type EmployeeDataSubTab = 'kehadiran' | 'penjualan' | 'stok' | 'pengukura
 
 interface EmployeeDataViewsProps {
   activeSubTab: EmployeeDataSubTab;
-  onChangeSubTab: (tab: EmployeeDataSubTab) => void;
+  onChangeSubTab?: (tab: EmployeeDataSubTab) => void;
   currentUser: CurrentUser;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
   onGoToInput: (tab: EmployeeDataSubTab) => void;
@@ -50,12 +46,12 @@ interface EmployeeDataViewsProps {
   onEditMeasurement: (rec: SteamSortirRecord) => void;
 }
 
-const DATA_TABS: { key: EmployeeDataSubTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'kehadiran', label: 'Kehadiran', icon: CalendarCheck },
-  { key: 'penjualan', label: 'Omzet & Pcs', icon: TrendingUp },
-  { key: 'stok', label: 'Stok', icon: Package },
-  { key: 'pengukuran', label: 'Pengukuran', icon: Ruler },
-];
+const DATA_TITLES: Record<EmployeeDataSubTab, string> = {
+  kehadiran: 'Data Kehadiran',
+  penjualan: 'Data Omzet & Pcs Terjual',
+  stok: 'Data Stok Masuk, Keluar & Sisa',
+  pengukuran: 'Data Total Barang Diukur',
+};
 
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return '-';
@@ -75,7 +71,6 @@ const formatMonthLabel = (ym: string) => {
 
 export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
   activeSubTab,
-  onChangeSubTab,
   currentUser,
   onNotify,
   onGoToInput,
@@ -213,27 +208,10 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200 rounded-xl overflow-x-auto">
-        {DATA_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeSubTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => onChangeSubTab(tab.key)}
-              className={`flex-1 min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                active
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="px-1">
+        <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+          {DATA_TITLES[activeSubTab]}
+        </h2>
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -424,22 +402,22 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
       {/* ===================================================================== */}
       {activeSubTab === 'penjualan' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+            <div className="col-span-2 sm:col-span-1 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4">
               <div className="text-[11px] font-medium text-slate-500">Total Omzet</div>
-              <div className="text-sm sm:text-xl font-bold text-emerald-600 font-mono-num mt-0.5 truncate">
+              <div className="text-lg sm:text-xl font-bold text-emerald-600 font-mono-num mt-0.5 whitespace-nowrap">
                 {formatRupiah(salesTotalOmzet)}
               </div>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4">
               <div className="text-[11px] font-medium text-slate-500">Pcs Terjual</div>
-              <div className="text-sm sm:text-xl font-bold text-blue-600 font-mono-num mt-0.5">
+              <div className="text-base sm:text-xl font-bold text-blue-600 font-mono-num mt-0.5 whitespace-nowrap">
                 {formatNumber(salesTotalPcs)} pcs
               </div>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4">
               <div className="text-[11px] font-medium text-slate-500">Total Paket</div>
-              <div className="text-sm sm:text-xl font-bold text-slate-900 font-mono-num mt-0.5">
+              <div className="text-base sm:text-xl font-bold text-slate-900 font-mono-num mt-0.5 whitespace-nowrap">
                 {formatNumber(salesTotalPackages)} pkt
               </div>
             </div>
