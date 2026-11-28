@@ -16,6 +16,23 @@ function versionManifestPlugin(): Plugin {
 
   return {
     name: 'version-manifest-plugin',
+    transformIndexHtml(html) {
+      return {
+        html,
+        tags: [
+          {
+            tag: 'meta',
+            attrs: { name: 'app-build-id', content: APP_BUILD_ID },
+            injectTo: 'head',
+          },
+          {
+            tag: 'meta',
+            attrs: { name: 'app-build-time', content: APP_BUILD_TIME },
+            injectTo: 'head',
+          },
+        ],
+      };
+    },
     configureServer(server) {
       server.middlewares.use('/version.json', (_req, res) => {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -45,7 +62,7 @@ export default defineConfig(() => {
       tailwindcss(),
       versionManifestPlugin(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
@@ -86,13 +103,25 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-          globIgnores: ['**/version.json'],
+          globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+          globIgnores: ['**/version.json', '**/index.html'],
           cleanupOutdatedCaches: true,
-          skipWaiting: false,
+          skipWaiting: true,
           clientsClaim: true,
-          navigateFallbackDenylist: [/^\/api\//, /^\/version\.json/],
+          navigateFallback: null,
           runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'html-navigation-cache',
+                networkTimeoutSeconds: 2,
+                expiration: {
+                  maxEntries: 5,
+                  maxAgeSeconds: 300,
+                },
+              },
+            },
             {
               urlPattern: /\/version\.json/,
               handler: 'NetworkOnly',

@@ -316,15 +316,18 @@ export default function App() {
     const activeUser = currentUser || StorageService.getCurrentUser();
     const targetName = activeUser?.name || activeUser?.username || activeUser?.storeName || 'Seller';
     return (
-      <LoadingScreen 
-        storeName={activeUser?.storeName} 
-        userName={targetName} 
-        durationMs={3500} 
-        isOffline={isOfflineStuck || !isOnline}
-        showOfflineNotification={showOfflineAlert}
-        onRetryConnection={handleRetryConnection}
-        isRetryingConnection={isRetryingConnection}
-      />
+      <>
+        <LoadingScreen 
+          storeName={activeUser?.storeName} 
+          userName={targetName} 
+          durationMs={3500} 
+          isOffline={isOfflineStuck || !isOnline}
+          showOfflineNotification={showOfflineAlert}
+          onRetryConnection={handleRetryConnection}
+          isRetryingConnection={isRetryingConnection}
+        />
+        <AppUpdatePrompt variant={activeUser && !activeUser.isOwner ? 'light' : 'dark'} />
+      </>
     );
   }
 

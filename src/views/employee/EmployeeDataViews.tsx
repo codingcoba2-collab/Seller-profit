@@ -500,7 +500,7 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[9px] min-[375px]:text-[10px] sm:text-xs font-semibold text-slate-600">
                   <th className="py-2.5 px-1.5 sm:px-3 w-[17%]">Tanggal</th>
-                  <th className="py-2.5 px-1.5 sm:px-3 w-[20%]">Channel</th>
+                  <th className="py-2.5 px-1.5 sm:px-3 w-[20%]">Nama Host</th>
                   <th className="py-2.5 px-1.5 sm:px-3 w-[13%]">Pcs</th>
                   <th className="py-2.5 px-1.5 sm:px-3 w-[13%]">Paket</th>
                   <th className="py-2.5 px-1.5 sm:px-3 w-[22%]">Omzet</th>
@@ -518,6 +518,12 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                   filteredSales.map((sale) => {
                     const cleanName = StorageService.getCleanChannelName(sale.salesChannel || sale.channelName);
                     const chLabel = salesChannelLabels[sale.salesChannel as SalesChannel]?.label || cleanName;
+                    const hostDisplay =
+                      sale.hostNames && sale.hostNames.length > 0
+                        ? sale.hostNames.join(', ')
+                        : sale.salesType === 'non_live'
+                        ? 'Non-Live'
+                        : '-';
                     return (
                       <tr
                         key={sale.id}
@@ -527,8 +533,8 @@ export const EmployeeDataViews: React.FC<EmployeeDataViewsProps> = ({
                         <td className="py-2 px-1.5 sm:px-3 text-slate-600 whitespace-nowrap">
                           {formatShortDate(sale.date)}
                         </td>
-                        <td className="py-2 px-1.5 sm:px-3 font-semibold text-slate-900 truncate">
-                          {chLabel}
+                        <td className="py-2 px-1.5 sm:px-3 font-semibold text-slate-900 truncate" title={hostDisplay}>
+                          {hostDisplay}
                         </td>
                         <td className="py-2 px-1.5 sm:px-3 font-semibold text-blue-600 font-mono-num whitespace-nowrap">
                           {formatNumber(sale.pcsSold)} pcs

@@ -13,6 +13,7 @@ import {
 import {
   formatAttendanceRole,
   formatDateIndo,
+  formatNumber,
   formatRupiah,
   getTodayString,
   roleLabels,
@@ -83,6 +84,62 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
 
     return calculateSingleEmployeeSalary(storeId, employee, attendance, sales, measurements, filterFn);
   }, [storeId, employee, attendance, sales, measurements, period, selectedMonth, todayStr]);
+
+  const getPcsSoldForAttendance = (att: AttendanceRecord): number => {
+    const attDate = (att.date || '').slice(0, 10);
+    if (!attDate) return 0;
+
+    const daySales = sales.filter((s) => (s.date || '').slice(0, 10) === attDate);
+    if (daySales.length === 0) return 0;
+
+    const empNameLower = (employee.name || '').trim().toLowerCase();
+    const matchedSales = daySales.filter((s) => {
+      const matchHost =
+        s.hostIds?.includes(employee.id) ||
+        s.hostNames?.some((hn) => hn.trim().toLowerCase() === empNameLower);
+      const matchAdmin =
+        s.adminIds?.includes(employee.id) ||
+        s.adminId === employee.id ||
+        s.adminNames?.some((an) => an.trim().toLowerCase() === empNameLower) ||
+        (s.adminName && s.adminName.trim().toLowerCase() === empNameLower);
+      return Boolean(matchHost || matchAdmin);
+    });
+
+    if (matchedSales.length > 0) {
+      return Math.round(
+        matchedSales.reduce((sum, s) => {
+          const isHostMatch =
+            s.hostIds?.includes(employee.id) ||
+            s.hostNames?.some((hn) => hn.trim().toLowerCase() === empNameLower);
+          const hostCount = isHostMatch
+            ? Math.max(
+                1,
+                s.hostIds && s.hostIds.length > 0
+                  ? s.hostIds.length
+                  : s.hostNames && s.hostNames.length > 0
+                  ? s.hostNames.length
+                  : 1
+              )
+            : 1;
+          return sum + (s.pcsSold || 0) / hostCount;
+        }, 0)
+      );
+    }
+
+    const hasNoTaggedHosts = daySales.every(
+      (s) => (!s.hostIds || s.hostIds.length === 0) && (!s.hostNames || s.hostNames.length === 0)
+    );
+    if (att.role !== 'host' || hasNoTaggedHosts) {
+      return daySales.reduce((sum, s) => sum + (s.pcsSold || 0), 0);
+    }
+
+    return 0;
+  };
+
+  const sortedAttendanceRecords = useMemo(
+    () => [...salary.attendanceRecords].sort((a, b) => b.date.localeCompare(a.date)),
+    [salary.attendanceRecords]
+  );
 
   const statusMeta = {
     paid: { label: 'Sudah Lunas', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -244,7 +301,7 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
 
         {/* Rincian Kehadiran */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 pr-3 sm:pr-5">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-blue-600" />
               <h3 className="text-sm font-bold text-slate-900">Riwayat Kehadiran ({salary.attendanceCount})</h3>
@@ -254,23 +311,40 @@ export const EmployeeGajiView: React.FC<EmployeeGajiViewProps> = ({ currentUser 
             </span>
           </div>
 
-          {salary.attendanceRecords.length === 0 ? (
+          {sortedAttendanceRecords.length === 0 ? (
             <p className="text-xs text-slate-400 py-4 text-center">
               Belum ada absensi kehadiran pada periode ini.
             </p>
           ) : (
             <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-              {salary.attendanceRecords.map((att) => (
-                <div key={att.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div>
-                    <div className="font-semibold text-slate-900">{formatDateIndo(att.date)}</div>
-                    <div className="text-[11px] text-slate-500">{formatAttendanceRole(att.role)}</div>
+              {sortedAttendanceRecords.map((att) => {
+                const pcsSold = getPcsSoldForAttendance(att);
+                return (
+                  <div
+                    key={att.id}
+                    className="py-2.5 pr-4 sm:pr-6 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-slate-900 truncate">{formatDateIndo(att.date)}</div>
+                      <div className="text-[11px] text-slate-500">{formatAttendanceRole(att.role)}</div>
+                    </div>
+                    <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+                      <div className="text-right font-mono-num">
+                        <div className="font-semibold text-blue-600 whitespace-nowrap">
+                          {formatNumber(pcsSold)} pcs
+                        </div>
+                        <div className="text-[10px] text-slate-400">Terjual</div>
+                      </div>
+                      <div className="text-right font-mono-num min-w-[54px] pr-1 sm:pr-2">
+                        <div className="font-semibold text-slate-700 whitespace-nowrap">
+                          {att.salaryType === 'hourly' ? `${att.hoursWorked} jam` : '1 shift'}
+                        </div>
+                        <div className="text-[10px] text-slate-400">Durasi</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right font-mono-num font-semibold text-slate-700">
-                    {att.salaryType === 'hourly' ? `${att.hoursWorked} jam` : '1 shift'}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

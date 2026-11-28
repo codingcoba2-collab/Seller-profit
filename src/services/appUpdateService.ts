@@ -2,6 +2,7 @@ type UpdateListener = (state: AppUpdateState) => void;
 
 export interface AppUpdateState {
   hasUpdate: boolean;
+  justUpdated: boolean;
   isChecking: boolean;
   isApplying: boolean;
   dismissed: boolean;
@@ -10,17 +11,41 @@ export interface AppUpdateState {
   remoteBuildId: string | null;
   remoteBuiltAt: string | null;
   lastCheckedAt: number | null;
-  source: 'sw' | 'version' | null;
+  source: 'sw' | 'version' | 'html' | null;
 }
+
+const LAST_BUILD_STORAGE_KEY = 'sp_last_build_id';
 
 const safeCurrentBuildId =
   typeof __APP_BUILD_ID__ !== 'undefined' ? __APP_BUILD_ID__ : 'dev';
 const safeCurrentBuiltAt =
   typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : '';
 
+function detectJustUpdatedOnBoot(): boolean {
+  if (typeof window === 'undefined' || safeCurrentBuildId === 'dev') return false;
+  try {
+    const prev = window.localStorage.getItem(LAST_BUILD_STORAGE_KEY);
+    window.localStorage.setItem(LAST_BUILD_STORAGE_KEY, safeCurrentBuildId);
+    return Boolean(prev && prev !== safeCurrentBuildId);
+  } catch {
+    return false;
+  }
+}
+
+function getCurrentMainAssetSrc(): string | null {
+  if (typeof document === 'undefined') return null;
+  const scripts = Array.from(document.querySelectorAll('script[type="module"][src]'));
+  const entryScript = scripts.find((s) => {
+    const src = s.getAttribute('src') || '';
+    return src.includes('/assets/index-');
+  });
+  return entryScript?.getAttribute('src') || null;
+}
+
 class AppUpdateServiceClass {
   private state: AppUpdateState = {
     hasUpdate: false,
+    justUpdated: detectJustUpdatedOnBoot(),
     isChecking: false,
     isApplying: false,
     dismissed: false,
@@ -72,13 +97,18 @@ class AppUpdateServiceClass {
     }
   }
 
-  markUpdateAvailable(source: 'sw' | 'version', remoteBuildId?: string, remoteBuiltAt?: string) {
+  markUpdateAvailable(
+    source: 'sw' | 'version' | 'html',
+    remoteBuildId?: string,
+    remoteBuiltAt?: string
+  ) {
     const isNewerRemote =
       Boolean(remoteBuildId) && remoteBuildId !== this.state.remoteBuildId;
 
     this.state = {
       ...this.state,
       hasUpdate: true,
+      justUpdated: false,
       dismissed: isNewerRemote ? false : this.state.dismissed,
       remoteBuildId: remoteBuildId || this.state.remoteBuildId,
       remoteBuiltAt: remoteBuiltAt || this.state.remoteBuiltAt,
@@ -95,13 +125,22 @@ class AppUpdateServiceClass {
     this.emit();
   }
 
+  dismissJustUpdated() {
+    if (!this.state.justUpdated) return;
+    this.state = {
+      ...this.state,
+      justUpdated: false,
+    };
+    this.emit();
+  }
+
   async checkForUpdates(force: boolean = false): Promise<boolean> {
     if (typeof window === 'undefined') return false;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
     const now = Date.now();
-    // Throttle automatic checks to at most once every 5 seconds unless forced
-    if (!force && now - this.lastCheckTimestamp < 5000) {
+    // Throttle automatic checks to at most once every 2 seconds unless forced
+    if (!force && now - this.lastCheckTimestamp < 2000) {
       return this.state.hasUpdate;
     }
     this.lastCheckTimestamp = now;
@@ -125,45 +164,91 @@ class AppUpdateServiceClass {
           }
           await Promise.race([
             reg.update().catch(() => {}),
-            new Promise((resolve) => setTimeout(resolve, 2500)),
+            new Promise((resolve) => setTimeout(resolve, 2000)),
           ]);
-          if (reg.waiting) {
+          if (reg.waiting || reg.installing) {
             foundUpdate = true;
             this.markUpdateAvailable('sw');
           }
         }
       }
 
-      // 2. Fetch fresh /version.json bypassing every HTTP & SW cache
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 3500);
+      // 2. Fetch fresh /version.json bypassing every HTTP, CDN & SW cache
+      const versionController = new AbortController();
+      const versionTimeout = window.setTimeout(() => versionController.abort(), 3000);
       try {
-        const res = await fetch(`/version.json?t=${Date.now()}`, {
+        const res = await fetch(`/version.json?_t=${Date.now()}`, {
           method: 'GET',
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             Pragma: 'no-cache',
           },
-          signal: controller.signal,
+          signal: versionController.signal,
         });
 
         if (res.ok) {
-          const data = await res.json();
-          const remoteId = data?.buildId ? String(data.buildId) : null;
-          const remoteTime = data?.builtAt ? String(data.builtAt) : null;
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+            const data = await res.json();
+            const remoteId = data?.buildId ? String(data.buildId) : null;
+            const remoteTime = data?.builtAt ? String(data.builtAt) : null;
 
-          if (
-            remoteId &&
-            this.state.currentBuildId !== 'dev' &&
-            remoteId !== this.state.currentBuildId
-          ) {
-            foundUpdate = true;
-            this.markUpdateAvailable('version', remoteId, remoteTime || undefined);
+            if (
+              remoteId &&
+              this.state.currentBuildId !== 'dev' &&
+              remoteId !== this.state.currentBuildId
+            ) {
+              foundUpdate = true;
+              this.markUpdateAvailable('version', remoteId, remoteTime || undefined);
+            }
           }
         }
+      } catch {
+        // Fallback to HTML check below
       } finally {
-        window.clearTimeout(timeoutId);
+        window.clearTimeout(versionTimeout);
+      }
+
+      // 3. Dual-verification against fresh /index.html (meta build-id & hashed asset bundle)
+      if (!foundUpdate && this.state.currentBuildId !== 'dev') {
+        const htmlController = new AbortController();
+        const htmlTimeout = window.setTimeout(() => htmlController.abort(), 3000);
+        try {
+          const htmlRes = await fetch(`/index.html?_t=${Date.now()}`, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+            },
+            signal: htmlController.signal,
+          });
+
+          if (htmlRes.ok) {
+            const htmlText = await htmlRes.text();
+            const metaMatch = htmlText.match(
+              /<meta\s+name=["']app-build-id["']\s+content=["']([^"']+)["']/i
+            );
+            const remoteHtmlBuildId = metaMatch?.[1];
+            if (remoteHtmlBuildId && remoteHtmlBuildId !== this.state.currentBuildId) {
+              foundUpdate = true;
+              this.markUpdateAvailable('html', remoteHtmlBuildId);
+            } else {
+              const currentAsset = getCurrentMainAssetSrc();
+              const scriptMatch = htmlText.match(/src=["'](\/assets\/index-[^"']+\.js)["']/i);
+              const remoteAsset = scriptMatch?.[1];
+              if (currentAsset && remoteAsset && currentAsset !== remoteAsset) {
+                foundUpdate = true;
+                this.markUpdateAvailable('html');
+              }
+            }
+          }
+        } catch {
+          // Ignore transient network error
+        } finally {
+          window.clearTimeout(htmlTimeout);
+        }
       }
     } catch {
       // Silent fail on transient network error
@@ -179,7 +264,7 @@ class AppUpdateServiceClass {
     return foundUpdate;
   }
 
-  async applyInstantUpdate(isHardReset: boolean = false): Promise<void> {
+  async applyInstantUpdate(isHardReset: boolean = true): Promise<void> {
     if (this.state.isApplying) return;
 
     this.state = {
@@ -207,14 +292,15 @@ class AppUpdateServiceClass {
         );
       }
 
-      // 2. Activate waiting SW or unregister on hard reset
+      // 2. Unregister existing SWs cleanly so browser fetches 100% fresh index.html on reload
+      //    (fresh SW will auto-register immediately after reload in main.tsx)
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         await withTimeout(
           (async () => {
             const regs = await navigator.serviceWorker.getRegistrations();
             for (const reg of regs) {
               try {
-                if (isHardReset) {
+                if (isHardReset || this.state.source === 'version' || this.state.source === 'html') {
                   await reg.unregister();
                 } else {
                   if (reg.waiting) {
@@ -233,7 +319,7 @@ class AppUpdateServiceClass {
       }
 
       if (!isHardReset && this.updateSWFn) {
-        await withTimeout(this.updateSWFn(false).catch(() => {}), 800, undefined);
+        await withTimeout(this.updateSWFn(false).catch(() => {}), 600, undefined);
       }
 
       // 3. Clear sessionStorage safely (NEVER touch localStorage user data / auth)
@@ -260,26 +346,29 @@ class AppUpdateServiceClass {
     if (this.pollingStarted || typeof window === 'undefined') return;
     this.pollingStarted = true;
 
-    // Initial check shortly after boot
+    // Immediate check on boot (300ms)
     window.setTimeout(() => {
-      this.checkForUpdates(false);
-    }, 1500);
+      this.checkForUpdates(true);
+    }, 300);
 
-    // Frequent check every 15 seconds while tab is active
+    // Frequent check every 4 seconds while tab is active so GitHub deploys are caught in seconds
     this.pollIntervalId = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         this.checkForUpdates(false);
       }
-    }, 15000);
+    }, 4000);
 
     // Check immediately when returning to app / regaining focus / reconnecting
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        this.checkForUpdates(false);
+        this.checkForUpdates(true);
       }
     });
     window.addEventListener('focus', () => {
-      this.checkForUpdates(false);
+      this.checkForUpdates(true);
+    });
+    window.addEventListener('pageshow', () => {
+      this.checkForUpdates(true);
     });
     window.addEventListener('online', () => {
       this.checkForUpdates(true);

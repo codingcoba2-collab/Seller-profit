@@ -12,6 +12,14 @@ ThemeService.applyToDOM();
 // Register service worker safely with instant update detection
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   try {
+    const hadControllerOnBoot = Boolean(navigator.serviceWorker.controller);
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadControllerOnBoot) {
+        appUpdateService.markUpdateAvailable('sw');
+      }
+    });
+
     const updateSW = registerSW({
       immediate: true,
       onNeedRefresh() {
@@ -20,6 +28,9 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       onRegisteredSW(_swUrl, registration) {
         if (registration) {
           appUpdateService.setRegistration(registration);
+          // Immediately trigger a byte-for-byte SW check on boot
+          registration.update().catch(() => {});
+
           if (registration.waiting) {
             appUpdateService.markUpdateAvailable('sw');
           }
@@ -27,7 +38,10 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
             const installing = registration.installing;
             if (!installing) return;
             installing.addEventListener('statechange', () => {
-              if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              if (
+                (installing.state === 'installed' || installing.state === 'activated') &&
+                hadControllerOnBoot
+              ) {
                 appUpdateService.markUpdateAvailable('sw');
               }
             });
@@ -44,7 +58,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   }
 }
 
-// Start frequent version.json & SW update polling immediately
+// Start frequent version.json, HTML & SW update polling immediately
 appUpdateService.startAutoPolling();
 
 createRoot(document.getElementById('root')!).render(
